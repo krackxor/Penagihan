@@ -4,55 +4,71 @@ from flask import Blueprint, request, jsonify, current_app
 from processors.auto_detect import detect_file_period
 from core.database import get_db_connection
 
-# Inisialisasi Blueprint untuk API Upload
+# Inisialisasi Blueprint
 upload_bp = Blueprint('upload', __name__)
+
+def identify_file_type(df):
+    """
+    Mendeteksi jenis file secara otomatis berdasarkan nama kolom (Header).
+    Sesuai dengan struktur file: MC, Collection, MB, Ardebt, dan Rute JS.
+    """
+    cols = [c.upper() for c in df.columns]
+    
+    # Logika deteksi kolom unik
+    if 'ZONA_NOVAK' in cols:
+        return 'mc'
+    if 'PERIODE_BILL' in cols and 'JUMLAH' in cols:
+        return 'ardebt'
+    if 'PAY_DT' in cols or 'AMT_COLLECT' in cols:
+        return 'collection'
+    if 'PETUGAS' in cols and 'PCEZ' in cols:
+        return 'rute'
+    if 'FREEZE_DTTM' in cols and 'BILL_PERIOD' in cols:
+        return 'mainbill'
+    if 'TGL_BAYAR' in cols and 'BEATETAP' in cols:
+        return 'mb'
+    
+    return None
 
 def save_chunk_to_db(df, file_type, bulan, tahun, db):
     """
-    Fungsi pembantu untuk memproses data per chunk dan menyimpannya ke database.
-    Mengintegrasikan rumus pemecahan ZONA_NOVAK untuk tipe data MC.
+    Menyimpan data ke database sesuai jenis file yang terdeteksi.
+    Termasuk pemecahan kode ZONA_NOVAK untuk MC.
     """
     if file_type == 'mc':
         for _, row in df.iterrows():
-            # Mengambil ZONA_NOVAK dari baris data (Contoh: 350960217)
-            # Menghapus desimal .0 jika terbaca sebagai float oleh pandas
+            # Rumus Pemecahan ZONA_NOVAK: Contoh 350960217
             zona = str(row.get('ZONA_NOVAK', '')).split('.')[0]
-            
-            # Rumus Pemecahan String sesuai spesifikasi user:
-            # Contoh: 350960217
-            rayon = zona[0:2]          # Karakter 1-2: '35'
-            pc    = zona[3:6]          # Karakter 4-6: '096'
-            ez    = zona[6:8]          # Karakter 7-8: '02'
-            pcez  = f"{pc}/{ez}"       # Gabungan PC/EZ: '096/02'
-            block = zona[7:9]          # Karakter 8-9: '17'
+            if len(zona) >= 9:
+                rayon = zona[0:2]          # '35'
+                pc    = zona[3:6]          # '096'
+                ez    = zona[6:8]          # '02'
+                pcez  = f"{pc}/{ez}"       # '096/02'
+                block = zona[7:9]          # '17'
+            else:
+                rayon = pc = ez = pcez = block = "Format Salah"
 
-            # Simpan data ke tabel master_pelanggan
             db.execute("""
                 INSERT INTO master_pelanggan 
                 (nomen, nama, pcez, rayon, pc, ez, block, periode_bulan, periode_tahun, nominal) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(row.get('NOMEN')), 
-                row.get('NAMA_PEL'), 
-                pcez, 
-                rayon, 
-                pc, 
-                ez, 
-                block, 
-                bulan, 
-                tahun, 
-                row.get('NOMINAL')
-            ))
+            """, (str(row.get('NOMEN')), row.get('NAMA_PEL'), pcez, rayon, pc, ez, block, bulan, tahun, row.get('NOMINAL')))
             
     elif file_type == 'collection':
         for _, row in df.iterrows():
             db.execute("""
-                INSERT INTO collection_harian (nomen, periode_bulan, periode_tahun, pay_dt)
+                INSERT INTO collection_harian (nomen, pay_dt, nominal, periode_bulan, periode_tahun)
+                VALUES (?, ?, ?, ?, ?)
+            """, (str(row.get('NOMEN')), row.get('PAY_DT'), row.get('AMT_COLLECT'), bulan, tahun))
+
+    elif file_type == 'ardebt':
+        for _, row in df.iterrows():
+            db.execute("""
+                INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume)
                 VALUES (?, ?, ?, ?)
-            """, (str(row.get('NOMEN')), bulan, tahun, row.get('PAY_DT')))
+            """, (str(row.get('NOMEN')), row.get('PERIODE_BILL'), row.get('JUMLAH'), row.get('VOLUME')))
 
     elif file_type == 'rute':
-        # Logika khusus untuk mengunggah file pemetaan petugas (Rute RL JS.xlsx)
         for _, row in df.iterrows():
             db.execute("""
                 INSERT OR REPLACE INTO rute_petugas (pcez, petugas) 
@@ -61,60 +77,57 @@ def save_chunk_to_db(df, file_type, bulan, tahun, db):
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
-    """Endpoint utama untuk menangani unggahan file besar (hingga 10GB)"""
     file = request.files.get('file')
-    file_type = request.form.get('file_type') # 'mc', 'collection', 'rute', dll
-    
-    if not file or not file_type:
-        return jsonify({"error": "File atau tipe file tidak ditemukan"}), 400
+    if not file:
+        return jsonify({"error": "Tidak ada file yang dipilih"}), 400
 
-    # Menggunakan path absolut untuk folder sementara
+    # Simpan file sementara
     temp_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'temp')
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir, exist_ok=True)
-        
+    os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, file.filename)
     file.save(temp_path)
 
     db = get_db_connection()
     
     try:
-        # 1. Penanganan khusus untuk file Rute (Mapping Petugas)
-        if file_type == 'rute':
-            df = pd.read_excel(temp_path) if not temp_path.endswith('.csv') else pd.read_csv(temp_path)
-            save_chunk_to_db(df, 'rute', None, None, db)
+        # 1. Baca sample untuk identifikasi tipe dan periode
+        if temp_path.endswith('.csv'):
+            df_sample = pd.read_csv(temp_path, nrows=10)
         else:
-            # 2. Deteksi Periode otomatis berdasarkan field acuan (SOP)
-            # Membaca contoh baris pertama untuk deteksi cepat
-            sample = pd.read_excel(temp_path, nrows=5) if not temp_path.endswith('.csv') else pd.read_csv(temp_path, nrows=5)
-            bulan, tahun = detect_file_period(sample, file_type)
-            
-            if not bulan:
-                return jsonify({"error": "Field acuan tanggal tidak ditemukan dalam file"}), 400
+            df_sample = pd.read_excel(temp_path, nrows=10)
 
-            # 3. Proses File dengan metode Chunking untuk efisiensi RAM
-            if temp_path.endswith('.csv'):
-                for chunk in pd.read_csv(temp_path, chunksize=10000):
-                    save_chunk_to_db(chunk, file_type, bulan, tahun, db)
-            else:
-                df = pd.read_excel(temp_path)
-                save_chunk_to_db(df, file_type, bulan, tahun, db)
-        
-        # Simpan perubahan dan catat ke riwayat (history)
+        # 2. Identifikasi Otomatis
+        file_type = identify_file_type(df_sample)
+        if not file_type:
+            return jsonify({"error": "Format kolom file tidak dikenali sistem"}), 400
+
+        # 3. Deteksi Periode (Bulan/Tahun)
+        bulan, tahun = detect_file_period(df_sample, file_type)
+
+        # 4. Proses Full Data (Gunakan Chunking untuk CSV besar)
+        if temp_path.endswith('.csv'):
+            for chunk in pd.read_csv(temp_path, chunksize=10000):
+                save_chunk_to_db(chunk, file_type, bulan, tahun, db)
+        else:
+            df_full = pd.read_excel(temp_path)
+            save_chunk_to_db(df_full, file_type, bulan, tahun, db)
+
+        # 5. Catat ke Log Riwayat
         db.execute("""
             INSERT INTO upload_history (filename, file_type, periode, status)
             VALUES (?, ?, ?, ?)
-        """, (file.filename, file_type, f"{bulan}/{tahun}" if bulan else "-", "Berhasil"))
-        
+        """, (file.filename, file_type.upper(), f"{bulan}/{tahun}" if bulan else "-", "Berhasil"))
+
         db.commit()
         
-        # Bersihkan file sementara
+        # Hapus file sementara
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
         return jsonify({
-            "status": "success",
-            "message": f"Data {file_type.upper()} berhasil diintegrasikan ke sistem"
+            "status": "success", 
+            "detected": file_type.upper(),
+            "message": f"File {file_type.upper()} Berhasil diolah otomatis"
         })
 
     except Exception as e:
