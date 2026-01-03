@@ -1,128 +1,26 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="container py-2">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h5 class="fw-bold m-0 text-dark"><i class="fas fa-tasks me-2 text-primary"></i>Kunjungan Penagihan</h5>
-        <span class="badge bg-light text-primary border border-primary px-3 py-2" id="total-count">Memuat...</span>
-    </div>
-    
-    <div id="list-container" class="row g-3">
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="text-muted mt-2 small">Mengambil data pelanggan...</p>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalLapor" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formLapor" class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-light">
-                <h6 class="modal-title fw-bold">Catat Kunjungan: <span id="label-nomen" class="text-primary"></span></h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <input type="hidden" name="nomen" id="input-nomen">
-                <div class="mb-4">
-                    <label class="form-label small fw-bold text-secondary">Foto Rumah/Pelanggan</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white"><i class="fas fa-camera"></i></span>
-                        <input type="file" name="foto" class="form-control" accept="image/*" capture="camera" required>
-                    </div>
-                </div>
-                <div class="mb-4">
-                    <label class="form-label small fw-bold text-secondary">Status Kunjungan</label>
-                    <select name="keterangan" id="select-status" class="form-select form-select-lg" onchange="toggleJanji(this.value)">
-                        <option value="Rumah Kosong">🏠 Rumah Kosong</option>
-                        <option value="Janji Bayar">🤝 Janji Bayar</option>
-                        <option value="Sudah Bayar">✅ Sudah Bayar</option>
-                    </select>
-                </div>
-                <div class="mb-0 d-none" id="group-janji">
-                    <label class="form-label small fw-bold text-secondary">Tanggal Janji Bayar</label>
-                    <input type="date" name="tgl_janji_bayar" class="form-control form-control-lg">
-                </div>
-            </div>
-            <div class="modal-footer border-0 p-4 pt-0">
-                <button type="submit" id="btnSimpan" class="btn btn-primary w-100 py-3 shadow-sm">
-                    <i class="fas fa-save me-2"></i>Simpan Laporan
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-function toggleJanji(val) {
-    const group = document.getElementById('group-janji');
-    group.classList.toggle('d-none', val !== 'Janji Bayar');
-}
-
-async function loadList() {
-    try {
-        const res = await fetch('/api/belum-bayar/list');
-        const data = await res.json();
-        document.getElementById('total-count').innerText = `${data.length} Pelanggan`;
-        
-        let html = '';
-        if(data.length === 0) {
-            html = '<div class="text-center py-5"><i class="fas fa-check-circle fa-3x text-success mb-3"></i><p>Semua tagihan sudah terbayar!</p></div>';
-        } else {
-            data.forEach(item => {
-                const badgeColor = item.bill_tunggakan > 0 ? 'bg-danger' : 'bg-warning text-dark';
-                html += `
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="badge bg-light text-secondary small font-monospace">${item.nomen}</span>
-                                <span class="badge ${badgeColor}">Rp ${item.total_tagihan.toLocaleString()}</span>
-                            </div>
-                            <h6 class="fw-bold mb-1">${item.nama}</h6>
-                            <p class="small text-muted mb-3"><i class="fas fa-map-marker-alt me-1"></i> Area: ${item.pcez}</p>
-                            
-                            <div class="bg-light rounded p-2 mb-3 d-flex justify-content-between text-center">
-                                <div class="px-2">
-                                    <div class="text-muted" style="font-size: 0.65rem;">CURRENT</div>
-                                    <div class="fw-bold small">Rp ${item.bill_cureent.toLocaleString()}</div>
-                                </div>
-                                <div class="border-start px-2">
-                                    <div class="text-muted" style="font-size: 0.65rem;">TUNGGAKAN</div>
-                                    <div class="fw-bold small text-danger">Rp ${item.bill_tunggakan.toLocaleString()}</div>
-                                </div>
-                            </div>
-                            
-                            <button onclick="openModal('${item.nomen}')" class="btn btn-outline-primary btn-sm w-100 py-2">
-                                <i class="fas fa-clipboard-check me-1"></i> ${item.status_terakhir || 'Catat Kunjungan'}
-                            </button>
-                        </div>
-                    </div>
-                </div>`;
-            });
-        }
-        document.getElementById('list-container').innerHTML = html;
-    } catch (e) {
-        document.getElementById('list-container').innerHTML = '<div class="alert alert-danger">Gagal memuat data.</div>';
-    }
-}
-
-function openModal(nomen) {
-    document.getElementById('input-nomen').value = nomen;
-    document.getElementById('label-nomen').innerText = nomen;
-    new bootstrap.Modal(document.getElementById('modalLapor')).show();
-}
-
+// Tambahkan fungsi ini di dalam script belum_bayar.html Anda
 document.getElementById('formLapor').onsubmit = async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSimpan');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan...';
     
     const fd = new FormData(e.target);
-    await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
-    location.reload();
+    
+    // Ambil Lokasi GPS Petugas
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            fd.append('lat', position.coords.latitude);
+            fd.append('lng', position.coords.longitude);
+            
+            await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
+            location.reload();
+        }, async () => {
+            // Jika GPS ditolak, tetap simpan tanpa koordinat
+            await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
+            location.reload();
+        });
+    } else {
+        await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
+        location.reload();
+    }
 };
-
-loadList();
-</script>
-{% endblock %}
