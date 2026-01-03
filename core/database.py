@@ -1,19 +1,18 @@
-# core/database.py
+import sqlite3
+import os
+from flask import g
+
+DATABASE_PATH = 'sunter.db'
+
+def get_db_connection():
+    if 'db' not in g:
+        g.db = sqlite3.connect(DATABASE_PATH)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
 def init_db(app):
-    db = sqlite3.connect('sunter.db')
-    cursor = db.cursor()
-    # ... tabel lainnya ...
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS kunjungan_petugas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nomen TEXT NOT NULL,
-        petugas_name TEXT,
-        keterangan TEXT, -- 'Janji Bayar', 'Rumah Kosong', dll
-        tgl_janji_bayar TEXT,
-        foto_path TEXT,
-        latitude TEXT,
-        longitude TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-    db.commit()
+    with app.app_context():
+        db = get_db_connection()
+        with app.open_resource('schema.sql', mode='r') as f:
+            db.cursor().executescript(f.read())
+        db.commit()
