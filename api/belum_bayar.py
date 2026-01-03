@@ -1,6 +1,5 @@
 import os
 from flask import Blueprint, request, jsonify, current_app
-from api.helpers import APIResponse
 from core.database import get_db_connection
 from datetime import datetime
 
@@ -9,43 +8,37 @@ belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
 def register_belum_bayar_routes(app, get_db):
     """
-    Mendaftarkan rute terkait penagihan dan kunjungan petugas.
-    Mendukung kategori: All, Undue, Current, dan Berekor.
+    Rute API untuk manajemen penagihan cerdas.
+    Mendukung auto-mapping petugas dan pengurutan rute jalur terdekat.
     """
 
     @app.route('/api/belum-bayar/list', methods=['GET'])
     def get_list_kunjungan():
         db = get_db()
         
-        # Parameter filter dari aplikasi HP
-        kategori_filter = request.args.get('kategori', 'all')
-        # Konfigurasi Jatuh Tempo (SOP: Tanggal 20)
+        # Ambil parameter filter dari permintaan aplikasi
+        petugas_name = request.args.get('petugas', '') # Filter petugas (Pian/Teguh/dll)
+        search_query = request.args.get('search', '')  # Cari Nama atau Nomen
+        kategori = request.args.get('kategori', 'all') # all, berekor, undue, current
+        
+        # Konfigurasi Jatuh Tempo SOP
         TGL_JATUH_TEMPO = 20
-        tgl_hari_ini = datetime.now().day
+        tgl_sekarang = datetime.now().day
 
-        # Query Utama: Menggabungkan MC, Rute Petugas, Ardebt, dan Filter Collection
-        # Rumus Kategori:
-        # 1. Berekor = Jika ada saldo di Ardebt (COALESCE(a.jumlah, 0) > 0)
-        # 2. Undue = Jika belum bayar, tidak ada ardebt, dan belum tanggal 20
-        # 3. Current = Jika belum bayar, tidak ada ardebt, dan sudah tanggal 20 keatas
+        # Query Cerdas: Menggabungkan Master, Ardebt, dan Rute Petugas
+        # Diurutkan berdasarkan Jalur Terdekat (PCEZ dan Urutan Blok)
         query = """
         SELECT 
-            m.nomen, 
-            m.nama, 
-            m.pcez, 
-            m.rayon,
-            m.block,
-            m.no_hp,
+            m.nomen, m.nama, m.pcez, m.block, m.rayon, m.no_hp,
             r.petugas as nama_petugas,
             COALESCE(m.nominal, 0) as bill_current,
-            COALESCE(a.jumlah, 0) as bill_tail,
-            COALESCE(a.periode_bill, 0) as lembar_tunggakan,
+            COALESCE(a.jumlah, 0) as bill_tunggakan,
             (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total_tagihan,
             CASE 
                 WHEN COALESCE(a.jumlah, 0) > 0 THEN 'Berekor'
                 WHEN ? < ? THEN 'Undue'
                 ELSE 'Current'
-            END as status_tagihan
+            END as status_kategori
         FROM master_pelanggan m
         LEFT JOIN rute_petugas r ON m.pcez = r.pcez
         LEFT JOIN ardebt a ON m.nomen = a.nomen
@@ -55,21 +48,26 @@ def register_belum_bayar_routes(app, get_db):
         WHERE c.id IS NULL 
         AND (m.nominal > 0 OR COALESCE(a.jumlah, 0) > 0)
         """
+        
+        params = [tgl_sekarang, TGL_JATUH_TEMPO]
 
-        params = [tgl_hari_ini, TGL_JATUH_TEMPO]
+        # Logika Filter Pencarian
+        if petugas_name:
+            query += " AND r.petugas = ?"
+            params.append(petugas_name)
+        
+        if search_query:
+            query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"
+            params.extend([f'%{search_query}%', f'%{search_query}%'])
 
-        # Menambahkan filter dinamis berdasarkan pilihan di menu HP
-        if kategori_filter == 'berekor':
+        if kategori == 'berekor':
             query += " AND COALESCE(a.jumlah, 0) > 0"
-        elif kategori_filter == 'undue':
+        elif kategori == 'undue':
             query += " AND COALESCE(a.jumlah, 0) = 0 AND ? < ?"
-            params.extend([tgl_hari_ini, TGL_JATUH_TEMPO])
-        elif kategori_filter == 'current':
-            query += " AND COALESCE(a.jumlah, 0) = 0 AND ? >= ?"
-            params.extend([tgl_hari_ini, TGL_JATUH_TEMPO])
+            params.extend([tgl_sekarang, TGL_JATUH_TEMPO])
 
-        # Urutkan berdasarkan nominal terbesar (Prioritas Penagihan)
-        query += " ORDER BY total_tagihan DESC"
+        # CERDAS: Urutan Jalur Rute (PCEZ lalu urutan Blok 01, 02, dst)
+        query += " ORDER BY m.pcez ASC, m.block ASC"
         
         try:
             rows = db.execute(query, params).fetchall()
@@ -79,66 +77,46 @@ def register_belum_bayar_routes(app, get_db):
 
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
     def simpan_kunjungan():
-        """
-        Menyimpan hasil laporan petugas dari lapangan.
-        Termasuk koordinat (opsional), keterangan, dan foto bukti.
-        """
+        """Menyimpan hasil laporan petugas dari lapangan dengan GPS dan Foto"""
         db = get_db()
+        
         nomen = request.form.get('nomen')
         petugas = request.form.get('petugas')
         keterangan = request.form.get('keterangan')
         lat = request.form.get('lat')
         lng = request.form.get('lng')
         
-        # Proses Simpan Foto
+        # Manajemen File Foto Proof of Visit
         foto = request.files.get('foto')
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"KUNJUNGI_{nomen}_{timestamp}.jpg"
+        filename = f"PROOF_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
         
         if foto:
             save_path = os.path.join(current_app.config['KUNJUNGAN_FOLDER'], filename)
             foto.save(save_path)
 
         try:
-            # 1. Masukkan ke tabel kunjungan_petugas
+            # 1. Simpan detail kunjungan
             db.execute("""
                 INSERT INTO kunjungan_petugas 
-                (nomen, petugas_name, keterangan, foto_path, latitude, longitude, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (nomen, petugas, keterangan, filename, lat, lng, datetime.now()))
+                (nomen, petugas_name, keterangan, foto_path, latitude, longitude)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (nomen, petugas, keterangan, filename, lat, lng))
             
-            # 2. Catat aktivitas ke upload_history agar muncul di LOG
+            # 2. Catat ke log history agar admin bisa memantau
             db.execute("""
                 INSERT INTO upload_history (filename, file_type, periode, status)
-                VALUES (?, ?, ?, ?)
-            """, (filename, 'LAPORAN KUNJUNGAN', datetime.now().strftime('%m/%Y'), 'Berhasil'))
+                VALUES (?, 'KUNJUNGAN', ?, 'Berhasil')
+            """, (filename, datetime.now().strftime('%m/%Y')))
             
             db.commit()
-            return APIResponse.success(message="Laporan berhasil terkirim!")
+            return jsonify({"status": "success", "message": "Laporan cerdas berhasil disimpan!"})
         except Exception as e:
             db.rollback()
-            return jsonify({"error": "Gagal menyimpan laporan: " + str(e)}), 500
+            return jsonify({"error": str(e)}), 500
 
-    @app.route('/api/belum-bayar/summary-pcez', methods=['GET'])
-    def get_summary_pcez():
-        """
-        Menampilkan ringkasan tagihan per PCEZ untuk dashboard mandor/analis.
-        """
+    @app.route('/api/belum-bayar/get-petugas-list', methods=['GET'])
+    def get_petugas_unique():
+        """Mengambil daftar petugas unik untuk filter di aplikasi"""
         db = get_db()
-        query = """
-        SELECT 
-            m.pcez, 
-            r.petugas,
-            COUNT(m.nomen) as total_pelanggan,
-            SUM(m.nominal + COALESCE(a.jumlah, 0)) as total_rupiah
-        FROM master_pelanggan m
-        LEFT JOIN rute_petugas r ON m.pcez = r.pcez
-        LEFT JOIN ardebt a ON m.nomen = a.nomen
-        LEFT JOIN collection_harian c ON m.nomen = c.nomen 
-            AND m.periode_bulan = c.periode_bulan
-        WHERE c.id IS NULL
-        GROUP BY m.pcez
-        ORDER BY total_rupiah DESC
-        """
-        rows = db.execute(query).fetchall()
-        return jsonify([dict(row) for row in rows])
+        rows = db.execute("SELECT DISTINCT petugas FROM rute_petugas ORDER BY petugas ASC").fetchall()
+        return jsonify([row['petugas'] for row in rows])
