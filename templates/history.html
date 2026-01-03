@@ -1,12 +1,38 @@
-<table class="table">
-    <thead>
-        <tr>
-            <th>File</th>
-            <th>Tipe</th>
-            <th>Periode (Bulan/Tahun)</th> <th>Status</th>
-            <th>Tgl Upload</th>
-        </tr>
-    </thead>
-    <tbody id="history-body">
-        </tbody>
-</table>
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <div class="card-header bg-white py-3 border-bottom-0">
+        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-history me-2"></i>Log Aktivitas Upload</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">File Name</th>
+                    <th>Tipe Data</th>
+                    <th>Periode</th>
+                    <th>Status</th>
+                    <th class="text-end pe-4">Tgl Upload</th>
+                </tr>
+            </thead>
+            <tbody id="history-body">
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-file-excel text-success me-3 fa-lg"></i>
+                            <div>
+                                <div class="fw-bold mb-0">master_agustus.xlsx</div>
+                                <div class="text-muted small">2.4 MB</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge bg-primary-subtle text-primary px-3">MC</span></td>
+                    <td class="fw-medium">08/2024</td>
+                    <td><span class="badge bg-success-subtle text-success"><i class="fas fa-check me-1"></i> Berhasil</span></td>
+                    <td class="text-end pe-4 text-muted small">2024-08-15 10:30</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
