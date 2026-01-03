@@ -10,18 +10,26 @@ def register_belum_bayar_routes(app, get_db):
     
     @app.route('/api/belum-bayar/petugas-tabs', methods=['GET'])
     def get_petugas_tabs():
-        """Mengambil daftar nama petugas unik untuk tab navigasi"""
+        """Mengambil daftar nama petugas untuk navigasi Tab di atas"""
         db = get_db()
         try:
-            # Mengambil nama petugas yang ada di tabel rute
-            rows = db.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL ORDER BY petugas ASC").fetchall()
+            # Mengambil nama petugas dari tabel rute yang sudah diupload
+            rows = db.execute("""
+                SELECT DISTINCT petugas 
+                FROM rute_petugas 
+                WHERE petugas IS NOT NULL AND petugas != '' 
+                ORDER BY petugas ASC
+            """).fetchall()
             return jsonify([row['petugas'] for row in rows])
         except Exception as e:
             return jsonify([])
 
     @app.route('/api/belum-bayar/list', methods=['GET'])
     def get_list_kunjungan():
-        """Mengambil data 10 pelanggan per hari per petugas"""
+        """
+        Mengambil 10 pelanggan prioritas per petugas.
+        Diurutkan berdasarkan Jalur Terdekat (PCEZ & BLOK).
+        """
         db = get_db()
         petugas_name = request.args.get('petugas', '')
         search_query = request.args.get('search', '')
@@ -29,6 +37,7 @@ def register_belum_bayar_routes(app, get_db):
         TGL_JATUH_TEMPO = 20
         tgl_hari_ini = datetime.now().day
 
+        # Query JOIN antara Master Pelanggan dan Rute Petugas
         query = """
         SELECT 
             m.nomen, m.nama, m.pcez, m.block, m.no_hp,
@@ -40,7 +49,7 @@ def register_belum_bayar_routes(app, get_db):
                 ELSE 'Current'
             END as status_kategori
         FROM master_pelanggan m
-        LEFT JOIN rute_petugas r ON m.pcez = r.pcez
+        INNER JOIN rute_petugas r ON m.pcez = r.pcez
         LEFT JOIN ardebt a ON m.nomen = a.nomen
         LEFT JOIN collection_harian c ON m.nomen = c.nomen 
             AND m.periode_bulan = c.periode_bulan
@@ -49,15 +58,18 @@ def register_belum_bayar_routes(app, get_db):
         
         params = [tgl_hari_ini, TGL_JATUH_TEMPO]
 
+        # Filter Nama Petugas (berdasarkan Tab yang diklik)
         if petugas_name and petugas_name != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_name)
         
+        # Filter Pencarian
         if search_query:
-            query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"
-            params.extend([f'%{search_query}%', f'%{search_query}%'])
+            query += " AND (m.nomen LIKE ? OR m.nama LIKE ? OR m.block LIKE ?)"
+            params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
 
-        # Cerdas: Urutkan berdasarkan rute linear (PCEZ -> BLOCK) LIMIT 10
+        # ORDER BY PCEZ dan BLOCK (Jalur Linear)
+        # LIMIT 10 (Sesuai instruksi: 10 pelanggan per hari setiap petugas)
         query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 10"
         
         try:
@@ -68,7 +80,7 @@ def register_belum_bayar_routes(app, get_db):
 
     @app.route('/api/belum-bayar/stats-harian', methods=['GET'])
     def get_stats_harian():
-        """Menghitung progres 10 target harian"""
+        """Menghitung progres 0/10 target harian petugas"""
         db = get_db()
         petugas = request.args.get('petugas', '')
         today = datetime.now().strftime('%Y-%m-%d')
@@ -90,6 +102,6 @@ def register_belum_bayar_routes(app, get_db):
                 VALUES (?, ?, ?, ?)
             """, (nomen, petugas, keterangan, datetime.now()))
             db.commit()
-            return jsonify({"status": "success"})
+            return jsonify({"status": "success", "message": "Laporan tersimpan"})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
