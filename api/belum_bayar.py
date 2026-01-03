@@ -7,7 +7,7 @@ from datetime import datetime
 belum_bayar_bp = Blueprint('belum_bayar_api', __name__)
 
 def get_server_ip():
-    """Mengambil IP Address komputer untuk link foto di WA"""
+    """Mengambil IP komputer agar link foto di WA bisa dibuka dari HP lain"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(('8.8.8.8', 1))
@@ -26,8 +26,7 @@ def register_belum_bayar_routes(app, get_db):
         try:
             rows = db.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL ORDER BY petugas ASC").fetchall()
             return jsonify([row['petugas'] for row in rows])
-        except:
-            return jsonify([])
+        except: return jsonify([])
 
     @app.route('/api/belum-bayar/list', methods=['GET'])
     def get_list_kunjungan():
@@ -62,12 +61,13 @@ def register_belum_bayar_routes(app, get_db):
         nomen = request.form.get('nomen')
         petugas = request.form.get('petugas')
         keterangan = request.form.get('keterangan')
-        no_hp = request.form.get('no_hp')
+        no_hp_input = request.form.get('no_hp') # Nomor HP yang baru diinput
         foto = request.files.get('foto')
 
-        # Ambil nama untuk pesan WA
-        pel = db.execute("SELECT nama FROM master_pelanggan WHERE nomen = ?", (nomen,)).fetchone()
+        # Ambil data pelanggan untuk pesan WA
+        pel = db.execute("SELECT nama, pcez FROM master_pelanggan WHERE nomen = ?", (nomen,)).fetchone()
         nama_pel = pel['nama'] if pel else "-"
+        pcez_pel = pel['pcez'] if pel else "-"
         
         filename = None
         photo_url = "Tidak ada foto"
@@ -75,28 +75,35 @@ def register_belum_bayar_routes(app, get_db):
             filename = f"BUKTI_{nomen}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
             save_path = os.path.join(current_app.config['KUNJUNGAN_FOLDER'], filename)
             foto.save(save_path)
-            # Buat Link Foto
             photo_url = f"http://{get_server_ip()}:5000/uploads/kunjungan/{filename}"
 
         try:
+            # 1. Simpan Laporan
             db.execute("""INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, foto_path, created_at)
                           VALUES (?, ?, ?, ?, ?)""", (nomen, petugas, keterangan, filename, datetime.now()))
-            if no_hp:
-                db.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp, nomen))
+            
+            # 2. Update No HP di Master (Agar muncul di laporan WA dan database)
+            if no_hp_input:
+                db.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp_input, nomen))
+            
             db.commit()
 
-            # Format Pesan WA
+            # 3. Format Pesan WA (Menggunakan no_hp_input agar pasti muncul)
             wa_text = (
                 f"📢 *LAPORAN PENAGIHAN*\n"
                 f"--------------------------------\n"
                 f"👷 *Petugas:* {petugas}\n"
+                f"🆔 *Nomen:* {nomen}\n"
                 f"🏠 *Nama:* {nama_pel}\n"
+                f"📍 *PCEZ:* {pcez_pel}\n"
                 f"📝 *Hasil:* {keterangan}\n"
+                f"📱 *No HP:* {no_hp_input if no_hp_input else '-'}\n"
                 f"📸 *Link Foto:* {photo_url}\n"
                 f"--------------------------------"
             )
             return jsonify({"status": "success", "wa_text": wa_text})
         except Exception as e:
+            db.rollback()
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/belum-bayar/stats-harian', methods=['GET'])
