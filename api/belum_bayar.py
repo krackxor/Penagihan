@@ -1,25 +1,16 @@
-import requests
-from flask import Blueprint, request, jsonify
-# PERBAIKAN: Ubah core.helpers menjadi api.helpers
-from api.helpers import APIResponse
 import os
-
-WA_TOKEN = "YOUR_FONNTE_TOKEN" 
-
-def send_wa_notification(phone, message):
-    url = "https://api.fonnte.com/send"
-    payload = {'target': phone, 'message': message, 'countryCode': '62'}
-    headers = {'Authorization': WA_TOKEN}
-    try:
-        response = requests.post(url, data=payload, headers=headers)
-        return response.json()
-    except Exception as e:
-        print(f"Error sending WA: {e}")
-        return None
+from flask import request, jsonify
+# Mengambil APIResponse dari folder api sesuai struktur project Anda
+from api.helpers import APIResponse
 
 def register_belum_bayar_routes(app, get_db):
+    
     @app.route('/api/belum-bayar/list', methods=['GET'])
     def get_list_kunjungan():
+        """
+        Mengambil daftar pelanggan yang belum bayar.
+        Nomor HP tetap diambil agar frontend bisa membuat link WhatsApp manual.
+        """
         db = get_db()
         query = """
         SELECT 
@@ -43,23 +34,35 @@ def register_belum_bayar_routes(app, get_db):
 
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
     def simpan_kunjungan():
+        """
+        Menyimpan laporan hasil kunjungan petugas ke database lokal.
+        """
         db = get_db()
         nomen = request.form.get('nomen')
         petugas = request.form.get('petugas')
         keterangan = request.form.get('keterangan')
         tgl_janji = request.form.get('tgl_janji_bayar')
+        
+        # Koordinat GPS dari browser petugas
         lat = request.form.get('lat')
         lng = request.form.get('lng')
         
+        # Penanganan upload foto bukti lapangan
         foto = request.files.get('foto')
         filename = f"{nomen}_{foto.filename}" if foto else None
         if foto:
-            foto.save(os.path.join('static/uploads/kunjungan', filename))
+            # Pastikan folder static/uploads/kunjungan sudah ada
+            save_path = os.path.join('static', 'uploads', 'kunjungan')
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            foto.save(os.path.join(save_path, filename))
 
+        # Simpan data ke tabel kunjungan_petugas
         db.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, petugas_name, keterangan, tgl_janji_bayar, foto_path, latitude, longitude) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (nomen, petugas, keterangan, tgl_janji, filename, lat, lng))
         db.commit()
-        return APIResponse.success(message="Data kunjungan berhasil dicatat")
+        
+        return APIResponse.success(message="Laporan kunjungan berhasil disimpan di database lokal")
