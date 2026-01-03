@@ -1,7 +1,6 @@
 import os
-from flask import Flask, render_template, g
+from flask import Flask, render_template, g, send_from_directory
 from core.database import init_db, get_db_connection
-from api.helpers import APIResponse  # Perbaikan path import
 from config import Config
 
 # Import API Routes
@@ -17,7 +16,7 @@ def create_app():
     with app.app_context():
         # Inisialisasi Database
         init_db(app)
-        # Inisialisasi Folder (uploads/temp, dll)
+        # Inisialisasi Folder (uploads/temp, uploads/kunjungan, dll)
         Config.init_app(app)
 
     @app.teardown_appcontext
@@ -29,28 +28,45 @@ def create_app():
     def get_db():
         return get_db_connection()
 
-    # Register Blueprints
+    # ==========================================
+    # ROUTE UNTUK AKSES FOTO (PENTING UNTUK WA)
+    # ==========================================
+    @app.route('/uploads/kunjungan/<filename>')
+    def serve_kunjungan_photo(filename):
+        """Agar link foto di WA bisa diklik dan muncul gambarnya"""
+        return send_from_directory(app.config['KUNJUNGAN_FOLDER'], filename)
+
+    # Register Blueprints (Prefix /api)
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(history_bp, url_prefix='/api')
     
-    # Register Custom Routes
+    # Register Custom Routes (Belum Bayar & Performa)
     register_belum_bayar_routes(app, get_db)
     register_pcez_routes(app, get_db)
 
+    # ==========================================
+    # ROUTE HALAMAN (FRONTEND)
+    # ==========================================
     @app.route('/')
-    def index(): return render_template('index.html')
+    def index(): 
+        return render_template('index.html')
 
     @app.route('/upload')
-    def upload_page(): return render_template('upload.html')
+    def upload_page(): 
+        return render_template('upload.html')
 
     @app.route('/history')
-    def history_page(): return render_template('history.html')
+    def history_page(): 
+        return render_template('history.html')
 
     @app.route('/belum-bayar')
-    def belum_bayar_page(): return render_template('belum_bayar.html')
+    def belum_bayar_page(): 
+        return render_template('belum_bayar.html')
 
     return app
 
 if __name__ == '__main__':
     app = create_app()
+    # Debug=True agar perubahan kode langsung terasa tanpa restart manual
+    # host='0.0.0.0' agar bisa diakses dari HP melalui IP Address (penting untuk tes WA)
     app.run(host='0.0.0.0', port=5000, debug=True)
