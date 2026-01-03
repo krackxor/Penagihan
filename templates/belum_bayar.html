@@ -2,14 +2,14 @@
 {% block content %}
 <div class="animate__animated animate__fadeIn px-2 pb-5">
     
-    <div class="card border-0 bg-primary text-white rounded-4 mb-3 shadow">
-        <div class="card-body p-3">
+    <div class="card border-0 bg-dark text-white rounded-4 mb-3 shadow-lg">
+        <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0 fw-bold small">PROGRES TARGET HARIAN</h6>
-                <span class="badge bg-white text-primary" id="progText">0/10</span>
+                <h6 class="mb-0 fw-bold small text-white-50">TARGET HARIAN PETUGAS</h6>
+                <span class="badge bg-primary px-3" id="progText">0 / 10</span>
             </div>
-            <div class="progress bg-white bg-opacity-25" style="height: 8px;">
-                <div id="progBar" class="progress-bar bg-white" style="width: 0%"></div>
+            <div class="progress bg-secondary" style="height: 12px; border-radius: 6px;">
+                <div id="progBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 0%"></div>
             </div>
         </div>
     </div>
@@ -19,29 +19,41 @@
             <button class="btn btn-primary rounded-pill px-4 btn-tab active" onclick="filterPetugas('all', this)">Semua</button>
             </div>
         
-        <div class="input-group mb-3 rounded-4 border overflow-hidden">
-            <span class="input-group-text border-0 bg-white"><i class="fas fa-search"></i></span>
-            <input type="text" id="searchInput" class="form-control border-0" placeholder="Cari Pelanggan...">
+        <div class="input-group mb-3 rounded-4 border overflow-hidden shadow-sm">
+            <span class="input-group-text border-0 bg-white"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchInput" class="form-control border-0" placeholder="Cari Nama / Nomen / Blok...">
         </div>
     </div>
 
-    <div id="listContainer" class="mt-3">
-        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    <div class="alert alert-info border-0 rounded-4 d-flex align-items-center mb-3 py-2">
+        <i class="fas fa-directions me-3 fs-4"></i>
+        <small>Daftar disusun berdasarkan <b>Blok Terdekat</b> untuk efisiensi rute.</small>
+    </div>
+
+    <div id="listContainer">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">Mencocokkan PCEZ & Rute...</p>
+        </div>
     </div>
 </div>
 
 <style>
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    .btn-tab { white-space: nowrap; font-size: 0.8rem; font-weight: 600; }
-    .customer-card { border-radius: 15px !important; border-left: 5px solid #0061ff !important; }
+    .btn-tab { white-space: nowrap; font-size: 0.85rem; font-weight: 600; border: 1px solid #eee; }
+    .customer-card { border-radius: 18px !important; border-left: 6px solid #0061ff; transition: 0.2s; }
+    .card-berekor { border-left-color: #dc3545 !important; }
+    .card-current { border-left-color: #ffc107 !important; }
+    .card-undue { border-left-color: #0dcaf0 !important; }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 let selPetugas = 'all';
+let selSearch = '';
 
 async function initPage() {
-    // 1. Ambil Tab Petugas
+    // 1. Ambil Nama Petugas dari Database untuk Tab
     try {
         const res = await fetch('/api/belum-bayar/petugas-tabs');
         const tabs = await res.json();
@@ -54,7 +66,7 @@ async function initPage() {
             btn.onclick = () => filterPetugas(name, btn);
             container.appendChild(btn);
         });
-    } catch (e) { console.error("Gagal load tabs"); }
+    } catch (e) { console.error("Gagal memuat tab petugas"); }
 
     loadData();
 }
@@ -72,46 +84,75 @@ function filterPetugas(name, btn) {
 
 async function loadData() {
     const container = document.getElementById('listContainer');
-    const search = document.getElementById('searchInput').value;
     const pParam = selPetugas === 'all' ? '' : selPetugas;
 
-    // Load Stats
+    // Update Progress Bar (Target 10)
     const resS = await fetch(`/api/belum-bayar/stats-harian?petugas=${pParam}`);
     const stats = await resS.json();
-    document.getElementById('progText').innerText = `${stats.done}/${stats.target}`;
-    document.getElementById('progBar').style.width = (stats.done/stats.target*100) + '%';
+    document.getElementById('done-count')?.innerText; // dummy
+    document.getElementById('progText').innerText = `${stats.done} / ${stats.target}`;
+    document.getElementById('progBar').style.width = (stats.done / stats.target * 100) + '%';
 
-    // Load List
-    const res = await fetch(`/api/belum-bayar/list?petugas=${pParam}&search=${search}`);
+    // Ambil List Data
+    const res = await fetch(`/api/belum-bayar/list?petugas=${pParam}&search=${selSearch}`);
     const data = await res.json();
     
-    container.innerHTML = data.length ? data.map(item => `
-        <div class="card border-0 shadow-sm mb-3 customer-card">
-            <div class="card-body">
+    if (data.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                <p class="text-muted">Tidak ada data penagihan.<br>PCEZ mungkin belum sinkron atau rute selesai.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = data.map(item => {
+        const typeClass = item.status_kategori === 'Berekor' ? 'card-berekor' : (item.status_kategori === 'Undue' ? 'card-undue' : 'card-current');
+        const badgeColor = item.status_kategori === 'Berekor' ? 'bg-danger' : (item.status_kategori === 'Undue' ? 'bg-info' : 'bg-warning');
+
+        return `
+        <div class="card border-0 shadow-sm mb-3 customer-card ${typeClass}">
+            <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-start">
-                    <h6 class="fw-bold mb-1">${item.nama}</h6>
-                    <span class="badge bg-light text-primary border">${item.pcez} / BLOK ${item.block}</span>
+                    <div>
+                        <span class="badge bg-light text-dark border rounded-pill mb-1" style="font-size: 0.65rem;">
+                            ${item.pcez} | BLOK ${item.block}
+                        </span>
+                        <h6 class="fw-bold mb-0">${item.nama}</h6>
+                        <small class="text-muted">${item.nomen}</small>
+                    </div>
+                    <span class="badge ${badgeColor} rounded-pill px-2" style="font-size: 0.6rem;">${item.status_kategori}</span>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                    <span class="fw-bold text-danger">Rp ${item.total_tagihan.toLocaleString()}</span>
-                    <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="lapor('${item.nomen}')">Lapor</button>
+                <div class="d-flex justify-content-between align-items-end mt-3">
+                    <div>
+                        <small class="text-muted d-block" style="font-size: 0.6rem;">TAGIHAN</small>
+                        <span class="fw-bold text-primary fs-5">Rp ${item.total_tagihan.toLocaleString()}</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="https://wa.me/${item.no_hp}" class="btn btn-light rounded-circle text-success border shadow-sm" style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;"><i class="fab fa-whatsapp"></i></a>
+                        <button onclick="laporModal('${item.nomen}')" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">LAPOR</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('') : '<p class="text-center text-muted py-5">Tidak ada data untuk rute ini.</p>';
+        </div>`;
+    }).join('');
 }
 
-function lapor(nomen) {
+function laporModal(nomen) {
     Swal.fire({
-        title: 'Hasil Kunjungan',
+        title: 'Laporan Kunjungan',
         input: 'select',
         inputOptions: {
             'Janji Bayar': 'Janji Bayar',
             'Rumah Kosong': 'Rumah Kosong',
-            'Sudah Bayar': 'Sudah Bayar'
+            'Sudah Bayar': 'Sudah Bayar',
+            'Pasang Stiker': 'Pasang Stiker'
         },
+        inputPlaceholder: 'Pilih hasil lapangan',
         showCancelButton: true,
-        confirmButtonText: 'Kirim'
+        confirmButtonText: 'Kirim Laporan',
+        confirmButtonColor: '#0061ff',
+        cancelButtonText: 'Batal'
     }).then(async (result) => {
         if (result.isConfirmed) {
             const fd = new FormData();
@@ -119,14 +160,20 @@ function lapor(nomen) {
             fd.append('petugas', selPetugas === 'all' ? 'ADMIN' : selPetugas);
             fd.append('keterangan', result.value);
             
-            await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
-            Swal.fire('Tersimpan!', '', 'success');
-            loadData();
+            const res = await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
+            if (res.ok) {
+                Swal.fire({ icon: 'success', title: 'Berhasil', timer: 1500, showConfirmButton: false });
+                loadData();
+            }
         }
     });
 }
 
-document.getElementById('searchInput').oninput = loadData;
+document.getElementById('searchInput').oninput = (e) => {
+    selSearch = e.target.value;
+    loadData();
+};
+
 window.onload = initPage;
 </script>
 {% endblock %}
