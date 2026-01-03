@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="fw-bold mb-0 text-primary"><i class="fab fa-whatsapp me-2"></i>Sistem WA Blast Tagihan</h5>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted small">Kirim pesan otomatis ke pelanggan berdasarkan status tagihan saat ini.</p>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded text-center h-100">
+                                <i class="fas fa-bell text-warning fa-2x mb-3"></i>
+                                <h6>Reminder Tagihan</h6>
+                                <p class="small text-muted">Kirim pesan ke pelanggan yang belum jatuh tempo (Undue).</p>
+                                <button onclick="triggerBlast('reminder')" class="btn btn-outline-warning w-100">Kirim Reminder</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded text-center h-100">
+                                <i class="fas fa-exclamation-triangle text-danger fa-2x mb-3"></i>
+                                <h6>Peringatan Menunggak</h6>
+                                <p class="small text-muted">Kirim pesan tegas ke pelanggan kategori Cureent/Tunggakan.</p>
+                                <button onclick="triggerBlast('warning')" class="btn btn-outline-danger w-100">Kirim Peringatan</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="status-blast" class="mt-4 d-none">
+                        <div class="alert alert-info">
+                            <div class="spinner-border spinner-border-sm me-2"></div> 
+                            Sedang mengirim pesan... <span id="count-sent">0</span> terkirim.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function triggerBlast(type) {
+    if(!confirm(`Anda yakin ingin mengirim WA Blast massal kategori ${type}?`)) return;
+    
+    const statusDiv = document.getElementById('status-blast');
+    statusDiv.classList.remove('d-none');
+    
+    try {
+        const response = await fetch('/api/wa-blast/send-bulk', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ type: type })
+        });
+        const result = await response.json();
+        alert(`Berhasil mengirim ${result.sent} pesan WA.`);
+    } catch (error) {
+        alert('Gagal mengirim blast.');
+    } finally {
+        statusDiv.classList.add('d-none');
+    }
+}
+</script>
+{% endblock %}
