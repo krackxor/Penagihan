@@ -1,39 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container py-4">
-    <div class="row">
-        <div class="col-12 mb-4">
+<div class="container py-4 animate__animated animate__fadeIn">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body">
+                    <h6 class="small text-uppercase opacity-75">Total Kunjungan Hari Ini</h6>
+                    <h2 class="fw-bold mb-0" id="stat-kunjungan">0</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h6 class="m-0 fw-bold text-primary"><i class="fas fa-chart-bar me-2"></i>Grafik Performa Kunjungan Petugas</h6>
+                <div class="card-header bg-white py-3 border-0">
+                    <h6 class="fw-bold text-dark mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Produktivitas Petugas Lapangan</h6>
                 </div>
                 <div class="card-body">
-                    <canvas id="performanceChart" style="max-height: 400px;"></canvas>
+                    <canvas id="performanceChart" style="max-height: 350px;"></canvas>
                 </div>
             </div>
         </div>
 
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h6 class="m-0 fw-bold text-dark"><i class="fas fa-trophy me-2 text-warning"></i>Tabel Peringkat Produktivitas</h6>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="bg-light">
-                                <tr>
-                                    <th class="ps-3">Nama Petugas</th>
-                                    <th class="text-center">Total Target</th>
-                                    <th class="text-center">Selesai Dikunjungi</th>
-                                    <th>Progress</th>
-                                    <th class="text-end pe-3">Persentase</th>
-                                </tr>
-                            </thead>
-                            <tbody id="leaderboard-table">
-                                </tbody>
-                        </table>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-secondary small text-uppercase">
+                            <tr>
+                                <th class="ps-4">Nama Petugas</th>
+                                <th class="text-center">Target</th>
+                                <th class="text-center">Selesai</th>
+                                <th>Progress</th>
+                                <th class="text-end pe-4">Efektivitas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-table" class="border-top-0">
+                            </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -41,72 +45,45 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-async function initLeaderboard() {
-    try {
-        const response = await fetch('/api/performance/leaderboard');
-        const data = await response.json();
-        
-        // 1. Render Chart
-        renderChart(data);
-        
-        // 2. Render Tabel
-        renderTable(data);
-    } catch (error) {
-        console.error("Gagal memuat data leaderboard:", error);
-    }
-}
-
-function renderChart(data) {
+async function initDashboard() {
+    const res = await fetch('/api/performance/leaderboard');
+    const data = await res.json();
+    
+    // Render Grafik
     const ctx = document.getElementById('performanceChart').getContext('2d');
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: data.map(item => item.petugas),
+            labels: data.map(i => i.petugas),
             datasets: [{
-                label: 'Persentase Penyelesaian (%)',
-                data: data.map(item => item.performa),
-                backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1,
-                borderRadius: 5
+                label: '% Penyelesaian',
+                data: data.map(i => i.performa),
+                backgroundColor: '#3b82f6',
+                borderRadius: 8
             }]
         },
-        options: {
-            indexAxis: 'y', // Membuat grafik horizontal agar nama petugas terbaca jelas
-            scales: {
-                x: { beginAtZero: true, max: 100 }
-            },
-            plugins: {
-                legend: { display: false }
-            }
-        }
+        options: { plugins: { legend: { display: false } }, indexAxis: 'y' }
     });
-}
 
-function renderTable(data) {
+    // Render Tabel
     let html = '';
     data.forEach(item => {
         html += `
         <tr>
-            <td class="ps-3 fw-bold">${item.petugas}</td>
+            <td class="ps-4 fw-bold text-dark">${item.petugas}</td>
             <td class="text-center">${item.total_target}</td>
-            <td class="text-center text-success">${item.total_dikunjungi}</td>
-            <td style="width: 30%;">
-                <div class="progress" style="height: 10px;">
-                    <div class="progress-bar bg-success" role="progressbar" 
-                         style="width: ${item.performa}%" 
-                         aria-valuenow="${item.performa}" aria-valuemin="0" aria-valuemax="100"></div>
+            <td class="text-center text-success fw-bold">${item.total_dikunjungi}</td>
+            <td style="width: 25%;">
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar bg-primary" style="width: ${item.performa}%"></div>
                 </div>
             </td>
-            <td class="text-end pe-3 fw-bold text-primary">${item.performa}%</td>
+            <td class="text-end pe-4 fw-bold text-primary">${item.performa}%</td>
         </tr>`;
     });
     document.getElementById('leaderboard-table').innerHTML = html;
 }
-
-// Jalankan saat halaman dibuka
-document.addEventListener('DOMContentLoaded', initLeaderboard);
+document.addEventListener('DOMContentLoaded', initDashboard);
 </script>
 {% endblock %}
