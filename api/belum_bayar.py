@@ -9,7 +9,7 @@ belum_bayar_bp = Blueprint('belum_bayar', __name__)
 def register_belum_bayar_routes(app, get_db):
     """
     Rute API Cerdas untuk Manajemen Penagihan Lapangan.
-    Fitur: Auto-Detect Petugas, Jalur Terdekat, & Target 10 Pelanggan/Hari.
+    Mendukung tab petugas, jalur terdekat, & pembatasan target 10 data.
     """
 
     @app.route('/api/belum-bayar/list', methods=['GET'])
@@ -17,16 +17,16 @@ def register_belum_bayar_routes(app, get_db):
         db = get_db()
         
         # Parameter filter dari aplikasi
-        petugas_name = request.args.get('petugas', '') # Nama petugas (Pian/Teguh/dll)
+        petugas_name = request.args.get('petugas', '') # Diambil dari klik Tab Nama
         search_query = request.args.get('search', '')  # Pencarian Nomen/Nama
-        kategori = request.args.get('kategori', 'all') # all, berekor, undue, current
+        kategori = request.args.get('kategori', 'all') 
         
-        # Konfigurasi Jatuh Tempo SOP
+        # Konfigurasi Jatuh Tempo SOP (Tanggal 20)
         TGL_JATUH_TEMPO = 20
         tgl_sekarang = datetime.now().day
 
-        # Query Cerdas: Menggabungkan Master Pelanggan, Ardebt (Ekor), dan Rute Petugas
-        # Logika Kategori: Berekor, Undue (Belum JT), Current (Sudah JT)
+        # Query Cerdas: Menggabungkan Master, Ardebt (Ekor), dan Rute Petugas
+        # Status Kategori ditentukan secara dinamis
         query = """
         SELECT 
             m.nomen, m.nama, m.pcez, m.block, m.rayon, m.no_hp,
@@ -51,25 +51,24 @@ def register_belum_bayar_routes(app, get_db):
         
         params = [tgl_sekarang, TGL_JATUH_TEMPO]
 
-        # Filter berdasarkan Petugas yang dipilih (Mapping Otomatis)
-        if petugas_name:
+        # Filter berdasarkan Petugas (Tab yang dipilih)
+        if petugas_name and petugas_name != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_name)
         
-        # Fitur Pencarian Cepat
+        # Filter Pencarian Nama/Nomen
         if search_query:
             query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"
             params.extend([f'%{search_query}%', f'%{search_query}%'])
 
-        # Filter Kategori Tunggakan
+        # Filter Kategori (Misal hanya ingin lihat yang berekor)
         if kategori == 'berekor':
             query += " AND COALESCE(a.jumlah, 0) > 0"
 
         # LOGIKA CERDAS:
-        # 1. Urutkan berdasarkan PCEZ & BLOCK (Jalur terdekat rumah ke rumah)
-        # 2. Prioritaskan Tunggakan Berekor (Ardebt) yang paling besar
-        # 3. LIMIT 10 agar petugas fokus pada target harian
-        query += " ORDER BY m.pcez ASC, m.block ASC, bill_tunggakan DESC LIMIT 10"
+        # 1. Urutkan berdasarkan rute linear (PCEZ -> BLOCK)
+        # 2. Ambil 10 teratas untuk target harian agar petugas fokus
+        query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 10"
         
         try:
             rows = db.execute(query, params).fetchall()
@@ -77,60 +76,58 @@ def register_belum_bayar_routes(app, get_db):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    @app.route('/api/belum-bayar/petugas-tabs', methods=['GET'])
+    def get_petugas_tabs():
+        """Mengambil daftar nama petugas unik untuk navigasi tab di frontend"""
+        db = get_db()
+        try:
+            rows = db.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL ORDER BY petugas ASC").fetchall()
+            return jsonify([row['petugas'] for row in rows])
+        except Exception as e:
+            return jsonify([])
+
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
     def simpan_kunjungan():
-        """
-        Menyimpan laporan hasil kunjungan lapangan.
-        Menyertakan Geo-tagging (GPS) dan bukti foto (Anti-Fraud).
-        """
+        """Menyimpan laporan lapangan dengan foto dan koordinat GPS"""
         db = get_db()
         
         nomen = request.form.get('nomen')
         petugas = request.form.get('petugas')
         keterangan = request.form.get('keterangan')
-        lat = request.form.get('lat') # Koordinat dari HP
-        lng = request.form.get('lng') # Koordinat dari HP
+        lat = request.form.get('lat')
+        lng = request.form.get('lng')
         
-        # Simpan Foto Bukti Kunjungan
         foto = request.files.get('foto')
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"LAPORAN_{nomen}_{timestamp}.jpg"
+        filename = f"KUNJ_{nomen}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
         
         if foto:
             save_path = os.path.join(current_app.config['KUNJUNGAN_FOLDER'], filename)
             foto.save(save_path)
 
         try:
-            # 1. Simpan detail kunjungan ke database
             db.execute("""
                 INSERT INTO kunjungan_petugas 
                 (nomen, petugas_name, keterangan, foto_path, latitude, longitude)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (nomen, petugas, keterangan, filename, lat, lng))
             
-            # 2. Update Log Riwayat Aktivitas
-            db.execute("""
-                INSERT INTO upload_history (filename, file_type, periode, status)
-                VALUES (?, 'LAPORAN LAPANGAN', ?, 'Berhasil')
-            """, (filename, datetime.now().strftime('%m/%Y')))
-            
             db.commit()
-            return jsonify({"status": "success", "message": "Target kunjungan berhasil dilaporkan!"})
+            return jsonify({"status": "success", "message": "Laporan berhasil masuk sistem!"})
         except Exception as e:
             db.rollback()
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/belum-bayar/stats-harian', methods=['GET'])
     def get_stats_harian():
-        """Mengambil progres 10 target harian petugas"""
+        """Menghitung progres target 10 pelanggan per petugas per hari"""
         db = get_db()
         petugas = request.args.get('petugas', '')
         today = datetime.now().strftime('%Y-%m-%d')
         
         query = """
-            SELECT COUNT(*) as total_done 
+            SELECT COUNT(*) as done 
             FROM kunjungan_petugas 
             WHERE petugas_name = ? AND date(created_at) = date(?)
         """
         row = db.execute(query, [petugas, today]).fetchone()
-        return jsonify({"done": row['total_done'], "target": 10})
+        return jsonify({"done": row['done'] if row else 0, "target": 10})
