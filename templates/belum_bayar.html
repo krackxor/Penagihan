@@ -1,26 +1,199 @@
-// Tambahkan fungsi ini di dalam script belum_bayar.html Anda
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-2">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h5 class="fw-bold m-0 text-dark">
+                <i class="fas fa-tasks me-2 text-primary"></i>Kunjungan Penagihan
+            </h5>
+            <p class="text-muted small mb-0">Daftar pelanggan Current & Tunggakan</p>
+        </div>
+        <span class="badge bg-white text-primary border border-primary px-3 py-2 shadow-sm" id="total-count">
+            Memuat data...
+        </span>
+    </div>
+
+    <div id="list-container" class="row g-3">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-2 small">Sinkronisasi data tagihan...</p>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalLapor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="formLapor" class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-0">
+                <h6 class="modal-title fw-bold">
+                    <i class="fas fa-edit me-2 text-primary"></i>Catat Kunjungan: <span id="label-nomen" class="text-primary font-monospace"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="nomen" id="input-nomen">
+                <input type="hidden" name="lat" id="input-lat">
+                <input type="hidden" name="lng" id="input-lng">
+
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">Foto Bukti Lapangan</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-camera text-primary"></i></span>
+                        <input type="file" name="foto" class="form-control" accept="image/*" capture="camera" required>
+                    </div>
+                    <div class="form-text mt-1" style="font-size: 0.7rem;">Wajib mengambil foto rumah atau pelanggan.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">Status Kunjungan</label>
+                    <select name="keterangan" id="select-status" class="form-select form-select-lg border-2" onchange="toggleJanji(this.value)">
+                        <option value="Rumah Kosong">🏠 Rumah Kosong</option>
+                        <option value="Janji Bayar">🤝 Janji Bayar</option>
+                        <option value="Sudah Bayar">✅ Sudah Bayar</option>
+                        <option value="Ganti Meter">🔧 Ganti Meter / Gangguan</option>
+                    </select>
+                </div>
+
+                <div class="mb-0 d-none animate__animated animate__fadeIn" id="group-janji">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">Tanggal Janji Bayar</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-calendar-alt"></i></span>
+                        <input type="date" name="tgl_janji_bayar" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="submit" id="btnSimpan" class="btn btn-primary w-100 py-3 shadow-sm fw-bold">
+                    <i class="fas fa-save me-2"></i>SIMPAN LAPORAN
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Fungsi menampilkan/menyembunyikan input tanggal janji
+function toggleJanji(val) {
+    const group = document.getElementById('group-janji');
+    group.classList.toggle('d-none', val !== 'Janji Bayar');
+}
+
+// Fungsi Load Data dari API
+async function loadList() {
+    try {
+        const res = await fetch('/api/belum-bayar/list');
+        const data = await res.json();
+        document.getElementById('total-count').innerText = `${data.length} Pelanggan Belum Bayar`;
+        
+        let html = '';
+        if(data.length === 0) {
+            html = `
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                <h6 class="fw-bold">Luar Biasa!</h6>
+                <p class="text-muted">Semua tagihan di area Anda sudah terbayar.</p>
+            </div>`;
+        } else {
+            data.forEach(item => {
+                const isTunggakan = item.bill_tunggakan > 0;
+                const badgeColor = isTunggakan ? 'bg-danger' : 'bg-warning text-dark';
+                
+                html += `
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-light text-secondary font-monospace" style="font-size: 0.75rem;">${item.nomen}</span>
+                                <span class="badge ${badgeColor} shadow-sm px-3">Rp ${item.total_tagihan.toLocaleString()}</span>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1">${item.nama}</h6>
+                            <p class="small text-muted mb-3">
+                                <i class="fas fa-map-marker-alt me-1 text-primary"></i> Area: ${item.pcez}
+                            </p>
+                            
+                            <div class="row g-2 mb-3 text-center">
+                                <div class="col-6">
+                                    <div class="bg-light rounded p-2">
+                                        <div class="text-muted" style="font-size: 0.6rem; font-weight: 700;">CURRENT</div>
+                                        <div class="small fw-bold text-dark">Rp ${item.bill_cureent.toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="bg-light rounded p-2">
+                                        <div class="text-muted" style="font-size: 0.6rem; font-weight: 700;">TUNGGAKAN</div>
+                                        <div class="small fw-bold ${isTunggakan ? 'text-danger' : 'text-dark'}">Rp ${item.bill_tunggakan.toLocaleString()}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button onclick="openModal('${item.nomen}')" class="btn btn-outline-primary btn-sm w-100 py-2 border-2">
+                                <i class="fas fa-clipboard-check me-1"></i> ${item.status_terakhir || 'Catat Kunjungan'}
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('list-container').innerHTML = html;
+    } catch (e) {
+        document.getElementById('list-container').innerHTML = `
+        <div class="alert alert-danger mx-auto" style="max-width: 400px;">
+            <i class="fas fa-exclamation-triangle me-2"></i>Gagal memuat data pelanggan.
+        </div>`;
+    }
+}
+
+// Buka Modal & Tangkap Lokasi GPS (Geofencing)
+function openModal(nomen) {
+    document.getElementById('input-nomen').value = nomen;
+    document.getElementById('label-nomen').innerText = nomen;
+    
+    // Minta Izin Lokasi saat modal dibuka
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                document.getElementById('input-lat').value = pos.coords.latitude;
+                document.getElementById('input-lng').value = pos.coords.longitude;
+            },
+            () => { console.warn("Akses GPS ditolak, koordinat tidak akan tersimpan."); }
+        );
+    }
+    
+    new bootstrap.Modal(document.getElementById('modalLapor')).show();
+}
+
+// Handler Submit Form
 document.getElementById('formLapor').onsubmit = async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSimpan');
+    const originalText = btn.innerHTML;
+    
     btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan...';
     
     const fd = new FormData(e.target);
-    
-    // Ambil Lokasi GPS Petugas
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            fd.append('lat', position.coords.latitude);
-            fd.append('lng', position.coords.longitude);
-            
-            await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
-            location.reload();
-        }, async () => {
-            // Jika GPS ditolak, tetap simpan tanpa koordinat
-            await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
-            location.reload();
+    try {
+        const response = await fetch('/api/belum-bayar/simpan-kunjungan', { 
+            method: 'POST', 
+            body: fd 
         });
-    } else {
-        await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
-        location.reload();
+        
+        if (response.ok) {
+            alert('Laporan berhasil disimpan!');
+            location.reload();
+        } else {
+            alert('Gagal menyimpan laporan.');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    } catch (err) {
+        alert('Terjadi kesalahan jaringan.');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 };
+
+// Inisialisasi awal
+document.addEventListener('DOMContentLoaded', loadList);
+</script>
+{% endblock %}
