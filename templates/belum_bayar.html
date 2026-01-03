@@ -2,120 +2,65 @@
 {% block content %}
 <div class="animate__animated animate__fadeIn px-2 pb-5">
     
-    <div class="card border-0 bg-dark text-white rounded-4 mb-3 shadow-lg overflow-hidden">
-        <div class="card-body p-4 position-relative">
-            <div class="position-relative z-1">
-                <h6 class="text-white-50 small mb-1 text-uppercase fw-bold">Target Penagihan Hari Ini</h6>
-                <div class="d-flex align-items-end gap-2 mb-3">
-                    <h1 class="fw-bold mb-0" id="done-count">0</h1>
-                    <h4 class="text-white-50 mb-1">/ 10</h4>
-                </div>
-                <div class="progress bg-secondary" style="height: 10px; border-radius: 5px;">
-                    <div id="targetProgress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 0%"></div>
-                </div>
-                <p class="small mt-2 mb-0 text-white-50" id="progressText">Ayo selesaikan rute prioritasmu!</p>
+    <div class="card border-0 bg-primary text-white rounded-4 mb-3 shadow">
+        <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0 fw-bold small">PROGRES TARGET HARIAN</h6>
+                <span class="badge bg-white text-primary" id="progText">0/10</span>
             </div>
-            <i class="fas fa-route position-absolute end-0 bottom-0 text-white-50 opacity-25" style="font-size: 6rem; margin-right: -10px; margin-bottom: -10px;"></i>
+            <div class="progress bg-white bg-opacity-25" style="height: 8px;">
+                <div id="progBar" class="progress-bar bg-white" style="width: 0%"></div>
+            </div>
         </div>
     </div>
 
     <div class="sticky-top bg-white pt-2 shadow-sm" style="z-index: 1020; margin: 0 -15px; padding: 0 15px;">
         <div class="d-flex gap-2 overflow-auto no-scrollbar pb-3" id="petugasTabs">
-            <button class="btn btn-primary rounded-pill px-4 btn-tab active" onclick="filterByPetugas('all', this)">Semua</button>
+            <button class="btn btn-primary rounded-pill px-4 btn-tab active" onclick="filterPetugas('all', this)">Semua</button>
             </div>
         
-        <div class="input-group mb-3 shadow-sm rounded-4 overflow-hidden border">
-            <span class="input-group-text border-0 bg-white"><i class="fas fa-search text-muted"></i></span>
-            <input type="text" id="searchInput" class="form-control border-0" placeholder="Cari Nama Pelanggan / Nomen / Blok...">
+        <div class="input-group mb-3 rounded-4 border overflow-hidden">
+            <span class="input-group-text border-0 bg-white"><i class="fas fa-search"></i></span>
+            <input type="text" id="searchInput" class="form-control border-0" placeholder="Cari Pelanggan...">
         </div>
     </div>
 
-    
-
-    <div class="alert alert-primary border-0 rounded-4 d-flex align-items-center mb-3 shadow-sm">
-        <div class="bg-primary text-white rounded-circle p-2 me-3">
-            <i class="fas fa-location-arrow"></i>
-        </div>
-        <div class="small">
-            <strong>Urutan Jalur Pintar Aktif</strong>
-            <span class="d-block text-muted">Disusun dari Blok terdekat (Rumah ke Rumah)</span>
-        </div>
-    </div>
-
-    <div id="listContainer">
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalLapor" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered mx-3">
-        <div class="modal-content border-0 rounded-4 shadow-lg">
-            <div class="modal-header border-0 pb-0">
-                <h5 class="fw-bold">Laporan Petugas</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="formLapor">
-                <div class="modal-body">
-                    <input type="hidden" id="modal-nomen" name="nomen">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">HASIL KUNJUNGAN</label>
-                        <select class="form-select rounded-3 p-3 shadow-sm" name="keterangan" required>
-                            <option value="">-- Pilih Hasil Lapangan --</option>
-                            <option value="Janji Bayar">Janji Bayar</option>
-                            <option value="Rumah Kosong">Rumah Kosong</option>
-                            <option value="Sudah Bayar">Sudah Bayar (Ada Struk)</option>
-                            <option value="Pasang Stiker">Pasang Stiker Peringatan</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">AMBIL FOTO BUKTI (GEO-TAG)</label>
-                        <input type="file" class="form-control rounded-3" name="foto" accept="image/*" capture="camera">
-                    </div>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow">Simpan Laporan</button>
-                </div>
-            </form>
-        </div>
+    <div id="listContainer" class="mt-3">
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
     </div>
 </div>
 
 <style>
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    .btn-tab { white-space: nowrap; font-size: 0.85rem; font-weight: 600; border: 1px solid #eee; transition: 0.3s; }
-    .btn-tab.active { box-shadow: 0 4px 10px rgba(0, 97, 255, 0.3); }
-    .customer-card { border-radius: 20px !important; border-left: 6px solid transparent !important; }
-    .card-berekor { border-left-color: #dc3545 !important; }
-    .card-current { border-left-color: #ffc107 !important; }
-    .card-undue { border-left-color: #0dcaf0 !important; }
+    .btn-tab { white-space: nowrap; font-size: 0.8rem; font-weight: 600; }
+    .customer-card { border-radius: 15px !important; border-left: 5px solid #0061ff !important; }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-let currentPetugas = 'all';
-let currentSearch = '';
+let selPetugas = 'all';
 
 async function initPage() {
-    // Load Tab Petugas
-    const resTabs = await fetch('/api/belum-bayar/petugas-tabs');
-    const tabs = await resTabs.json();
-    const tabContainer = document.getElementById('petugasTabs');
-    
-    tabs.forEach(name => {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-outline-secondary rounded-pill px-4 btn-tab';
-        btn.innerText = name;
-        btn.onclick = (e) => filterByPetugas(name, btn);
-        tabContainer.appendChild(btn);
-    });
+    // 1. Ambil Tab Petugas
+    try {
+        const res = await fetch('/api/belum-bayar/petugas-tabs');
+        const tabs = await res.json();
+        const container = document.getElementById('petugasTabs');
+        
+        tabs.forEach(name => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-outline-secondary rounded-pill px-4 btn-tab';
+            btn.innerText = name;
+            btn.onclick = () => filterPetugas(name, btn);
+            container.appendChild(btn);
+        });
+    } catch (e) { console.error("Gagal load tabs"); }
 
     loadData();
 }
 
-function filterByPetugas(name, btn) {
-    currentPetugas = name;
+function filterPetugas(name, btn) {
+    selPetugas = name;
     document.querySelectorAll('.btn-tab').forEach(b => {
         b.classList.replace('btn-primary', 'btn-outline-secondary');
         b.classList.remove('active');
@@ -127,83 +72,61 @@ function filterByPetugas(name, btn) {
 
 async function loadData() {
     const container = document.getElementById('listContainer');
-    const pParam = currentPetugas === 'all' ? '' : currentPetugas;
-    
-    // Load Stats Harian
-    const resStats = await fetch(`/api/belum-bayar/stats-harian?petugas=${pParam}`);
-    const stats = await resStats.json();
-    const progress = (stats.done / 10) * 100;
-    document.getElementById('done-count').innerText = stats.done;
-    document.getElementById('targetProgress').style.width = progress + '%';
+    const search = document.getElementById('searchInput').value;
+    const pParam = selPetugas === 'all' ? '' : selPetugas;
 
-    // Load List (Limit 10)
-    const res = await fetch(`/api/belum-bayar/list?petugas=${pParam}&search=${currentSearch}`);
+    // Load Stats
+    const resS = await fetch(`/api/belum-bayar/stats-harian?petugas=${pParam}`);
+    const stats = await resS.json();
+    document.getElementById('progText').innerText = `${stats.done}/${stats.target}`;
+    document.getElementById('progBar').style.width = (stats.done/stats.target*100) + '%';
+
+    // Load List
+    const res = await fetch(`/api/belum-bayar/list?petugas=${pParam}&search=${search}`);
     const data = await res.json();
     
-    let html = '';
-    data.forEach(item => {
-        const typeClass = item.status_kategori === 'Berekor' ? 'card-berekor' : (item.status_kategori === 'Undue' ? 'card-undue' : 'card-current');
-        const badgeColor = item.status_kategori === 'Berekor' ? 'bg-danger' : (item.status_kategori === 'Undue' ? 'bg-info' : 'bg-warning');
-
-        html += `
-        <div class="card border-0 shadow-sm mb-3 customer-card ${typeClass}">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div>
-                        <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.6rem;">
-                            <i class="fas fa-map-pin me-1"></i>BLOK ${item.block} | ${item.pcez}
-                        </span>
-                        <h6 class="fw-bold mb-0 mt-1">${item.nama}</h6>
-                    </div>
-                    <span class="badge ${badgeColor} rounded-pill" style="font-size: 0.6rem;">${item.status_kategori}</span>
+    container.innerHTML = data.length ? data.map(item => `
+        <div class="card border-0 shadow-sm mb-3 customer-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="fw-bold mb-1">${item.nama}</h6>
+                    <span class="badge bg-light text-primary border">${item.pcez} / BLOK ${item.block}</span>
                 </div>
-                <div class="d-flex justify-content-between align-items-end mt-3">
-                    <div>
-                        <small class="text-muted d-block" style="font-size: 0.6rem;">TOTAL TAGIHAN</small>
-                        <span class="fw-bold text-primary fs-5">Rp ${item.total_tagihan.toLocaleString()}</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <a href="https://wa.me/${item.no_hp}" class="btn btn-light rounded-circle text-success border" style="width: 38px; height: 38px;"><i class="fab fa-whatsapp"></i></a>
-                        <button onclick="openLapor('${item.nomen}')" class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold btn-sm">LAPOR</button>
-                    </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <span class="fw-bold text-danger">Rp ${item.total_tagihan.toLocaleString()}</span>
+                    <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="lapor('${item.nomen}')">Lapor</button>
                 </div>
             </div>
-        </div>`;
+        </div>
+    `).join('') : '<p class="text-center text-muted py-5">Tidak ada data untuk rute ini.</p>';
+}
+
+function lapor(nomen) {
+    Swal.fire({
+        title: 'Hasil Kunjungan',
+        input: 'select',
+        inputOptions: {
+            'Janji Bayar': 'Janji Bayar',
+            'Rumah Kosong': 'Rumah Kosong',
+            'Sudah Bayar': 'Sudah Bayar'
+        },
+        showCancelButton: true,
+        confirmButtonText: 'Kirim'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            const fd = new FormData();
+            fd.append('nomen', nomen);
+            fd.append('petugas', selPetugas === 'all' ? 'ADMIN' : selPetugas);
+            fd.append('keterangan', result.value);
+            
+            await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
+            Swal.fire('Tersimpan!', '', 'success');
+            loadData();
+        }
     });
-    container.innerHTML = html || '<div class="text-center py-5 text-muted">Tidak ada jadwal rute.</div>';
 }
 
-document.getElementById('searchInput').oninput = (e) => {
-    currentSearch = e.target.value;
-    loadData();
-};
-
-const laporModal = new bootstrap.Modal(document.getElementById('modalLapor'));
-function openLapor(nomen) {
-    document.getElementById('modal-nomen').value = nomen;
-    laporModal.show();
-}
-
-document.getElementById('formLapor').onsubmit = async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    fd.append('petugas', currentPetugas === 'all' ? 'ADMIN' : currentPetugas);
-
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            fd.append('lat', pos.coords.latitude);
-            fd.append('lng', pos.coords.longitude);
-        });
-    }
-
-    const res = await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
-    if (res.ok) {
-        laporModal.hide();
-        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Laporan tersimpan!', confirmButtonColor: '#0061ff' });
-        loadData();
-    }
-};
-
+document.getElementById('searchInput').oninput = loadData;
 window.onload = initPage;
 </script>
 {% endblock %}
