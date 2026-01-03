@@ -1,64 +1,39 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row g-3">
-    <div class="col-12 mb-2">
-        <h4 class="fw-bold text-secondary">Selamat Datang, Tim Analis</h4>
-        <p class="text-muted">Gunakan menu di bawah untuk mengelola data sesuai SOP Periode.</p>
-    </div>
-
-    <div class="col-6 col-md-3">
-        <a href="/upload" class="text-decoration-none">
-            <div class="card h-100 border-0 shadow-sm text-center py-4 hover-shadow">
-                <div class="card-body">
-                    <i class="fas fa-file-import fa-3x text-primary mb-3"></i>
-                    <h6 class="fw-bold text-dark">Upload Data</h6>
-                    <small class="text-muted">MC, MB, Collection</small>
+<div class="container py-4">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-upload fa-3x text-primary mb-3"></i>
+                    <h5>Upload Data</h5>
+                    <p class="small text-muted">Sesuai SOP: MC harus diupload lebih dulu sebagai induk.</p>
+                    <a href="/upload" class="btn btn-primary w-100">Buka Menu Upload</a>
                 </div>
             </div>
-        </a>
-    </div>
+        </div>
 
-    <div class="col-6 col-md-3">
-        <a href="/belum-bayar" class="text-decoration-none">
-            <div class="card h-100 border-0 shadow-sm text-center py-4">
-                <div class="card-body">
-                    <i class="fas fa-user-check fa-3x text-success mb-3"></i>
-                    <h6 class="fw-bold text-dark">Kunjungan</h6>
-                    <small class="text-muted">Cureent & Tunggakan</small>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center">
+                    <i class="fas fa-walking fa-3x text-success mb-3"></i>
+                    <h5>Kunjungan Petugas</h5>
+                    <p class="small text-muted">Fokus penagihan kategori Cureent dan Tunggakan.</p>
+                    <a href="/belum-bayar" class="btn btn-success w-100">Daftar Kunjungan</a>
                 </div>
             </div>
-        </a>
-    </div>
+        </div>
 
-    <div class="col-6 col-md-3">
-        <a href="/leaderboard" class="text-decoration-none">
-            <div class="card h-100 border-0 shadow-sm text-center py-4">
-                <div class="card-body">
-                    <i class="fas fa-trophy fa-3x text-warning mb-3"></i>
-                    <h6 class="fw-bold text-dark">Leaderboard</h6>
-                    <small class="text-muted">Performa Petugas</small>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center">
+                    <i class="fas fa-history fa-3x text-info mb-3"></i>
+                    <h5>Riwayat & SOP</h5>
+                    <p class="small text-muted">Cek validasi periode dan log aktivitas upload.</p>
+                    <a href="/history" class="btn btn-info w-100 text-white">Cek Riwayat</a>
                 </div>
             </div>
-        </a>
-    </div>
-
-    <div class="col-6 col-md-3">
-        <a href="/history" class="text-decoration-none">
-            <div class="card h-100 border-0 shadow-sm text-center py-4">
-                <div class="card-body">
-                    <i class="fas fa-database fa-3x text-info mb-3"></i>
-                    <h6 class="fw-bold text-dark">Riwayat</h6>
-                    <small class="text-muted">Cek Validasi Periode</small>
-                </div>
-            </div>
-        </a>
+        </div>
     </div>
 </div>
-
-<style>
-    .hover-shadow:hover {
-        transform: translateY(-5px);
-        transition: 0.3s;
-    }
-</style>
 {% endblock %}
