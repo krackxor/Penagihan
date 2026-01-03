@@ -1,19 +1,14 @@
 import requests
 from flask import Blueprint, request, jsonify
-from core.helpers import APIResponse
+# PERBAIKAN: Ubah core.helpers menjadi api.helpers
+from api.helpers import APIResponse
 import os
 
-# Konfigurasi WA Gateway (Contoh: Fonnte)
 WA_TOKEN = "YOUR_FONNTE_TOKEN" 
 
 def send_wa_notification(phone, message):
-    """Fungsi helper untuk kirim WA"""
     url = "https://api.fonnte.com/send"
-    payload = {
-        'target': phone,
-        'message': message,
-        'countryCode': '62',
-    }
+    payload = {'target': phone, 'message': message, 'countryCode': '62'}
     headers = {'Authorization': WA_TOKEN}
     try:
         response = requests.post(url, data=payload, headers=headers)
@@ -23,11 +18,9 @@ def send_wa_notification(phone, message):
         return None
 
 def register_belum_bayar_routes(app, get_db):
-    
     @app.route('/api/belum-bayar/list', methods=['GET'])
     def get_list_kunjungan():
         db = get_db()
-        # Query yang sudah ada dioptimasi untuk menyertakan nomor HP jika tersedia
         query = """
         SELECT 
             m.nomen, m.nama, m.pcez, m.no_hp,
@@ -48,31 +41,6 @@ def register_belum_bayar_routes(app, get_db):
         rows = db.execute(query).fetchall()
         return jsonify([dict(row) for row in rows])
 
-    @app.route('/api/wa-blast/send-bulk', methods=['POST'])
-    def wa_blast_bulk():
-        """Endpoint untuk mengirim pesan tagihan massal"""
-        db = get_db()
-        data = request.json
-        type_blast = data.get('type') # 'reminder' atau 'warning'
-        
-        # Ambil data pelanggan yang belum bayar
-        query = "SELECT nama, no_hp, nominal FROM master_pelanggan WHERE nominal > 0"
-        customers = db.execute(query).fetchall()
-        
-        count = 0
-        for cust in customers:
-            if not cust['no_hp']: continue
-            
-            if type_blast == 'reminder':
-                msg = f"Halo {cust['nama']}, kami mengingatkan tagihan air Anda sebesar Rp {cust['nominal']:,} akan jatuh tempo. Mohon abaikan jika sudah membayar."
-            else:
-                msg = f"PENTING: Tagihan air {cust['nama']} sebesar Rp {cust['nominal']:,} sudah melewati jatuh tempo. Harap segera melakukan pembayaran."
-            
-            send_wa_notification(cust['no_hp'], msg)
-            count += 1
-            
-        return jsonify({"status": "success", "sent": count})
-
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
     def simpan_kunjungan():
         db = get_db()
@@ -80,8 +48,6 @@ def register_belum_bayar_routes(app, get_db):
         petugas = request.form.get('petugas')
         keterangan = request.form.get('keterangan')
         tgl_janji = request.form.get('tgl_janji_bayar')
-        
-        # Simpan koordinat jika dikirim dari frontend (Fitur GPS)
         lat = request.form.get('lat')
         lng = request.form.get('lng')
         
