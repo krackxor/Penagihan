@@ -1,24 +1,23 @@
 import os
 from flask import Flask, render_template, g
 from core.database import init_db, get_db_connection
-# PERBAIKAN: Ubah core.helpers menjadi api.helpers
-from api.helpers import APIResponse
+from api.helpers import APIResponse # Pastikan sudah diubah dari core ke api
 from config import Config
 
 # Import API Routes
 from api.upload import upload_bp
-from api.history import history_bp
+from api.history import history_bp # Sekarang file ini sudah ada
 from api.belum_bayar import register_belum_bayar_routes
 from api.pcez_performance import register_pcez_routes
-# Pastikan blueprint di bawah ini ada filenya, jika tidak ada bisa dikomentari sementara
-# from api.kpi import kpi_bp
+
+# KOMENTARI jika file berikut belum ada di folder api/
+# from api.kpi import kpi_bp 
 # from api.analisa import analisa_bp
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Inisialisasi Database & Folder Upload
     with app.app_context():
         init_db(app)
         upload_path = os.path.join('static', 'uploads', 'kunjungan')
@@ -42,6 +41,7 @@ def create_app():
     register_belum_bayar_routes(app, get_db)
     register_pcez_routes(app, get_db)
 
+    # --- Page Routes ---
     @app.route('/')
     def index():
         return render_template('index.html')
