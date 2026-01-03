@@ -1,46 +1,42 @@
-import os
 from flask import Blueprint, request, jsonify
 from processors.auto_detect import detect_file_period
+from core.database import get_db_connection
+import pandas as pd
 
-def register_upload_routes(app, get_db):
-    @app.route('/api/upload', methods=['POST'])
-    def upload_file():
-        if 'file' not in request.files:
-            return jsonify({"error": "No file part"}), 400
-            
-        file = request.files['file']
-        file_type = request.form.get('file_type') # mc, collection, dll
-        
-        # Simpan file sementara
-        temp_path = os.path.join('uploads', 'temp', file.filename)
-        file.save(temp_path)
-        
-        # Membaca file dengan pandas
-        df = pd.read_csv(temp_path) if file.filename.endswith('.csv') else pd.read_excel(temp_path)
-        
-        # 1. AUTO DETECT PERIODE (SOP Poin 2)
-        bulan, tahun = detect_file_period(df, file_type)
-        
-        if not bulan or not tahun:
-            return jsonify({"error": "Gagal mendeteksi periode. Pastikan field acuan tersedia."}), 400
-            
-        # 2. VALIDASI (SOP Poin 6)
-        # Contoh: Cek apakah MC sudah ada sebelum upload Collection (SOP Poin 3)
-        if file_type != 'mc':
-            db = get_db()
-            mc_exists = db.execute(
-                "SELECT id FROM master_pelanggan WHERE periode_bulan = ? AND periode_tahun = ?",
-                (bulan, tahun)
-            ).fetchone()
-            
-            if not mc_exists:
-                return jsonify({"error": f"SOP Violation: MC Periode {bulan}-{tahun} belum tersedia sebagai induk."}), 400
+upload_bp = Blueprint('upload', __name__)
 
-        # 3. PROSES SIMPAN (Data Mundur tetap dihitung periode aslinya - SOP Poin 4)
-        # Logika pemrosesan masing-masing file_type di sini...
-        
-        return jsonify({
-            "status": "success",
-            "detected_period": f"{bulan}/{tahun}",
-            "message": "Data berhasil diupload sesuai SOP"
-        })
+@upload_bp.route('/upload', methods=['POST'])
+def handle_upload():
+    file = request.files.get('file')
+    file_type = request.form.get('file_type') # 'mc', 'collection', dll
+    
+    if not file or not file_type:
+        return jsonify({"error": "File atau tipe file tidak ditemukan"}), 400
+
+    # Baca file (dukungan CSV dan Excel)
+    df = pd.read_csv(file) if file.filename.endswith('.csv') else pd.read_excel(file)
+    
+    # 1. Deteksi Periode (SOP Poin 2 & 4)
+    bulan, tahun = detect_file_period(df, file_type)
+    if not bulan:
+        return jsonify({"error": "Field acuan tanggal tidak ditemukan dalam file"}), 400
+
+    db = get_db_connection()
+    
+    # 2. Validasi Induk (SOP Poin 3)
+    if file_type != 'mc':
+        induk = db.execute(
+            "SELECT id FROM master_pelanggan WHERE periode_bulan = ? AND periode_tahun = ?",
+            (bulan, tahun)
+        ).fetchone()
+        if not induk:
+            return jsonify({"error": f"SOP Gagal: Data MC periode {bulan}-{tahun} belum diupload"}), 400
+
+    # 3. Simpan ke Database (Logika per tipe file)
+    # Data disimpan dengan periode asli hasil deteksi (SOP Poin 4)
+    save_to_database(df, file_type, bulan, tahun, db)
+    
+    return jsonify({
+        "status": "success",
+        "message": f"Data {file_type.upper()} periode {bulan}/{tahun} berhasil diolah"
+    })
