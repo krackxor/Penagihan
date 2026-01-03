@@ -22,18 +22,20 @@
     <div class="modal-dialog modal-dialog-centered mx-3">
         <div class="modal-content border-0 rounded-4 shadow-lg">
             <div class="modal-header border-0 pb-0">
-                <h5 class="fw-bold">Input Laporan</h5>
+                <h5 class="fw-bold">Input Laporan & WA</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="formLapor">
+            <form id="formLapor" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" id="modal-nomen" name="nomen">
+                    
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">NO HP PELANGGAN</label>
-                        <input type="number" class="form-control rounded-3 bg-light border-0 p-3" name="no_hp" id="modal-no-hp">
+                        <label class="form-label small fw-bold">UPDATE NO HP PELANGGAN</label>
+                        <input type="number" class="form-control rounded-3 bg-light border-0 p-3" name="no_hp" id="modal-no-hp" placeholder="Input nomor HP baru">
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">KETERANGAN</label>
+                        <label class="form-label small fw-bold">HASIL KUNJUNGAN</label>
                         <select class="form-select rounded-3 bg-light border-0 p-3" name="keterangan" required>
                             <option value="">-- Pilih Hasil --</option>
                             <option value="Janji Bayar">Janji Bayar</option>
@@ -42,14 +44,15 @@
                             <option value="Pasang Stiker">Pasang Stiker</option>
                         </select>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">FOTO BUKTI</label>
-                        <input type="file" id="fileFoto" name="foto" accept="image/*" capture="camera" class="form-control rounded-3" onchange="preview(this)">
-                        <img id="imgPrev" class="img-fluid rounded-4 mt-2 d-none">
+                        <label class="form-label small fw-bold">AMBIL FOTO BUKTI</label>
+                        <input type="file" id="fileFoto" name="foto" accept="image/*" capture="camera" class="form-control" onchange="preview(this)">
+                        <img id="imgPrev" class="img-fluid rounded-4 mt-2 d-none shadow-sm">
                     </div>
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow">SIMPAN & KIRIM WA</button>
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow">SIMPAN & KIRIM LAPORAN</button>
                 </div>
             </form>
         </div>
@@ -117,7 +120,7 @@ async function loadData() {
                     <span class="fw-bold text-danger">Rp ${item.total_tagihan.toLocaleString()}</span>
                 </div>
                 <div class="d-flex gap-2 mt-3">
-                    <a href="https://wa.me/${item.no_hp}" class="btn btn-outline-success rounded-pill px-3"><i class="fab fa-whatsapp"></i></a>
+                    <a href="https://wa.me/${item.no_hp || ''}" class="btn btn-outline-success rounded-pill px-3"><i class="fab fa-whatsapp"></i></a>
                     <button class="btn btn-primary flex-grow-1 rounded-pill fw-bold" onclick="openLapor('${item.nomen}','${item.no_hp || ''}')">LAPOR</button>
                 </div>
             </div>
@@ -147,11 +150,12 @@ document.getElementById('formLapor').onsubmit = async (e) => {
         Swal.fire({
             icon: 'success',
             title: 'Berhasil!',
-            text: 'Teruskan laporan ke WhatsApp?',
+            text: 'Teruskan laporan ke WhatsApp Grup?',
             showCancelButton: true,
             confirmButtonText: 'Kirim WA'
         }).then((r) => {
             if (r.isConfirmed) {
+                // Link wa.me akan berisi no_hp yang baru saja diupdate
                 window.open(`https://wa.me/?text=${encodeURIComponent(result.wa_text)}`, '_blank');
             }
             loadData();
