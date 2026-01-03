@@ -1,188 +1,59 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="animate__animated animate__fadeIn">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h4 class="fw-bold m-0"><i class="fas fa-route me-2 text-primary"></i>Kunjungan Penagihan</h4>
-            <p class="text-muted small mb-0">Daftar pelanggan Current & Tunggakan</p>
-        </div>
-        <div id="stats" class="badge bg-white text-primary shadow-sm p-2 px-3 border rounded-pill fw-bold">
-            Memuat data...
-        </div>
+<div class="px-2">
+    <div class="mb-4">
+        <h5 class="fw-bold">Tugas Hari Ini</h5>
+        <div id="stats" class="text-muted small">Memuat daftar tugas...</div>
     </div>
 
-    <div id="list-container" class="row g-3">
-        <div class="col-12 text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted small">Menyusun rute penagihan...</p>
+    <div id="list-container" class="row g-2">
         </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalLapor" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form id="formLapor" class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-light border-0">
-                <h6 class="modal-title fw-bold">
-                    <i class="fas fa-file-pen me-2 text-primary"></i>Laporan: <span id="label-nomen" class="text-primary font-monospace"></span>
-                </h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <input type="hidden" name="nomen" id="input-nomen">
-                <input type="hidden" name="lat" id="input-lat">
-                <input type="hidden" name="lng" id="input-lng">
-
-                <div class="mb-4">
-                    <label class="form-label small fw-bold text-secondary text-uppercase">Foto Bukti Lapangan</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white"><i class="fas fa-camera text-primary"></i></span>
-                        <input type="file" name="foto" class="form-control" accept="image/*" capture="camera" required>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label small fw-bold text-secondary text-uppercase">Hasil Kunjungan</label>
-                    <select name="keterangan" id="select-status" class="form-select form-select-lg border-2" onchange="toggleJanji(this.value)">
-                        <option value="Rumah Kosong">🏠 Rumah Kosong</option>
-                        <option value="Janji Bayar">🤝 Janji Bayar</option>
-                        <option value="Sudah Bayar">✅ Sudah Bayar</option>
-                        <option value="Pasang Segel">🚫 Pasang Segel</option>
-                    </select>
-                </div>
-
-                <div class="mb-0 d-none animate__animated animate__fadeInDown" id="group-janji">
-                    <label class="form-label small fw-bold text-danger text-uppercase">Tanggal Janji Bayar</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-danger text-danger"><i class="fas fa-calendar-day"></i></span>
-                        <input type="date" name="tgl_janji_bayar" class="form-control border-danger">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer border-0 p-4 pt-0">
-                <button type="submit" id="btnSimpan" class="btn btn-primary w-100 py-3 shadow-sm fw-bold">
-                    <i class="fas fa-save me-2"></i>SIMPAN LAPORAN
-                </button>
-            </div>
-        </form>
-    </div>
 </div>
 
 <script>
-// Fungsi toggle input tanggal janji bayar
-function toggleJanji(val) {
-    document.getElementById('group-janji').classList.toggle('d-none', val !== 'Janji Bayar');
-}
-
-// Fungsi Load Data Pelanggan
 async function loadList() {
     try {
         const res = await fetch('/api/belum-bayar/list');
         const data = await res.json();
-        document.getElementById('stats').innerText = `${data.length} Pelanggan`;
+        document.getElementById('stats').innerText = `${data.length} pelanggan perlu dikunjungi`;
         
         let html = '';
-        if(data.length === 0) {
-            html = `<div class="text-center py-5"><i class="fas fa-check-circle fa-4x text-success mb-3"></i><p>Area bersih! Tidak ada tunggakan.</p></div>`;
-        } else {
-            data.forEach(item => {
-                const isTunggakan = item.bill_tunggakan > 0;
-                const badgeColor = isTunggakan ? 'bg-danger' : 'bg-warning text-dark';
-                
-                // Link WA Manual (Click-to-Chat) - Tanpa Pihak Ketiga
-                const waMessage = encodeURIComponent(`Halo Bapak/Ibu ${item.nama}, kami dari tim penagihan menginfokan tagihan air Anda sebesar Rp ${item.total_tagihan.toLocaleString()} belum terbayar. Mohon segera melakukan pembayaran. Terima kasih.`);
-                const waLink = `https://wa.me/${item.no_hp || ''}?text=${waMessage}`;
-
-                html += `
-                <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <span class="badge bg-light text-secondary font-monospace" style="font-size: 0.7rem;">${item.nomen}</span>
-                                <span class="badge ${badgeColor} shadow-sm px-3">Rp ${item.total_tagihan.toLocaleString()}</span>
+        data.forEach(item => {
+            const total = (item.bill_cureent + item.bill_tunggakan).toLocaleString('id-ID');
+            html += `
+            <div class="col-12 mb-2">
+                <div class="card border-0">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-1">${item.nama}</h6>
+                                <span class="badge bg-light text-secondary font-monospace">${item.nomen}</span>
                             </div>
-                            <h6 class="fw-bold text-dark mb-1">${item.nama}</h6>
-                            <p class="small text-muted mb-3"><i class="fas fa-map-location-dot me-1 text-primary"></i> ${item.pcez}</p>
-                            
-                            <div class="row g-2 mb-3 text-center">
-                                <div class="col-6">
-                                    <div class="bg-light rounded p-2">
-                                        <div class="text-muted" style="font-size: 0.6rem; font-weight: 800;">CURRENT</div>
-                                        <div class="small fw-bold">Rp ${item.bill_cureent.toLocaleString()}</div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="bg-light rounded p-2">
-                                        <div class="text-muted" style="font-size: 0.6rem; font-weight: 800;">TUNGGAKAN</div>
-                                        <div class="small fw-bold ${isTunggakan ? 'text-danger' : ''}">Rp ${item.bill_tunggakan.toLocaleString()}</div>
-                                    </div>
-                                </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-danger">Rp ${total}</div>
+                                <small class="text-muted" style="font-size:0.7rem">${item.pcez}</small>
                             </div>
-                            
-                            <div class="d-grid gap-2">
-                                <button onclick="openModal('${item.nomen}')" class="btn btn-outline-primary btn-sm py-2 fw-bold">
-                                    <i class="fas fa-camera me-1"></i> ${item.status_terakhir || 'Catat Kunjungan'}
+                        </div>
+                        <hr class="my-3 opacity-5">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button onclick="openModal('${item.nomen}')" class="btn btn-light w-100 fw-bold py-2 border">
+                                    <i class="fas fa-camera me-1"></i> Lapor
                                 </button>
-                                <a href="${waLink}" target="_blank" class="btn btn-success btn-sm py-2 fw-bold">
-                                    <i class="fab fa-whatsapp me-1"></i> Kirim Pesan WA
+                            </div>
+                            <div class="col-6">
+                                <a href="https://wa.me/${item.no_hp}" target="_blank" class="btn btn-success w-100 fw-bold py-2">
+                                    <i class="fab fa-whatsapp me-1"></i> WA
                                 </a>
                             </div>
                         </div>
                     </div>
-                </div>`;
-            });
-        }
-        document.getElementById('list-container').innerHTML = html;
-    } catch (e) {
-        document.getElementById('list-container').innerHTML = '<div class="alert alert-danger text-center">Gagal memuat data pelanggan.</div>';
-    }
-}
-
-// Buka Modal & Ambil Koordinat GPS Petugas
-function openModal(nomen) {
-    document.getElementById('input-nomen').value = nomen;
-    document.getElementById('label-nomen').innerText = nomen;
-    
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                document.getElementById('input-lat').value = pos.coords.latitude;
-                document.getElementById('input-lng').value = pos.coords.longitude;
-            },
-            () => { console.warn("GPS diaktifkan tanpa koordinat."); }
-        );
-    }
-    new bootstrap.Modal(document.getElementById('modalLapor')).show();
-}
-
-// Submit Laporan Kunjungan
-document.getElementById('formLapor').onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('btnSimpan');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan...';
-    
-    const fd = new FormData(e.target);
-    try {
-        const response = await fetch('/api/belum-bayar/simpan-kunjungan', {
-            method: 'POST', 
-            body: fd 
+                </div>
+            </div>`;
         });
-        
-        if (response.ok) {
-            Swal.fire({ icon: 'success', title: 'Laporan Tersimpan', showConfirmButton: false, timer: 1500 });
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            Swal.fire({ icon: 'error', title: 'Gagal Simpan' });
-            btn.disabled = false;
-            btn.innerHTML = 'SIMPAN LAPORAN';
-        }
-    } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Masalah Jaringan' });
-        btn.disabled = false;
-    }
-};
-
+        document.getElementById('list-container').innerHTML = html || '<div class="text-center p-5 text-muted">Semua tagihan sudah terbayar!</div>';
+    } catch (e) { console.error(e); }
+}
 document.addEventListener('DOMContentLoaded', loadList);
 </script>
 {% endblock %}
