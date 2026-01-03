@@ -1,38 +1,106 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-    <div class="card-header bg-white py-3 border-bottom-0">
-        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-history me-2"></i>Log Aktivitas Upload</h6>
+<div class="animate__animated animate__fadeIn">
+    <div class="px-2 mb-4">
+        <h4 class="fw-bold mb-1">Riwayat Aktivitas</h4>
+        <p class="text-muted small">Log pengunggahan data periode berjalan</p>
     </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead>
-                <tr>
-                    <th class="ps-4">File Name</th>
-                    <th>Tipe Data</th>
-                    <th>Periode</th>
-                    <th>Status</th>
-                    <th class="text-end pe-4">Tgl Upload</th>
-                </tr>
-            </thead>
-            <tbody id="history-body">
-                <tr>
-                    <td class="ps-4">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-file-excel text-success me-3 fa-lg"></i>
-                            <div>
-                                <div class="fw-bold mb-0">master_agustus.xlsx</div>
-                                <div class="text-muted small">2.4 MB</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td><span class="badge bg-primary-subtle text-primary px-3">MC</span></td>
-                    <td class="fw-medium">08/2024</td>
-                    <td><span class="badge bg-success-subtle text-success"><i class="fas fa-check me-1"></i> Berhasil</span></td>
-                    <td class="text-end pe-4 text-muted small">2024-08-15 10:30</td>
-                </tr>
-            </tbody>
-        </table>
+
+    <div class="d-flex gap-2 overflow-auto px-2 mb-4" style="white-space: nowrap; scrollbar-width: none;">
+        <span class="badge rounded-pill bg-primary px-3 py-2">Semua</span>
+        <span class="badge rounded-pill bg-white text-dark border px-3 py-2">Master (MC)</span>
+        <span class="badge rounded-pill bg-white text-dark border px-3 py-2">Collection</span>
+    </div>
+
+    <div id="history-container" class="px-1">
+        <div id="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">Memuat riwayat...</p>
+        </div>
     </div>
 </div>
+
+<style>
+    /* Styling khusus kartu riwayat agar tampak seperti aplikasi HP */
+    .history-card {
+        border-radius: 20px;
+        border-left: 5px solid #0061ff;
+        transition: transform 0.2s;
+    }
+    .history-card:active {
+        transform: scale(0.98);
+    }
+    .status-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 5px 10px;
+        border-radius: 8px;
+    }
+    .icon-circle {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+    }
+</style>
+
+<script>
+async function loadHistory() {
+    try {
+        const res = await fetch('/api/history/list');
+        const data = await res.json();
+        const container = document.getElementById('history-container');
+        
+        if (data.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-light mb-3"></i>
+                    <p class="text-muted">Belum ada riwayat aktivitas.</p>
+                </div>`;
+            return;
+        }
+
+        let html = '';
+        data.forEach(item => {
+            // Logika warna berdasarkan tipe file
+            let colorClass = 'primary';
+            let icon = 'fa-file-excel';
+            
+            if(item.file_type === 'mc') { colorClass = 'indigo'; icon = 'fa-database'; }
+            else if(item.file_type === 'collection') { colorClass = 'success'; icon = 'fa-receipt'; }
+            
+            html += `
+            <div class="card history-card mb-3 shadow-sm border-0">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="icon-circle bg-${colorClass}-subtle text-${colorClass} me-3">
+                            <i class="fas ${icon} fa-lg"></i>
+                        </div>
+                        <div class="flex-grow-1 overflow-hidden">
+                            <h6 class="fw-bold mb-0 text-truncate" style="font-size: 0.9rem;">${item.filename}</h6>
+                            <div class="d-flex align-items-center mt-1">
+                                <span class="badge bg-light text-secondary me-2" style="font-size: 0.7rem;">${item.file_type.toUpperCase()}</span>
+                                <small class="text-muted" style="font-size: 0.7rem;"><i class="fas fa-calendar-alt me-1"></i> ${item.periode}</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="status-badge bg-success-subtle text-success">Berhasil</span>
+                            <div class="text-muted mt-1" style="font-size: 0.6rem;">${item.created_at.split(' ')[0]}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    } catch (e) {
+        document.getElementById('history-container').innerHTML = 
+            '<div class="alert alert-danger mx-2">Gagal memuat riwayat.</div>';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadHistory);
+</script>
 {% endblock %}
