@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+    <h5 class="fw-bold"><i class="fas fa-tasks me-2"></i>Kunjungan Cureent & Tunggakan</h5>
+    <div id="list-container"></div>
+</div>
+
+<div class="modal fade" id="modalLapor" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen-sm-down">
+        <form id="formLapor" class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Laporan Kunjungan: <span id="label-nomen"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="nomen" id="input-nomen">
+                <div class="mb-3">
+                    <label class="small fw-bold">Ambil Foto Rumah/Pelanggan</label>
+                    <input type="file" name="foto" class="form-control" accept="image/*" capture="camera" required>
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold">Status Kunjungan</label>
+                    <select name="keterangan" id="select-status" class="form-select" onchange="toggleJanji(this.value)">
+                        <option value="Rumah Kosong">Rumah Kosong</option>
+                        <option value="Janji Bayar">Janji Bayar</option>
+                        <option value="Sudah Bayar">Sudah Bayar</option>
+                    </select>
+                </div>
+                <div class="mb-3 d-none" id="group-janji">
+                    <label class="small fw-bold">Tanggal Janji Bayar</label>
+                    <input type="date" name="tgl_janji_bayar" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary w-100 py-2">Simpan Laporan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleJanji(val) {
+    document.getElementById('group-janji').classList.toggle('d-none', val !== 'Janji Bayar');
+}
+
+async function loadList() {
+    const res = await fetch('/api/belum-bayar/list');
+    const data = await res.json();
+    let html = '';
+    data.forEach(item => {
+        html += `
+        <div class="card mb-3 shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-bold">${item.nomen}</div>
+                        <div class="small text-muted">${item.nama}</div>
+                    </div>
+                    <span class="badge ${item.bill_tunggakan > 0 ? 'bg-danger' : 'bg-warning text-dark'}">
+                        Rp ${item.total_tagihan.toLocaleString()}
+                    </span>
+                </div>
+                <div class="mt-2 small text-secondary">
+                    Cureent: Rp ${item.bill_cureent.toLocaleString()} | Tunggakan: Rp ${item.bill_tunggakan.toLocaleString()}
+                </div>
+                <button onclick="openModal('${item.nomen}')" class="btn btn-sm btn-primary w-100 mt-3">
+                    <i class="fas fa-camera me-1"></i> ${item.status_terakhir || 'Catat Kunjungan'}
+                </button>
+            </div>
+        </div>`;
+    });
+    document.getElementById('list-container').innerHTML = html;
+}
+
+function openModal(nomen) {
+    document.getElementById('input-nomen').value = nomen;
+    document.getElementById('label-nomen').innerText = nomen;
+    new bootstrap.Modal(document.getElementById('modalLapor')).show();
+}
+
+document.getElementById('formLapor').onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
+    location.reload();
+};
+
+loadList();
+</script>
+{% endblock %}
