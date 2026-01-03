@@ -1,20 +1,36 @@
+import requests
 from flask import Blueprint, request, jsonify
 from core.helpers import APIResponse
 import os
+
+# Konfigurasi WA Gateway (Contoh: Fonnte)
+WA_TOKEN = "YOUR_FONNTE_TOKEN" 
+
+def send_wa_notification(phone, message):
+    """Fungsi helper untuk kirim WA"""
+    url = "https://api.fonnte.com/send"
+    payload = {
+        'target': phone,
+        'message': message,
+        'countryCode': '62',
+    }
+    headers = {'Authorization': WA_TOKEN}
+    try:
+        response = requests.post(url, data=payload, headers=headers)
+        return response.json()
+    except Exception as e:
+        print(f"Error sending WA: {e}")
+        return None
 
 def register_belum_bayar_routes(app, get_db):
     
     @app.route('/api/belum-bayar/list', methods=['GET'])
     def get_list_kunjungan():
         db = get_db()
-        # Logika: 
-        # 1. Cureent: Ada di MC (tagihan bln lalu) tapi belum ada di Collection bln ini.
-        # 2. Tunggakan: Ada di Ardebt (> 2 bln).
-        # 3. Undue: (Dikecualikan dari list ini karena hanya untuk WA Blast).
-        
+        # Query yang sudah ada dioptimasi untuk menyertakan nomor HP jika tersedia
         query = """
         SELECT 
-            m.nomen, m.nama, m.pcez,
+            m.nomen, m.nama, m.pcez, m.no_hp,
             COALESCE(m.nominal, 0) as bill_cureent,
             COALESCE(a.jumlah, 0) as bill_tunggakan,
             (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total_tagihan,
@@ -25,20 +41,37 @@ def register_belum_bayar_routes(app, get_db):
         LEFT JOIN collection_harian c ON m.nomen = c.nomen 
             AND m.periode_bulan = c.periode_bulan
         LEFT JOIN kunjungan_petugas k ON m.nomen = k.nomen
-        WHERE c.id IS NULL -- Belum Bayar
-        AND (m.nominal > 0 OR a.jumlah > 0) -- Cureent atau Tunggakan
+        WHERE c.id IS NULL 
+        AND (m.nominal > 0 OR a.jumlah > 0)
         ORDER BY bill_tunggakan DESC
         """
         rows = db.execute(query).fetchall()
         return jsonify([dict(row) for row in rows])
 
-    @app.route('/api/belum-bayar/wa-blast-list', methods=['GET'])
-    def get_undue_list():
+    @app.route('/api/wa-blast/send-bulk', methods=['POST'])
+    def wa_blast_bulk():
+        """Endpoint untuk mengirim pesan tagihan massal"""
         db = get_db()
-        # Undue: Tagihan bln ini yang dibayar bln ini (untuk apresiasi/reminder)
-        query = "SELECT nomen, nama FROM master_pelanggan WHERE nominal > 0"
-        rows = db.execute(query).fetchall()
-        return jsonify([dict(row) for row in rows])
+        data = request.json
+        type_blast = data.get('type') # 'reminder' atau 'warning'
+        
+        # Ambil data pelanggan yang belum bayar
+        query = "SELECT nama, no_hp, nominal FROM master_pelanggan WHERE nominal > 0"
+        customers = db.execute(query).fetchall()
+        
+        count = 0
+        for cust in customers:
+            if not cust['no_hp']: continue
+            
+            if type_blast == 'reminder':
+                msg = f"Halo {cust['nama']}, kami mengingatkan tagihan air Anda sebesar Rp {cust['nominal']:,} akan jatuh tempo. Mohon abaikan jika sudah membayar."
+            else:
+                msg = f"PENTING: Tagihan air {cust['nama']} sebesar Rp {cust['nominal']:,} sudah melewati jatuh tempo. Harap segera melakukan pembayaran."
+            
+            send_wa_notification(cust['no_hp'], msg)
+            count += 1
+            
+        return jsonify({"status": "success", "sent": count})
 
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
     def simpan_kunjungan():
@@ -48,6 +81,10 @@ def register_belum_bayar_routes(app, get_db):
         keterangan = request.form.get('keterangan')
         tgl_janji = request.form.get('tgl_janji_bayar')
         
+        # Simpan koordinat jika dikirim dari frontend (Fitur GPS)
+        lat = request.form.get('lat')
+        lng = request.form.get('lng')
+        
         foto = request.files.get('foto')
         filename = f"{nomen}_{foto.filename}" if foto else None
         if foto:
@@ -55,8 +92,8 @@ def register_belum_bayar_routes(app, get_db):
 
         db.execute("""
             INSERT INTO kunjungan_petugas 
-            (nomen, petugas_name, keterangan, tgl_janji_bayar, foto_path) 
-            VALUES (?, ?, ?, ?, ?)
-        """, (nomen, petugas, keterangan, tgl_janji, filename))
+            (nomen, petugas_name, keterangan, tgl_janji_bayar, foto_path, latitude, longitude) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (nomen, petugas, keterangan, tgl_janji, filename, lat, lng))
         db.commit()
         return APIResponse.success(message="Data kunjungan berhasil dicatat")
