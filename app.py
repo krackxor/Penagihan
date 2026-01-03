@@ -1,28 +1,24 @@
 import os
 from flask import Flask, render_template, g
 from core.database import init_db, get_db_connection
-from api.helpers import APIResponse # Pastikan sudah diubah dari core ke api
+from api.helpers import APIResponse  # Perbaikan path import
 from config import Config
 
 # Import API Routes
 from api.upload import upload_bp
-from api.history import history_bp # Sekarang file ini sudah ada
+from api.history import history_bp
 from api.belum_bayar import register_belum_bayar_routes
 from api.pcez_performance import register_pcez_routes
-
-# KOMENTARI jika file berikut belum ada di folder api/
-# from api.kpi import kpi_bp 
-# from api.analisa import analisa_bp
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
     with app.app_context():
+        # Inisialisasi Database
         init_db(app)
-        upload_path = os.path.join('static', 'uploads', 'kunjungan')
-        if not os.path.exists(upload_path):
-            os.makedirs(upload_path)
+        # Inisialisasi Folder (uploads/temp, dll)
+        Config.init_app(app)
 
     @app.teardown_appcontext
     def close_connection(exception):
@@ -33,7 +29,7 @@ def create_app():
     def get_db():
         return get_db_connection()
 
-    # --- Register Blueprints ---
+    # Register Blueprints
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(history_bp, url_prefix='/api')
     
@@ -41,26 +37,17 @@ def create_app():
     register_belum_bayar_routes(app, get_db)
     register_pcez_routes(app, get_db)
 
-    # --- Page Routes ---
     @app.route('/')
-    def index():
-        return render_template('index.html')
+    def index(): return render_template('index.html')
 
     @app.route('/upload')
-    def upload_page():
-        return render_template('upload.html')
+    def upload_page(): return render_template('upload.html')
 
     @app.route('/history')
-    def history_page():
-        return render_template('history.html')
+    def history_page(): return render_template('history.html')
 
     @app.route('/belum-bayar')
-    def belum_bayar_page():
-        return render_template('belum_bayar.html')
-
-    @app.route('/leaderboard')
-    def leaderboard_page():
-        return render_template('menu.html')
+    def belum_bayar_page(): return render_template('belum_bayar.html')
 
     return app
 
