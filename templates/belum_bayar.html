@@ -2,7 +2,7 @@
 {% block content %}
 <div class="animate__animated animate__fadeIn px-2 pb-5">
     
-    <div class="card border-0 bg-dark text-white rounded-4 mb-4 shadow-lg overflow-hidden">
+    <div class="card border-0 bg-dark text-white rounded-4 mb-3 shadow-lg overflow-hidden">
         <div class="card-body p-4 position-relative">
             <div class="position-relative z-1">
                 <h6 class="text-white-50 small mb-1 text-uppercase fw-bold">Target Penagihan Hari Ini</h6>
@@ -13,31 +13,32 @@
                 <div class="progress bg-secondary" style="height: 10px; border-radius: 5px;">
                     <div id="targetProgress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 0%"></div>
                 </div>
-                <p class="small mt-2 mb-0 text-white-50" id="progressText">Ayo selesaikan 10 rute terbaikmu!</p>
+                <p class="small mt-2 mb-0 text-white-50" id="progressText">Ayo selesaikan rute prioritasmu!</p>
             </div>
             <i class="fas fa-route position-absolute end-0 bottom-0 text-white-50 opacity-25" style="font-size: 6rem; margin-right: -10px; margin-bottom: -10px;"></i>
         </div>
     </div>
 
-    <div class="sticky-top bg-white pt-2 pb-3 mb-2 shadow-sm" style="z-index: 1020; margin: 0 -10px; padding: 0 15px;">
-        <div class="input-group mb-2 shadow-sm rounded-4 overflow-hidden border">
-            <span class="input-group-text border-0 bg-white"><i class="fas fa-search text-muted"></i></span>
-            <input type="text" id="searchInput" class="form-control border-0" placeholder="Cari Nama atau Nomen...">
-        </div>
+    <div class="sticky-top bg-white pt-2 shadow-sm" style="z-index: 1020; margin: 0 -15px; padding: 0 15px;">
+        <div class="d-flex gap-2 overflow-auto no-scrollbar pb-3" id="petugasTabs">
+            <button class="btn btn-primary rounded-pill px-4 btn-tab active" onclick="filterByPetugas('all', this)">Semua</button>
+            </div>
         
-        <div class="d-flex gap-2 overflow-auto no-scrollbar py-1" id="filter-petugas">
-            <button class="btn btn-sm btn-primary rounded-pill px-3 filter-btn active" onclick="applyFilter('all', this)">Semua Rute</button>
+        <div class="input-group mb-3 shadow-sm rounded-4 overflow-hidden border">
+            <span class="input-group-text border-0 bg-white"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchInput" class="form-control border-0" placeholder="Cari Nama Pelanggan / Nomen / Blok...">
         </div>
     </div>
 
     
+
     <div class="alert alert-primary border-0 rounded-4 d-flex align-items-center mb-3 shadow-sm">
         <div class="bg-primary text-white rounded-circle p-2 me-3">
             <i class="fas fa-location-arrow"></i>
         </div>
         <div class="small">
-            <strong>Urutan Jalur Pintar</strong>
-            <span class="d-block text-muted">Disusun berdasarkan Kode Blok (Rumah ke Rumah)</span>
+            <strong>Urutan Jalur Pintar Aktif</strong>
+            <span class="d-block text-muted">Disusun dari Blok terdekat (Rumah ke Rumah)</span>
         </div>
     </div>
 
@@ -64,17 +65,17 @@
                             <option value="">-- Pilih Hasil Lapangan --</option>
                             <option value="Janji Bayar">Janji Bayar</option>
                             <option value="Rumah Kosong">Rumah Kosong</option>
-                            <option value="Sudah Bayar">Sudah Bayar</option>
+                            <option value="Sudah Bayar">Sudah Bayar (Ada Struk)</option>
                             <option value="Pasang Stiker">Pasang Stiker Peringatan</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">AMBIL FOTO BUKTI</label>
+                        <label class="form-label small fw-bold text-muted">AMBIL FOTO BUKTI (GEO-TAG)</label>
                         <input type="file" class="form-control rounded-3" name="foto" accept="image/*" capture="camera">
                     </div>
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow">Kirim Laporan</button>
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow">Simpan Laporan</button>
                 </div>
             </form>
         </div>
@@ -83,7 +84,9 @@
 
 <style>
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    .customer-card { border-radius: 20px !important; border-left: 5px solid transparent !important; }
+    .btn-tab { white-space: nowrap; font-size: 0.85rem; font-weight: 600; border: 1px solid #eee; transition: 0.3s; }
+    .btn-tab.active { box-shadow: 0 4px 10px rgba(0, 97, 255, 0.3); }
+    .customer-card { border-radius: 20px !important; border-left: 6px solid transparent !important; }
     .card-berekor { border-left-color: #dc3545 !important; }
     .card-current { border-left-color: #ffc107 !important; }
     .card-undue { border-left-color: #0dcaf0 !important; }
@@ -91,38 +94,52 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-let currentPetugas = '';
+let currentPetugas = 'all';
 let currentSearch = '';
 
 async function initPage() {
-    // Load Daftar Petugas untuk Filter
-    const resP = await fetch('/api/belum-bayar/get-petugas-list');
-    const pList = await resP.json();
-    const fCont = document.getElementById('filter-petugas');
-    pList.forEach(p => {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-sm btn-outline-secondary rounded-pill px-3 filter-btn';
-        btn.innerText = p;
-        btn.onclick = (e) => applyFilter(p, btn);
-        fCont.appendChild(btn);
-    });
+    // Load Tab Petugas
+    const resTabs = await fetch('/api/belum-bayar/petugas-tabs');
+    const tabs = await resTabs.json();
+    const tabContainer = document.getElementById('petugasTabs');
     
-    updateData();
+    tabs.forEach(name => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-outline-secondary rounded-pill px-4 btn-tab';
+        btn.innerText = name;
+        btn.onclick = (e) => filterByPetugas(name, btn);
+        tabContainer.appendChild(btn);
+    });
+
+    loadData();
 }
 
-async function updateData() {
+function filterByPetugas(name, btn) {
+    currentPetugas = name;
+    document.querySelectorAll('.btn-tab').forEach(b => {
+        b.classList.replace('btn-primary', 'btn-outline-secondary');
+        b.classList.remove('active');
+    });
+    btn.classList.replace('btn-outline-secondary', 'btn-primary');
+    btn.classList.add('active');
+    loadData();
+}
+
+async function loadData() {
     const container = document.getElementById('listContainer');
-    const res = await fetch(`/api/belum-bayar/list?petugas=${currentPetugas}&search=${currentSearch}`);
-    const data = await res.json();
+    const pParam = currentPetugas === 'all' ? '' : currentPetugas;
     
-    // Update Progress Bar
-    const resStats = await fetch(`/api/belum-bayar/stats-harian?petugas=${currentPetugas}`);
+    // Load Stats Harian
+    const resStats = await fetch(`/api/belum-bayar/stats-harian?petugas=${pParam}`);
     const stats = await resStats.json();
     const progress = (stats.done / 10) * 100;
     document.getElementById('done-count').innerText = stats.done;
     document.getElementById('targetProgress').style.width = progress + '%';
-    document.getElementById('progressText').innerText = `${stats.done} dari 10 target harian selesai`;
 
+    // Load List (Limit 10)
+    const res = await fetch(`/api/belum-bayar/list?petugas=${pParam}&search=${currentSearch}`);
+    const data = await res.json();
+    
     let html = '';
     data.forEach(item => {
         const typeClass = item.status_kategori === 'Berekor' ? 'card-berekor' : (item.status_kategori === 'Undue' ? 'card-undue' : 'card-current');
@@ -134,50 +151,43 @@ async function updateData() {
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.6rem;">
-                            <i class="fas fa-map-marker-alt me-1"></i>BLOK ${item.block} | ${item.pcez}
+                            <i class="fas fa-map-pin me-1"></i>BLOK ${item.block} | ${item.pcez}
                         </span>
                         <h6 class="fw-bold mb-0 mt-1">${item.nama}</h6>
                     </div>
-                    <span class="badge ${badgeColor} rounded-pill small">${item.status_kategori}</span>
+                    <span class="badge ${badgeColor} rounded-pill" style="font-size: 0.6rem;">${item.status_kategori}</span>
                 </div>
                 <div class="d-flex justify-content-between align-items-end mt-3">
                     <div>
-                        <small class="text-muted d-block" style="font-size: 0.65rem;">TOTAL TAGIHAN</small>
+                        <small class="text-muted d-block" style="font-size: 0.6rem;">TOTAL TAGIHAN</small>
                         <span class="fw-bold text-primary fs-5">Rp ${item.total_tagihan.toLocaleString()}</span>
                     </div>
                     <div class="d-flex gap-2">
-                        <a href="https://wa.me/${item.no_hp}" class="btn btn-light rounded-circle text-success border shadow-sm" style="width: 40px; height: 40px;"><i class="fab fa-whatsapp"></i></a>
+                        <a href="https://wa.me/${item.no_hp}" class="btn btn-light rounded-circle text-success border" style="width: 38px; height: 38px;"><i class="fab fa-whatsapp"></i></a>
                         <button onclick="openLapor('${item.nomen}')" class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold btn-sm">LAPOR</button>
                     </div>
                 </div>
             </div>
         </div>`;
     });
-    container.innerHTML = html;
-}
-
-function applyFilter(p, btn) {
-    currentPetugas = p === 'all' ? '' : p;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.replace('btn-primary', 'btn-outline-secondary'));
-    btn.classList.replace('btn-outline-secondary', 'btn-primary');
-    updateData();
+    container.innerHTML = html || '<div class="text-center py-5 text-muted">Tidak ada jadwal rute.</div>';
 }
 
 document.getElementById('searchInput').oninput = (e) => {
     currentSearch = e.target.value;
-    updateData();
+    loadData();
 };
 
-const modal = new bootstrap.Modal(document.getElementById('modalLapor'));
+const laporModal = new bootstrap.Modal(document.getElementById('modalLapor'));
 function openLapor(nomen) {
     document.getElementById('modal-nomen').value = nomen;
-    modal.show();
+    laporModal.show();
 }
 
 document.getElementById('formLapor').onsubmit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    fd.append('petugas', currentPetugas || 'PETUGAS_LAPANGAN');
+    fd.append('petugas', currentPetugas === 'all' ? 'ADMIN' : currentPetugas);
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(pos => {
@@ -188,9 +198,9 @@ document.getElementById('formLapor').onsubmit = async (e) => {
 
     const res = await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
     if (res.ok) {
-        modal.hide();
-        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Laporan disimpan!', confirmButtonColor: '#0061ff' });
-        updateData();
+        laporModal.hide();
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Laporan tersimpan!', confirmButtonColor: '#0061ff' });
+        loadData();
     }
 };
 
