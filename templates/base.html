@@ -2,96 +2,108 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sunter Dashboard Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sunter Pro Mobile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/all.min.css">
     <style>
         :root {
-            --primary-color: #0d6efd;
-            --bg-light: #f8f9fa;
+            --primary: #0061ff;
+            --secondary: #6033ff;
+            --bg-app: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #1e293b;
         }
+
         body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--bg-light);
-            color: #334155;
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            padding-bottom: 90px; /* Ruang untuk Bottom Nav */
+            overflow-x: hidden;
         }
-        .navbar {
-            backdrop-filter: blur(10px);
-            background-color: rgba(13, 110, 253, 0.9) !important;
+
+        /* Glassmorphism Header */
+        .mobile-header {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            padding: 15px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
+
+        /* Modern Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 5px;
+            border-radius: 24px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+            border: 1px solid rgba(255,255,255,0.4);
+            z-index: 2000;
+        }
+
+        .nav-item {
+            text-align: center;
+            text-decoration: none;
+            color: #94a3b8;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        .nav-item i { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+        .nav-item span { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .nav-item.active { color: var(--primary); }
+
         .card {
             border: none;
-            border-radius: 12px;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border-radius: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            margin-bottom: 15px;
         }
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-        }
-        .btn {
-            border-radius: 8px;
-            font-weight: 500;
-            padding: 0.6rem 1.2rem;
-        }
-        .nav-link {
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .nav-link.active {
-            background-color: rgba(255,255,255,0.2);
-            border-radius: 8px;
-        }
-        .table thead th {
-            background-color: #f1f5f9;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.025em;
-            color: #64748b;
-            border-top: none;
+
+        .btn-gradient {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 12px 20px;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm sticky-top">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="/">
-                <i class="fas fa-faucet-drip me-2"></i>SUNTER <span class="fw-light">PRO</span>
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/' }}" href="/">
-                            <i class="fas fa-home me-1"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/belum-bayar' }}" href="/belum-bayar">
-                            <i class="fas fa-walking me-1"></i> Kunjungan
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/upload' }}" href="/upload">
-                            <i class="fas fa-cloud-upload-alt me-1"></i> Upload
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/history' }}" href="/history">
-                            <i class="fas fa-history me-1"></i> Riwayat
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <div class="mobile-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold fs-5 text-primary">Sunter<span class="text-dark">Pro</span></span>
+        <div class="rounded-circle bg-light p-2"><i class="fas fa-user text-primary"></i></div>
+    </div>
 
-    <div class="container mt-4 mb-5">
+    <div class="container mt-3">
         {% block content %}{% endblock %}
+    </div>
+
+    <div class="bottom-nav">
+        <a href="/" class="nav-item {{ 'active' if request.path == '/' }}">
+            <i class="fas fa-house-chimney"></i><span>Home</span>
+        </a>
+        <a href="/belum-bayar" class="nav-item {{ 'active' if request.path == '/belum-bayar' }}">
+            <i class="fas fa-list-check"></i><span>Tugas</span>
+        </a>
+        <a href="/upload" class="nav-item {{ 'active' if request.path == '/upload' }}">
+            <i class="fas fa-circle-plus"></i><span>Upload</span>
+        </a>
+        <a href="/history" class="nav-item {{ 'active' if request.path == '/history' }}">
+            <i class="fas fa-clock-rotate-left"></i><span>Log</span>
+        </a>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
