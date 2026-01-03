@@ -1,122 +1,199 @@
-import os
-from flask import Blueprint, request, jsonify, current_app
-from core.database import get_db_connection
-from datetime import datetime
+{% extends "base.html" %}
+{% block content %}
+<div class="animate__animated animate__fadeIn px-2 pb-5">
+    
+    <div class="card border-0 bg-dark text-white rounded-4 mb-4 shadow-lg overflow-hidden">
+        <div class="card-body p-4 position-relative">
+            <div class="position-relative z-1">
+                <h6 class="text-white-50 small mb-1 text-uppercase fw-bold">Target Penagihan Hari Ini</h6>
+                <div class="d-flex align-items-end gap-2 mb-3">
+                    <h1 class="fw-bold mb-0" id="done-count">0</h1>
+                    <h4 class="text-white-50 mb-1">/ 10</h4>
+                </div>
+                <div class="progress bg-secondary" style="height: 10px; border-radius: 5px;">
+                    <div id="targetProgress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                </div>
+                <p class="small mt-2 mb-0 text-white-50" id="progressText">Ayo selesaikan 10 rute terbaikmu!</p>
+            </div>
+            <i class="fas fa-route position-absolute end-0 bottom-0 text-white-50 opacity-25" style="font-size: 6rem; margin-right: -10px; margin-bottom: -10px;"></i>
+        </div>
+    </div>
 
-# Inisialisasi Blueprint
-belum_bayar_bp = Blueprint('belum_bayar', __name__)
-
-def register_belum_bayar_routes(app, get_db):
-    """
-    Rute API untuk manajemen penagihan cerdas.
-    Mendukung auto-mapping petugas dan pengurutan rute jalur terdekat.
-    """
-
-    @app.route('/api/belum-bayar/list', methods=['GET'])
-    def get_list_kunjungan():
-        db = get_db()
+    <div class="sticky-top bg-white pt-2 pb-3 mb-2 shadow-sm" style="z-index: 1020; margin: 0 -10px; padding: 0 15px;">
+        <div class="input-group mb-2 shadow-sm rounded-4 overflow-hidden border">
+            <span class="input-group-text border-0 bg-white"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchInput" class="form-control border-0" placeholder="Cari Nama atau Nomen...">
+        </div>
         
-        # Ambil parameter filter dari permintaan aplikasi
-        petugas_name = request.args.get('petugas', '') # Filter petugas (Pian/Teguh/dll)
-        search_query = request.args.get('search', '')  # Cari Nama atau Nomen
-        kategori = request.args.get('kategori', 'all') # all, berekor, undue, current
-        
-        # Konfigurasi Jatuh Tempo SOP
-        TGL_JATUH_TEMPO = 20
-        tgl_sekarang = datetime.now().day
+        <div class="d-flex gap-2 overflow-auto no-scrollbar py-1" id="filter-petugas">
+            <button class="btn btn-sm btn-primary rounded-pill px-3 filter-btn active" onclick="applyFilter('all', this)">Semua Rute</button>
+        </div>
+    </div>
 
-        # Query Cerdas: Menggabungkan Master, Ardebt, dan Rute Petugas
-        # Diurutkan berdasarkan Jalur Terdekat (PCEZ dan Urutan Blok)
-        query = """
-        SELECT 
-            m.nomen, m.nama, m.pcez, m.block, m.rayon, m.no_hp,
-            r.petugas as nama_petugas,
-            COALESCE(m.nominal, 0) as bill_current,
-            COALESCE(a.jumlah, 0) as bill_tunggakan,
-            (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total_tagihan,
-            CASE 
-                WHEN COALESCE(a.jumlah, 0) > 0 THEN 'Berekor'
-                WHEN ? < ? THEN 'Undue'
-                ELSE 'Current'
-            END as status_kategori
-        FROM master_pelanggan m
-        LEFT JOIN rute_petugas r ON m.pcez = r.pcez
-        LEFT JOIN ardebt a ON m.nomen = a.nomen
-        LEFT JOIN collection_harian c ON m.nomen = c.nomen 
-            AND m.periode_bulan = c.periode_bulan
-            AND m.periode_tahun = c.periode_tahun
-        WHERE c.id IS NULL 
-        AND (m.nominal > 0 OR COALESCE(a.jumlah, 0) > 0)
-        """
-        
-        params = [tgl_sekarang, TGL_JATUH_TEMPO]
+    
+    <div class="alert alert-primary border-0 rounded-4 d-flex align-items-center mb-3 shadow-sm">
+        <div class="bg-primary text-white rounded-circle p-2 me-3">
+            <i class="fas fa-location-arrow"></i>
+        </div>
+        <div class="small">
+            <strong>Urutan Jalur Pintar</strong>
+            <span class="d-block text-muted">Disusun berdasarkan Kode Blok (Rumah ke Rumah)</span>
+        </div>
+    </div>
 
-        # Logika Filter Pencarian
-        if petugas_name:
-            query += " AND r.petugas = ?"
-            params.append(petugas_name)
-        
-        if search_query:
-            query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"
-            params.extend([f'%{search_query}%', f'%{search_query}%'])
+    <div id="listContainer">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    </div>
+</div>
 
-        if kategori == 'berekor':
-            query += " AND COALESCE(a.jumlah, 0) > 0"
-        elif kategori == 'undue':
-            query += " AND COALESCE(a.jumlah, 0) = 0 AND ? < ?"
-            params.extend([tgl_sekarang, TGL_JATUH_TEMPO])
+<div class="modal fade" id="modalLapor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered mx-3">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="fw-bold">Laporan Petugas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formLapor">
+                <div class="modal-body">
+                    <input type="hidden" id="modal-nomen" name="nomen">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">HASIL KUNJUNGAN</label>
+                        <select class="form-select rounded-3 p-3 shadow-sm" name="keterangan" required>
+                            <option value="">-- Pilih Hasil Lapangan --</option>
+                            <option value="Janji Bayar">Janji Bayar</option>
+                            <option value="Rumah Kosong">Rumah Kosong</option>
+                            <option value="Sudah Bayar">Sudah Bayar</option>
+                            <option value="Pasang Stiker">Pasang Stiker Peringatan</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">AMBIL FOTO BUKTI</label>
+                        <input type="file" class="form-control rounded-3" name="foto" accept="image/*" capture="camera">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow">Kirim Laporan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-        # CERDAS: Urutan Jalur Rute (PCEZ lalu urutan Blok 01, 02, dst)
-        query += " ORDER BY m.pcez ASC, m.block ASC"
-        
-        try:
-            rows = db.execute(query, params).fetchall()
-            return jsonify([dict(row) for row in rows])
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+<style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .customer-card { border-radius: 20px !important; border-left: 5px solid transparent !important; }
+    .card-berekor { border-left-color: #dc3545 !important; }
+    .card-current { border-left-color: #ffc107 !important; }
+    .card-undue { border-left-color: #0dcaf0 !important; }
+</style>
 
-    @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
-    def simpan_kunjungan():
-        """Menyimpan hasil laporan petugas dari lapangan dengan GPS dan Foto"""
-        db = get_db()
-        
-        nomen = request.form.get('nomen')
-        petugas = request.form.get('petugas')
-        keterangan = request.form.get('keterangan')
-        lat = request.form.get('lat')
-        lng = request.form.get('lng')
-        
-        # Manajemen File Foto Proof of Visit
-        foto = request.files.get('foto')
-        filename = f"PROOF_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-        
-        if foto:
-            save_path = os.path.join(current_app.config['KUNJUNGAN_FOLDER'], filename)
-            foto.save(save_path)
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+let currentPetugas = '';
+let currentSearch = '';
 
-        try:
-            # 1. Simpan detail kunjungan
-            db.execute("""
-                INSERT INTO kunjungan_petugas 
-                (nomen, petugas_name, keterangan, foto_path, latitude, longitude)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (nomen, petugas, keterangan, filename, lat, lng))
-            
-            # 2. Catat ke log history agar admin bisa memantau
-            db.execute("""
-                INSERT INTO upload_history (filename, file_type, periode, status)
-                VALUES (?, 'KUNJUNGAN', ?, 'Berhasil')
-            """, (filename, datetime.now().strftime('%m/%Y')))
-            
-            db.commit()
-            return jsonify({"status": "success", "message": "Laporan cerdas berhasil disimpan!"})
-        except Exception as e:
-            db.rollback()
-            return jsonify({"error": str(e)}), 500
+async function initPage() {
+    // Load Daftar Petugas untuk Filter
+    const resP = await fetch('/api/belum-bayar/get-petugas-list');
+    const pList = await resP.json();
+    const fCont = document.getElementById('filter-petugas');
+    pList.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm btn-outline-secondary rounded-pill px-3 filter-btn';
+        btn.innerText = p;
+        btn.onclick = (e) => applyFilter(p, btn);
+        fCont.appendChild(btn);
+    });
+    
+    updateData();
+}
 
-    @app.route('/api/belum-bayar/get-petugas-list', methods=['GET'])
-    def get_petugas_unique():
-        """Mengambil daftar petugas unik untuk filter di aplikasi"""
-        db = get_db()
-        rows = db.execute("SELECT DISTINCT petugas FROM rute_petugas ORDER BY petugas ASC").fetchall()
-        return jsonify([row['petugas'] for row in rows])
+async function updateData() {
+    const container = document.getElementById('listContainer');
+    const res = await fetch(`/api/belum-bayar/list?petugas=${currentPetugas}&search=${currentSearch}`);
+    const data = await res.json();
+    
+    // Update Progress Bar
+    const resStats = await fetch(`/api/belum-bayar/stats-harian?petugas=${currentPetugas}`);
+    const stats = await resStats.json();
+    const progress = (stats.done / 10) * 100;
+    document.getElementById('done-count').innerText = stats.done;
+    document.getElementById('targetProgress').style.width = progress + '%';
+    document.getElementById('progressText').innerText = `${stats.done} dari 10 target harian selesai`;
+
+    let html = '';
+    data.forEach(item => {
+        const typeClass = item.status_kategori === 'Berekor' ? 'card-berekor' : (item.status_kategori === 'Undue' ? 'card-undue' : 'card-current');
+        const badgeColor = item.status_kategori === 'Berekor' ? 'bg-danger' : (item.status_kategori === 'Undue' ? 'bg-info' : 'bg-warning');
+
+        html += `
+        <div class="card border-0 shadow-sm mb-3 customer-card ${typeClass}">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.6rem;">
+                            <i class="fas fa-map-marker-alt me-1"></i>BLOK ${item.block} | ${item.pcez}
+                        </span>
+                        <h6 class="fw-bold mb-0 mt-1">${item.nama}</h6>
+                    </div>
+                    <span class="badge ${badgeColor} rounded-pill small">${item.status_kategori}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-end mt-3">
+                    <div>
+                        <small class="text-muted d-block" style="font-size: 0.65rem;">TOTAL TAGIHAN</small>
+                        <span class="fw-bold text-primary fs-5">Rp ${item.total_tagihan.toLocaleString()}</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="https://wa.me/${item.no_hp}" class="btn btn-light rounded-circle text-success border shadow-sm" style="width: 40px; height: 40px;"><i class="fab fa-whatsapp"></i></a>
+                        <button onclick="openLapor('${item.nomen}')" class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold btn-sm">LAPOR</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function applyFilter(p, btn) {
+    currentPetugas = p === 'all' ? '' : p;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.replace('btn-primary', 'btn-outline-secondary'));
+    btn.classList.replace('btn-outline-secondary', 'btn-primary');
+    updateData();
+}
+
+document.getElementById('searchInput').oninput = (e) => {
+    currentSearch = e.target.value;
+    updateData();
+};
+
+const modal = new bootstrap.Modal(document.getElementById('modalLapor'));
+function openLapor(nomen) {
+    document.getElementById('modal-nomen').value = nomen;
+    modal.show();
+}
+
+document.getElementById('formLapor').onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fd.append('petugas', currentPetugas || 'PETUGAS_LAPANGAN');
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            fd.append('lat', pos.coords.latitude);
+            fd.append('lng', pos.coords.longitude);
+        });
+    }
+
+    const res = await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
+    if (res.ok) {
+        modal.hide();
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Laporan disimpan!', confirmButtonColor: '#0061ff' });
+        updateData();
+    }
+};
+
+window.onload = initPage;
+</script>
+{% endblock %}
