@@ -1,67 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="animate__animated animate__fadeIn">
-    <div class="px-2 mb-4">
-        <h4 class="fw-bold mb-1">Halo, Petugas 👋</h4>
-        <p class="text-muted small">Ringkasan performa penagihan Anda</p>
+<div class="animate__animated animate__fadeIn px-2">
+    <div class="mb-4 pt-3">
+        <h4 class="fw-bold mb-1">Dashboard Performa 👋</h4>
+        <p class="text-muted small">Pantau progres penagihan tim lapangan</p>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-12">
-            <div class="card p-4 border-0 shadow-sm bg-primary text-white" style="border-radius: 24px;">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                        <small class="opacity-75 d-block">Sisa Target Penagihan</small>
-                        <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
-                    </div>
-                    <div class="bg-white bg-opacity-25 rounded-circle p-3">
-                        <i class="fas fa-tasks fa-2x"></i>
-                    </div>
-                </div>
-                <div class="progress mb-2" style="height: 10px; background: rgba(255,255,255,0.2); border-radius: 10px;">
-                    <div id="prog-bar" class="progress-bar bg-white" role="progressbar" style="width: 0%"></div>
-                </div>
-                <div class="d-flex justify-content-between small opacity-75">
-                    <span id="stat-realisasi">0 Lunas</span>
-                    <span id="stat-total">Total 0</span>
-                </div>
+    <div class="card p-4 border-0 shadow-sm bg-primary text-white mb-4" style="border-radius: 20px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <small class="opacity-75">Sisa Target Penagihan</small>
+                <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
             </div>
+            <div class="bg-white bg-opacity-25 rounded-circle p-3">
+                <i class="fas fa-chart-line fa-2x"></i>
+            </div>
+        </div>
+        <div class="progress mb-2" style="height: 8px; background: rgba(255,255,255,0.2); border-radius: 10px;">
+            <div id="prog-bar" class="progress-bar bg-white" role="progressbar" style="width: 0%"></div>
+        </div>
+        <div class="d-flex justify-content-between small opacity-75">
+            <span id="stat-realisasi">0 Lunas</span>
+            <span id="stat-total">Target 0</span>
         </div>
     </div>
 
-    <h6 class="fw-bold px-2 mb-3 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px; color: #64748b;">Aktivitas Kunjungan</h6>
-    <div class="row g-2 mb-4">
-        <div class="col-4 text-center">
-            <div class="card p-3 border-0 shadow-sm" style="border-radius: 18px;">
-                <small class="text-muted d-block mb-1">Hari Ini</small>
-                <h4 class="fw-bold mb-0 text-primary" id="stat-hari">0</h4>
+    <div class="row g-2 mb-4 text-center">
+        <div class="col-4">
+            <div class="card p-2 border-0 shadow-sm rounded-4">
+                <small class="text-muted d-block small">Hari Ini</small>
+                <h5 class="fw-bold mb-0 text-primary" id="stat-hari">0</h5>
             </div>
         </div>
-        <div class="col-4 text-center">
-            <div class="card p-3 border-0 shadow-sm" style="border-radius: 18px;">
-                <small class="text-muted d-block mb-1">Minggu Ini</small>
-                <h4 class="fw-bold mb-0 text-primary" id="stat-minggu">0</h4>
+        <div class="col-4">
+            <div class="card p-2 border-0 shadow-sm rounded-4">
+                <small class="text-muted d-block small">Minggu Ini</small>
+                <h5 class="fw-bold mb-0 text-primary" id="stat-minggu">0</h5>
             </div>
         </div>
-        <div class="col-4 text-center">
-            <div class="card p-3 border-0 shadow-sm" style="border-radius: 18px;">
-                <small class="text-muted d-block mb-1">Bulan Ini</small>
-                <h4 class="fw-bold mb-0 text-primary" id="stat-bulan">0</h4>
+        <div class="col-4">
+            <div class="card p-2 border-0 shadow-sm rounded-4">
+                <small class="text-muted d-block small">Bulan Ini</small>
+                <h5 class="fw-bold mb-0 text-primary" id="stat-bulan">0</h5>
             </div>
         </div>
     </div>
 
-    <h6 class="fw-bold px-2 mb-3 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px; color: #64748b;">Aksi Cepat</h6>
-    <div class="px-1 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">Kunjungan Per Petugas</h6>
+        <span class="badge bg-light text-dark fw-normal">Real-time</span>
+    </div>
+    <div class="card border-0 shadow-sm mb-4" style="border-radius: 20px; overflow: hidden;">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size: 0.85rem;">
+                <thead class="bg-light text-muted">
+                    <tr>
+                        <th class="ps-3 border-0 py-3">Nama Petugas</th>
+                        <th class="text-center border-0 py-3">H</th>
+                        <th class="text-center border-0 py-3">M</th>
+                        <th class="text-center border-0 py-3">B</th>
+                    </tr>
+                </thead>
+                <tbody id="table-petugas" class="border-top-0">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="pb-5">
         <a href="/belum-bayar" class="text-decoration-none">
-            <div class="card p-3 mb-3 border-0 shadow-sm" style="border-radius: 20px;">
+            <div class="card p-3 border-0 shadow-sm" style="border-radius: 20px; background: #f8fafc;">
                 <div class="d-flex align-items-center">
-                    <div class="bg-primary-subtle text-primary rounded-4 p-3 me-3">
+                    <div class="bg-primary text-white rounded-4 p-3 me-3">
                         <i class="fas fa-route fa-lg"></i>
                     </div>
                     <div>
                         <h6 class="fw-bold mb-0 text-dark">Rute Penagihan</h6>
-                        <p class="small text-muted mb-0">Cek daftar target rute Anda</p>
+                        <p class="small text-muted mb-0">Mulai input hasil kunjungan</p>
                     </div>
                     <i class="fas fa-chevron-right ms-auto text-muted"></i>
                 </div>
@@ -70,34 +85,53 @@
     </div>
 </div>
 
-<style>
-    .bg-primary-subtle { background-color: #e0e7ff; }
-</style>
-
 <script>
     async function loadStats() {
         try {
-            const res = await fetch('/api/performance/stats-global');
-            const data = await res.json();
+            // 1. Load Global Stats & Progress
+            const resGlobal = await fetch('/api/performance/stats-global');
+            const g = await resGlobal.json();
             
-            // Update Angka Kunjungan
-            document.getElementById('stat-hari').innerText = data.harian || 0;
-            document.getElementById('stat-minggu').innerText = data.mingguan || 0;
-            document.getElementById('stat-bulan').innerText = data.bulanan || 0;
+            document.getElementById('stat-hari').innerText = g.harian || 0;
+            document.getElementById('stat-minggu').innerText = g.mingguan || 0;
+            document.getElementById('stat-bulan').innerText = g.bulanan || 0;
+            document.getElementById('stat-sisa').innerText = (g.sisa_target || 0).toLocaleString();
+            document.getElementById('stat-realisasi').innerText = `${g.realisasi_bayar || 0} Lunas`;
+            document.getElementById('stat-total').innerText = `Target ${g.target_total || 0}`;
 
-            // Update Sisa Target & Bar
-            document.getElementById('stat-sisa').innerText = (data.sisa_target || 0).toLocaleString();
-            document.getElementById('stat-realisasi').innerText = (data.realisasi_bayar || 0) + ' Lunas';
-            document.getElementById('stat-total').innerText = 'Total ' + (data.target_total || 0);
-
-            if (data.target_total > 0) {
-                const percent = (data.realisasi_bayar / data.target_total) * 100;
+            if (g.target_total > 0) {
+                const percent = (g.realisasi_bayar / g.target_total) * 100;
                 document.getElementById('prog-bar').style.width = percent + '%';
             }
-        } catch (e) { 
-            console.error("Gagal memuat statistik dashboard"); 
+
+            // 2. Load Per Petugas Activities
+            const resPetugas = await fetch('/api/performance/per-petugas');
+            const pData = await resPetugas.json();
+            
+            const tbody = document.getElementById('table-petugas');
+            if (pData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted small">Belum ada kunjungan tercatat</td></tr>';
+            } else {
+                tbody.innerHTML = pData.map(p => `
+                    <tr>
+                        <td class="ps-3 py-3">
+                            <span class="fw-bold text-dark d-block">${p.petugas}</span>
+                        </td>
+                        <td class="text-center py-3">
+                            <span class="badge ${p.harian > 0 ? 'bg-primary' : 'bg-light text-muted'} rounded-pill px-2">
+                                ${p.harian}
+                            </span>
+                        </td>
+                        <td class="text-center py-3 text-muted">${p.mingguan}</td>
+                        <td class="text-center py-3 text-muted">${p.bulanan}</td>
+                    </tr>
+                `).join('');
+            }
+        } catch (e) {
+            console.error("Gagal memuat data dashboard");
         }
     }
+
     document.addEventListener('DOMContentLoaded', loadStats);
 </script>
 {% endblock %}
