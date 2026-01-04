@@ -1,137 +1,116 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="animate__animated animate__fadeIn px-2">
-    <div class="mb-4 pt-3">
-        <h4 class="fw-bold mb-1">Dashboard Performa 👋</h4>
-        <p class="text-muted small">Pantau progres penagihan tim lapangan</p>
+<div class="animate__animated animate__fadeIn px-2 pb-5">
+    <div class="mb-4 pt-3 text-center">
+        <h4 class="fw-bold mb-1">Dashboard Monitoring 📊</h4>
+        <p class="text-muted small" id="display-date"></p>
     </div>
 
     <div class="card p-4 border-0 shadow-sm bg-primary text-white mb-4" style="border-radius: 20px;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between">
             <div>
                 <small class="opacity-75">Sisa Target Penagihan</small>
                 <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
             </div>
-            <div class="bg-white bg-opacity-25 rounded-circle p-3">
-                <i class="fas fa-chart-line fa-2x"></i>
-            </div>
+            <i class="fas fa-wallet fa-2x opacity-25"></i>
         </div>
-        <div class="progress mb-2" style="height: 8px; background: rgba(255,255,255,0.2); border-radius: 10px;">
-            <div id="prog-bar" class="progress-bar bg-white" role="progressbar" style="width: 0%"></div>
+        <div class="progress my-3" style="height: 8px; background: rgba(255,255,255,0.2);">
+            <div id="prog-bar" class="progress-bar bg-white" style="width: 0%"></div>
         </div>
         <div class="d-flex justify-content-between small opacity-75">
             <span id="stat-realisasi">0 Lunas</span>
-            <span id="stat-total">Target 0</span>
+            <span id="stat-total">Total 0</span>
         </div>
     </div>
 
-    <div class="row g-2 mb-4 text-center">
-        <div class="col-4">
-            <div class="card p-2 border-0 shadow-sm rounded-4">
-                <small class="text-muted d-block small">Hari Ini</small>
-                <h5 class="fw-bold mb-0 text-primary" id="stat-hari">0</h5>
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card p-2 border-0 shadow-sm rounded-4">
-                <small class="text-muted d-block small">Minggu Ini</small>
-                <h5 class="fw-bold mb-0 text-primary" id="stat-minggu">0</h5>
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card p-2 border-0 shadow-sm rounded-4">
-                <small class="text-muted d-block small">Bulan Ini</small>
-                <h5 class="fw-bold mb-0 text-primary" id="stat-bulan">0</h5>
-            </div>
-        </div>
+    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+        <h6 class="fw-bold mb-0 text-dark">Aktivitas Per Petugas</h6>
+        <button class="btn btn-sm btn-light rounded-pill border shadow-sm" onclick="loadDashboard()">
+            <i class="fas fa-sync-alt text-primary"></i>
+        </button>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="fw-bold mb-0">Kunjungan Per Petugas</h6>
-        <span class="badge bg-light text-dark fw-normal">Real-time</span>
-    </div>
-    <div class="card border-0 shadow-sm mb-4" style="border-radius: 20px; overflow: hidden;">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0" style="font-size: 0.85rem;">
-                <thead class="bg-light text-muted">
-                    <tr>
-                        <th class="ps-3 border-0 py-3">Nama Petugas</th>
-                        <th class="text-center border-0 py-3">H</th>
-                        <th class="text-center border-0 py-3">M</th>
-                        <th class="text-center border-0 py-3">B</th>
-                    </tr>
-                </thead>
-                <tbody id="table-petugas" class="border-top-0">
-                    </tbody>
-            </table>
+    <div id="daily-list">
         </div>
-    </div>
-
-    <div class="pb-5">
-        <a href="/belum-bayar" class="text-decoration-none">
-            <div class="card p-3 border-0 shadow-sm" style="border-radius: 20px; background: #f8fafc;">
-                <div class="d-flex align-items-center">
-                    <div class="bg-primary text-white rounded-4 p-3 me-3">
-                        <i class="fas fa-route fa-lg"></i>
-                    </div>
-                    <div>
-                        <h6 class="fw-bold mb-0 text-dark">Rute Penagihan</h6>
-                        <p class="small text-muted mb-0">Mulai input hasil kunjungan</p>
-                    </div>
-                    <i class="fas fa-chevron-right ms-auto text-muted"></i>
-                </div>
-            </div>
-        </a>
-    </div>
 </div>
 
+<style>
+    .card-report { border-radius: 18px; border: none; margin-bottom: 15px; transition: transform 0.2s; }
+    .bg-soft-success { background: #dcfce7; color: #166534; }
+    .bg-soft-warning { background: #fef9c3; color: #854d0e; }
+    .bg-soft-danger { background: #fee2e2; color: #991b1b; }
+    .val-label { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; opacity: 0.8; }
+</style>
+
 <script>
-    async function loadStats() {
+    const formatCurrency = (num) => {
+        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
+    };
+
+    async function loadDashboard() {
         try {
-            // 1. Load Global Stats & Progress
-            const resGlobal = await fetch('/api/performance/stats-global');
-            const g = await resGlobal.json();
-            
-            document.getElementById('stat-hari').innerText = g.harian || 0;
-            document.getElementById('stat-minggu').innerText = g.mingguan || 0;
-            document.getElementById('stat-bulan').innerText = g.bulanan || 0;
+            // 1. Ambil Statistik Global
+            const resG = await fetch('/api/performance/stats-global');
+            const g = await resG.json();
             document.getElementById('stat-sisa').innerText = (g.sisa_target || 0).toLocaleString();
-            document.getElementById('stat-realisasi').innerText = `${g.realisasi_bayar || 0} Lunas`;
-            document.getElementById('stat-total').innerText = `Target ${g.target_total || 0}`;
+            document.getElementById('stat-realisasi').innerText = `${g.realisasi_bayar || 0} Pelanggan Lunas`;
+            document.getElementById('stat-total').innerText = `Target: ${g.target_total || 0}`;
+            if(g.target_total > 0) document.getElementById('prog-bar').style.width = (g.realisasi_bayar/g.target_total*100) + '%';
 
-            if (g.target_total > 0) {
-                const percent = (g.realisasi_bayar / g.target_total) * 100;
-                document.getElementById('prog-bar').style.width = percent + '%';
-            }
-
-            // 2. Load Per Petugas Activities
-            const resPetugas = await fetch('/api/performance/per-petugas');
-            const pData = await resPetugas.json();
+            // 2. Ambil Rincian Harian
+            const resD = await fetch('/api/performance/daily-detail');
+            const dData = await resD.json();
             
-            const tbody = document.getElementById('table-petugas');
-            if (pData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted small">Belum ada kunjungan tercatat</td></tr>';
-            } else {
-                tbody.innerHTML = pData.map(p => `
-                    <tr>
-                        <td class="ps-3 py-3">
-                            <span class="fw-bold text-dark d-block">${p.petugas}</span>
-                        </td>
-                        <td class="text-center py-3">
-                            <span class="badge ${p.harian > 0 ? 'bg-primary' : 'bg-light text-muted'} rounded-pill px-2">
-                                ${p.harian}
-                            </span>
-                        </td>
-                        <td class="text-center py-3 text-muted">${p.mingguan}</td>
-                        <td class="text-center py-3 text-muted">${p.bulanan}</td>
-                    </tr>
-                `).join('');
+            const container = document.getElementById('daily-list');
+            if (dData.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada kunjungan hari ini</div>';
+                return;
             }
-        } catch (e) {
-            console.error("Gagal memuat data dashboard");
-        }
+
+            container.innerHTML = dData.map(item => `
+                <div class="card card-report shadow-sm p-3">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <div>
+                            <span class="fw-bold text-dark d-block" style="font-size: 1rem;">${item.petugas}</span>
+                            <small class="text-muted"><i class="far fa-calendar-alt me-1"></i> ${item.tanggal}</small>
+                        </div>
+                        <span class="badge bg-primary rounded-pill px-3 py-2">Kunjungan: ${item.total_kunjungan}</span>
+                    </div>
+                    
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="p-2 rounded bg-soft-success">
+                                <div class="val-label">Sudah Bayar</div>
+                                <div class="fw-bold" style="font-size: 1.1rem;">${item.jml_bayar}</div>
+                                <div style="font-size: 0.6rem;">${formatCurrency(item.nom_bayar)}</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded bg-soft-warning">
+                                <div class="val-label">Janji Bayar</div>
+                                <div class="fw-bold" style="font-size: 1.1rem;">${item.jml_janji}</div>
+                                <div style="font-size: 0.6rem;">${formatCurrency(item.nom_janji)}</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded bg-soft-danger">
+                                <div class="val-label">RKS / Lain</div>
+                                <div class="fw-bold" style="font-size: 1.1rem;">${item.jml_rks}</div>
+                                <div style="font-size: 0.6rem;">Nom: ${formatCurrency(item.nom_rks)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (err) { console.error("Gagal memuat dashboard:", err); }
     }
 
-    document.addEventListener('DOMContentLoaded', loadStats);
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        });
+        loadDashboard();
+    });
 </script>
 {% endblock %}
