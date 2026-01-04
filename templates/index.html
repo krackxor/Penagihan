@@ -1,116 +1,126 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="animate__animated animate__fadeIn px-2 pb-5">
-    <div class="mb-4 pt-3 text-center">
-        <h4 class="fw-bold mb-1">Dashboard Monitoring 📊</h4>
-        <p class="text-muted small" id="display-date"></p>
+    <div class="pt-4 mb-4 text-center">
+        <h4 class="fw-bold mb-0">Sunter Pro Dashboard 📊</h4>
+        <p class="text-muted small" id="current-date"></p>
     </div>
 
-    <div class="card p-4 border-0 shadow-sm bg-primary text-white mb-4" style="border-radius: 20px;">
-        <div class="d-flex justify-content-between">
-            <div>
-                <small class="opacity-75">Sisa Target Penagihan</small>
-                <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
+    <div class="row g-2 mb-4">
+        <div class="col-4">
+            <div class="card p-2 border-0 shadow-sm text-center rounded-4 bg-primary text-white">
+                <small class="opacity-75" style="font-size: 0.65rem;">HARI INI</small>
+                <h4 class="fw-bold mb-0" id="g-hari">0</h4>
             </div>
-            <i class="fas fa-wallet fa-2x opacity-25"></i>
         </div>
-        <div class="progress my-3" style="height: 8px; background: rgba(255,255,255,0.2);">
-            <div id="prog-bar" class="progress-bar bg-white" style="width: 0%"></div>
+        <div class="col-4">
+            <div class="card p-2 border-0 shadow-sm text-center rounded-4 border-primary border-1">
+                <small class="text-muted" style="font-size: 0.65rem;">MINGGU INI</small>
+                <h4 class="fw-bold mb-0 text-primary" id="g-minggu">0</h4>
+            </div>
         </div>
-        <div class="d-flex justify-content-between small opacity-75">
-            <span id="stat-realisasi">0 Lunas</span>
-            <span id="stat-total">Total 0</span>
+        <div class="col-4">
+            <div class="card p-2 border-0 shadow-sm text-center rounded-4 border-primary border-1">
+                <small class="text-muted" style="font-size: 0.65rem;">BULAN INI</small>
+                <h4 class="fw-bold mb-0 text-primary" id="g-bulan">0</h4>
+            </div>
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
-        <h6 class="fw-bold mb-0 text-dark">Aktivitas Per Petugas</h6>
-        <button class="btn btn-sm btn-light rounded-pill border shadow-sm" onclick="loadDashboard()">
-            <i class="fas fa-sync-alt text-primary"></i>
-        </button>
+    <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+        <h6 class="fw-bold mb-0"><i class="fas fa-trophy text-warning me-1"></i> Leaderboard Petugas</h6>
+        <span class="small text-muted">Bulan Ini</span>
+    </div>
+    <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size: 0.8rem;">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-3 border-0">Nama</th>
+                        <th class="text-center border-0">Minggu</th>
+                        <th class="text-center border-0">Bulan</th>
+                    </tr>
+                </thead>
+                <tbody id="list-officers">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
-    <div id="daily-list">
+    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-history text-primary me-1"></i> History Harian Detail</h6>
+    <div id="list-history">
         </div>
 </div>
 
 <style>
-    .card-report { border-radius: 18px; border: none; margin-bottom: 15px; transition: transform 0.2s; }
-    .bg-soft-success { background: #dcfce7; color: #166534; }
-    .bg-soft-warning { background: #fef9c3; color: #854d0e; }
-    .bg-soft-danger { background: #fee2e2; color: #991b1b; }
-    .val-label { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; opacity: 0.8; }
+    .card-h { border-radius: 18px; border: none; margin-bottom: 12px; }
+    .stat-box { font-size: 0.65rem; padding: 6px; border-radius: 10px; }
+    .val-cur { font-size: 0.6rem; display: block; opacity: 0.8; }
 </style>
 
 <script>
-    const formatCurrency = (num) => {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
-    };
+    const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    async function loadDashboard() {
+    async function refreshData() {
         try {
-            // 1. Ambil Statistik Global
-            const resG = await fetch('/api/performance/stats-global');
-            const g = await resG.json();
-            document.getElementById('stat-sisa').innerText = (g.sisa_target || 0).toLocaleString();
-            document.getElementById('stat-realisasi').innerText = `${g.realisasi_bayar || 0} Pelanggan Lunas`;
-            document.getElementById('stat-total').innerText = `Target: ${g.target_total || 0}`;
-            if(g.target_total > 0) document.getElementById('prog-bar').style.width = (g.realisasi_bayar/g.target_total*100) + '%';
+            const res = await fetch('/api/performance/full-stats');
+            const data = await res.json();
 
-            // 2. Ambil Rincian Harian
-            const resD = await fetch('/api/performance/daily-detail');
-            const dData = await resD.json();
-            
-            const container = document.getElementById('daily-list');
-            if (dData.length === 0) {
-                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada kunjungan hari ini</div>';
-                return;
-            }
+            // Render Global
+            document.getElementById('g-hari').innerText = data.global.tot_hari || 0;
+            document.getElementById('g-minggu').innerText = data.global.tot_minggu || 0;
+            document.getElementById('g-bulan').innerText = data.global.tot_bulan || 0;
 
-            container.innerHTML = dData.map(item => `
-                <div class="card card-report shadow-sm p-3">
-                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+            // Render Leaderboard
+            document.getElementById('list-officers').innerHTML = data.officers.map((o, idx) => `
+                <tr>
+                    <td class="ps-3 py-3">
+                        <span class="fw-bold">${idx + 1}. ${o.petugas}</span>
+                    </td>
+                    <td class="text-center py-3"><span class="badge bg-light text-dark rounded-pill">${o.mingguan}</span></td>
+                    <td class="text-center py-3"><span class="badge bg-primary rounded-pill">${o.bulanan}</span></td>
+                </tr>
+            `).join('');
+
+            // Render History Detail
+            document.getElementById('list-history').innerHTML = data.history.map(h => `
+                <div class="card card-h shadow-sm p-3 border-start border-primary border-4">
+                    <div class="d-flex justify-content-between align-items-start mb-2 pb-2 border-bottom">
                         <div>
-                            <span class="fw-bold text-dark d-block" style="font-size: 1rem;">${item.petugas}</span>
-                            <small class="text-muted"><i class="far fa-calendar-alt me-1"></i> ${item.tanggal}</small>
+                            <h6 class="fw-bold mb-0 text-dark">${h.petugas}</h6>
+                            <small class="text-muted"><i class="far fa-calendar-alt"></i> ${h.tanggal}</small>
                         </div>
-                        <span class="badge bg-primary rounded-pill px-3 py-2">Kunjungan: ${item.total_kunjungan}</span>
+                        <span class="badge bg-soft-primary text-primary border border-primary px-3">Total: ${h.total}</span>
                     </div>
-                    
-                    <div class="row g-2 text-center">
+                    <div class="row g-1 text-center">
                         <div class="col-4">
-                            <div class="p-2 rounded bg-soft-success">
-                                <div class="val-label">Sudah Bayar</div>
-                                <div class="fw-bold" style="font-size: 1.1rem;">${item.jml_bayar}</div>
-                                <div style="font-size: 0.6rem;">${formatCurrency(item.nom_bayar)}</div>
+                            <div class="stat-box" style="background: #dcfce7; color: #166534;">
+                                <b>${h.jml_bayar} BAYAR</b>
+                                <span class="val-cur">${toIDR(h.nom_bayar)}</span>
                             </div>
                         </div>
                         <div class="col-4">
-                            <div class="p-2 rounded bg-soft-warning">
-                                <div class="val-label">Janji Bayar</div>
-                                <div class="fw-bold" style="font-size: 1.1rem;">${item.jml_janji}</div>
-                                <div style="font-size: 0.6rem;">${formatCurrency(item.nom_janji)}</div>
+                            <div class="stat-box" style="background: #fef9c3; color: #854d0e;">
+                                <b>${h.jml_janji} JANJI</b>
+                                <span class="val-cur">${toIDR(h.nom_janji)}</span>
                             </div>
                         </div>
                         <div class="col-4">
-                            <div class="p-2 rounded bg-soft-danger">
-                                <div class="val-label">RKS / Lain</div>
-                                <div class="fw-bold" style="font-size: 1.1rem;">${item.jml_rks}</div>
-                                <div style="font-size: 0.6rem;">Nom: ${formatCurrency(item.nom_rks)}</div>
+                            <div class="stat-box" style="background: #fee2e2; color: #991b1b;">
+                                <b>${h.jml_rks} RKS</b>
+                                <span class="val-cur">Lain: ${h.jml_lain || 0}</span>
                             </div>
                         </div>
                     </div>
                 </div>
             `).join('');
 
-        } catch (err) { console.error("Gagal memuat dashboard:", err); }
+        } catch (e) { console.error("Refresh Error:", e); }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', { 
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-        });
-        loadDashboard();
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        refreshData();
     });
 </script>
 {% endblock %}
