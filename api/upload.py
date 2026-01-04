@@ -8,7 +8,7 @@ upload_bp = Blueprint('upload', __name__)
 
 def identify_file_type(df):
     """
-    Mendeteksi jenis file berdasarkan 'Fingerprint' kolom unik.
+    Mendeteksi jenis file berdasarkan kolom unik (Fingerprint).
     """
     cols = [c.upper() for c in df.columns]
     
@@ -36,7 +36,7 @@ def identify_file_type(df):
 
 def save_chunk_to_db(df, file_type, bulan, tahun, db):
     """
-    Logika penyimpanan data dengan pemisahan tabel MC (Induk) dan MB (Pelunasan).
+    Logika penyimpanan data: MC ke master_pelanggan, MB ke master_bayar.
     """
     
     if file_type == 'mc':
@@ -46,6 +46,7 @@ def save_chunk_to_db(df, file_type, bulan, tahun, db):
             notagihan = str(row.get('NOTAGIHAN', '')).split('.')[0].strip()
             
             if len(zona) >= 9:
+                # Rumus pemecahan ZONA_NOVAK
                 rayon = zona[0:2]             
                 pc    = zona[2:5]             
                 ez    = zona[5:7]             
@@ -66,7 +67,7 @@ def save_chunk_to_db(df, file_type, bulan, tahun, db):
             ))
             
     elif file_type == 'mb':
-        # Simpan ke tabel master_bayar (Hanya untuk validasi Lunas)
+        # Simpan ke tabel master_bayar khusus untuk pelunasan
         for _, row in df.iterrows():
             notagihan = str(row.get('NOTAGIHAN', '')).split('.')[0].strip()
             db.execute("""
@@ -113,7 +114,6 @@ def handle_upload():
     temp_path = os.path.join(temp_dir, file.filename)
     file.save(temp_path)
 
-    # Menggunakan koneksi dari core/database yang mendukung WAL
     db = get_db_connection()
     
     try:
@@ -124,7 +124,7 @@ def handle_upload():
 
         file_type = identify_file_type(df_sample)
         if not file_type:
-            return jsonify({"error": "Format kolom tidak dikenali (Gunakan MC, MB, atau Collection asli)."}), 400
+            return jsonify({"error": "Sistem tidak mengenali format kolom file ini."}), 400
 
         bulan, tahun = detect_file_period(df_sample, file_type)
 
@@ -140,7 +140,7 @@ def handle_upload():
         db.commit()
         
         if os.path.exists(temp_path): os.remove(temp_path)
-        return jsonify({"status": "success", "detected": file_type.upper(), "message": "Data berhasil diproses ke tabel yang sesuai."})
+        return jsonify({"status": "success", "detected": file_type.upper(), "message": "Proses selesai!"})
 
     except Exception as e:
         if os.path.exists(temp_path): os.remove(temp_path)
