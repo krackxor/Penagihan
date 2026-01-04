@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="animate__animated animate__fadeIn px-2">
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-1">Performa Tim</h4>
+            <p class="text-muted small mb-0">Statistik real-time petugas lapangan</p>
+        </div>
+        <div class="bg-primary-subtle text-primary rounded-circle p-2">
+            <i class="fas fa-chart-line fa-lg"></i>
+        </div>
+    </div>
+
+    <div class="card bg-dark text-white mb-4 border-0 shadow-lg overflow-hidden">
+        <div class="card-body p-4 position-relative">
+            <div class="position-relative z-1">
+                <h6 class="text-white-50 small text-uppercase fw-bold mb-2">Total Efektivitas</h6>
+                <div class="d-flex align-items-end gap-2">
+                    <h1 class="fw-bold mb-0" id="stat-efektivitas">0%</h1>
+                    <span class="text-success small mb-2"><i class="fas fa-arrow-up me-1"></i>Bulan ini</span>
+                </div>
+                <div class="progress mt-3 bg-secondary" style="height: 6px; border-radius: 10px;">
+                    <div id="progress-efektivitas" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+            <i class="fas fa-bolt position-absolute end-0 bottom-0 text-white-50 opacity-25" style="font-size: 8rem; margin-right: -20px; margin-bottom: -20px;"></i>
+        </div>
+    </div>
+
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-0">
+            <h6 class="fw-bold mb-0 text-dark">Produktivitas Petugas (%)</h6>
+        </div>
+        <div class="card-body pt-0">
+            <div style="height: 250px;">
+                <canvas id="chartPerforma"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <h6 class="fw-bold px-2 mb-3">Peringkat Petugas</h6>
+    <div id="table-leaderboard" class="px-1 pb-4"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+async function loadDashboardData() {
+    try {
+        const resStats = await fetch('/api/performance/stats-global');
+        const stats = await resStats.json();
+        const efektivitas = stats.total_pelanggan > 0 ? ((stats.bayar_bulan_ini / stats.total_pelanggan) * 100).toFixed(1) : 0;
+        document.getElementById('stat-efektivitas').innerText = efektivitas + '%';
+        document.getElementById('progress-efektivitas').style.width = efektivitas + '%';
+
+        const resLeader = await fetch('/api/performance/leaderboard');
+        const leaders = await resLeader.json();
+        let tableHtml = '';
+        leaders.forEach((l, index) => {
+            const rankColor = index === 0 ? 'bg-warning' : (index === 1 ? 'bg-secondary' : 'bg-light');
+            tableHtml += `
+                <div class="card mb-2 border-0 shadow-sm">
+                    <div class="card-body p-3 d-flex align-items-center">
+                        <div class="rank-circle ${rankColor} rounded-circle me-3 text-center" style="width:30px;height:30px;line-height:30px;">${index + 1}</div>
+                        <div class="flex-grow-1">
+                            <h6 class="fw-bold mb-0">${l.petugas}</h6>
+                            <small class="text-muted">${l.total_dikunjungi} Kunjungan</small>
+                        </div>
+                        <div class="text-end text-primary fw-bold">${l.performa}%</div>
+                    </div>
+                </div>`;
+        });
+        document.getElementById('table-leaderboard').innerHTML = tableHtml;
+
+        const ctx = document.getElementById('chartPerforma').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: leaders.map(l => l.petugas),
+                datasets: [{
+                    label: 'Performa %',
+                    data: leaders.map(l => l.performa),
+                    backgroundColor: '#0061ff',
+                    borderRadius: 8
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    } catch (e) { console.error(e); }
+}
+document.addEventListener('DOMContentLoaded', loadDashboardData);
+</script>
+{% endblock %}
