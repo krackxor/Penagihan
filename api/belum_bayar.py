@@ -47,7 +47,7 @@ def register_belum_bayar_routes(app, get_db):
             petugas = request.args.get('petugas', '')
             search = request.args.get('search', '')
             
-            # Query dengan deteksi status kunjungan hari ini (is_visited)
+            # QUERY TERBARU: Mencocokkan MC dengan Master_Bayar dan Collection_Harian
             query = """
                 SELECT m.nomen, m.nama, m.pcez, m.block, m.no_hp, r.petugas,
                        (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total,
@@ -57,16 +57,26 @@ def register_belum_bayar_routes(app, get_db):
                 FROM master_pelanggan m
                 INNER JOIN rute_petugas r ON m.pcez = r.pcez
                 LEFT JOIN ardebt a ON m.nomen = a.nomen
-                LEFT JOIN collection_harian c ON m.nomen = c.nomen AND m.periode_bulan = c.periode_bulan
-                WHERE c.id IS NULL AND m.tipe = 'MC'
+                
+                -- Filter 1: Cek apakah ada di tabel master_bayar (Pelunasan MB)
+                LEFT JOIN master_bayar mb ON m.nomen = mb.nomen
+                
+                -- Filter 2: Cek apakah ada di tabel collection_harian (Pelunasan Daily)
+                LEFT JOIN collection_harian c ON m.nomen = c.nomen 
+                     AND m.periode_bulan = c.periode_bulan
+                
+                WHERE m.tipe = 'MC' 
+                  AND mb.id IS NULL  -- Sembunyikan jika sudah lunas di MB
+                  AND c.id IS NULL   -- Sembunyikan jika sudah lunas di Daily
             """
+            
             params = []
             if petugas and petugas != 'all':
                 query += " AND r.petugas = ?"; params.append(petugas)
             if search:
                 query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"; params.extend([f'%{search}%', f'%{search}%'])
             
-            query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 20"
+            query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 50"
             return jsonify([dict(row) for row in db.execute(query, params).fetchall()])
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
@@ -83,7 +93,7 @@ def register_belum_bayar_routes(app, get_db):
             lng = request.form.get('lng', '0')
             foto = request.files.get('foto')
 
-            # Ambil data Pelanggan
+            # Ambil data Pelanggan dari Induk MC
             query = "SELECT nama, nominal FROM master_pelanggan WHERE nomen = ? AND tipe = 'MC'"
             pel = db.execute(query, (nomen,)).fetchone()
             nama_pel = pel['nama'] if pel else "-"
@@ -94,7 +104,6 @@ def register_belum_bayar_routes(app, get_db):
             
             filename = None
             photo_url = "Tanpa Foto"
-            # Format URL Google Maps yang sudah diperbaiki
             maps_url = f"https://www.google.com/maps?q={lat},{lng}"
 
             if foto:
@@ -105,7 +114,7 @@ def register_belum_bayar_routes(app, get_db):
                 img.thumbnail((1024, 1024))
                 draw = ImageDraw.Draw(img)
                 
-                # Watermark pada foto
+                # Watermark
                 wm_text = (
                     f"WAKTU: {waktu_str} WIB\n"
                     f"PETUGAS: {petugas}\n"
@@ -123,15 +132,14 @@ def register_belum_bayar_routes(app, get_db):
             db.execute("""
                 INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, foto_path, latitude, longitude, created_at) 
                 VALUES (?,?,?,?,?,?,?)
-            """, (nomen, petugas, keterangan, filename, lat, lng, waktu_jkt))
+            """, (nomen, petugas, keterangan, filename, lat, lng, waktu_jkt.strftime('%Y-%m-%d %H:%M:%S')))
             
-            # Update Nomor HP jika ada input baru
+            # Update No HP di tabel Induk MC
             if no_hp:
                 db.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp, nomen))
             
             db.commit()
 
-            # Generate Teks WhatsApp Blast
             wa_text = (
                 f"📢 *LAPORAN PENAGIHAN*\n"
                 f"--------------------------------\n"
