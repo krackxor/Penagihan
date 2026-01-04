@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="animate__animated animate__fadeIn px-2 pb-5">
+    <div class="pt-4 mb-4">
+        <h4 class="fw-bold mb-1">Pengaturan Petugas 👤</h4>
+        <p class="text-muted small">Mapping nama petugas ke kode PCEZ secara manual</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4 border-start border-primary border-4">
+        <div class="card-body p-3">
+            <h6 class="fw-bold small mb-3">Tambah / Update Petugas</h6>
+            <form id="form-setting-rute">
+                <div class="row g-2">
+                    <div class="col-5">
+                        <input type="text" name="pcez" id="in-pcez" class="form-control form-control-sm border-0 bg-light rounded-3" placeholder="PCEZ (096/02)" required>
+                    </div>
+                    <div class="col-5">
+                        <input type="text" name="petugas" id="in-petugas" class="form-control form-control-sm border-0 bg-light rounded-3" placeholder="Nama Petugas" required style="text-transform: uppercase;">
+                    </div>
+                    <div class="col-2">
+                        <button type="submit" class="btn btn-primary btn-sm w-100 rounded-3">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <div class="card border-0 shadow-sm rounded-4 bg-primary text-white p-2">
+                <div class="small opacity-75">Total PCEZ</div>
+                <div class="h5 fw-bold mb-0" id="total-pcez">0</div>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="card border-0 shadow-sm rounded-4 bg-success text-white p-2">
+                <div class="small opacity-75">Terisi Petugas</div>
+                <div class="h5 fw-bold mb-0" id="pcez-terisi">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+        <h6 class="fw-bold mb-0">Daftar Mapping Rute</h6>
+        <div class="input-group input-group-sm" style="width: 150px;">
+            <input type="text" id="search-rute" class="form-control border-0 bg-white shadow-sm" placeholder="Cari PCEZ...">
+        </div>
+    </div>
+
+    <div id="list-rute-container">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary spinner-border-sm"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadRuteData() {
+        const container = document.getElementById('list-rute-container');
+        const searchTerm = document.getElementById('search-rute').value.toLowerCase();
+        
+        try {
+            const res = await fetch('/api/rute/list');
+            const data = await res.json();
+            
+            // Update Stats
+            document.getElementById('total-pcez').innerText = data.length;
+            document.getElementById('pcez-terisi').innerText = data.filter(r => r.petugas).length;
+
+            const filteredData = data.filter(r => r.pcez.toLowerCase().includes(searchTerm) || (r.petugas || '').toLowerCase().includes(searchTerm));
+
+            if (filteredData.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Data tidak ditemukan</div>';
+                return;
+            }
+
+            container.innerHTML = filteredData.map(r => `
+                <div class="card border-0 shadow-sm rounded-4 mb-2 animate__animated animate__fadeInUp">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div onclick="editRute('${r.pcez}', '${r.petugas || ''}')" style="cursor:pointer" class="flex-grow-1">
+                            <span class="badge bg-light text-primary border mb-1">${r.pcez}</span>
+                            <div class="fw-bold ${r.petugas ? 'text-dark' : 'text-danger small italic'}">
+                                ${r.petugas ? r.petugas : 'Belum ada petugas'}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm text-primary" onclick="editRute('${r.pcez}', '${r.petugas || ''}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm text-danger" onclick="hapusRute('${r.pcez}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = `<div class="alert alert-danger small">${e.message}</div>`;
+        }
+    }
+
+    function editRute(pcez, petugas) {
+        document.getElementById('in-pcez').value = pcez;
+        document.getElementById('in-petugas').value = petugas;
+        document.getElementById('in-petugas').focus();
+    }
+
+    document.getElementById('form-setting-rute').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
+        const data = await res.json();
+        
+        if(data.status === 'success') {
+            Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Mapping petugas diperbarui', timer: 1500, showConfirmButton: false });
+            e.target.reset();
+            loadRuteData();
+        }
+    };
+
+    async function hapusRute(pcez) {
+        const result = await Swal.fire({
+            title: 'Hapus Rute?',
+            text: `Hapus mapping untuk PCEZ ${pcez}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33'
+        });
+
+        if (result.isConfirmed) {
+            const res = await fetch(`/api/rute/delete?pcez=${encodeURIComponent(pcez)}`, { method: 'DELETE' });
+            if ((await res.json()).status === 'success') loadRuteData();
+        }
+    }
+
+    document.getElementById('search-rute').onkeyup = loadRuteData;
+    document.addEventListener('DOMContentLoaded', loadRuteData);
+</script>
+{% endblock %}
