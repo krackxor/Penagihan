@@ -10,18 +10,19 @@ def register_belum_bayar_routes(app, get_db):
     @app.route('/api/belum-bayar/list', methods=['GET'])
     def get_list_kunjungan():
         """
-        Mengambil daftar target penagihan yang:
-        1. Belum lunas di tabel Master Bayar (MB) atau Collection.
-        2. Belum pernah dikunjungi oleh petugas.
-        3. Menampilkan nama petugas berdasarkan mapping PCEZ.
+        Menampilkan daftar tagihan (Target MC) yang:
+        1. Belum lunas (Tidak ada di MB / Collection).
+        2. Belum pernah dikunjungi (Tidak ada di log kunjungan).
+        3. Menampilkan NAMA PETUGAS hasil join dari tabel rute_petugas.
         """
         try:
             db = get_db()
             petugas_filter = request.args.get('petugas', '')
             search = request.args.get('search', '')
             
-            # Query dioptimalkan dengan LEFT JOIN agar loading instan
-            # m.pcez sudah dalam format 096/02 hasil olahan saat upload MC
+            # QUERY UTAMA:
+            # Menggabungkan Master Pelanggan (m) dengan Rute Petugas (r)
+            # Menggunakan LEFT JOIN agar data MC tetap muncul meski rute belum disetting
             query = """
                 SELECT 
                     m.nomen, m.nama, m.pcez, m.block, m.nominal,
@@ -39,17 +40,18 @@ def register_belum_bayar_routes(app, get_db):
             
             params = []
             
-            # Filter berdasarkan petugas yang dipilih di dropdown
+            # Jika admin/petugas memilih filter nama di dropdown
             if petugas_filter and petugas_filter != 'all':
                 query += " AND r.petugas = ?"
                 params.append(petugas_filter)
             
-            # Filter pencarian Nomen atau Nama
+            # Jika melakukan pencarian manual (Nomen/Nama)
             if search:
                 query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"
                 params.extend([f'%{search}%', f'%{search}%'])
 
-            # Limit 20 per petugas agar loading super cepat (Fast)
+            # LIMIT 20: Kunci agar aplikasi terasa sangat cepat (Fast)
+            # Tidak membebani browser HP petugas
             query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 20"
             
             rows = db.execute(query, params).fetchall()
@@ -60,49 +62,42 @@ def register_belum_bayar_routes(app, get_db):
 
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
     def simpan_kunjungan():
-        """
-        Menyimpan hasil laporan kunjungan dari lapangan.
-        Data yang sudah disimpan akan otomatis hilang dari daftar tugas.
-        """
+        """Menyimpan hasil laporan dari lapangan (Sudah Bayar, Janji, RKS)"""
         try:
             db = get_db()
             nomen = request.form.get('nomen')
             petugas = request.form.get('petugas')
             keterangan = request.form.get('keterangan')
-            janji_bayar_dt = request.form.get('janji_bayar_dt') # Format: YYYY-MM-DD
-            lat = request.form.get('lat', '0')
-            lng = request.form.get('lng', '0')
+            janji_bayar_dt = request.form.get('janji_bayar_dt') # Null jika bukan 'Janji Bayar'
             
-            # Ambil waktu sekarang Jakarta
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            # Insert ke tabel kunjungan_petugas
             db.execute("""
                 INSERT INTO kunjungan_petugas (
-                    nomen, petugas_name, keterangan, janji_bayar_dt, 
-                    latitude, longitude, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (nomen, petugas, keterangan, janji_bayar_dt, lat, lng, now))
+                    nomen, petugas_name, keterangan, janji_bayar_dt, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (nomen, petugas, keterangan, janji_bayar_dt, now))
             
             db.commit()
-            return jsonify({
-                "status": "success", 
-                "message": f"Laporan {nomen} berhasil disimpan."
-            })
+            return jsonify({"status": "success", "message": "Laporan berhasil disimpan"})
             
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
     @app.route('/api/belum-bayar/petugas-tabs', methods=['GET'])
     def get_tabs():
-        """Mengambil daftar nama petugas unik untuk dropdown filter"""
+        """
+        API untuk mengisi DROPDOWN Petugas secara dinamis.
+        Begitu Anda upload Excel Rute, nama-nama di sini otomatis terisi.
+        """
         try:
             db = get_db()
+            # Ambil semua nama unik dari tabel rute
             rows = db.execute("""
                 SELECT DISTINCT petugas FROM rute_petugas 
                 WHERE petugas IS NOT NULL AND petugas != '' 
                 ORDER BY petugas ASC
             """).fetchall()
             return jsonify([row['petugas'] for row in rows])
-        except:
+        except Exception as e:
             return jsonify([])
