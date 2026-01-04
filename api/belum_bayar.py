@@ -35,7 +35,7 @@ def register_belum_bayar_routes(app, get_db):
         petugas = request.args.get('petugas', '')
         search = request.args.get('search', '')
         
-        # Query diperbarui dengan sub-query is_visited untuk penandaan status
+        # Sub-query is_visited untuk mendeteksi kunjungan hari ini
         query = """
             SELECT m.nomen, m.nama, m.pcez, m.block, m.no_hp, r.petugas,
                    (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total,
@@ -54,7 +54,7 @@ def register_belum_bayar_routes(app, get_db):
         if search:
             query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"; params.extend([f'%{search}%', f'%{search}%'])
         
-        query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 10"
+        query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 20"
         return jsonify([dict(row) for row in db.execute(query, params).fetchall()])
 
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
@@ -79,6 +79,7 @@ def register_belum_bayar_routes(app, get_db):
             
             filename = None
             photo_url = "Tanpa Foto"
+            # Format URL Google Maps diperbaiki agar akurat
             maps_url = f"https://www.google.com/maps?q={lat},{lng}"
 
             if foto:
@@ -104,6 +105,7 @@ def register_belum_bayar_routes(app, get_db):
 
             db.execute("INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, foto_path, latitude, longitude, created_at) VALUES (?,?,?,?,?,?,?)",
                        (nomen, petugas, keterangan, filename, lat, lng, waktu_jkt))
+            
             if no_hp:
                 db.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp, nomen))
             db.commit()
