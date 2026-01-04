@@ -3,45 +3,65 @@
 <div class="animate__animated animate__fadeIn">
     <div class="px-2 mb-4">
         <h4 class="fw-bold mb-1">Halo, Petugas 👋</h4>
-        <p class="text-muted small">Cek progres penagihanmu hari ini</p>
+        <p class="text-muted small">Ringkasan performa penagihan Anda</p>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-6">
-            <div class="card p-3" style="background: #e0e7ff;">
-                <div class="d-flex align-items-center mb-2">
-                    <div class="rounded-circle bg-white p-2 me-2" style="width:35px; height:35px; display:flex; align-items:center; justify-content:center;">
-                        <i class="fas fa-bullseye text-primary small"></i>
+        <div class="col-12">
+            <div class="card p-4 border-0 shadow-sm bg-primary text-white" style="border-radius: 24px;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <small class="opacity-75 d-block">Sisa Target Penagihan</small>
+                        <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
                     </div>
-                    <span class="small fw-bold text-primary">Sisa Target</span>
-                </div>
-                <h3 class="fw-bold mb-0" id="stat-kunjungan">0</h3>
-            </div>
-        </div>
-        <div class="col-6">
-            <div class="card p-3" style="background: #dcfce7;">
-                <div class="d-flex align-items-center mb-2">
-                    <div class="rounded-circle bg-white p-2 me-2" style="width:35px; height:35px; display:flex; align-items:center; justify-content:center;">
-                        <i class="fas fa-check-circle text-success small"></i>
+                    <div class="bg-white bg-opacity-25 rounded-circle p-3">
+                        <i class="fas fa-tasks fa-2x"></i>
                     </div>
-                    <span class="small fw-bold text-success">Closed</span>
                 </div>
-                <h3 class="fw-bold mb-0" id="stat-bayar">0</h3>
+                <div class="progress mb-2" style="height: 10px; background: rgba(255,255,255,0.2); border-radius: 10px;">
+                    <div id="prog-bar" class="progress-bar bg-white" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div class="d-flex justify-content-between small opacity-75">
+                    <span id="stat-realisasi">0 Lunas</span>
+                    <span id="stat-total">Total 0</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <h6 class="fw-bold px-2 mb-3">Aksi Cepat</h6>
-    <div class="px-1">
+    <h6 class="fw-bold px-2 mb-3 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px; color: #64748b;">Aktivitas Kunjungan</h6>
+    <div class="row g-2 mb-4">
+        <div class="col-4 text-center">
+            <div class="card p-3 border-0 shadow-sm" style="border-radius: 18px;">
+                <small class="text-muted d-block mb-1">Hari Ini</small>
+                <h4 class="fw-bold mb-0 text-primary" id="stat-hari">0</h4>
+            </div>
+        </div>
+        <div class="col-4 text-center">
+            <div class="card p-3 border-0 shadow-sm" style="border-radius: 18px;">
+                <small class="text-muted d-block mb-1">Minggu Ini</small>
+                <h4 class="fw-bold mb-0 text-primary" id="stat-minggu">0</h4>
+            </div>
+        </div>
+        <div class="col-4 text-center">
+            <div class="card p-3 border-0 shadow-sm" style="border-radius: 18px;">
+                <small class="text-muted d-block mb-1">Bulan Ini</small>
+                <h4 class="fw-bold mb-0 text-primary" id="stat-bulan">0</h4>
+            </div>
+        </div>
+    </div>
+
+    <h6 class="fw-bold px-2 mb-3 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px; color: #64748b;">Aksi Cepat</h6>
+    <div class="px-1 mb-5">
         <a href="/belum-bayar" class="text-decoration-none">
-            <div class="card p-3 mb-3 border-0 shadow-sm">
+            <div class="card p-3 mb-3 border-0 shadow-sm" style="border-radius: 20px;">
                 <div class="d-flex align-items-center">
-                    <div class="bg-primary text-white rounded-4 p-3 me-3">
+                    <div class="bg-primary-subtle text-primary rounded-4 p-3 me-3">
                         <i class="fas fa-route fa-lg"></i>
                     </div>
                     <div>
                         <h6 class="fw-bold mb-0 text-dark">Rute Penagihan</h6>
-                        <p class="small text-muted mb-0">Lihat pelanggan belum bayar</p>
+                        <p class="small text-muted mb-0">Cek daftar target rute Anda</p>
                     </div>
                     <i class="fas fa-chevron-right ms-auto text-muted"></i>
                 </div>
@@ -50,14 +70,33 @@
     </div>
 </div>
 
+<style>
+    .bg-primary-subtle { background-color: #e0e7ff; }
+</style>
+
 <script>
     async function loadStats() {
         try {
             const res = await fetch('/api/performance/stats-global');
             const data = await res.json();
-            document.getElementById('stat-kunjungan').innerText = data.total_pelanggan || 0;
-            document.getElementById('stat-bayar').innerText = data.bayar_bulan_ini || 0;
-        } catch (e) { console.error("Stats Error"); }
+            
+            // Update Angka Kunjungan
+            document.getElementById('stat-hari').innerText = data.harian || 0;
+            document.getElementById('stat-minggu').innerText = data.mingguan || 0;
+            document.getElementById('stat-bulan').innerText = data.bulanan || 0;
+
+            // Update Sisa Target & Bar
+            document.getElementById('stat-sisa').innerText = (data.sisa_target || 0).toLocaleString();
+            document.getElementById('stat-realisasi').innerText = (data.realisasi_bayar || 0) + ' Lunas';
+            document.getElementById('stat-total').innerText = 'Total ' + (data.target_total || 0);
+
+            if (data.target_total > 0) {
+                const percent = (data.realisasi_bayar / data.target_total) * 100;
+                document.getElementById('prog-bar').style.width = percent + '%';
+            }
+        } catch (e) { 
+            console.error("Gagal memuat statistik dashboard"); 
+        }
     }
     document.addEventListener('DOMContentLoaded', loadStats);
 </script>
