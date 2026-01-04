@@ -79,12 +79,13 @@ def register_belum_bayar_routes(app, get_db):
     @app.route('/api/belum-bayar/petugas-tabs', methods=['GET'])
     def get_tabs():
         db = get_db()
-        # Mengambil daftar petugas unik yang memiliki alokasi rute
+        # ✅ QUERY YANG DIPERBAIKI - Menangani berbagai format invalid
         query = """
             SELECT DISTINCT petugas 
             FROM rute_petugas 
             WHERE petugas IS NOT NULL 
-            AND petugas NOT IN ('', 'NAN', 'None')
+            AND TRIM(UPPER(petugas)) NOT IN ('', 'NAN', 'NONE', 'NULL', '-', 'N/A', 'NA')
+            AND LENGTH(TRIM(petugas)) >= 2
             ORDER BY petugas ASC
         """
         rows = db.execute(query).fetchall()
