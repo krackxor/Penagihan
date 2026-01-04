@@ -21,8 +21,8 @@ def identify_file_type(df):
     if 'ZONA_NOVAK' in cols and 'TGL_CATAT' in cols:
         return 'mc'
     
-    # 3. COLLECTION (Daily) - Ciri: PAY_DT
-    if 'PAY_DT' in cols or 'AMT_COLLECT' in cols:
+    # 3. COLLECTION (Daily) - Ciri: PAY_DT atau NOTAG
+    if 'PAY_DT' in cols or 'NOTAG' in cols:
         return 'collection'
     
     # 4. ARDEBT (Tunggakan) - Ciri: PERIODE_BILL
@@ -36,43 +36,45 @@ def identify_file_type(df):
     return None
 
 def save_chunk_to_db(df, file_type, bulan, tahun, db):
-    """Logika penyimpanan data dengan pembersihan format PCEZ agar sinkron"""
+    """Logika penyimpanan data dengan pemisahan tipe MC/MB dan penyesuaian field NOTAG/NOTAGIHAN"""
     
     if file_type == 'mc' or file_type == 'mb':
-        # Gunakan tabel master_pelanggan untuk MC/MB
+        # Simpan ke master_pelanggan dengan label tipe (MC/MB)
         for _, row in df.iterrows():
-            # Mengambil ZONA_NOVAK (Contoh: 350960217)
-            # Pastikan diconvert ke string dan dihilangkan .0 jika ada
             zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].strip()
+            # Gunakan field NOTAGIHAN untuk nomen pada file MC dan MB
+            notagihan = str(row.get('NOTAGIHAN', '')).split('.')[0].strip()
             
             if len(zona) >= 9:
-                # Rumus Pemecahan String yang Akurat:
-                # 35 096 02 17
-                rayon = zona[0:2]             # '35'
-                pc    = zona[2:5]             # '096'
-                ez    = zona[5:7]             # '02'
-                pcez  = f"{pc}/{ez}".strip()  # '096/02' (Sesuai file Rute)
-                block = zona[7:9]             # '17'
+                # Rumus Pemecahan String ZONA_NOVAK: 35 096 02 17
+                rayon = zona[0:2]             
+                pc    = zona[2:5]             
+                ez    = zona[5:7]             
+                pcez  = f"{pc}/{ez}".strip()  
+                block = zona[7:9]             
             else:
                 rayon = pc = ez = pcez = block = "Format Salah"
 
             db.execute("""
                 INSERT INTO master_pelanggan 
-                (nomen, nama, pcez, rayon, pc, ez, block, periode_bulan, periode_tahun, nominal) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (nomen, nama, pcez, rayon, pc, ez, block, periode_bulan, periode_tahun, nominal, tipe) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                str(row.get('NOMEN')).split('.')[0], 
-                row.get('NAMA_PEL') if file_type == 'mc' else row.get('NOMEN'), 
+                notagihan, 
+                row.get('NAMA_PEL') if file_type == 'mc' else 'MASTER BAYAR', 
                 pcez, rayon, pc, ez, block, bulan, tahun, 
-                row.get('NOMINAL')
+                pd.to_numeric(row.get('NOMINAL'), errors='coerce') or 0,
+                file_type.upper() # Menyimpan label 'MC' atau 'MB'
             ))
             
     elif file_type == 'collection':
         for _, row in df.iterrows():
+            # Gunakan field NOTAG untuk nomen pada file Daily Collection
+            notag = str(row.get('NOTAG', '')).split('.')[0].strip()
             db.execute("""
                 INSERT INTO collection_harian (nomen, pay_dt, nominal, periode_bulan, periode_tahun)
                 VALUES (?, ?, ?, ?, ?)
-            """, (str(row.get('NOMEN')).split('.')[0], row.get('PAY_DT'), row.get('AMT_COLLECT'), bulan, tahun))
+            """, (notag, row.get('PAY_DT'), row.get('AMT_COLLECT'), bulan, tahun))
 
     elif file_type == 'ardebt':
         for _, row in df.iterrows():
@@ -83,7 +85,6 @@ def save_chunk_to_db(df, file_type, bulan, tahun, db):
 
     elif file_type == 'rute':
         for _, row in df.iterrows():
-            # Penting: Hilangkan spasi di PCEZ agar JOIN berhasil
             pcez_val = str(row.get('PCEZ', '')).strip()
             petugas_val = str(row.get('PETUGAS', '')).strip()
             db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)",
@@ -103,7 +104,6 @@ def handle_upload():
     db = get_db_connection()
     
     try:
-        # 1. Baca Sample untuk Identifikasi
         if temp_path.endswith('.csv'):
             df_sample = pd.read_csv(temp_path, nrows=10, dtype=str)
         else:
@@ -113,18 +113,13 @@ def handle_upload():
         if not file_type:
             return jsonify({"error": "Sistem tidak mengenali format kolom file ini."}), 400
 
-        # 2. Deteksi Periode
         bulan, tahun = detect_file_period(df_sample, file_type)
 
-        # 3. Proses Full Data (Gunakan Chunking untuk CSV besar)
         if temp_path.endswith('.csv'):
             for chunk in pd.read_csv(temp_path, chunksize=10000, dtype=str):
-                # Konversi kolom nominal ke numeric setelah dibaca sebagai string
-                if 'NOMINAL' in chunk.columns: chunk['NOMINAL'] = pd.to_numeric(chunk['NOMINAL'], errors='coerce')
                 save_chunk_to_db(chunk, file_type, bulan, tahun, db)
         else:
             df_full = pd.read_excel(temp_path, dtype=str)
-            if 'NOMINAL' in df_full.columns: df_full['NOMINAL'] = pd.to_numeric(df_full['NOMINAL'], errors='coerce')
             save_chunk_to_db(df_full, file_type, bulan, tahun, db)
 
         db.execute("INSERT INTO upload_history (filename, file_type, periode, status) VALUES (?, ?, ?, ?)",
