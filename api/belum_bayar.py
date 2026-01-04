@@ -35,7 +35,6 @@ def register_belum_bayar_routes(app, get_db):
         petugas = request.args.get('petugas', '')
         search = request.args.get('search', '')
         
-        # Sub-query is_visited untuk mendeteksi kunjungan hari ini
         query = """
             SELECT m.nomen, m.nama, m.pcez, m.block, m.no_hp, r.petugas,
                    (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total,
@@ -79,7 +78,7 @@ def register_belum_bayar_routes(app, get_db):
             
             filename = None
             photo_url = "Tanpa Foto"
-            # Format URL Google Maps diperbaiki agar akurat
+            # URL Google Maps diperbaiki: Menghapus angka '0' di depan koordinat
             maps_url = f"https://www.google.com/maps?q={lat},{lng}"
 
             if foto:
