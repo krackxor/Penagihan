@@ -32,6 +32,20 @@ def clean_pcez(val):
             
     return val_str
 
+def is_valid_petugas(petugas):
+    """
+    Validasi nama petugas - menolak nilai kosong/placeholder
+    """
+    if not petugas:
+        return False
+    
+    petugas_upper = str(petugas).strip().upper()
+    
+    # Daftar nilai yang dianggap tidak valid
+    invalid_values = ['', 'NAN', 'NONE', 'NULL', '-', 'N/A', 'NA']
+    
+    return petugas_upper not in invalid_values and len(petugas_upper) >= 2
+
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
     if 'file' not in request.files:
@@ -56,15 +70,21 @@ def handle_upload():
 
         if file_type == 'rute':
             count = 0
+            skipped = 0
             for _, row in df.iterrows():
                 pcez = clean_pcez(row.get('PCEZ'))
-                petugas = str(row.get('PETUGAS', '')).strip().upper()
+                petugas_raw = str(row.get('PETUGAS', '')).strip().upper()
                 
-                if pcez and petugas and petugas != 'NAN':
+                # ✅ VALIDASI LEBIH KETAT
+                if pcez and is_valid_petugas(petugas_raw):
                     db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
-                               (pcez, petugas))
+                               (pcez, petugas_raw))
                     count += 1
-            print(f"✅ Berhasil sinkronisasi {count} rute petugas.")
+                else:
+                    skipped += 1
+                    print(f"⚠️ Dilewati - PCEZ: {pcez}, Petugas: {petugas_raw}")
+            
+            print(f"✅ Berhasil sinkronisasi {count} rute petugas. Dilewati: {skipped}")
 
         elif file_type == 'mc':
             count_mc = 0
