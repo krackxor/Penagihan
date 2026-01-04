@@ -1,103 +1,94 @@
 import os
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
+from core.database import get_db_connection
 
-# Inisialisasi Blueprint
 belum_bayar_bp = Blueprint('belum_bayar_api', __name__)
 
-def register_belum_bayar_routes(app, get_db):
+def apply_pro_watermark(image_path, data):
+    """Fungsi Watermark Profesional dengan Copyright Khoirul Anwar"""
+    img = Image.open(image_path)
+    if img.mode in ("RGBA", "P"): img = img.convert("RGB")
     
-    @app.route('/api/belum-bayar/list', methods=['GET'])
-    def get_list_kunjungan():
-        """
-        Menampilkan daftar tagihan (Target MC) yang:
-        1. Belum lunas (Tidak ada di MB / Collection).
-        2. Belum pernah dikunjungi (Tidak ada di log kunjungan).
-        3. Menampilkan NAMA PETUGAS hasil join dari tabel rute_petugas.
-        """
-        try:
-            db = get_db()
-            petugas_filter = request.args.get('petugas', '')
-            search = request.args.get('search', '')
-            
-            # QUERY UTAMA:
-            # Menggabungkan Master Pelanggan (m) dengan Rute Petugas (r)
-            # Menggunakan LEFT JOIN agar data MC tetap muncul meski rute belum disetting
-            query = """
-                SELECT 
-                    m.nomen, m.nama, m.pcez, m.block, m.nominal,
-                    r.petugas as nama_petugas
-                FROM master_pelanggan m
-                LEFT JOIN rute_petugas r ON m.pcez = r.pcez
-                LEFT JOIN master_bayar mb ON m.nomen = mb.nomen
-                LEFT JOIN collection_harian c ON m.nomen = c.nomen
-                LEFT JOIN kunjungan_petugas k ON m.nomen = k.nomen
-                WHERE m.tipe = 'MC' 
-                  AND mb.nomen IS NULL 
-                  AND c.nomen IS NULL
-                  AND k.nomen IS NULL
-            """
-            
-            params = []
-            
-            # Jika admin/petugas memilih filter nama di dropdown
-            if petugas_filter and petugas_filter != 'all':
-                query += " AND r.petugas = ?"
-                params.append(petugas_filter)
-            
-            # Jika melakukan pencarian manual (Nomen/Nama)
-            if search:
-                query += " AND (m.nomen LIKE ? OR m.nama LIKE ?)"
-                params.extend([f'%{search}%', f'%{search}%'])
+    draw = ImageDraw.Draw(img, "RGBA")
+    width, height = img.size
+    
+    # 1. Overlay Hitam Semi-Transparan (20% tinggi foto)
+    overlay_h = int(height * 0.20)
+    draw.rectangle([(0, height - overlay_h), (width, height)], fill=(0, 0, 0, 180))
 
-            # LIMIT 20: Kunci agar aplikasi terasa sangat cepat (Fast)
-            # Tidak membebani browser HP petugas
-            query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 20"
-            
-            rows = db.execute(query, params).fetchall()
-            return jsonify([dict(row) for row in rows])
-            
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
+    # 2. Setup Font (Default fallback jika arial tidak ada)
+    try:
+        font_l = ImageFont.truetype("arial.ttf", int(overlay_h * 0.22))
+        font_s = ImageFont.truetype("arial.ttf", int(overlay_h * 0.14))
+        font_cp = ImageFont.truetype("arial.ttf", int(overlay_h * 0.11))
+    except:
+        font_l = font_s = font_cp = ImageFont.load_default()
+
+    # 3. Teks Data Pelanggan (Kiri)
+    margin = 40
+    curr_y = height - overlay_h + 25
+    waktu = datetime.now().strftime('%d/%m/%Y %H:%M:%S WIB')
+    
+    draw.text((margin, curr_y), f"PETUGAS: {data['petugas']} | {data['nomen']}", fill=(255, 255, 255), font=font_l)
+    draw.text((margin, curr_y + int(overlay_h * 0.25)), f"PELANGGAN: {data['nama']}", fill=(255, 215, 0), font=font_s)
+    draw.text((margin, curr_y + int(overlay_h * 0.43)), f"STATUS: {data['status']} | TAGIHAN: Rp {data['nominal']}", fill=(255, 255, 255), font=font_s)
+    draw.text((margin, curr_y + int(overlay_h * 0.61)), f"WAKTU: {waktu}", fill=(0, 255, 127), font=font_s)
+
+    # 4. COPYRIGHT KHOIRUL ANWAR (Bawah Tengah)
+    cp_text = "© COPYRIGHT KHOIRUL ANWAR - SUNTER PRO SYSTEM"
+    bbox = draw.textbbox((0, 0), cp_text, font=font_cp)
+    tw = bbox[2] - bbox[0]
+    draw.text(((width - tw) // 2, height - 30), cp_text, fill=(200, 200, 200), font=font_cp)
+
+    img.save(image_path, "JPEG", quality=85)
+
+def register_belum_bayar_routes(app, get_db):
+    @app.route('/api/belum-bayar/list', methods=['GET'])
+    def get_list():
+        db = get_db()
+        petugas = request.args.get('petugas', 'all')
+        query = """
+            SELECT m.*, r.petugas as nama_petugas FROM master_pelanggan m
+            LEFT JOIN rute_petugas r ON m.pcez = r.pcez
+            LEFT JOIN kunjungan_petugas k ON m.nomen = k.nomen
+            WHERE m.tipe = 'MC' AND k.nomen IS NULL
+        """
+        params = []
+        if petugas != 'all':
+            query += " AND r.petugas = ?"
+            params.append(petugas)
+        query += " LIMIT 20"
+        return jsonify([dict(row) for row in db.execute(query, params).fetchall()])
 
     @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
-    def simpan_kunjungan():
-        """Menyimpan hasil laporan dari lapangan (Sudah Bayar, Janji, RKS)"""
-        try:
-            db = get_db()
-            nomen = request.form.get('nomen')
-            petugas = request.form.get('petugas')
-            keterangan = request.form.get('keterangan')
-            janji_bayar_dt = request.form.get('janji_bayar_dt') # Null jika bukan 'Janji Bayar'
-            
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    def simpan():
+        db = get_db()
+        f = request.form
+        file = request.files.get('foto')
+        
+        filename = f"{f.get('nomen')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+        path = os.path.join(current_app.config['KUNJUNGAN_FOLDER'], filename)
+        file.save(path)
 
-            db.execute("""
-                INSERT INTO kunjungan_petugas (
-                    nomen, petugas_name, keterangan, janji_bayar_dt, created_at
-                ) VALUES (?, ?, ?, ?, ?)
-            """, (nomen, petugas, keterangan, janji_bayar_dt, now))
-            
-            db.commit()
-            return jsonify({"status": "success", "message": "Laporan berhasil disimpan"})
-            
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
+        # Apply Watermark
+        wm_data = {
+            'petugas': f.get('petugas'), 'nomen': f.get('nomen'),
+            'nama': f.get('nama_pelanggan'), 'nominal': f.get('nominal_val'),
+            'status': f.get('keterangan'), 'block': f.get('block_val')
+        }
+        apply_pro_watermark(path, wm_data)
+
+        db.execute("""
+            INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, no_hp, catatan, janji_bayar_dt, foto_path, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (f.get('nomen'), f.get('petugas'), f.get('keterangan'), f.get('no_hp'), f.get('catatan'), f.get('janji_bayar_dt'), filename, datetime.now()))
+        db.commit()
+        return jsonify({"status": "success", "filename": filename})
 
     @app.route('/api/belum-bayar/petugas-tabs', methods=['GET'])
     def get_tabs():
-        """
-        API untuk mengisi DROPDOWN Petugas secara dinamis.
-        Begitu Anda upload Excel Rute, nama-nama di sini otomatis terisi.
-        """
-        try:
-            db = get_db()
-            # Ambil semua nama unik dari tabel rute
-            rows = db.execute("""
-                SELECT DISTINCT petugas FROM rute_petugas 
-                WHERE petugas IS NOT NULL AND petugas != '' 
-                ORDER BY petugas ASC
-            """).fetchall()
-            return jsonify([row['petugas'] for row in rows])
-        except Exception as e:
-            return jsonify([])
+        db = get_db()
+        rows = db.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL ORDER BY petugas ASC").fetchall()
+        return jsonify([row['petugas'] for row in rows])
