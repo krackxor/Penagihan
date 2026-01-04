@@ -1,128 +1,75 @@
 import os
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, jsonify, request, current_app
+from core.database import get_db_connection
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont
-import sqlite3
+from werkzeug.utils import secure_filename
 
-belum_bayar_bp = Blueprint('belum_bayar_api', __name__)
+belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
-def apply_pro_watermark(image_path, data):
-    """Watermark Profesional dengan penyesuaian ukuran otomatis"""
+@belum_bayar_bp.route('', methods=['GET'])
+def get_belum_bayar():
+    petugas = request.args.get('petugas')
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    query = "SELECT * FROM pelanggan_tagihan WHERE status_bayar = 'BELUM BAYAR'"
+    params = []
+    
+    if petugas and petugas != 'all':
+        query += " AND petugas = %s"
+        params.append(petugas)
+        
+    cursor.execute(query, params)
+    data = cursor.fetchall()
+    conn.close()
+    return jsonify(data)
+
+@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
+def get_petugas_tabs():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT petugas FROM pelanggan_tagihan WHERE petugas IS NOT NULL AND petugas != ''")
+    petugas_list = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(petugas_list)
+
+@belum_bayar_bp.route('/lapor', methods=['POST'])
+def lapor_kunjungan():
+    idpel = request.form.get('idpel')
+    hasil = request.form.get('hasil')
+    keterangan = request.form.get('keterangan')
+    foto = request.files.get('foto')
+    
+    filename = None
+    if foto:
+        # Buat folder jika belum ada
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        ext = os.path.splitext(foto.filename)[1]
+        filename = secure_filename(f"{idpel}_{timestamp}{ext}")
+        foto.save(os.path.join(upload_folder, filename))
+
     try:
-        img = Image.open(image_path)
-        if img.mode in ("RGBA", "P"): 
-            img = img.convert("RGB")
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        draw = ImageDraw.Draw(img, "RGBA")
-        width, height = img.size
+        # 1. Masukkan ke tabel history_kunjungan
+        query_history = """
+            INSERT INTO history_kunjungan (idpel, tanggal, hasil, keterangan, foto)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        cursor.execute(query_history, (idpel, datetime.now(), hasil, keterangan, filename))
         
-        overlay_h = int(height * 0.22)
-        draw.rectangle([(0, height - overlay_h), (width, height)], fill=(0, 0, 0, 180))
-
-        font_size = int(overlay_h * 0.18)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-            font_small = ImageFont.truetype("arial.ttf", int(font_size * 0.75))
-        except:
-            font = ImageFont.load_default()
-            font_small = ImageFont.load_default()
-
-        margin = 40
-        curr_y = height - overlay_h + 20
+        # 2. Update status di tabel utama (opsional, jika ingin menandai sudah dikunjungi)
+        query_update = "UPDATE pelanggan_tagihan SET last_kunjungan = %s WHERE idpel = %s"
+        cursor.execute(query_update, (datetime.now(), idpel))
         
-        petugas_txt = str(data.get('petugas', 'OFFICER')).upper()
-        draw.text((margin, curr_y), f"PETUGAS: {petugas_txt} | {data['nomen']}", fill=(255, 255, 255), font=font)
-        draw.text((margin, curr_y + font_size + 10), f"PELANGGAN: {data['nama']}", fill=(255, 215, 0), font=font_small)
-        draw.text((margin, curr_y + (font_size*2) + 15), f"STATUS: {data['status']} | Rp {data['nominal']}", fill=(255, 255, 255), font=font_small)
-        draw.text((margin, curr_y + (font_size*3) + 20), f"WAKTU: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", fill=(0, 255, 127), font=font_small)
-        
-        draw.text((width // 2 - 150, height - 35), "© KHOIRUL ANWAR - PENAGIHAN SYSTEM", fill=(200, 200, 200, 150), font=font_small)
-        
-        img.save(image_path, "JPEG", quality=85)
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "Laporan berhasil disimpan"}), 200
     except Exception as e:
-        print(f"Watermark Error: {e}")
-
-def register_belum_bayar_routes(app, get_db):
-    @app.route('/api/belum-bayar/list', methods=['GET'])
-    def get_list():
-        db = get_db()
-        petugas_filter = request.args.get('petugas', 'all')
-        
-        query = """
-            SELECT 
-                m.nomen, m.nama, m.nominal, m.pcez, m.block,
-                COALESCE(NULLIF(r.petugas, ''), 'Belum Diatur') as nama_petugas
-            FROM master_pelanggan m
-            LEFT JOIN rute_petugas r ON m.pcez = r.pcez
-            LEFT JOIN kunjungan_petugas k ON m.nomen = k.nomen
-            WHERE m.tipe = 'MC' 
-            AND k.nomen IS NULL
-        """
-        params = []
-        
-        if petugas_filter != 'all' and petugas_filter.strip() != '':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
-            
-        query += " ORDER BY m.pcez ASC, m.block ASC LIMIT 100"
-        
-        rows = db.execute(query, params).fetchall()
-        return jsonify([dict(row) for row in rows])
-
-    @app.route('/api/belum-bayar/petugas-tabs', methods=['GET'])
-    def get_tabs():
-        db = get_db()
-        # PERBAIKAN: Query yang lebih robust untuk menangani berbagai format invalid
-        query = """
-            SELECT DISTINCT UPPER(TRIM(petugas)) as petugas
-            FROM rute_petugas 
-            WHERE petugas IS NOT NULL 
-            AND TRIM(petugas) != ''
-            AND UPPER(TRIM(petugas)) NOT IN ('NAN', 'NONE', 'NULL', '-', 'N/A', 'NA')
-            AND LENGTH(TRIM(petugas)) >= 2
-            ORDER BY petugas ASC
-        """
-        rows = db.execute(query).fetchall()
-        return jsonify([row['petugas'] for row in rows])
-
-    @app.route('/api/belum-bayar/simpan-kunjungan', methods=['POST'])
-    def simpan():
-        db = get_db()
-        try:
-            f = request.form
-            file = request.files.get('foto')
-            
-            if not file:
-                return jsonify({"error": "Foto wajib diunggah"}), 400
-
-            nomen = f.get('nomen')
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{nomen}_{timestamp}.jpg"
-            path = os.path.join(current_app.config['KUNJUNGAN_FOLDER'], filename)
-            
-            file.save(path)
-
-            apply_pro_watermark(path, {
-                'petugas': f.get('petugas'), 
-                'nomen': nomen,
-                'nama': f.get('nama_pelanggan'), 
-                'nominal': f.get('nominal_val'),
-                'status': f.get('keterangan')
-            })
-
-            db.execute("""
-                INSERT INTO kunjungan_petugas (
-                    nomen, petugas_name, keterangan, no_hp, 
-                    catatan, janji_bayar_dt, foto_path, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                nomen, f.get('petugas'), f.get('keterangan'), f.get('no_hp'), 
-                f.get('catatan'), f.get('janji_bayar_dt'), filename, datetime.now()
-            ))
-            
-            db.commit()
-            return jsonify({"status": "success", "filename": filename})
-            
-        except Exception as e:
-            db.rollback()
-            return jsonify({"error": str(e)}), 500
+        print(f"Error: {e}")
+        return jsonify({"error": str(e)}), 500
