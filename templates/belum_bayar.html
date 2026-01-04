@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="px-2 pb-5">
-    <div class="pt-4 mb-3 d-flex justify-content-between align-items-center">
-        <div>
-            <h4 class="fw-bold mb-0">Tugas Lapangan</h4>
-            <small class="text-muted">Kelola penagihan harian</small>
+<div class="container-fluid px-3 pb-5">
+    <div class="pt-4 mb-3">
+        <h4 class="fw-bold mb-0">Tugas Lapangan</h4>
+        <p class="text-muted small">Daftar pelanggan berdasarkan rute petugas</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <label class="small fw-bold mb-2"><i class="fas fa-filter me-1"></i> Filter Petugas Lapangan:</label>
+            <select id="filter-petugas" class="form-select border-0 bg-light py-2 shadow-none" onchange="loadData()">
+                <option value="all">-- Semua Petugas --</option>
+            </select>
         </div>
-        <span class="badge bg-primary rounded-pill px-3" id="count-badge">0</span>
     </div>
 
-    <div class="mb-3">
-        <label class="small fw-bold mb-1">Pilih Nama Petugas:</label>
-        <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 shadow-none py-2" onchange="loadData()">
-            <option value="all">-- Semua Petugas --</option>
-        </select>
-    </div>
-
-    <div id="list-container"></div>
+    <div id="list-container" class="row g-2">
+        </div>
 </div>
 
 <div class="modal fade" id="modalKunjungan" tabindex="-1" data-bs-backdrop="static">
@@ -24,53 +24,52 @@
         <div class="modal-content border-0 rounded-4 shadow-lg">
             <form id="form-kunjungan">
                 <div class="modal-header border-0 pb-0">
-                    <h6 class="modal-title fw-bold text-primary"><i class="fas fa-edit me-2"></i>Form Laporan Kerja</h6>
+                    <h5 class="modal-title fw-bold text-primary">Input Hasil Kunjungan</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="p-3 bg-primary-subtle rounded-4 mb-3">
-                        <div id="m-nama" class="fw-bold text-primary h6 mb-1"></div>
+                    <div class="p-3 bg-light rounded-4 mb-3 border-start border-primary border-4">
+                        <div id="m-nama" class="fw-bold h6 mb-1"></div>
                         <div id="m-nomen" class="small text-muted"></div>
+                        <div id="m-petugas-info" class="badge bg-primary-subtle text-primary mt-2"></div>
                         <input type="hidden" name="nomen" id="in-nomen">
                         <input type="hidden" name="nominal_val" id="in-nominal">
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="small fw-bold">Nomor HP Pelanggan *</label>
-                            <input type="number" name="no_hp" class="form-control bg-light border-0" placeholder="08..." required>
-                        </div>
-                        <div class="col-6">
-                            <label class="small fw-bold">Foto Bukti (Watermark) *</label>
-                            <input type="file" name="foto" class="form-control bg-light border-0" accept="image/*" capture="camera" required>
-                        </div>
+                        <input type="hidden" name="petugas" id="in-petugas-name">
                     </div>
 
                     <div class="mb-3">
-                        <label class="small fw-bold">Hasil Kunjungan *</label>
-                        <select name="keterangan" id="sel-status" class="form-select bg-light border-0" required onchange="toggleJanji()">
-                            <option value="">-- Pilih Status Lapangan --</option>
-                            <option value="Segera Bayar Hari Ini">Segera Bayar Hari Ini</option>
+                        <label class="small fw-bold">Nomor HP Pelanggan *</label>
+                        <input type="number" name="no_hp" class="form-control" placeholder="08..." required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold">Foto Lokasi (Kamera) *</label>
+                        <input type="file" name="foto" class="form-control" accept="image/*" capture="camera" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold">Status Kunjungan *</label>
+                        <select name="keterangan" id="sel-status" class="form-select" required onchange="toggleJanji()">
+                            <option value="">-- Pilih Status --</option>
+                            <option value="Segera Bayar">Segera Bayar</option>
                             <option value="Janji Bayar">Janji Bayar</option>
-                            <option value="Ajukan Cicilan">Ajukan Cicilan</option>
-                            <option value="Proses Cicilan">Proses Cicilan</option>
-                            <option value="Proses Rebill">Proses Rebill</option>
-                            <option value="Rumah Kosong (RKS)">Rumah Kosong (RKS)</option>
+                            <option value="Rumah Kosong">Rumah Kosong (RKS)</option>
+                            <option value="Pasang Stiker">Pasang Stiker</option>
                         </select>
                     </div>
 
                     <div id="div-janji" class="mb-3 d-none">
-                        <label class="small fw-bold text-danger">Atur Tanggal Janji Bayar *</label>
-                        <input type="date" name="janji_bayar_dt" class="form-control border-danger bg-danger-subtle">
+                        <label class="small fw-bold text-danger">Tanggal Janji Bayar</label>
+                        <input type="date" name="janji_bayar_dt" class="form-control">
                     </div>
 
                     <div class="mb-3">
-                        <label class="small fw-bold">Keterangan Tambahan *</label>
-                        <textarea name="catatan" class="form-control bg-light border-0" rows="2" placeholder="Tulis rincian hasil lapangan..." required></textarea>
+                        <label class="small fw-bold">Catatan Lapangan</label>
+                        <textarea name="catatan" class="form-control" rows="2" required></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 rounded-3 py-3 fw-bold shadow">
-                        SIMPAN & SHARE WHATSAPP <i class="fab fa-whatsapp ms-2"></i>
+                    <button type="submit" class="btn btn-primary w-100 rounded-3 py-3 fw-bold">
+                        SIMPAN & KIRIM WA <i class="fab fa-whatsapp ms-1"></i>
                     </button>
                 </div>
             </form>
@@ -79,15 +78,15 @@
 </div>
 
 <script>
-    const modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
+    const modal = new bootstrap.Modal(document.getElementById('modalKunjungan'));
 
-    async function loadPetugas() {
+    async function loadPetugasDropdown() {
         const res = await fetch('/api/belum-bayar/petugas-tabs');
-        const data = await res.json();
+        const list = await res.json();
         const select = document.getElementById('filter-petugas');
-        data.forEach(p => {
+        list.forEach(nama => {
             const opt = document.createElement('option');
-            opt.value = p; opt.innerText = p;
+            opt.value = nama; opt.innerText = nama;
             select.appendChild(opt);
         });
     }
@@ -96,19 +95,31 @@
         const p = document.getElementById('filter-petugas').value;
         const res = await fetch(`/api/belum-bayar/list?petugas=${p}`);
         const data = await res.json();
-        document.getElementById('count-badge').innerText = data.length;
-        document.getElementById('list-container').innerHTML = data.map(i => `
-            <div class="card border-0 shadow-sm rounded-4 mb-2" onclick="openForm('${i.nomen}', '${i.nama}', '${i.nominal}')">
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-bold">${i.nama}</div>
-                            <small class="text-muted">${i.nomen} | PCEZ: ${i.pcez}</small><br>
-                            <span class="badge bg-info-subtle text-info mt-1"><i class="fas fa-user me-1"></i>${i.nama_petugas || 'Belum Diatur'}</span>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold text-danger">Rp ${i.nominal.toLocaleString()}</div>
-                            <span class="btn btn-sm btn-primary rounded-pill px-3 mt-1" style="font-size:0.7rem">Input</span>
+        
+        const container = document.getElementById('list-container');
+        if(data.length === 0) {
+            container.innerHTML = '<div class="text-center p-5 text-muted">Data tidak ditemukan / sudah dikunjungi.</div>';
+            return;
+        }
+
+        container.innerHTML = data.map(item => `
+            <div class="col-12 col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 mb-1" onclick="openReport('${item.nomen}', '${item.nama}', '${item.nominal}', '${item.nama_petugas}')">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div style="max-width: 70%;">
+                                <div class="fw-bold text-truncate">${item.nama}</div>
+                                <div class="small text-muted">${item.nomen} | ${item.pcez}</div>
+                                <div class="mt-2">
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                        <i class="fas fa-user-tag me-1"></i> ${item.nama_petugas}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="text-danger fw-bold small">Rp ${item.nominal.toLocaleString()}</div>
+                                <div class="badge bg-light text-dark mt-1">Blok: ${item.block}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -116,64 +127,56 @@
         `).join('');
     }
 
-    function openForm(nomen, nama, nominal) {
+    function openReport(nomen, nama, nominal, petugas) {
         document.getElementById('m-nama').innerText = nama;
         document.getElementById('m-nomen').innerText = nomen;
+        document.getElementById('m-petugas-info').innerText = "Petugas Rute: " + petugas;
         document.getElementById('in-nomen').value = nomen;
         document.getElementById('in-nominal').value = nominal;
-        modalKunjungan.show();
+        document.getElementById('in-petugas-name').value = petugas;
+        modal.show();
     }
 
     function toggleJanji() {
         const s = document.getElementById('sel-status').value;
-        const div = document.getElementById('div-janji');
-        div.classList.toggle('d-none', s !== 'Janji Bayar');
-        div.querySelector('input').required = (s === 'Janji Bayar');
+        document.getElementById('div-janji').classList.toggle('d-none', s !== 'Janji Bayar');
     }
 
     document.getElementById('form-kunjungan').onsubmit = async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const petugas = document.getElementById('filter-petugas').value;
         
-        if(petugas === 'all') {
-            Swal.fire('Perhatian', 'Pilih nama petugas Anda di bagian filter atas dahulu!', 'warning');
-            return;
-        }
-
-        fd.append('petugas', petugas);
-        fd.append('nama_pelanggan', document.getElementById('m-nama').innerText);
-
-        Swal.fire({ title: 'Memproses Watermark...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Menyimpan Laporan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         try {
             const res = await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: fd });
-            const result = await res.json();
+            const resData = await res.json();
 
-            if (result.status === 'success') {
-                const urlFoto = `${window.location.origin}/uploads/kunjungan/${result.filename}`;
-                let wa = `*📌 LAPORAN BILING TERVERIFIKASI*%0A` +
-                         `_Sunter Pro - Official Report_%0A%0A` +
-                         `👷 *Petugas:* ${petugas}%0A` +
-                         `🏠 *Pelanggan:* ${document.getElementById('m-nama').innerText}%0A` +
-                         `🆔 *Nomen:* ${fd.get('nomen')}%0A` +
-                         `📱 *HP Pel:* ${fd.get('no_hp')}%0A` +
-                         `📝 *Hasil:* *${fd.get('keterangan').toUpperCase()}*%0A` +
-                         (fd.get('janji_bayar_dt') ? `📅 *Janji Bayar:* ${fd.get('janji_bayar_dt')}%0A` : '') +
-                         `💬 *Catatan:* ${fd.get('catatan')}%0A%0A` +
-                         `📸 *BUKTI FOTO WATERMARK:*%0A${urlFoto}%0A%0A` +
-                         `⏰ *Waktu:* ${new Date().toLocaleString()}%0A` +
-                         `------------------------------------------%0A` +
-                         `© _Khoirul Anwar System - Sunter Pro_`;
+            if(resData.status === 'success') {
+                const fotoLink = `${window.location.origin}/uploads/kunjungan/${resData.filename}`;
+                const waMsg = `*LAPORAN HASIL KUNJUNGAN*%0A` +
+                              `---------------------------%0A` +
+                              `👷 *Petugas:* ${fd.get('petugas')}%0A` +
+                              `🏠 *Pelanggan:* ${document.getElementById('m-nama').innerText}%0A` +
+                              `🆔 *Nomen:* ${fd.get('nomen')}%0A` +
+                              `📝 *Hasil:* ${fd.get('keterangan')}%0A` +
+                              `💬 *Catatan:* ${fd.get('catatan')}%0A%0A` +
+                              `📸 *Link Foto:* ${fotoLink}%0A%0A` +
+                              `© _Sunter Pro - Khoirul Anwar_`;
                 
-                Swal.fire('Tersimpan!', 'Laporan & Watermark Berhasil.', 'success').then(() => {
-                    window.open(`https://wa.me/?text=${wa}`, '_blank');
+                Swal.fire('Berhasil!', 'Laporan telah disimpan.', 'success').then(() => {
+                    window.open(`https://wa.me/?text=${waMsg}`, '_blank');
                     location.reload();
                 });
             }
-        } catch(err) { Swal.fire('Error', 'Gagal simpan data', 'error'); }
+        } catch(err) {
+            Swal.fire('Error', 'Gagal menyimpan data.', 'error');
+        }
     };
 
-    document.addEventListener('DOMContentLoaded', () => { loadPetugas(); loadData(); });
+    window.onload = () => {
+        loadPetugasDropdown();
+        loadData();
+    };
 </script>
 {% endblock %}
