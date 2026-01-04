@@ -16,19 +16,26 @@ def get_db():
     Menambahkan timeout dan mode WAL untuk mencegah 'Database is Locked'.
     """
     if 'db' not in g:
-        # Menambahkan timeout agar request menunggu jika DB sedang sibuk (upload)
-        g.db = sqlite3.connect(
-            current_app.config['DATABASE'],
-            timeout=30 
-        )
+        # Mengambil path database dari konfigurasi (Key: DATABASE)
+        db_path = current_app.config.get('DATABASE')
+        
+        # Fallback jika key tidak ditemukan untuk mencegah KeyError
+        if not db_path:
+            db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'penagihan.db')
+            
+        # Menambahkan timeout agar request menunggu jika DB sedang sibuk (saat upload)
+        g.db = sqlite3.connect(db_path, timeout=30)
         g.db.row_factory = sqlite3.Row
-        # Mengaktifkan Mode WAL agar Read & Write bisa berjalan bersamaan
+        
+        # Mengaktifkan Mode WAL agar Read & Write bisa berjalan bersamaan tanpa locking
         g.db.execute('PRAGMA journal_mode=WAL;')
         g.db.execute('PRAGMA synchronous=NORMAL;')
     return g.db
 
 def create_app():
     app = Flask(__name__)
+    
+    # Memuat konfigurasi dari class Config di config.py
     app.config.from_object(Config)
 
     with app.app_context():
