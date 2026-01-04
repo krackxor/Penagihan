@@ -3,109 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sunter Pro Mobile</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Sunter Pro - Billing Management</title>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
     <style>
-        :root {
-            --primary: #0061ff;
-            --secondary: #6033ff;
-            --bg-app: #f8fafc;
-            --surface: #ffffff;
-            --text-main: #1e293b;
-        }
-
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: var(--bg-app);
-            color: var(--text-main);
-            padding-bottom: 90px; /* Ruang untuk Bottom Nav */
-            overflow-x: hidden;
-        }
-
-        /* Glassmorphism Header */
-        .mobile-header {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(0,0,0,0.05);
-            padding: 15px 20px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        /* Modern Bottom Navigation */
-        .bottom-nav {
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            right: 15px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            display: flex;
-            justify-content: space-around;
-            padding: 12px 5px;
-            border-radius: 24px;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.08);
-            border: 1px solid rgba(255,255,255,0.4);
-            z-index: 2000;
-        }
-
-        .nav-item {
-            text-align: center;
-            text-decoration: none;
-            color: #94a3b8;
-            transition: all 0.3s ease;
-            flex: 1;
-        }
-
-        .nav-item i { font-size: 1.3rem; display: block; margin-bottom: 4px; }
-        .nav-item span { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .nav-item.active { color: var(--primary); }
-
-        .card {
-            border: none;
-            border-radius: 24px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            margin-bottom: 15px;
-        }
-
-        .btn-gradient {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            border: none;
-            border-radius: 16px;
-            padding: 12px 20px;
-            font-weight: 600;
-        }
+        :root { --primary-color: #0d6efd; --dark-bg: #1a1d20; }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; }
+        .navbar-custom { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .main-container { max-width: 600px; margin: 0 auto; min-height: 100vh; background: white; padding-bottom: 80px; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; 
+                      justify-content: space-around; padding: 12px 0; border-top: 1px solid #eee; z-index: 1000; }
+        .nav-item { text-align: center; color: #aaa; text-decoration: none; font-size: 0.7rem; transition: 0.3s; }
+        .nav-item.active { color: var(--primary-color); }
+        .nav-item i { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+        .card { border-radius: 15px; }
     </style>
 </head>
 <body>
-    <div class="mobile-header d-flex justify-content-between align-items-center">
-        <span class="fw-bold fs-5 text-primary">Sunter<span class="text-dark">Pro</span></span>
-        <div class="rounded-circle bg-light p-2"><i class="fas fa-user text-primary"></i></div>
+
+    <div class="main-container">
+        <nav class="navbar navbar-custom px-3 py-3 sticky-top">
+            <button class="btn border-0 p-0" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
+                <i class="fas fa-bars fa-lg text-primary"></i>
+            </button>
+            <span class="fw-bold text-primary">SUNTER PRO</span>
+            <div style="width: 24px;"></div> </nav>
+
+        <div class="container py-3">
+            {% block content %}{% endblock %}
+        </div>
     </div>
 
-    <div class="container mt-3">
-        {% block content %}{% endblock %}
-    </div>
-
-    <div class="bottom-nav">
-        <a href="/" class="nav-item {{ 'active' if request.path == '/' }}">
-            <i class="fas fa-house-chimney"></i><span>Home</span>
+    <div class="bottom-nav shadow-lg d-flex d-md-none">
+        <a href="/" class="nav-item active">
+            <i class="fas fa-th-large"></i> Dashboard
         </a>
-        <a href="/belum-bayar" class="nav-item {{ 'active' if request.path == '/belum-bayar' }}">
-            <i class="fas fa-list-check"></i><span>Tugas</span>
+        <a href="/belum-bayar" class="nav-item">
+            <i class="fas fa-clipboard-check"></i> Tugas
         </a>
-        <a href="/upload" class="nav-item {{ 'active' if request.path == '/upload' }}">
-            <i class="fas fa-circle-plus"></i><span>Upload</span>
+        <a href="/performa" class="nav-item">
+            <i class="fas fa-chart-bar"></i> Performa
         </a>
-        <a href="/history" class="nav-item {{ 'active' if request.path == '/history' }}">
-            <i class="fas fa-clock-rotate-left"></i><span>Log</span>
+        <a href="/history" class="nav-item">
+            <i class="fas fa-history"></i> Log
         </a>
     </div>
 
+    {% include 'menu.html' %}
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+
+    <script>
+        // Auto-active nav items based on URL
+        $(document).ready(function() {
+            const path = window.location.pathname;
+            $('.nav-item').removeClass('active');
+            $(`.nav-item[href="${path}"]`).addClass('active');
+        });
+    </script>
 </body>
 </html>
