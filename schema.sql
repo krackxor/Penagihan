@@ -1,4 +1,4 @@
--- 1. Tabel Master Pelanggan (Induk MC)
+-- Tabel Master Pelanggan (Induk MC)
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,         
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Tabel Master Bayar (Pemisah Pelunasan MB)
+-- Tabel Master Bayar (Pemisah Pelunasan MB)
 CREATE TABLE IF NOT EXISTS master_bayar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,         
@@ -27,11 +27,10 @@ CREATE TABLE IF NOT EXISTS master_bayar (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Tabel Collection Harian
+-- Tabel Collection Harian
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,         
-    notag TEXT,
     pay_dt TEXT,
     nominal REAL,
     periode_bulan INTEGER,
@@ -39,7 +38,7 @@ CREATE TABLE IF NOT EXISTS collection_harian (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Tabel Kunjungan Petugas
+-- Tabel Kunjungan Petugas
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
@@ -51,20 +50,15 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Tabel Rute & Ardebt
+-- Tabel Rute & Ardebt
 CREATE TABLE IF NOT EXISTS rute_petugas (pcez TEXT PRIMARY KEY, petugas TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS ardebt (nomen TEXT PRIMARY KEY, jumlah REAL DEFAULT 0);
 
 -- ==========================================================
 -- INDEX UNTUK KECEPATAN TINGGI (SOLUSI LOADING LAMA)
 -- ==========================================================
--- Index pada nomen di semua tabel pelunasan adalah WAJIB
 CREATE INDEX IF NOT EXISTS idx_mc_nomen ON master_pelanggan(nomen);
 CREATE INDEX IF NOT EXISTS idx_mb_nomen ON master_bayar(nomen);
 CREATE INDEX IF NOT EXISTS idx_col_nomen ON collection_harian(nomen);
-
--- Index untuk filter per petugas/wilayah
 CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan(pcez);
-
--- Index untuk mempercepat pengecekan kunjungan hari ini
 CREATE INDEX IF NOT EXISTS idx_kunjungan_nomen_tgl ON kunjungan_petugas(nomen, created_at);
