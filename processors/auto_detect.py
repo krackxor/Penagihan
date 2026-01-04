@@ -1,33 +1,51 @@
 import pandas as pd
 
-def detect_file_period(df, file_type):
-    """
-    Menentukan periode berdasarkan Field Acuan (SOP Poin 2)
-    """
-    # Mapping Field Acuan sesuai SOP
-    acuan = {
-        'mc': 'TGL_CATAT',
-        'mb': 'TGL_BAYAR',
-        'collection': 'PAY_DT',
-        'sbrs': 'cmr_rd_date',
-        'mainbill': 'FREEZE_DT',
-        'ardebt': 'PERIODE_BILL'
-    }
+def identify_file_type(df):
+    """Mendeteksi tipe file berdasarkan fingerprint kolom"""
+    cols = [c.upper().strip() for c in df.columns]
     
-    date_col = acuan.get(file_type)
-    if not date_col or date_col not in df.columns:
-        return None, None
+    # Deteksi MC (Master Catat)
+    if 'ZONA_NOVAK' in cols and 'NAMA_PEL' in cols:
+        return 'mc'
+    
+    # Deteksi MB (Master Bayar)
+    if 'TGL_BAYAR' in cols and 'BEATETAP' in cols:
+        return 'mb'
+    
+    # Deteksi Collection (Daily)
+    if 'AMT_COLLECT' in cols or 'PAY_DT' in cols:
+        return 'collection'
+    
+    # Deteksi Ardebt (Tunggakan)
+    if 'PERIODE_BILL' in cols and 'JUMLAH' in cols:
+        return 'ardebt'
+    
+    # Deteksi Rute (Mapping Petugas)
+    if 'PCEZ' in cols and 'PETUGAS' in cols:
+        return 'rute'
+    
+    return None
 
-    # Ambil contoh data pertama
-    raw_val = df[date_col].iloc[0]
+def detect_file_period(df, file_type):
+    """Mendeteksi bulan dan tahun dari isi file"""
+    cols = [c.upper().strip() for c in df.columns]
     
-    # Konversi format tanggal (mendukung format Excel & String)
     try:
-        if isinstance(raw_val, (int, float)): # Format angka Excel
-            date_obj = pd.to_datetime(raw_val, unit='D', origin='1899-12-30')
-        else:
-            date_obj = pd.to_datetime(raw_val, dayfirst=True)
+        if file_type == 'mc' and 'NAMA_BLN1' in cols:
+            # Ambil dari baris pertama
+            bulan = df.iloc[0].get('NAMA_BLN1')
+            tahun = df.iloc[0].get('TAHUN1')
+            return bulan, tahun
             
-        return int(date_obj.month), int(date_obj.year)
+        elif file_type == 'collection' and 'BILL_PERIOD' in cols:
+            period = str(df.iloc[0].get('BILL_PERIOD')) # Contoh: Nov/2025
+            if '/' in period:
+                return period.split('/')[0], period.split('/')[1]
+                
+        elif file_type == 'mb' and 'BULAN_REK' in cols:
+            val = str(df.iloc[0].get('BULAN_REK')) # Contoh: 112025
+            return val[:2], val[2:]
     except:
-        return None, None
+        pass
+        
+    return None, None
