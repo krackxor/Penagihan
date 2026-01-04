@@ -23,20 +23,30 @@ def register_pcez_routes(app, get_db):
         """
         try:
             rows = db.execute(query).fetchall()
-            # Mengembalikan data dalam format list dictionary untuk dikonsumsi Chart.js
             return jsonify([dict(row) for row in rows])
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
     @app.route('/api/performance/stats-global', methods=['GET'])
     def get_global_stats():
-        """Endpoint tambahan untuk ringkasan angka di dashboard utama"""
+        """Endpoint diperbarui untuk statistik harian, mingguan, dan bulanan"""
         db = get_db()
         query = """
         SELECT 
-            (SELECT COUNT(*) FROM kunjungan_petugas WHERE date(created_at) = date('now')) as kunjungan_hari_ini,
-            (SELECT COUNT(*) FROM master_pelanggan) as total_pelanggan,
-            (SELECT COUNT(*) FROM collection_harian WHERE periode_bulan = strftime('%m','now')) as bayar_bulan_ini
+            -- Statistik Kunjungan Lapangan
+            (SELECT COUNT(*) FROM kunjungan_petugas WHERE date(created_at) = date('now', 'localtime')) as harian,
+            (SELECT COUNT(*) FROM kunjungan_petugas WHERE date(created_at) >= date('now', '-7 days', 'localtime')) as mingguan,
+            (SELECT COUNT(*) FROM kunjungan_petugas WHERE strftime('%m-%Y', created_at) = strftime('%m-%Y', 'now', 'localtime')) as bulanan,
+            
+            -- Statistik Target Penagihan
+            (SELECT COUNT(*) FROM master_pelanggan) as target_total,
+            (SELECT COUNT(*) FROM collection_harian WHERE strftime('%m-%Y', created_at) = strftime('%m-%Y', 'now', 'localtime')) as realisasi_bayar
         """
-        row = db.execute(query).fetchone()
-        return jsonify(dict(row))
+        try:
+            row = db.execute(query).fetchone()
+            data = dict(row)
+            # Hitung sisa target
+            data['sisa_target'] = data['target_total'] - data['realisasi_bayar']
+            return jsonify(data)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
