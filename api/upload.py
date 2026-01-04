@@ -8,34 +8,29 @@ upload_bp = Blueprint('upload', __name__)
 
 def clean_pcez(val):
     """
-    Menyeragamkan format PCEZ menjadi standar XXX/XX.
-    Contoh: 
-    - 9602    -> 096/02
-    - 09602   -> 096/02
-    - 096/02  -> 096/02
-    - 96/2    -> 096/02
+    Menyeragamkan format PCEZ menjadi standar XXX/XX secara ketat.
     """
-    if pd.isna(val) or str(val).strip().upper() == 'NAN':
+    if pd.isna(val) or str(val).strip().upper() == 'NAN' or str(val).strip() == '':
         return None
     
-    # Ambil angka saja
-    s = ''.join(filter(str.isdigit, str(val)))
+    val_str = str(val).strip()
     
-    if len(s) == 4: # Kasus 9602
-        s = "0" + s
-    
-    if len(s) == 5: # Kasus 09602
-        return f"{s[:3]}/{s[3:]}"
-    
-    # Jika format tidak standar, coba bersihkan manual jika ada '/'
-    if '/' in str(val):
-        parts = str(val).split('/')
+    # Jika format sudah mengandung '/', pecah dan zfill
+    if '/' in val_str:
+        parts = val_str.split('/')
         if len(parts) == 2:
-            p1 = parts[0].strip().zfill(3)
-            p2 = parts[1].strip().zfill(2)
+            p1 = ''.join(filter(str.isdigit, parts[0])).zfill(3)
+            p2 = ''.join(filter(str.isdigit, parts[1])).zfill(2)
             return f"{p1}/{p2}"
+    
+    # Jika format angka rapat (9602 atau 09602)
+    s = ''.join(filter(str.isdigit, val_str))
+    if len(s) == 4: # 9602 -> 096/02
+        return f"0{s[:2]}/{s[2:]}"
+    if len(s) == 5: # 09602 -> 096/02
+        return f"{s[:3]}/{s[3:]}"
             
-    return str(val).strip()
+    return val_str
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
@@ -46,7 +41,7 @@ def handle_upload():
     db = get_db_connection()
     
     try:
-        # Membaca excel dengan konversi string untuk menghindari angka dibaca float (.0)
+        # Membaca excel sebagai string untuk menjaga integritas data Nomen & Zona
         df = pd.read_excel(file, dtype=str)
         file_type = identify_file_type(df)
         
@@ -56,35 +51,37 @@ def handle_upload():
         bulan, tahun = detect_file_period(df, file_type)
         periode_info = f" ({bulan}/{tahun})" if bulan else ""
 
-        # Normalisasi Header
+        # Normalisasi Header ke Uppercase
         df.columns = [str(c).upper().strip() for c in df.columns]
 
         if file_type == 'rute':
-            # Opsional: Hapus rute lama agar data petugas selalu fresh
-            # db.execute("DELETE FROM rute_petugas") 
-            
             count = 0
             for _, row in df.iterrows():
                 pcez = clean_pcez(row.get('PCEZ'))
                 petugas = str(row.get('PETUGAS', '')).strip().upper()
                 
                 if pcez and petugas and petugas != 'NAN':
-                    db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", (pcez, petugas))
+                    db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
+                               (pcez, petugas))
                     count += 1
-            print(f"Berhasil memproses {count} data rute.")
+            print(f"✅ Berhasil sinkronisasi {count} rute petugas.")
 
         elif file_type == 'mc':
+            count_mc = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
-                # Ekstrak PCEZ dari ZONA_NOVAK secara konsisten
-                zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "")
+                if not nomen or nomen == 'NAN': continue
                 
-                # Format ZONA_NOVAK biasanya: 350960217 -> 096/02
+                # Ekstrak Zona Novak (Contoh: 350960217)
+                zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "").strip()
+                
+                # Standarisasi PCEZ dari Zona Novak: Ambil digit ke 3-5 dan 6-7
                 if len(zona) >= 7:
                     raw_pcez = f"{zona[2:5]}/{zona[5:7]}"
                 else:
                     raw_pcez = "000/00"
                 
+                # Bersihkan pcez agar formatnya XXX/XX sama dengan tabel rute_petugas
                 pcez_val = clean_pcez(raw_pcez)
                 
                 db.execute("""
@@ -98,6 +95,8 @@ def handle_upload():
                     zona[7:9] if len(zona) >= 9 else '00', 
                     row.get('NOMINAL')
                 ))
+                count_mc += 1
+            print(f"✅ Berhasil memproses {count_mc} pelanggan MC.")
 
         elif file_type == 'mb':
             for _, row in df.iterrows():
@@ -113,7 +112,7 @@ def handle_upload():
         })
 
     except Exception as e:
-        db.rollback()
+        if db: db.rollback()
         return jsonify({"error": f"Gagal memproses file: {str(e)}"}), 500
     finally:
-        db.close()
+        if db: db.close()
