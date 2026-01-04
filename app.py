@@ -12,7 +12,8 @@ from core.database import init_db
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
-from api.belum_bayar import register_belum_bayar_routes
+# Perbaikan: Import blueprint, bukan fungsi register
+from api.belum_bayar import belum_bayar_bp 
 from api.pcez_performance import register_pcez_routes
 
 def get_db():
@@ -56,9 +57,11 @@ def create_app():
     app.register_blueprint(history_bp, url_prefix='/api')
     app.register_blueprint(rute_bp, url_prefix='/api')
     
+    # Perbaikan: Registrasi belum_bayar menggunakan Blueprint
+    app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
+    
     # --- REGISTRASI RUTE DINAMIS ---
-    # Fungsi ini menyuntikkan (inject) get_db ke dalam modul penagihan
-    register_belum_bayar_routes(app, get_db)
+    # PCEZ tetap menggunakan fungsi register jika belum diubah ke Blueprint
     register_pcez_routes(app, get_db)
 
     # --- RUTE NAVIGASI FRONTEND (Tampilan) ---
@@ -102,7 +105,8 @@ def create_app():
     @app.route('/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         """Menyajikan foto bukti kunjungan agar muncul di browser/WA"""
-        return send_from_directory(app.config['KUNJUNGAN_FOLDER'], filename)
+        # Pastikan KUNJUNGAN_FOLDER didefinisikan di config.py
+        return send_from_directory(app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan'), filename)
 
     return app
 
