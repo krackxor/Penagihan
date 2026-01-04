@@ -16,14 +16,11 @@ def apply_pro_watermark(image_path, data):
         draw = ImageDraw.Draw(img, "RGBA")
         width, height = img.size
         
-        # Overlay di bagian bawah (22% dari tinggi gambar)
         overlay_h = int(height * 0.22)
         draw.rectangle([(0, height - overlay_h), (width, height)], fill=(0, 0, 0, 180))
 
-        # Pengaturan Font (Menggunakan ukuran relatif terhadap gambar)
         font_size = int(overlay_h * 0.18)
         try:
-            # Pastikan path font benar sesuai OS atau gunakan default
             font = ImageFont.truetype("arial.ttf", font_size)
             font_small = ImageFont.truetype("arial.ttf", int(font_size * 0.75))
         except:
@@ -33,14 +30,12 @@ def apply_pro_watermark(image_path, data):
         margin = 40
         curr_y = height - overlay_h + 20
         
-        # Informasi Utama
         petugas_txt = str(data.get('petugas', 'OFFICER')).upper()
         draw.text((margin, curr_y), f"PETUGAS: {petugas_txt} | {data['nomen']}", fill=(255, 255, 255), font=font)
         draw.text((margin, curr_y + font_size + 10), f"PELANGGAN: {data['nama']}", fill=(255, 215, 0), font=font_small)
         draw.text((margin, curr_y + (font_size*2) + 15), f"STATUS: {data['status']} | Rp {data['nominal']}", fill=(255, 255, 255), font=font_small)
         draw.text((margin, curr_y + (font_size*3) + 20), f"WAKTU: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", fill=(0, 255, 127), font=font_small)
         
-        # Copyright Tag
         draw.text((width // 2 - 150, height - 35), "© KHOIRUL ANWAR - PENAGIHAN SYSTEM", fill=(200, 200, 200, 150), font=font_small)
         
         img.save(image_path, "JPEG", quality=85)
@@ -53,8 +48,6 @@ def register_belum_bayar_routes(app, get_db):
         db = get_db()
         petugas_filter = request.args.get('petugas', 'all')
         
-        # Query utama yang dioptimalkan
-        # Join langsung pada pcez karena sudah dibersihkan saat upload
         query = """
             SELECT 
                 m.nomen, m.nama, m.nominal, m.pcez, m.block,
@@ -79,12 +72,13 @@ def register_belum_bayar_routes(app, get_db):
     @app.route('/api/belum-bayar/petugas-tabs', methods=['GET'])
     def get_tabs():
         db = get_db()
-        # ✅ QUERY YANG DIPERBAIKI - Menangani berbagai format invalid
+        # PERBAIKAN: Query yang lebih robust untuk menangani berbagai format invalid
         query = """
-            SELECT DISTINCT petugas 
+            SELECT DISTINCT UPPER(TRIM(petugas)) as petugas
             FROM rute_petugas 
             WHERE petugas IS NOT NULL 
-            AND TRIM(UPPER(petugas)) NOT IN ('', 'NAN', 'NONE', 'NULL', '-', 'N/A', 'NA')
+            AND TRIM(petugas) != ''
+            AND UPPER(TRIM(petugas)) NOT IN ('NAN', 'NONE', 'NULL', '-', 'N/A', 'NA')
             AND LENGTH(TRIM(petugas)) >= 2
             ORDER BY petugas ASC
         """
@@ -101,7 +95,6 @@ def register_belum_bayar_routes(app, get_db):
             if not file:
                 return jsonify({"error": "Foto wajib diunggah"}), 400
 
-            # Penamaan file yang lebih aman
             nomen = f.get('nomen')
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{nomen}_{timestamp}.jpg"
@@ -109,7 +102,6 @@ def register_belum_bayar_routes(app, get_db):
             
             file.save(path)
 
-            # Terapkan Watermark
             apply_pro_watermark(path, {
                 'petugas': f.get('petugas'), 
                 'nomen': nomen,
@@ -118,7 +110,6 @@ def register_belum_bayar_routes(app, get_db):
                 'status': f.get('keterangan')
             })
 
-            # Simpan ke Database
             db.execute("""
                 INSERT INTO kunjungan_petugas (
                     nomen, petugas_name, keterangan, no_hp, 
