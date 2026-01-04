@@ -2,66 +2,107 @@ import os
 import pandas as pd
 from flask import Blueprint, request, jsonify, current_app
 from core.database import get_db_connection
+from processors.auto_detect import identify_file_type
 
 upload_bp = Blueprint('upload', __name__)
 
-def identify_file_type(df):
-    cols = [c.upper() for c in df.columns]
-    if 'ZONA_NOVAK' in cols and 'NAMA_PEL' in cols: return 'mc'
-    if 'TGL_BAYAR' in cols and 'BEATETAP' in cols: return 'mb'
-    if 'AMT_COLLECT' in cols or 'NOTAG' in cols: return 'collection'
-    if 'PERIODE_BILL' in cols and 'JUMLAH' in cols: return 'ardebt'
-    if 'PCEZ' in cols and 'PETUGAS' in cols: return 'rute'
-    return None
+def clean_nomen(val):
+    """Membersihkan format nomen dari Excel agar tidak ada desimal .0"""
+    if pd.isna(val) or val == "":
+        return None
+    # Mengonversi ke string dan membuang desimal (misal 3001.0 -> 3001)
+    return str(val).split('.')[0].strip()
 
-def save_chunk_to_db(df, file_type, db):
+def save_to_db(df, file_type, db):
+    """Menyimpan data ke tabel yang sesuai berdasarkan tipe file yang terdeteksi"""
+    
     if file_type == 'mc':
         for _, row in df.iterrows():
+            nomen = clean_nomen(row.get('NOMEN'))
+            if not nomen: continue
+            
+            # Logika pecah ZONA_NOVAK menjadi PCEZ (Contoh: 350960217 -> 096/02)
             zona = str(row.get('ZONA_NOVAK', '000000000')).split('.')[0]
             pcez = f"{zona[2:5]}/{zona[5:7]}" if len(zona) >= 7 else "000/00"
-            db.execute("""INSERT INTO master_pelanggan (nomen, nama, pcez, rayon, block, nominal) 
-                          VALUES (?, ?, ?, ?, ?, ?)""", 
-                       (str(row.get('NOMEN')).split('.')[0], row.get('NAMA_PEL'), pcez, row.get('PC'), zona[7:9], row.get('NOMINAL')))
-    
+            
+            db.execute("""
+                INSERT INTO master_pelanggan (nomen, nama, pcez, rayon, block, nominal) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (nomen, row.get('NAMA_PEL'), pcez, row.get('PC'), zona[7:9], row.get('NOMINAL')))
+
     elif file_type == 'mb':
         for _, row in df.iterrows():
+            nomen = clean_nomen(row.get('NOMEN'))
+            if not nomen: continue
             db.execute("INSERT INTO master_bayar (nomen, nominal) VALUES (?, ?)", 
-                       (str(row.get('NOMEN')).split('.')[0], row.get('NOMINAL')))
+                       (nomen, row.get('NOMINAL')))
             
     elif file_type == 'collection':
         for _, row in df.iterrows():
+            nomen = clean_nomen(row.get('NOMEN'))
+            if not nomen: continue
+            # Menggunakan AMT_COLLECT sesuai file Collection Anda
             db.execute("INSERT INTO collection_harian (nomen, notag, nominal) VALUES (?, ?, ?)", 
-                       (str(row.get('NOMEN')).split('.')[0], row.get('NOTAG'), row.get('AMT_COLLECT')))
+                       (nomen, row.get('NOTAG'), row.get('AMT_COLLECT')))
 
     elif file_type == 'ardebt':
         for _, row in df.iterrows():
-            db.execute("INSERT OR REPLACE INTO ardebt (nomen, jumlah, volume, periode_bill) VALUES (?, ?, ?, ?)", 
-                       (str(row.get('NOMEN')).split('.')[0], row.get('JUMLAH'), row.get('VOLUME'), row.get('PERIODE_BILL')))
+            nomen = clean_nomen(row.get('NOMEN'))
+            if not nomen: continue
+            db.execute("""
+                INSERT OR REPLACE INTO ardebt (nomen, jumlah, volume, periode_bill) 
+                VALUES (?, ?, ?, ?)
+            """, (nomen, row.get('JUMLAH'), row.get('VOLUME'), row.get('PERIODE_BILL')))
 
     elif file_type == 'rute':
         for _, row in df.iterrows():
-            db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
-                       (str(row.get('PCEZ')).strip(), str(row.get('PETUGAS')).strip()))
+            pcez = str(row.get('PCEZ', '')).strip()
+            petugas = str(row.get('PETUGAS', '')).strip()
+            if pcez and petugas:
+                db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
+                           (pcez, petugas))
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
-    file = request.files.get('file')
-    if not file: return jsonify({"error": "No file"}), 400
+    if 'file' not in request.files:
+        return jsonify({"error": "Tidak ada file yang dipilih"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "Nama file kosong"}), 400
 
-    db = get_db_connection()
     try:
-        # Gunakan Engine Openpyxl untuk .xlsx dan .xls
+        # Membaca file (mendukung .xls, .xlsx, dan .csv)
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(file, dtype=str)
+            df = pd.read_csv(file)
         else:
-            df = pd.read_excel(file, dtype=str)
+            df = pd.read_excel(file)
 
+        # 1. Identifikasi Tipe File
         file_type = identify_file_type(df)
-        if not file_type: return jsonify({"error": "Format kolom tidak dikenali"}), 400
+        if not file_type:
+            return jsonify({"error": "Format kolom tidak dikenali oleh sistem"}), 400
 
-        save_chunk_to_db(df, file_type, db)
-        db.commit()
-        
-        return jsonify({"status": "success", "detected": file_type.upper()})
+        # 2. Simpan ke Database
+        db = get_db_connection()
+        try:
+            # Hapus data lama jika itu file Rute agar tidak duplikat
+            if file_type == 'rute':
+                db.execute("DELETE FROM rute_petugas")
+            
+            save_to_db(df, file_type, db)
+            db.commit()
+            
+            return jsonify({
+                "status": "success", 
+                "detected": file_type.upper(),
+                "message": f"Berhasil mengunggah data {file_type.upper()}"
+            })
+        except Exception as db_error:
+            db.rollback()
+            return jsonify({"error": f"Gagal simpan ke database: {str(db_error)}"}), 500
+        finally:
+            db.close()
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Gagal membaca file: {str(e)}"}), 500
