@@ -34,9 +34,14 @@ def register_belum_bayar_routes(app, get_db):
         db = get_db()
         petugas = request.args.get('petugas', '')
         search = request.args.get('search', '')
+        
+        # Query diperbarui dengan sub-query is_visited untuk penandaan status
         query = """
             SELECT m.nomen, m.nama, m.pcez, m.block, m.no_hp, r.petugas,
-                   (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total
+                   (COALESCE(m.nominal, 0) + COALESCE(a.jumlah, 0)) as total,
+                   (SELECT COUNT(*) FROM kunjungan_petugas k 
+                    WHERE k.nomen = m.nomen 
+                    AND date(k.created_at) = date('now')) as is_visited
             FROM master_pelanggan m
             INNER JOIN rute_petugas r ON m.pcez = r.pcez
             LEFT JOIN ardebt a ON m.nomen = a.nomen
@@ -64,7 +69,6 @@ def register_belum_bayar_routes(app, get_db):
             lng = request.form.get('lng', '0')
             foto = request.files.get('foto')
 
-            # Ambil data Nominal & Nama
             query = "SELECT nama, nominal FROM master_pelanggan WHERE nomen = ?"
             pel = db.execute(query, (nomen,)).fetchone()
             nama_pel = pel['nama'] if pel else "-"
@@ -98,8 +102,8 @@ def register_belum_bayar_routes(app, get_db):
                 img.save(save_path, "JPEG", quality=85)
                 photo_url = f"http://{get_server_ip()}:5000/uploads/kunjungan/{filename}"
 
-            db.execute("INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, foto_path, created_at) VALUES (?,?,?,?,?)",
-                       (nomen, petugas, keterangan, filename, waktu_jkt))
+            db.execute("INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, foto_path, latitude, longitude, created_at) VALUES (?,?,?,?,?,?,?)",
+                       (nomen, petugas, keterangan, filename, lat, lng, waktu_jkt))
             if no_hp:
                 db.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp, nomen))
             db.commit()
@@ -120,10 +124,3 @@ def register_belum_bayar_routes(app, get_db):
             return jsonify({"status": "success", "wa_text": wa_text})
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
-
-    @app.route('/api/belum-bayar/stats-harian', methods=['GET'])
-    def get_stats_harian():
-        db = get_db()
-        petugas = request.args.get('petugas', '')
-        row = db.execute("SELECT COUNT(*) as done FROM kunjungan_petugas WHERE petugas_name = ? AND date(created_at) = date('now')", (petugas,)).fetchone()
-        return jsonify({"done": row['done'] if row else 0, "target": 10})
