@@ -1,145 +1,111 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="animate__animated animate__fadeIn px-2 pb-5">
-    <div class="pt-4 mb-4 text-center">
-        <div class="bg-success-subtle text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-            <i class="fas fa-cloud-upload-alt fa-2x"></i>
-        </div>
-        <h4 class="fw-bold mb-1">Upload Data Master</h4>
-        <p class="text-muted small">Sistem otomatis mendeteksi tipe file (MC/MB/Daily)</p>
+<div class="px-2 pb-5 animate__animated animate__fadeIn">
+    <div class="pt-4 mb-4">
+        <h4 class="fw-bold mb-1">Upload Data Master 📊</h4>
+        <p class="text-muted small">Mendukung file MC, MB, Collection, Ardebt, dan Rute (.xlsx / .xls)</p>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-body p-4">
-            <form id="upload-form">
-                <div class="upload-area border-2 border-dashed rounded-4 p-4 text-center mb-3" id="drop-area">
-                    <input type="file" name="file" id="file-input" class="d-none" accept=".xlsx, .xls, .csv">
-                    <div id="upload-placeholder">
-                        <i class="fas fa-file-excel fa-3x text-muted mb-3"></i>
-                        <p class="mb-1 fw-bold">Ketuk untuk Pilih File</p>
-                        <p class="text-muted small">Format: .xlsx, .xls, atau .csv</p>
-                    </div>
-                    <div id="file-info" class="d-none">
-                        <i class="fas fa-file-circle-check fa-3x text-success mb-3"></i>
-                        <p id="filename-text" class="fw-bold mb-0 text-truncate px-3"></p>
-                        <button type="button" class="btn btn-link btn-sm text-danger shadow-none" onclick="resetUpload()">Ganti File</button>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label small fw-bold text-muted">Informasi Penting:</label>
-                    <ul class="text-muted small ps-3">
-                        <li>File **MC** akan menjadi induk target penagihan.</li>
-                        <li>File **MB** akan memvalidasi pelunasan (otomatis).</li>
-                        <li>Pastikan kolom <b>NOTAGIHAN</b> tersedia di file Anda.</li>
-                    </ul>
-                </div>
-
-                <button type="submit" id="btn-upload" class="btn btn-success w-100 rounded-3 py-3 fw-bold shadow-sm disabled">
-                    <i class="fas fa-paper-plane me-2"></i> PROSES DATA SEKARANG
-                </button>
-            </form>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+        <div class="card-body p-4 text-center" id="drop-area" style="border: 2px dashed #dee2e6; border-radius: 1.5rem; background: #f8f9fa;">
+            <i class="fas fa-cloud-upload-alt text-primary mb-3" style="font-size: 3rem;"></i>
+            <h6 class="fw-bold">Pilih file Excel Anda</h6>
+            <p class="text-muted small mb-3">Klik tombol di bawah atau seret file ke sini</p>
+            
+            <input type="file" id="fileInput" class="d-none" accept=".xlsx, .xls, .csv">
+            <button onclick="document.getElementById('fileInput').click()" class="btn btn-primary rounded-pill px-4 fw-bold">
+                CARI FILE
+            </button>
+            <div id="file-name-preview" class="mt-3 small fw-bold text-primary"></div>
         </div>
     </div>
 
-    <div id="progress-overlay" class="d-none position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-75 d-flex align-items-center justify-content-center" style="z-index: 9999;">
-        <div class="bg-white p-4 rounded-4 text-center shadow-lg mx-3" style="max-width: 400px; width: 100%;">
-            <div class="spinner-border text-success mb-3" role="status"></div>
-            <h6 class="fw-bold">Sedang Memproses Data...</h6>
-            <p class="text-muted small mb-3">Sistem sedang membagi data ke tabel MC/MB. Jangan tutup halaman ini.</p>
-            <div class="progress" style="height: 10px; border-radius: 10px;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: 100%"></div>
+    <button id="btn-proses" onclick="handleUpload()" class="btn btn-dark w-100 rounded-4 py-3 fw-bold shadow-sm d-none">
+        PROSES & SIMPAN DATA <i class="fas fa-arrow-right ms-2"></i>
+    </button>
+
+    <div class="mt-4 px-2">
+        <h6 class="fw-bold small mb-3 text-muted text-uppercase">Panduan Kolom File:</h6>
+        <div class="row g-2">
+            <div class="col-6">
+                <div class="p-2 bg-white rounded-3 shadow-sm small border-start border-primary border-3">
+                    <strong>MC:</strong> NOMEN, NAMA_PEL, ZONA_NOVAK, NOMINAL
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 bg-white rounded-3 shadow-sm small border-start border-success border-3">
+                    <strong>RUTE:</strong> PCEZ, PETUGAS
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-    .upload-area {
-        border: 2px dashed #dee2e6;
-        cursor: pointer;
-        transition: all 0.3s;
-        background-color: #f8f9fa;
-    }
-    .upload-area:hover {
-        border-color: #198754;
-        background-color: #f0fdf4;
-    }
-    .bg-success-subtle { background-color: #d1e7dd; }
-</style>
+
 
 <script>
-    const dropArea = document.getElementById('drop-area');
-    const fileInput = document.getElementById('file-input');
-    const btnUpload = document.getElementById('btn-upload');
-    const uploadPlaceholder = document.getElementById('upload-placeholder');
-    const fileInfo = document.getElementById('file-info');
-    const filenameText = document.getElementById('filename-text');
-    const progressOverlay = document.getElementById('progress-overlay');
+    const fileInput = document.getElementById('fileInput');
+    const fileNamePreview = document.getElementById('file-name-preview');
+    const btnProses = document.getElementById('btn-proses');
 
-    // Trigger click input
-    dropArea.onclick = () => fileInput.click();
-
-    // Handle file selection
-    fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            uploadPlaceholder.classList.add('d-none');
-            fileInfo.classList.remove('d-none');
-            filenameText.innerText = file.name;
-            btnUpload.classList.remove('disabled');
+    // Tampilkan nama file saat dipilih
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files.length > 0) {
+            const fileName = this.files[0].name; // Menangkap nama file asli
+            fileNamePreview.innerHTML = `<i class="fas fa-file-excel me-1"></i> ${fileName}`;
+            btnProses.classList.remove('d-none');
+            btnProses.classList.add('animate__animated', 'animate__bounceIn');
+        } else {
+            btnProses.classList.add('d-none');
         }
-    };
+    });
 
-    function resetUpload() {
-        fileInput.value = "";
-        uploadPlaceholder.classList.remove('d-none');
-        fileInfo.classList.add('d-none');
-        btnUpload.classList.add('disabled');
-    }
+    async function handleUpload() {
+        const file = fileInput.files[0];
+        if (!file) return;
 
-    // Handle Upload Form
-    document.getElementById('upload-form').onsubmit = async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        progressOverlay.classList.remove('d-none');
-        btnUpload.disabled = true;
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Loading State Profesional
+        Swal.fire({
+            title: 'Sedang Memproses',
+            html: `Mengolah data dari <b>${file.name}</b>...<br><small>Mohon jangan tutup halaman ini</small>`,
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
 
         try {
             const res = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData
             });
-            const data = await res.json();
+            const result = await res.json();
 
-            if (data.status === 'success') {
+            if (result.status === 'success') {
                 Swal.fire({
                     icon: 'success',
                     title: 'Berhasil!',
-                    text: `File ${data.detected} berhasil diproses.`,
-                    confirmButtonColor: '#198754'
+                    text: `File ${file.name} diproses sebagai data ${result.message}`,
+                    confirmButtonColor: '#0d6efd'
                 }).then(() => {
-                    window.location.href = '/history';
+                    window.location.reload(); // Refresh untuk update stats
                 });
             } else {
-                throw new Error(data.error || 'Terjadi kesalahan saat memproses file.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Simpan',
+                    text: result.error
+                });
             }
-        } catch (err) {
+        } catch (error) {
             Swal.fire({
                 icon: 'error',
-                title: 'Gagal',
-                text: err.message,
-                confirmButtonColor: '#dc3545'
+                title: 'Koneksi Error',
+                text: 'Gagal menghubungi server. Periksa jaringan Anda.'
             });
-        } finally {
-            progressOverlay.classList.add('d-none');
-            btnUpload.disabled = false;
-            resetUpload();
         }
-    };
+    }
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
