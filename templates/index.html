@@ -1,89 +1,176 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="px-2 pb-5">
     <div class="pt-4 mb-4 text-center">
-        <h4 class="fw-bold mb-0">Dashboard Sunter Pro 📊</h4>
-        <p class="text-muted small" id="current-date"></p>
+        <h4 class="fw-bold mb-0 text-primary">Monitoring Penagihan Sunter Pro</h4>
+        <p class="text-muted small" id="display-date"></p>
     </div>
 
-    <div class="row g-2 mb-4">
+    <div class="row g-2 mb-3">
         <div class="col-6">
-            <div class="card p-3 border-0 shadow-sm bg-dark text-white rounded-4 text-center">
-                <small class="opacity-75">NOMEN MC (INDUK)</small>
+            <div class="card p-3 border-0 bg-dark text-white rounded-4 shadow-sm">
+                <small class="opacity-75 d-block mb-1">TOTAL NOMEN MC</small>
                 <h4 class="fw-bold mb-0" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
-            <div class="card p-3 border-0 shadow-sm bg-dark text-white rounded-4 text-center">
-                <small class="opacity-75">NOMINAL MC</small>
+            <div class="card p-3 border-0 bg-dark text-white rounded-4 shadow-sm">
+                <small class="opacity-75 d-block mb-1">TOTAL NOMINAL MC</small>
                 <h6 class="fw-bold mb-0" id="g-nom-mc">Rp 0</h6>
             </div>
         </div>
     </div>
 
     <div class="card p-4 border-0 shadow-sm bg-primary text-white mb-4 rounded-4">
-        <div class="d-flex justify-content-between">
+        <div class="d-flex justify-content-between align-items-start">
             <div>
                 <small class="opacity-75">Sisa Target Penagihan</small>
                 <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
             </div>
-            <i class="fas fa-wallet fa-2x opacity-25"></i>
+            <div class="bg-white bg-opacity-25 p-2 rounded-3">
+                <i class="fas fa-chart-line fa-lg"></i>
+            </div>
         </div>
+        
         <div class="progress my-3" style="height: 10px; background: rgba(255,255,255,0.2); border-radius: 10px;">
-            <div id="prog-bar" class="progress-bar bg-white" style="width: 0%"></div>
+            <div id="prog-bar" class="progress-bar bg-white shadow-sm" style="width: 0%"></div>
         </div>
-        <small id="stat-realisasi" class="opacity-75">0 Lunas dari 0 MC</small>
+        
+        <div class="d-flex justify-content-between small">
+            <span id="stat-realisasi" class="opacity-75">0 Lunas dari 0 MC</span>
+            <span id="stat-percent" class="fw-bold">0%</span>
+        </div>
     </div>
 
-    <h6 class="fw-bold mb-3 px-1">Leaderboard Petugas</h6>
+    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+        <h6 class="fw-bold mb-0">Leaderboard Petugas (Bulan Ini)</h6>
+        <i class="fas fa-medal text-warning"></i>
+    </div>
     <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
-        <table class="table mb-0" style="font-size: 0.85rem;">
-            <thead class="bg-light">
-                <tr><th class="ps-3">Petugas</th><th class="text-center">Minggu</th><th class="text-center">Bulan</th></tr>
-            </thead>
-            <tbody id="list-officers"></tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size: 0.85rem;">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-3 border-0">Petugas</th>
+                        <th class="text-center border-0">Minggu</th>
+                        <th class="text-center border-0">Bulan</th>
+                    </tr>
+                </thead>
+                <tbody id="list-officers" class="border-0">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
-    <h6 class="fw-bold mb-3 px-1">Riwayat Harian Detail</h6>
-    <div id="list-history"></div>
+    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+        <h6 class="fw-bold mb-0">Riwayat Harian Petugas</h6>
+        <span class="badge bg-light text-dark fw-normal border">50 Data Terakhir</span>
+    </div>
+    <div id="list-history">
+        </div>
 </div>
 
 <script>
-    const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+    // Fungsi format mata uang Rupiah
+    const toIDR = (n) => {
+        return new Intl.NumberFormat('id-ID', { 
+            style: 'currency', 
+            currency: 'IDR', 
+            maximumFractionDigits: 0 
+        }).format(n);
+    };
 
-    async function loadStats() {
-        const res = await fetch('/api/performance/full-stats');
-        const data = await res.json();
-        const g = data.global;
+    // Fungsi utama mengambil data dari API pcez_performance
+    async function refreshDashboard() {
+        try {
+            const response = await fetch('/api/performance/full-stats');
+            const data = await response.json();
+            
+            if (data.status === "error") throw new Error(data.message);
 
-        document.getElementById('g-nomen-mc').innerText = g.total_nomen_mc.toLocaleString();
-        document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc);
-        document.getElementById('stat-sisa').innerText = g.sisa_target.toLocaleString();
-        document.getElementById('stat-realisasi').innerText = `${g.total_lunas_mc} Lunas dari ${g.total_nomen_mc} MC`;
-        
-        const percent = g.total_nomen_mc > 0 ? (g.total_lunas_mc / g.total_nomen_mc * 100) : 0;
-        document.getElementById('prog-bar').style.width = percent + '%';
+            const global = data.global;
 
-        // Render Leaderboard & History
-        document.getElementById('list-officers').innerHTML = data.officers.map(o => `
-            <tr><td class="ps-3 py-3 fw-bold">${o.petugas}</td><td class="text-center">${o.mingguan}</td><td class="text-center"><span class="badge bg-primary">${o.bulanan}</span></td></tr>
-        `).join('');
+            // 1. Update Statistik Global
+            document.getElementById('g-nomen-mc').innerText = (global.total_nomen_mc || 0).toLocaleString();
+            document.getElementById('g-nom-mc').innerText = toIDR(global.total_nominal_mc || 0);
+            document.getElementById('stat-sisa').innerText = (global.sisa_target || 0).toLocaleString();
+            document.getElementById('stat-realisasi').innerText = `${global.total_lunas_mc || 0} Lunas dari ${global.total_nomen_mc || 0} MC`;
+            
+            // Hitung Persentase Realisasi
+            const percent = global.total_nomen_mc > 0 
+                ? Math.round((global.total_lunas_mc / global.total_nomen_mc) * 100) 
+                : 0;
+            document.getElementById('prog-bar').style.width = percent + '%';
+            document.getElementById('stat-percent').innerText = percent + '%';
 
-        document.getElementById('list-history').innerHTML = data.history.map(h => `
-            <div class="card p-3 shadow-sm mb-2 rounded-4 border-0">
-                <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
-                    <span class="fw-bold text-primary">${h.petugas}</span>
-                    <small class="text-muted">${h.tanggal}</small>
-                </div>
-                <div class="row text-center g-1">
-                    <div class="col-4 small bg-light p-1"><b>${h.jml_bayar}</b> Lunas<br>${toIDR(h.nom_bayar)}</div>
-                    <div class="col-4 small bg-light p-1"><b>${h.jml_janji}</b> Janji<br>${toIDR(h.nom_janji)}</div>
-                    <div class="col-4 small bg-light p-1"><b>${h.jml_rks}</b> RKS</div>
-                </div>
-            </div>
-        `).join('');
+            // 2. Render Leaderboard
+            const officerList = document.getElementById('list-officers');
+            officerList.innerHTML = data.officers.length > 0 
+                ? data.officers.map(o => `
+                    <tr>
+                        <td class="ps-3 py-3">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px; font-size: 0.7rem;">
+                                    ${o.petugas.substring(0,2).toUpperCase()}
+                                </div>
+                                <span class="fw-bold">${o.petugas}</span>
+                            </div>
+                        </td>
+                        <td class="text-center py-3">${o.mingguan}</td>
+                        <td class="text-center py-3">
+                            <span class="badge rounded-pill bg-primary px-3">${o.bulanan}</span>
+                        </td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="3" class="text-center py-4 text-muted small">Belum ada aktivitas bulan ini</td></tr>';
+
+            // 3. Render Riwayat Detail
+            const historyList = document.getElementById('list-history');
+            historyList.innerHTML = data.history.length > 0
+                ? data.history.map(h => `
+                    <div class="card p-3 shadow-sm mb-2 rounded-4 border-0">
+                        <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+                            <span class="fw-bold text-primary"><i class="fas fa-user-circle me-1"></i> ${h.petugas}</span>
+                            <small class="text-muted"><i class="far fa-calendar-alt me-1"></i> ${h.tanggal}</small>
+                        </div>
+                        <div class="row text-center g-1">
+                            <div class="col-4 border-end">
+                                <div class="small text-success">Lunas</div>
+                                <div class="fw-bold">${h.jml_bayar}</div>
+                                <div class="text-muted" style="font-size: 0.65rem;">${toIDR(h.nom_bayar)}</div>
+                            </div>
+                            <div class="col-4 border-end">
+                                <div class="small text-warning">Janji</div>
+                                <div class="fw-bold">${h.jml_janji}</div>
+                                <div class="text-muted" style="font-size: 0.65rem;">${toIDR(h.nom_janji)}</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="small text-danger">RKS</div>
+                                <div class="fw-bold">${h.jml_rks}</div>
+                                <div class="text-muted" style="font-size: 0.65rem;">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')
+                : '<div class="text-center py-4 text-muted small">Belum ada riwayat kunjungan</div>';
+
+        } catch (error) {
+            console.error("Dashboard Error:", error);
+        }
     }
-    document.addEventListener('DOMContentLoaded', loadStats);
+
+    // Inisialisasi saat halaman siap
+    document.addEventListener('DOMContentLoaded', () => {
+        // Set Tanggal Hari Ini
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
+        
+        // Load Data
+        refreshDashboard();
+        
+        // Refresh Otomatis tiap 5 Menit
+        setInterval(refreshDashboard, 300000);
+    });
 </script>
 {% endblock %}
