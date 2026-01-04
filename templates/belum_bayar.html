@@ -4,37 +4,18 @@
 <div class="px-2 pb-5">
     <div class="pt-4 mb-3 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-0">Daftar Penagihan</h4>
-            <p class="text-muted small mb-0">Target pengerjaan Master Catat (MC)</p>
+            <h4 class="fw-bold mb-0">Tugas Penagihan</h4>
+            <p class="text-muted small mb-0">Target harian (Sisa Belum Dikerjakan)</p>
         </div>
-        <div class="text-end">
-            <span class="badge bg-primary rounded-pill px-3" id="count-badge">0 Data</span>
-        </div>
+        <span class="badge bg-primary rounded-pill px-3" id="count-badge">0</span>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-3">
-        <div class="card-body p-2">
-            <div class="row g-2">
-                <div class="col-5">
-                    <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 shadow-none" style="font-size: 0.85rem;">
-                        <option value="all">Semua Petugas</option>
-                    </select>
-                </div>
-                <div class="col-7">
-                    <div class="input-group bg-light rounded-3">
-                        <span class="input-group-text border-0 bg-transparent text-muted"><i class="fas fa-search"></i></span>
-                        <input type="text" id="search-input" class="form-control border-0 bg-transparent shadow-none" placeholder="Cari Nomen / Nama..." style="font-size: 0.85rem;">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 mb-3 shadow-none" onchange="loadData()">
+        <option value="all">-- Pilih Petugas --</option>
+    </select>
 
     <div id="list-container">
-        <div id="loader" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="text-muted mt-2 small">Sinkronisasi data MC vs MB...</p>
-        </div>
+        <div class="text-center py-5 text-muted">Silakan pilih petugas...</div>
     </div>
 </div>
 
@@ -43,44 +24,34 @@
         <div class="modal-content border-0 rounded-4">
             <form id="form-kunjungan">
                 <div class="modal-header border-0">
-                    <h6 class="modal-title fw-bold">Input Hasil Kunjungan</h6>
-                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                    <h6 class="modal-title fw-bold">Input Hasil Lapangan</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body py-0">
                     <div class="p-3 bg-light rounded-4 mb-3">
-                        <div class="small text-muted mb-1">Pelanggan:</div>
                         <div id="m-nama" class="fw-bold text-primary"></div>
-                        <div id="m-nomen" class="small fw-bold"></div>
-                        <div id="m-tagihan" class="text-danger fw-bold mt-1"></div>
+                        <div id="m-nomen" class="small text-muted"></div>
                     </div>
 
                     <input type="hidden" name="nomen" id="in-nomen">
-                    <input type="hidden" name="lat" id="in-lat">
-                    <input type="hidden" name="lng" id="in-lng">
-
+                    
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Hasil Kunjungan</label>
-                        <select name="keterangan" class="form-select rounded-3 bg-light border-0" required>
+                        <select name="keterangan" id="select-keterangan" class="form-select border-0 bg-light" required onchange="toggleJanjiDate()">
                             <option value="">-- Pilih Hasil --</option>
-                            <option value="Sudah Bayar">Sudah Bayar (Lunas)</option>
+                            <option value="Sudah Bayar">Sudah Bayar</option>
                             <option value="Janji Bayar">Janji Bayar</option>
-                            <option value="Rumah Kosong">Rumah Kosong (RKS)</option>
-                            <option value="Pindah/Tidak Ditemukan">Pindah/Tidak Ditemukan</option>
+                            <option value="Rumah Kosong">Rumah Kosong</option>
                         </select>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Foto Bukti (GPS)</label>
-                        <input type="file" name="foto" class="form-control rounded-3 bg-light border-0" accept="image/*" capture="camera" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Update No. HP (Opsional)</label>
-                        <input type="number" name="no_hp" id="in-hp" class="form-control rounded-3 bg-light border-0" placeholder="0812...">
+                    <div class="mb-3 d-none" id="div-janji">
+                        <label class="form-label small fw-bold text-danger">Tanggal Janji Bayar</label>
+                        <input type="date" name="janji_bayar_dt" class="form-control border-0 bg-light">
                     </div>
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="submit" id="btn-submit" class="btn btn-primary w-100 rounded-3 fw-bold py-2">SIMPAN & KIRIM LAPORAN</button>
+                    <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-bold">SIMPAN LAPORAN</button>
                 </div>
             </form>
         </div>
@@ -89,123 +60,72 @@
 
 <script>
     const listContainer = document.getElementById('list-container');
-    const filterPetugas = document.getElementById('filter-petugas');
-    const searchInput = document.getElementById('search-input');
     const modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
 
-    // Format Rupiah
-    const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-
-    // Load Daftar Petugas untuk Filter
-    async function loadPetugas() {
-        const res = await fetch('/api/belum-bayar/petugas-tabs');
-        const data = await res.json();
-        data.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p; opt.textContent = p;
-            filterPetugas.appendChild(opt);
-        });
+    function toggleJanjiDate() {
+        const status = document.getElementById('select-keterangan').value;
+        document.getElementById('div-janji').classList.toggle('d-none', status !== 'Janji Bayar');
     }
 
-    // Load Data Pelanggan (MC as Induk)
     async function loadData() {
+        const petugas = document.getElementById('filter-petugas').value;
+        if(petugas === 'all') return;
+
         listContainer.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
-        const p = filterPetugas.value;
-        const s = searchInput.value;
         
-        try {
-            const res = await fetch(`/api/belum-bayar/list?petugas=${p}&search=${s}`);
-            const data = await res.json();
-            
-            document.getElementById('count-badge').innerText = `${data.length} Data`;
+        const res = await fetch(`/api/belum-bayar/list?petugas=${petugas}`);
+        const data = await res.json();
+        
+        document.getElementById('count-badge').innerText = data.length;
 
-            if (data.length === 0) {
-                listContainer.innerHTML = '<div class="text-center py-5 text-muted small">Semua tagihan sudah lunas atau data tidak ditemukan.</div>';
-                return;
-            }
+        if (data.length === 0) {
+            listContainer.innerHTML = '<div class="alert alert-success rounded-4 text-center">Tugas selesai! Tidak ada sisa tagihan.</div>';
+            return;
+        }
 
-            listContainer.innerHTML = data.map(item => `
-                <div class="card border-0 shadow-sm rounded-4 mb-2 item-card ${item.is_visited > 0 ? 'opacity-50' : ''}" 
-                     onclick="openKunjungan('${item.nomen}', '${item.nama}', '${item.total}', '${item.no_hp || ''}')">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <div class="small text-muted" style="font-size: 0.7rem;">NOMEN: ${item.nomen}</div>
-                                <div class="fw-bold text-dark">${item.nama}</div>
-                                <div class="small text-primary fw-bold">${item.pcez} - BLOK ${item.block}</div>
-                            </div>
-                            <div class="text-end">
-                                <div class="fw-bold text-danger">${toIDR(item.total)}</div>
-                                ${item.is_visited > 0 ? '<span class="badge bg-success small" style="font-size: 0.6rem;">TERKUNJUNGI</span>' : ''}
-                            </div>
-                        </div>
+        listContainer.innerHTML = data.map(item => `
+            <div class="card border-0 shadow-sm rounded-4 mb-2 item-card" onclick="openKunjungan('${item.nomen}', '${item.nama}')">
+                <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold text-dark">${item.nama}</div>
+                        <div class="small text-muted">${item.nomen} | BLOK ${item.block}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-danger">Rp ${item.nominal.toLocaleString()}</div>
+                        <span class="badge bg-light text-primary border">${item.pcez}</span>
                     </div>
                 </div>
-            `).join('');
-        } catch (e) {
-            listContainer.innerHTML = `<div class="alert alert-danger small">${e.message}</div>`;
-        }
+            </div>
+        `).join('');
     }
 
-    // Modal Handle
-    function openKunjungan(nomen, nama, total, hp) {
+    function openKunjungan(nomen, nama) {
         document.getElementById('m-nama').innerText = nama;
-        document.getElementById('m-nomen').innerText = 'ID: ' + nomen;
-        document.getElementById('m-tagihan').innerText = 'Tagihan: ' + toIDR(total);
+        document.getElementById('m-nomen').innerText = nomen;
         document.getElementById('in-nomen').value = nomen;
-        document.getElementById('in-hp').value = hp;
-        
-        // Dapatkan GPS
-        navigator.geolocation.getCurrentPosition(pos => {
-            document.getElementById('in-lat').value = pos.coords.latitude;
-            document.getElementById('in-lng').value = pos.coords.longitude;
-        });
-
+        document.getElementById('select-keterangan').value = '';
+        document.getElementById('div-janji').classList.add('d-none');
         modalKunjungan.show();
     }
 
-    // Simpan Data & Kirim WA
     document.getElementById('form-kunjungan').onsubmit = async (e) => {
         e.preventDefault();
-        const btn = document.getElementById('btn-submit');
-        btn.disabled = true;
-        btn.innerText = 'MENGIRIM...';
-
         const formData = new FormData(e.target);
-        // Tambahkan petugas yang dipilih sebagai pelapor
-        formData.append('petugas', filterPetugas.value === 'all' ? 'ADMIN' : filterPetugas.value);
+        formData.append('petugas', document.getElementById('filter-petugas').value);
 
-        try {
-            const res = await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: formData });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                // Berbagi ke WhatsApp
-                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(data.wa_text)}`;
-                window.open(waUrl, '_blank');
-                modalKunjungan.hide();
-                loadData();
-            }
-        } catch (err) {
-            alert('Error: ' + err.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = 'SIMPAN & KIRIM LAPORAN';
+        const res = await fetch('/api/belum-bayar/simpan-kunjungan', { method: 'POST', body: formData });
+        if ((await res.json()).status === 'success') {
+            modalKunjungan.hide();
+            loadData(); // Langsung hilang dari daftar setelah simpan
         }
     };
 
-    // Event Listeners
-    filterPetugas.onchange = loadData;
-    searchInput.onkeyup = _.debounce(loadData, 500); // Pastikan library lodash/debounce terpasang di base.html
-
-    document.addEventListener('DOMContentLoaded', () => {
-        loadPetugas();
-        loadData();
+    // Load Petugas on Start
+    document.addEventListener('DOMContentLoaded', async () => {
+        const res = await fetch('/api/belum-bayar/petugas-tabs');
+        const data = await res.json();
+        const select = document.getElementById('filter-petugas');
+        data.forEach(p => select.innerHTML += `<option value="${p}">${p}</option>`);
     });
 </script>
-
-<style>
-    .item-card { cursor: pointer; transition: transform 0.2s; }
-    .item-card:active { transform: scale(0.98); background-color: #f8f9fa; }
-</style>
 {% endblock %}
