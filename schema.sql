@@ -1,65 +1,106 @@
--- 1. Tabel Master Pelanggan (Data dari file MC)
-CREATE TABLE IF NOT EXISTS master_pelanggan (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT UNIQUE,          -- Nomen Pelanggan (Kunci Utama)
-    nama TEXT,                  -- Nama Pelanggan
-    pcez TEXT,                  -- Kode Rute (Contoh: 096/02)
-    rayon TEXT,                 -- Kode Rayon (Dari Kolom PC)
-    block TEXT,                 -- Kode Blok
-    nominal REAL,               -- Nominal Tagihan
-    tipe TEXT DEFAULT 'MC',     -- Tipe data (MC, MB, dll)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+import os
+import sqlite3
+from flask import Blueprint, jsonify, request, current_app
+from core.database import get_db_connection
+from datetime import datetime
+from werkzeug.utils import secure_filename
 
--- 2. Tabel Mapping Rute & Petugas (Mapping Manual / Upload Rute)
-CREATE TABLE IF NOT EXISTS rute_petugas (
-    pcez TEXT PRIMARY KEY,      -- Kode PCEZ (Unik)
-    petugas TEXT,               -- Nama Petugas Lapangan
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
--- 3. Tabel Master Bayar (Pelanggan yang sudah lunas dari file MB)
-CREATE TABLE IF NOT EXISTS master_bayar (
-    nomen TEXT PRIMARY KEY,
-    nominal REAL,
-    tgl_bayar TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+def dict_factory(cursor, row):
+    """Konverter hasil query SQLite ke dictionary untuk respon JSON."""
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
 
--- 4. Tabel Collection Harian (Data pembayaran harian)
-CREATE TABLE IF NOT EXISTS collection_harian (
-    nomen TEXT PRIMARY KEY,
-    notag TEXT,
-    nominal REAL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+@belum_bayar_bp.route('', methods=['GET'])
+def get_belum_bayar():
+    """
+    Mengambil daftar pelanggan yang belum bayar.
+    Data digabungkan (JOIN) antara master_pelanggan dan rute_petugas.
+    """
+    petugas_filter = request.args.get('petugas')
+    conn = get_db_connection()
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    
+    # Query Canggih: Menggabungkan data pelanggan dengan nama petugas dari tabel rute_petugas
+    # Hanya menampilkan pelanggan yang BELUM ada di tabel master_bayar
+    query = """
+        SELECT p.*, r.petugas as nama_petugas 
+        FROM master_pelanggan p
+        LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+        WHERE p.nomen NOT IN (SELECT nomen FROM master_bayar)
+    """
+    params = []
+    
+    if petugas_filter and petugas_filter != 'all':
+        query += " AND r.petugas = ?"
+        params.append(petugas_filter)
+        
+    query += " ORDER BY p.pcez ASC"
+    
+    cursor.execute(query, params)
+    data = cursor.fetchall()
+    conn.close()
+    return jsonify(data)
 
--- 5. Tabel Ardebt (Data tunggakan pelanggan)
-CREATE TABLE IF NOT EXISTS ardebt (
-    nomen TEXT PRIMARY KEY,
-    jumlah REAL,
-    volume REAL,
-    periode_bill TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
+def get_petugas_tabs():
+    """Mengambil daftar unik petugas dari tabel mapping rute."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != ''")
+    petugas_list = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(petugas_list)
 
--- 6. Tabel Kunjungan Petugas (LOG KERJA & LAPORAN REAL-TIME)
--- Tabel ini menyimpan semua input dari form Belum Bayar
-CREATE TABLE IF NOT EXISTS kunjungan_petugas (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT,                 -- Nomen Pelanggan
-    petugas_name TEXT,          -- Nama Petugas yang melaporkan
-    keterangan TEXT,            -- Status (Janji Bayar, RKS, Segera Bayar, dll)
-    no_hp TEXT,                 -- Nomor HP Pelanggan yang diinput petugas
-    catatan TEXT,               -- Catatan tambahan lapangan
-    janji_bayar_dt TEXT,        -- Tanggal janji bayar (jika ada)
-    foto_path TEXT,             -- Nama file foto hasil watermark
-    latitude TEXT,              -- Koordinat GPS (jika diaktifkan)
-    longitude TEXT,             -- Koordinat GPS (jika diaktifkan)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+@belum_bayar_bp.route('/lapor', methods=['POST'])
+def lapor_kunjungan():
+    """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas."""
+    # Menangkap data dari form
+    nomen = request.form.get('idpel')
+    petugas = request.form.get('petugas_name') # Bisa diambil dari session login nantinya
+    hasil = request.form.get('hasil')          # Keterangan status (Janji Bayar, RKS, dll)
+    catatan = request.form.get('keterangan')   # Catatan tambahan
+    no_hp = request.form.get('no_hp')
+    janji_dt = request.form.get('janji_bayar_dt')
+    lat = request.form.get('latitude')
+    lng = request.form.get('longitude')
+    foto = request.files.get('foto')
+    
+    if not nomen or not hasil:
+        return jsonify({"error": "Nomen dan Hasil Kunjungan wajib diisi"}), 400
+    
+    filename = None
+    if foto:
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
+        os.makedirs(upload_folder, exist_ok=True)
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        ext = os.path.splitext(foto.filename)[1].lower()
+        filename = secure_filename(f"LOG_{nomen}_{timestamp}{ext}")
+        foto.save(os.path.join(upload_folder, filename))
 
--- INDEXING: Agar pencarian data super cepat (FAST PERFORMANCE)
-CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
-CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
-CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert ke tabel kunjungan_petugas sesuai skema baru
+        query_log = """
+            INSERT INTO kunjungan_petugas (
+                nomen, petugas_name, keterangan, no_hp, 
+                catatan, janji_bayar_dt, foto_path, latitude, longitude
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor.execute(query_log, (
+            nomen, petugas, hasil, no_hp, 
+            catatan, janji_dt, filename, lat, lng
+        ))
+        
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "Laporan kunjungan berhasil disimpan", "status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
