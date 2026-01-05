@@ -65,12 +65,12 @@
 
         <div class="d-flex gap-2 mt-3 pt-2 border-top border-white border-opacity-10">
             <div class="flex-fill">
-                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS UNDUE</small>
-                <span class="fw-bold" id="val-undue" style="font-size: 0.85rem;">0</span>
+                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS UNDUE (UANG)</small>
+                <span class="fw-bold" id="nom-undue" style="font-size: 0.85rem;">Rp 0</span>
             </div>
             <div class="flex-fill border-start border-white border-opacity-10 ps-2">
-                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS CURRENT</small>
-                <span class="fw-bold" id="val-current" style="font-size: 0.85rem;">0</span>
+                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS CURRENT (UANG)</small>
+                <span class="fw-bold" id="nom-current" style="font-size: 0.85rem;">Rp 0</span>
             </div>
         </div>
     </div>
@@ -140,9 +140,8 @@
 
             const global = data.global;
 
-            // Update Label Periode Analisa
             const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-            const targetBulanIdx = parseInt(parts[1]) - 2; // n-1
+            const targetBulanIdx = parseInt(parts[1]) - 2; 
             const targetTahun = targetBulanIdx < 0 ? parseInt(parts[0]) - 1 : parts[0];
             const targetBulanName = bulanNames[targetBulanIdx < 0 ? 11 : targetBulanIdx];
             
@@ -153,9 +152,9 @@
             document.getElementById('stat-sisa').innerText = (global.sisa_target || 0).toLocaleString();
             document.getElementById('stat-realisasi').innerText = `${global.total_lunas_mc || 0} Lunas / ${global.total_nomen_mc || 0} MC`;
             
-            // Rincian Undue dan Current
-            document.getElementById('val-undue').innerText = (global.total_undue || 0).toLocaleString();
-            document.getElementById('val-current').innerText = (global.total_current || 0).toLocaleString();
+            // Nominal Rincian
+            document.getElementById('nom-undue').innerText = toIDR(global.total_nom_undue || 0);
+            document.getElementById('nom-current').innerText = toIDR(global.total_nom_current || 0);
 
             const percent = global.total_nomen_mc > 0 
                 ? Math.round((global.total_lunas_mc / global.total_nomen_mc) * 100) 
@@ -174,7 +173,7 @@
                                 <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-3 fw-bold shadow-sm" style="width: 32px; height: 32px; font-size: 0.75rem;">
                                     ${index + 1}
                                 </div>
-                                <span class="fw-bold text-dark">${o.petugas || 'Tanpa Nama'}</span>
+                                <span class="fw-bold text-dark">${o.petugas || 'Petugas'}</span>
                             </div>
                         </td>
                         <td class="text-center py-3 text-muted">${o.harian || 0}</td>
@@ -183,7 +182,7 @@
                         </td>
                     </tr>
                 `).join('')
-                : '<tr><td colspan="3" class="text-center py-5 text-muted small">Belum ada aktivitas di periode ini</td></tr>';
+                : '<tr><td colspan="3" class="text-center py-5 text-muted small">Belum ada aktivitas</td></tr>';
 
             const historyList = document.getElementById('list-history');
             historyList.innerHTML = data.history.length > 0
@@ -192,31 +191,35 @@
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div class="d-flex align-items-center">
                                 <div class="bg-light rounded-circle p-2 me-2">
-                                    <i class="fas fa-user-edit text-primary"></i>
+                                    <i class="fas fa-user-check text-primary"></i>
                                 </div>
                                 <div>
-                                    <span class="fw-bold d-block text-dark" style="font-size: 0.9rem;">${h.petugas || 'Sistem'}</span>
+                                    <span class="fw-bold d-block text-dark" style="font-size: 0.9rem;">${h.petugas || 'Petugas'}</span>
                                     <small class="text-muted" style="font-size: 0.7rem;">${h.tanggal}</small>
                                 </div>
                             </div>
+                            <span class="badge bg-light text-dark border" style="font-size: 0.6rem;">${h.total} Kunjungan</span>
                         </div>
                         <div class="row g-2 text-center">
                             <div class="col-4">
-                                <div class="p-2 bg-success-subtle rounded-3 border border-success-subtle">
-                                    <small class="text-success fw-bold d-block" style="font-size: 0.6rem;">LUNAS</small>
-                                    <span class="h6 mb-0 fw-bold text-success">${h.jml_bayar || 0}</span>
+                                <div class="p-2 bg-success-subtle rounded-3 border border-success">
+                                    <small class="text-success fw-bold d-block" style="font-size: 0.55rem;">LUNAS (MASUK)</small>
+                                    <div class="fw-bold text-success" style="font-size: 0.75rem;">${h.jml_bayar || 0} Pel</div>
+                                    <div class="small text-success opacity-75">${toIDR(h.nom_masuk || 0)}</div>
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="p-2 bg-warning-subtle rounded-3 border border-warning-subtle">
-                                    <small class="text-warning fw-bold d-block" style="font-size: 0.6rem;">JANJI</small>
-                                    <span class="h6 mb-0 fw-bold text-warning">${h.jml_janji || 0}</span>
+                                <div class="p-2 bg-warning-subtle rounded-3 border border-warning">
+                                    <small class="text-warning fw-bold d-block" style="font-size: 0.55rem;">JANJI (POTENSI)</small>
+                                    <div class="fw-bold text-warning" style="font-size: 0.75rem;">${h.jml_janji || 0} Pel</div>
+                                    <div class="small text-warning opacity-75">${toIDR(h.nom_potensi || 0)}</div>
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="p-2 bg-danger-subtle rounded-3 border border-danger-subtle">
-                                    <small class="text-danger fw-bold d-block" style="font-size: 0.6rem;">RKS</small>
-                                    <span class="h6 mb-0 fw-bold text-danger">${h.jml_rks || 0}</span>
+                                <div class="p-2 bg-danger-subtle rounded-3 border border-danger">
+                                    <small class="text-danger fw-bold d-block" style="font-size: 0.55rem;">RKS/LL (HILANG)</small>
+                                    <div class="fw-bold text-danger" style="font-size: 0.75rem;">${h.jml_rks || 0} Pel</div>
+                                    <div class="small text-danger opacity-75">${toIDR(h.nom_hilang || 0)}</div>
                                 </div>
                             </div>
                         </div>
