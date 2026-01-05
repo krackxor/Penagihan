@@ -1,13 +1,15 @@
 -- 1. Tabel Master Pelanggan (Data Utama dari file MC)
+-- Ditambahkan kolom 'periode' dan penghapusan UNIQUE pada nomen agar bisa menyimpan IDPEL yang sama di bulan berbeda
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT UNIQUE,          -- ID Pelanggan
+    nomen TEXT,                 -- ID Pelanggan
     nama TEXT,                  -- Nama Pelanggan
     pcez TEXT,                  -- Kode Rute
     rayon TEXT,                 -- Kode Rayon
     block TEXT,                 -- Kode Blok
     nominal REAL,               -- Nominal Tagihan
     tipe TEXT DEFAULT 'MC',     -- Kategori (MC, MB, dll)
+    periode TEXT,               -- PERIODE DATA (Contoh: '06-2025' dari TGL_CATAT)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -20,26 +22,32 @@ CREATE TABLE IF NOT EXISTS rute_petugas (
 
 -- 3. Tabel Master Bayar (Pelanggan Lunas dari file MB)
 CREATE TABLE IF NOT EXISTS master_bayar (
-    nomen TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomen TEXT,
     nominal REAL,
     tgl_bayar TEXT,
+    periode TEXT,               -- PERIODE DATA (Contoh: '06-2025' dari TGL_BAYAR)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 4. Tabel Collection Harian (Data Pembayaran Real-time)
 CREATE TABLE IF NOT EXISTS collection_harian (
-    nomen TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomen TEXT,
     notag TEXT,
     nominal REAL,
+    pay_dt TEXT,                -- Field asli dari file
+    periode TEXT,               -- PERIODE DATA (Contoh: '07-2025' dari PAY_DT)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 5. Tabel Ardebt (Data Tunggakan)
 CREATE TABLE IF NOT EXISTS ardebt (
-    nomen TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomen TEXT,
     jumlah REAL,
     volume REAL,
-    periode_bill TEXT,
+    periode_bill TEXT,          -- Periode tunggakan (Sesuai Bill)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -47,7 +55,7 @@ CREATE TABLE IF NOT EXISTS ardebt (
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT,                 -- ID Pelanggan terkait
-    petugas_name TEXT,          -- Nama Pelanggan yang melapor
+    petugas_name TEXT,          -- Nama Petugas yang melapor
     keterangan TEXT,            -- Status (Sudah Bayar, Janji Bayar, RKS, dll)
     no_hp TEXT,                 -- Input No HP baru dari lapangan
     catatan TEXT,               -- Keterangan tambahan
@@ -55,10 +63,15 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     foto_path TEXT,             -- Nama file foto yang tersimpan
     latitude TEXT,              -- Lokasi GPS
     longitude TEXT,             -- Lokasi GPS
+    periode TEXT,               -- Periode kunjungan dilakukan (Contoh: '07-2025')
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 7. Indeks untuk Performa Kecepatan Tinggi (Indexing)
+-- Diperbarui untuk menyertakan periode agar pencarian multi-bulan tetap cepat
 CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
 CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
+CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
 CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
+CREATE INDEX IF NOT EXISTS idx_periode_mb ON master_bayar(periode);
+CREATE INDEX IF NOT EXISTS idx_periode_coll ON collection_harian(periode);
