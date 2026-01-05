@@ -1,51 +1,56 @@
-<div class="offcanvas offcanvas-start border-0 shadow" tabindex="-1" id="offcanvasMenu" style="width: 280px; border-radius: 0 20px 20px 0;">
-    <div class="offcanvas-header py-4 px-4 bg-primary text-white">
+<div class="offcanvas offcanvas-start border-0 shadow-lg" tabindex="-1" id="offcanvasMenu" style="width: 290px; border-radius: 0 30px 30px 0;">
+    <div class="offcanvas-header py-4 px-4 text-white" style="background: var(--primary-gradient);">
         <div>
-            <h5 class="offcanvas-title fw-bold mb-1" id="offcanvasMenuLabel">Sunter Pro</h5>
-            <small class="opacity-75">Billing Management System</small>
+            <div class="d-flex align-items-center mb-2">
+                <div class="bg-white rounded-circle text-primary d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
+                    <i class="fas fa-user-tie fa-lg"></i>
+                </div>
+                <h5 class="offcanvas-title fw-bold" id="offcanvasMenuLabel">Sunter Pro</h5>
+            </div>
+            <small class="opacity-75"><i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i> Petugas Lapangan</small>
         </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     
     <div class="offcanvas-body p-0">
-        <div class="list-group list-group-flush mt-3">
-            <a href="/" class="list-group-item list-group-item-action border-0 px-4 py-3 d-flex align-items-center">
-                <i class="fas fa-home me-3 text-primary" style="width: 20px;"></i>
+        <div class="list-group list-group-flush mt-3 px-2">
+            <a href="/" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+                <i class="fas fa-home me-3 text-primary p-2 bg-primary-subtle rounded-3"></i>
                 <span class="fw-semibold">Dashboard Utama</span>
             </a>
 
-            <a href="/belum-bayar" class="list-group-item list-group-item-action border-0 px-4 py-3 d-flex align-items-center">
-                <i class="fas fa-tasks me-3 text-warning" style="width: 20px;"></i>
+            <a href="/belum-bayar" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+                <i class="fas fa-clipboard-list me-3 text-warning p-2 bg-warning-subtle rounded-3"></i>
                 <span class="fw-semibold">Daftar Penagihan (MC)</span>
             </a>
 
-            <a href="/performa" class="list-group-item list-group-item-action border-0 px-4 py-3 d-flex align-items-center">
-                <i class="fas fa-chart-line me-3 text-success" style="width: 20px;"></i>
-                <span class="fw-semibold">Performa Petugas</span>
+            <a href="/performa" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+                <i class="fas fa-chart-pie me-3 text-success p-2 bg-success-subtle rounded-3"></i>
+                <span class="fw-semibold">Performa Tim</span>
             </a>
 
-            <div class="dropdown-divider my-2"></div>
-            <small class="px-4 text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Pengaturan & Admin</small>
+            <div class="my-4 border-top mx-3"></div>
+            <small class="px-4 text-muted text-uppercase fw-bold mb-2 d-block" style="font-size: 0.65rem; letter-spacing: 1px;">Admin Tools</small>
 
-            <a href="/wa-blast" class="list-group-item list-group-item-action border-0 px-4 py-3 d-flex align-items-center">
-                <i class="fab fa-whatsapp me-3 text-success" style="width: 20px;"></i>
+            <a href="/wa-blast" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+                <i class="fab fa-whatsapp me-3 text-success p-2 bg-success-subtle rounded-3"></i>
                 <span class="fw-semibold">WA Blast Tagihan</span>
             </a>
 
-            <a href="/setting-rute" class="list-group-item list-group-item-action border-0 px-4 py-3 d-flex align-items-center">
-                <i class="fas fa-user-cog me-3 text-info" style="width: 20px;"></i>
-                <span class="fw-semibold">Setting Petugas Manual</span>
+            <a href="/upload" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+                <i class="fas fa-file-excel me-3 text-danger p-2 bg-danger-subtle rounded-3"></i>
+                <span class="fw-semibold">Import Data Excel</span>
             </a>
 
-            <a href="/upload" class="list-group-item list-group-item-action border-0 px-4 py-3 d-flex align-items-center">
-                <i class="fas fa-cloud-upload-alt me-3 text-danger" style="width: 20px;"></i>
-                <span class="fw-semibold">Upload Data (Excel)</span>
-            </a>
-
-            <a href="/history" class="list-group-item list-group-item-action border-0 px-4 py-3 d-flex align-items-center">
-                <i class="fas fa-history me-3 text-secondary" style="width: 20px;"></i>
-                <span class="fw-semibold">History Kunjungan</span>
+            <a href="/history" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+                <i class="fas fa-history me-3 text-secondary p-2 bg-secondary-subtle rounded-3"></i>
+                <span class="fw-semibold">Riwayat Laporan</span>
             </a>
         </div>
+    </div>
+    <div class="offcanvas-footer p-4 border-top">
+        <button class="btn btn-outline-danger w-100 rounded-3 fw-bold btn-sm">
+            <i class="fas fa-sign-out-alt me-1"></i> LOGOUT
+        </button>
     </div>
 </div>
