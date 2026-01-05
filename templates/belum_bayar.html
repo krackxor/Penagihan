@@ -67,10 +67,15 @@
                             <option value="Lainnya">Lainnya</option>
                         </select>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nomor HP Pelanggan</label>
+                        <input type="tel" id="modal-no-hp" class="form-control rounded-3 bg-light border-0" placeholder="Contoh: 08123456789">
+                    </div>
                     
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Catatan Tambahan</label>
-                        <textarea id="modal-keterangan" class="form-control rounded-3 bg-light border-0" rows="3" placeholder="Contoh: Janji bayar tgl 15..."></textarea>
+                        <textarea id="modal-keterangan" class="form-control rounded-3 bg-light border-0" rows="3" placeholder="Keterangan tambahan..."></textarea>
                     </div>
 
                     <div class="mb-0">
@@ -81,7 +86,7 @@
                 </div>
                 <div class="modal-footer border-0">
                     <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-bold shadow">
-                        SIMPAN LAPORAN <i class="fas fa-paper-plane ms-1"></i>
+                        SIMPAN & SHARE WA <i class="fas fa-paper-plane ms-1"></i>
                     </button>
                 </div>
             </form>
@@ -98,7 +103,6 @@
         loadPetugasDropdown();
         loadData();
 
-        // Handle submit form
         document.getElementById('formKunjungan').addEventListener('submit', async (e) => {
             e.preventDefault();
             await simpanLaporan();
@@ -192,10 +196,17 @@
     async function simpanLaporan() {
         Swal.fire({ title: 'Menyimpan...', didOpen: () => { Swal.showLoading(); } });
         
+        const idpel = document.getElementById('modal-idpel').value;
+        const nama = document.getElementById('modal-nama').innerText;
+        const hasil = document.getElementById('modal-hasil').value;
+        const no_hp = document.getElementById('modal-no-hp').value;
+        const catatan = document.getElementById('modal-keterangan').value;
+
         const formData = new FormData();
-        formData.append('idpel', document.getElementById('modal-idpel').value);
-        formData.append('hasil', document.getElementById('modal-hasil').value);
-        formData.append('keterangan', document.getElementById('modal-keterangan').value);
+        formData.append('idpel', idpel);
+        formData.append('hasil', hasil);
+        formData.append('no_hp', no_hp); // Data No HP dikirim ke API
+        formData.append('keterangan', catatan);
         
         const foto = document.getElementById('modal-foto').files[0];
         if (foto) formData.append('foto', foto);
@@ -203,9 +214,31 @@
         try {
             const res = await fetch('/api/belum-bayar/lapor', { method: 'POST', body: formData });
             if (res.ok) {
-                Swal.fire('Berhasil!', 'Laporan tersimpan.', 'success');
-                modalKunjungan.hide();
-                loadData();
+                // LOGIKA SHARE WHATSAPP SETELAH SUKSES
+                const textWA = `*LAPORAN KUNJUNGAN PENAGIHAN*%0A` +
+                               `--------------------------------%0A` +
+                               `*IDPEL:* ${idpel}%0A` +
+                               `*Nama:* ${nama}%0A` +
+                               `*Status:* ${hasil}%0A` +
+                               `*No. HP:* ${no_hp || '-'}%0A` +
+                               `*Catatan:* ${catatan || '-'}%0A` +
+                               `*Waktu:* ${new Date().toLocaleString('id-ID')}%0A` +
+                               `--------------------------------%0A` +
+                               `_Dikirim via Sunter Pro App_`;
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil Disimpan!',
+                    text: 'Laporan tersimpan. Klik tombol di bawah untuk share ke WhatsApp.',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Kirim ke WhatsApp <i class="fab fa-whatsapp"></i>',
+                    confirmButtonColor: '#25D366'
+                }).then((result) => {
+                    // Buka WhatsApp
+                    window.open(`https://wa.me/?text=${textWA}`, '_blank');
+                    modalKunjungan.hide();
+                    loadData();
+                });
             } else {
                 Swal.fire('Gagal', 'Terjadi kesalahan sistem.', 'error');
             }
