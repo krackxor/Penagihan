@@ -23,62 +23,56 @@
 
     <div class="row g-2 mb-3">
         <div class="col-6">
-            <div class="card p-3 border-0 bg-dark text-white rounded-4 shadow-sm h-100 overflow-hidden position-relative">
-                <div class="position-absolute top-0 end-0 opacity-10 mt-n2 me-n2">
-                    <i class="fas fa-users fa-3x"></i>
-                </div>
-                <small class="opacity-75 d-block mb-1" style="font-size: 0.65rem;">TOTAL NOMEN MC</small>
+            <div class="card p-3 border-0 bg-dark text-white rounded-4 shadow-sm h-100 position-relative overflow-hidden">
+                <div class="position-absolute top-0 end-0 opacity-10 mt-n2 me-n2"><i class="fas fa-users fa-3x"></i></div>
+                <small class="opacity-75 d-block mb-1" style="font-size: 0.6rem;">TARGET NOMEN MC</small>
                 <h4 class="fw-bold mb-0" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
             <div class="card p-3 border-0 bg-white text-dark rounded-4 shadow-sm h-100 border-start border-primary border-4">
-                <small class="text-muted d-block mb-1" style="font-size: 0.65rem;">TOTAL NOMINAL MC</small>
+                <small class="text-muted d-block mb-1" style="font-size: 0.6rem;">TARGET NOMINAL MC</small>
                 <h6 class="fw-bold mb-0 text-primary" id="g-nom-mc">Rp 0</h6>
             </div>
         </div>
     </div>
 
     <div class="card p-4 border-0 shadow-sm text-white mb-4 rounded-4" style="background: linear-gradient(135deg, #0d6efd 0%, #003d99 100%);">
-        <div class="d-flex justify-content-between align-items-start mb-2">
-            <div>
-                <small class="opacity-75">Sisa Target Penagihan</small>
-                <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
-                <small id="label-periode-analisa" style="font-size: 0.65rem; border-radius: 4px;" class="bg-white bg-opacity-25 px-2 py-1 d-inline-block mt-1"></small>
+        <div class="row align-items-center">
+            <div class="col-8">
+                <small class="opacity-75">Sisa Target Penagihan (Uang)</small>
+                <h2 class="fw-bold mb-0" id="stat-sisa-nom">Rp 0</h2>
+                <div class="badge bg-white bg-opacity-25 mt-1" id="stat-sisa-nomen">0 Pelanggan</div>
             </div>
-            <div class="bg-white bg-opacity-25 p-3 rounded-4 shadow-sm">
-                <i class="fas fa-bullseye fa-lg"></i>
+            <div class="col-4 text-end">
+                <div class="bg-white bg-opacity-25 d-inline-block p-3 rounded-4"><i class="fas fa-bullseye fa-lg"></i></div>
             </div>
         </div>
         
-        <div class="progress my-3" style="height: 12px; background: rgba(255,255,255,0.15); border-radius: 20px;">
-            <div id="prog-bar" class="progress-bar bg-white progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%; border-radius: 20px;"></div>
+        <div class="progress my-3" style="height: 10px; background: rgba(255,255,255,0.15); border-radius: 20px;">
+            <div id="prog-bar" class="progress-bar bg-white progress-bar-striped progress-bar-animated" style="width: 0%;"></div>
         </div>
         
-        <div class="d-flex justify-content-between align-items-center small">
-            <span id="stat-realisasi" class="bg-white bg-opacity-20 px-2 py-1 rounded-pill" style="font-size: 0.7rem;">0 Lunas / 0 MC</span>
-            <div class="text-end">
-                <span class="opacity-75 d-block" style="font-size: 0.6rem;">PENCAPAIAN</span>
-                <span id="stat-percent" class="fw-bold h5 mb-0">0%</span>
-            </div>
+        <div class="d-flex justify-content-between align-items-center small mb-3">
+            <span id="stat-realisasi">0 Lunas / 0 MC</span>
+            <span class="fw-bold h4 mb-0" id="stat-percent">0%</span>
         </div>
 
-        <div class="d-flex gap-2 mt-3 pt-2 border-top border-white border-opacity-10">
-            <div class="flex-fill">
-                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS UNDUE (UANG)</small>
-                <span class="fw-bold" id="nom-undue" style="font-size: 0.85rem;">Rp 0</span>
+        <div class="row g-2 pt-3 border-top border-white border-opacity-10">
+            <div class="col-6 text-center border-end border-white border-opacity-10">
+                <small class="opacity-75 d-block mb-1" style="font-size: 0.55rem;">LUNAS UNDUE</small>
+                <div class="fw-bold" id="val-undue" style="font-size: 0.75rem;">0 Pel</div>
+                <div class="small opacity-90" id="nom-undue" style="font-size: 0.7rem;">Rp 0</div>
             </div>
-            <div class="flex-fill border-start border-white border-opacity-10 ps-2">
-                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS CURRENT (UANG)</small>
-                <span class="fw-bold" id="nom-current" style="font-size: 0.85rem;">Rp 0</span>
+            <div class="col-6 text-center">
+                <small class="opacity-75 d-block mb-1" style="font-size: 0.55rem;">LUNAS CURRENT</small>
+                <div class="fw-bold" id="val-current" style="font-size: 0.75rem;">0 Pel</div>
+                <div class="small opacity-90" id="nom-current" style="font-size: 0.7rem;">Rp 0</div>
             </div>
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
-        <h6 class="fw-bold mb-0"><i class="fas fa-trophy text-warning me-2"></i>Top Performance</h6>
-        <span class="badge bg-primary-subtle text-primary rounded-pill">Bulan Ini</span>
-    </div>
+    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-trophy text-warning me-2"></i>Top Performance</h6>
     <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
         <div class="table-responsive">
             <table class="table table-hover mb-0" style="font-size: 0.85rem;">
@@ -94,24 +88,17 @@
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
-        <h6 class="fw-bold mb-0">Log Aktivitas Tim</h6>
-        <div class="dropdown">
-            <button class="btn btn-sm btn-light border rounded-pill px-3 shadow-none" type="button" style="font-size: 0.7rem;">
-                Live Feed <i class="fas fa-circle text-danger ms-1 animate__animated animate__flash animate__infinite"></i>
-            </button>
-        </div>
-    </div>
-    
-    <div id="list-history" class="mb-5"></div>
+    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-users-cog me-2"></i>Log Aktivitas Tim (Ringkasan)</h6>
+    <div id="list-history-tim" class="mb-4"></div>
+
+    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-stream me-2"></i>Log Aktivitas Petugas (Live Feed)</h6>
+    <div id="list-history-petugas" class="mb-5"></div>
 </div>
 
 <script>
     const toIDR = (n) => {
         return new Intl.NumberFormat('id-ID', { 
-            style: 'currency', 
-            currency: 'IDR', 
-            maximumFractionDigits: 0 
+            style: 'currency', currency: 'IDR', maximumFractionDigits: 0 
         }).format(n);
     };
 
@@ -125,7 +112,6 @@
     async function refreshDashboard() {
         const btn = document.getElementById('btn-refresh');
         const rawPeriode = document.getElementById('filter-periode').value; 
-        
         if (!rawPeriode) return;
         btn.classList.add('fa-spin');
         
@@ -135,97 +121,89 @@
         try {
             const response = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const data = await response.json();
-            
-            if (data.status === "error") throw new Error(data.message);
-
             const global = data.global;
 
-            const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-            const targetBulanIdx = parseInt(parts[1]) - 2; 
-            const targetTahun = targetBulanIdx < 0 ? parseInt(parts[0]) - 1 : parts[0];
-            const targetBulanName = bulanNames[targetBulanIdx < 0 ? 11 : targetBulanIdx];
-            
-            document.getElementById('label-periode-analisa').innerText = `Target MC ${targetBulanName} ${targetTahun} vs Bayar Bulan Ini`;
+            // 1. Update Global Header & MC Stats
+            document.getElementById('g-nomen-mc').innerText = global.total_nomen_mc.toLocaleString();
+            document.getElementById('g-nom-mc').innerText = toIDR(global.total_nominal_mc);
 
-            document.getElementById('g-nomen-mc').innerText = (global.total_nomen_mc || 0).toLocaleString();
-            document.getElementById('g-nom-mc').innerText = toIDR(global.total_nominal_mc || 0);
-            document.getElementById('stat-sisa').innerText = (global.sisa_target || 0).toLocaleString();
+            // 2. Update Sisa Target Penagihan
+            document.getElementById('stat-sisa-nom').innerText = toIDR(global.sisa_nominal || 0);
+            document.getElementById('stat-sisa-nomen').innerText = `${(global.sisa_nomen || 0).toLocaleString()} Pelanggan`;
             document.getElementById('stat-realisasi').innerText = `${global.total_lunas_mc || 0} Lunas / ${global.total_nomen_mc || 0} MC`;
             
-            // Nominal Rincian
-            document.getElementById('nom-undue').innerText = toIDR(global.total_nom_undue || 0);
-            document.getElementById('nom-current').innerText = toIDR(global.total_nom_current || 0);
+            document.getElementById('val-undue').innerText = `${global.count_undue || 0} Pel`;
+            document.getElementById('nom-undue').innerText = toIDR(global.nom_undue || 0);
+            document.getElementById('val-current').innerText = `${global.count_current || 0} Pel`;
+            document.getElementById('nom-current').innerText = toIDR(global.nom_current || 0);
 
-            const percent = global.total_nomen_mc > 0 
-                ? Math.round((global.total_lunas_mc / global.total_nomen_mc) * 100) 
-                : 0;
-            
-            const progressBar = document.getElementById('prog-bar');
-            progressBar.style.width = percent + '%';
+            const percent = global.total_nomen_mc > 0 ? Math.round((global.total_lunas_mc / global.total_nomen_mc) * 100) : 0;
+            document.getElementById('prog-bar').style.width = percent + '%';
             document.getElementById('stat-percent').innerText = percent + '%';
 
+            // 3. Render Top Performance
             const officerList = document.getElementById('list-officers');
-            officerList.innerHTML = data.officers.length > 0 
-                ? data.officers.map((o, index) => `
-                    <tr class="align-middle">
-                        <td class="ps-4 py-3">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-3 fw-bold shadow-sm" style="width: 32px; height: 32px; font-size: 0.75rem;">
-                                    ${index + 1}
-                                </div>
-                                <span class="fw-bold text-dark">${o.petugas || 'Petugas'}</span>
-                            </div>
-                        </td>
-                        <td class="text-center py-3 text-muted">${o.harian || 0}</td>
-                        <td class="text-center py-3">
-                            <span class="badge bg-primary rounded-3 px-3 py-2 fw-bold shadow-sm" style="min-width: 45px;">${o.bulanan || 0}</span>
-                        </td>
-                    </tr>
-                `).join('')
-                : '<tr><td colspan="3" class="text-center py-5 text-muted small">Belum ada aktivitas</td></tr>';
-
-            const historyList = document.getElementById('list-history');
-            historyList.innerHTML = data.history.length > 0
-                ? data.history.map((h, index) => `
-                    <div class="card p-3 shadow-sm mb-3 rounded-4 border-0 animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.1}s">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-light rounded-circle p-2 me-2">
-                                    <i class="fas fa-user-check text-primary"></i>
-                                </div>
-                                <div>
-                                    <span class="fw-bold d-block text-dark" style="font-size: 0.9rem;">${h.petugas || 'Petugas'}</span>
-                                    <small class="text-muted" style="font-size: 0.7rem;">${h.tanggal}</small>
-                                </div>
-                            </div>
-                            <span class="badge bg-light text-dark border" style="font-size: 0.6rem;">${h.total} Kunjungan</span>
+            officerList.innerHTML = data.officers.length > 0 ? data.officers.map((o, idx) => `
+                <tr class="align-middle">
+                    <td class="ps-4 py-3">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-3 fw-bold shadow-sm" style="width: 28px; height: 28px; font-size: 0.7rem;">${idx + 1}</div>
+                            <span class="fw-bold text-dark">${o.petugas}</span>
                         </div>
-                        <div class="row g-2 text-center">
-                            <div class="col-4">
-                                <div class="p-2 bg-success-subtle rounded-3 border border-success">
-                                    <small class="text-success fw-bold d-block" style="font-size: 0.55rem;">LUNAS (MASUK)</small>
-                                    <div class="fw-bold text-success" style="font-size: 0.75rem;">${h.jml_bayar || 0} Pel</div>
-                                    <div class="small text-success opacity-75">${toIDR(h.nom_masuk || 0)}</div>
-                                </div>
+                    </td>
+                    <td class="text-center py-3 text-muted">${o.harian || 0}</td>
+                    <td class="text-center py-3"><span class="badge bg-primary px-3 rounded-pill">${o.bulanan || 0}</span></td>
+                </tr>`).join('') : '<tr><td colspan="3" class="text-center py-4 text-muted small">Belum ada aktivitas</td></tr>';
+
+            // 4. Render Log Aktivitas Tim (Kartu Sejajar/Grid)
+            const historyTim = document.getElementById('list-history-tim');
+            historyTim.innerHTML = data.history.length > 0 ? data.history.map(h => `
+                <div class="card p-3 shadow-sm mb-3 rounded-4 border-0">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fw-bold text-dark" style="font-size: 0.85rem;"><i class="fas fa-user-check text-primary me-2"></i>${h.petugas}</span>
+                        <small class="text-muted" style="font-size: 0.65rem;">${h.tanggal}</small>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <div class="p-2 bg-success-subtle rounded-3 border border-success border-opacity-25 text-center h-100">
+                                <small class="text-success fw-bold d-block" style="font-size: 0.5rem;">LUNAS</small>
+                                <span class="fw-bold text-success small d-block">${h.jml_bayar} Pel</span>
+                                <span class="text-success" style="font-size: 0.55rem;">${toIDR(h.nom_masuk)}</span>
                             </div>
-                            <div class="col-4">
-                                <div class="p-2 bg-warning-subtle rounded-3 border border-warning">
-                                    <small class="text-warning fw-bold d-block" style="font-size: 0.55rem;">JANJI (POTENSI)</small>
-                                    <div class="fw-bold text-warning" style="font-size: 0.75rem;">${h.jml_janji || 0} Pel</div>
-                                    <div class="small text-warning opacity-75">${toIDR(h.nom_potensi || 0)}</div>
-                                </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-warning-subtle rounded-3 border border-warning border-opacity-25 text-center h-100">
+                                <small class="text-warning fw-bold d-block" style="font-size: 0.5rem;">JANJI</small>
+                                <span class="fw-bold text-warning small d-block">${h.jml_janji} Pel</span>
+                                <span class="text-warning" style="font-size: 0.55rem;">${toIDR(h.nom_potensi)}</span>
                             </div>
-                            <div class="col-4">
-                                <div class="p-2 bg-danger-subtle rounded-3 border border-danger">
-                                    <small class="text-danger fw-bold d-block" style="font-size: 0.55rem;">RKS/LL (HILANG)</small>
-                                    <div class="fw-bold text-danger" style="font-size: 0.75rem;">${h.jml_rks || 0} Pel</div>
-                                    <div class="small text-danger opacity-75">${toIDR(h.nom_hilang || 0)}</div>
-                                </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-danger-subtle rounded-3 border border-danger border-opacity-25 text-center h-100">
+                                <small class="text-danger fw-bold d-block" style="font-size: 0.5rem;">RKS/LL</small>
+                                <span class="fw-bold text-danger small d-block">${h.jml_rks} Pel</span>
+                                <span class="text-danger" style="font-size: 0.55rem;">${toIDR(h.nom_hilang)}</span>
                             </div>
                         </div>
                     </div>
-                `).join('')
-                : '<div class="text-center py-5 text-muted small">Tidak ada riwayat untuk periode ini</div>';
+                </div>`).join('') : '<div class="text-center py-4 text-muted small">Tidak ada rekap aktivitas</div>';
+
+            // 5. Render Log Aktivitas Petugas (Live Feed Kronologis)
+            const historyPetugas = document.getElementById('list-history-petugas');
+            // Catatan: Pastikan API mengirimkan list log mentah (log_petugas) jika ingin benar-benar live per baris.
+            // Di sini kita gunakan data history sementara sebagai visualisasi.
+            historyPetugas.innerHTML = data.history.length > 0 ? data.history.map(h => `
+                <div class="d-flex align-items-start mb-3 bg-white p-2 rounded-3 border-bottom shadow-none">
+                    <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle me-3"><i class="fas fa-history" style="font-size: 0.75rem;"></i></div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="fw-bold text-dark">${h.petugas}</small>
+                            <small class="text-muted" style="font-size: 0.6rem;">${h.tanggal}</small>
+                        </div>
+                        <div class="small text-muted" style="font-size: 0.7rem;">Melakukan penagihan di wilayah kerja tersebut.</div>
+                        <div class="mt-1"><span class="badge bg-primary rounded-pill" style="font-size: 0.6rem;">${h.total} Aksi Terdeteksi</span></div>
+                    </div>
+                </div>`).join('') : '<div class="text-center py-4 text-muted small">Belum ada feed aktivitas</div>';
 
         } catch (error) {
             console.error("Dashboard Error:", error);
@@ -250,9 +228,6 @@
     .text-success { color: #198754 !important; }
     .text-warning { color: #ffc107 !important; }
     .text-danger { color: #dc3545 !important; }
-    input[type="month"]::-webkit-calendar-picker-indicator {
-        cursor: pointer;
-        filter: invert(33%) sepia(87%) saturate(1637%) hue-rotate(202deg) brightness(91%) contrast(101%);
-    }
+    .progress-bar { transition: width 0.8s ease; }
 </style>
 {% endblock %}
