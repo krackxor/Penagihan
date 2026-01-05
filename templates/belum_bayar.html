@@ -51,6 +51,8 @@
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="modal-idpel">
+                    <input type="hidden" id="modal-nominal-val">
+                    
                     <div class="bg-primary-subtle p-3 rounded-4 mb-3 border border-primary-subtle">
                         <small class="text-primary fw-bold d-block mb-1">DATA PELANGGAN</small>
                         <h6 id="modal-nama" class="fw-bold mb-0"></h6>
@@ -79,9 +81,9 @@
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label small fw-bold">Foto Bukti</label>
+                        <label class="form-label small fw-bold">Foto Bukti (Auto-Watermark)</label>
                         <input type="file" id="modal-foto" class="form-control rounded-3 bg-light border-0" accept="image/*" capture="camera">
-                        <p class="text-muted mt-1" style="font-size: 10px;">* Klik untuk mengambil foto dari kamera</p>
+                        <p class="text-muted mt-1" style="font-size: 10px;">* Data pelanggan akan otomatis tercetak pada foto</p>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
@@ -158,7 +160,7 @@
                             <span class="fw-bold text-success h6">Rp ${Number(item.nominal).toLocaleString('id-ID')}</span>
                         </div>
                         <button class="btn btn-primary rounded-3 px-4 fw-bold shadow-sm" 
-                                onclick="openModal('${item.nomen}', '${item.nama}', '${item.pcez || ''}')">
+                                onclick="openModal('${item.nomen}', '${item.nama}', 'Rp ${Number(item.nominal).toLocaleString('id-ID')}', '${item.pcez || ''}')">
                             LAPOR
                         </button>
                     </div>
@@ -185,27 +187,31 @@
         `;
     }
 
-    function openModal(nomen, nama, info) {
+    function openModal(nomen, nama, nominal, info) {
         document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nama').innerText = nama;
+        document.getElementById('modal-nominal-val').value = nominal;
         document.getElementById('modal-info-tambahan').innerText = info;
         document.getElementById('formKunjungan').reset();
         modalKunjungan.show();
     }
 
     async function simpanLaporan() {
-        Swal.fire({ title: 'Menyimpan...', didOpen: () => { Swal.showLoading(); } });
+        Swal.fire({ title: 'Menyimpan & Watermarking...', didOpen: () => { Swal.showLoading(); } });
         
         const idpel = document.getElementById('modal-idpel').value;
         const nama = document.getElementById('modal-nama').innerText;
+        const nominalStr = document.getElementById('modal-nominal-val').value;
         const hasil = document.getElementById('modal-hasil').value;
         const no_hp = document.getElementById('modal-no-hp').value;
         const catatan = document.getElementById('modal-keterangan').value;
 
         const formData = new FormData();
         formData.append('idpel', idpel);
+        formData.append('nama_pelanggan', nama); // Untuk Watermark di Backend
+        formData.append('nominal_display', nominalStr); // Untuk Watermark di Backend
         formData.append('hasil', hasil);
-        formData.append('no_hp', no_hp); // Data No HP dikirim ke API
+        formData.append('no_hp', no_hp);
         formData.append('keterangan', catatan);
         
         const foto = document.getElementById('modal-foto').files[0];
@@ -213,34 +219,45 @@
 
         try {
             const res = await fetch('/api/belum-bayar/lapor', { method: 'POST', body: formData });
+            const dataRes = await res.json();
+
             if (res.ok) {
-                // LOGIKA SHARE WHATSAPP SETELAH SUKSES
-                const textWA = `*LAPORAN KUNJUNGAN PENAGIHAN*%0A` +
-                               `--------------------------------%0A` +
-                               `*IDPEL:* ${idpel}%0A` +
-                               `*Nama:* ${nama}%0A` +
-                               `*Status:* ${hasil}%0A` +
-                               `*No. HP:* ${no_hp || '-'}%0A` +
-                               `*Catatan:* ${catatan || '-'}%0A` +
-                               `*Waktu:* ${new Date().toLocaleString('id-ID')}%0A` +
-                               `--------------------------------%0A` +
-                               `_Dikirim via Sunter Pro App_`;
+                // Buat Link Foto Jika Ada
+                const domain = window.location.origin;
+                const urlFoto = dataRes.filename ? `${domain}/static/uploads/kunjungan/${dataRes.filename}` : '-';
+
+                // FORMAT PESAN WA MENARIK
+                const textWA = `*⚡ LAPORAN HASIL KUNJUNGAN ⚡*%0A` +
+                               `-------------------------------------------%0A` +
+                               `📌 *STATUS:* _${hasil.toUpperCase()}_%0A` +
+                               `-------------------------------------------%0A` +
+                               `📋 *Data Pelanggan:*%0A` +
+                               `• Nomen : ${idpel}%0A` +
+                               `• Nama  : ${nama}%0A` +
+                               `• Tagihan: *${nominalStr}*%0A` +
+                               `• No. HP: ${no_hp || '-'}%0A%0A` +
+                               `📝 *Catatan:*%0A` +
+                               `_${catatan || 'Tidak ada catatan'}_%0A%0A` +
+                               `📷 *Bukti Foto (Watermarked):*%0A` +
+                               `${urlFoto}%0A%0A` +
+                               `⏰ _Waktu: ${new Date().toLocaleString('id-ID')} WIB_%0A` +
+                               `-------------------------------------------%0A` +
+                               `_Powered by Sunter Pro_`;
 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Berhasil Disimpan!',
-                    text: 'Laporan tersimpan. Klik tombol di bawah untuk share ke WhatsApp.',
+                    title: 'Berhasil!',
+                    text: 'Laporan & Watermark tersimpan.',
                     showConfirmButton: true,
-                    confirmButtonText: 'Kirim ke WhatsApp <i class="fab fa-whatsapp"></i>',
+                    confirmButtonText: 'Kirim WA <i class="fab fa-whatsapp"></i>',
                     confirmButtonColor: '#25D366'
                 }).then((result) => {
-                    // Buka WhatsApp
                     window.open(`https://wa.me/?text=${textWA}`, '_blank');
                     modalKunjungan.hide();
                     loadData();
                 });
             } else {
-                Swal.fire('Gagal', 'Terjadi kesalahan sistem.', 'error');
+                Swal.fire('Gagal', dataRes.error || 'Terjadi kesalahan sistem.', 'error');
             }
         } catch (err) {
             Swal.fire('Error', 'Cek koneksi internet Anda.', 'error');
