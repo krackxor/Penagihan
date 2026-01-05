@@ -8,9 +8,13 @@
                 <h4 class="fw-bold mb-0 text-dark">Sunter Dashboard ⚡</h4>
                 <p class="text-muted small mb-0" id="display-date"></p>
             </div>
-            <button class="btn btn-white shadow-sm rounded-circle p-2" onclick="refreshDashboard()" id="btn-refresh">
-                <i class="fas fa-sync-alt text-primary"></i>
-            </button>
+            <div class="d-flex gap-2">
+                <select id="filter-periode" class="form-select form-select-sm border-0 shadow-sm rounded-pill px-3" style="width: 130px; font-size: 0.75rem;" onchange="refreshDashboard()">
+                    </select>
+                <button class="btn btn-white shadow-sm rounded-circle p-2" onclick="refreshDashboard()" id="btn-refresh">
+                    <i class="fas fa-sync-alt text-primary"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -66,7 +70,7 @@
                 <thead class="bg-light text-muted">
                     <tr>
                         <th class="ps-4 border-0 py-3">PETUGAS</th>
-                        <th class="text-center border-0 py-3">W1</th>
+                        <th class="text-center border-0 py-3">HARIAN</th>
                         <th class="text-center border-0 py-3">TOTAL</th>
                     </tr>
                 </thead>
@@ -90,7 +94,6 @@
 </div>
 
 <script>
-    // Format Rupiah compact
     const toIDR = (n) => {
         return new Intl.NumberFormat('id-ID', { 
             style: 'currency', 
@@ -99,19 +102,38 @@
         }).format(n);
     };
 
+    // Fungsi untuk mengisi dropdown periode secara otomatis (6 bulan terakhir)
+    function populatePeriodFilter() {
+        const select = document.getElementById('filter-periode');
+        const now = new Date();
+        for (let i = 0; i < 6; i++) {
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const val = `${String(date.getMonth() + 1).zfill(2)}-${date.getFullYear()}`;
+            const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            select.innerHTML += `<option value="${val}">${label}</option>`;
+        }
+    }
+
+    String.prototype.zfill = function(size) {
+        var s = this;
+        while (s.length < (size || 2)) {s = "0" + s;}
+        return s;
+    };
+
     async function refreshDashboard() {
         const btn = document.getElementById('btn-refresh');
+        const periode = document.getElementById('filter-periode').value;
         btn.classList.add('fa-spin');
         
         try {
-            const response = await fetch('/api/performance/full-stats');
+            // Memanggil API dengan parameter periode
+            const response = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const data = await response.json();
             
             if (data.status === "error") throw new Error(data.message);
 
             const global = data.global;
 
-            // 1. Update Global Stats
             document.getElementById('g-nomen-mc').innerText = (global.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(global.total_nominal_mc || 0);
             document.getElementById('stat-sisa').innerText = (global.sisa_target || 0).toLocaleString();
@@ -125,7 +147,6 @@
             progressBar.style.width = percent + '%';
             document.getElementById('stat-percent').innerText = percent + '%';
 
-            // 2. Render Leaderboard with Rankings
             const officerList = document.getElementById('list-officers');
             officerList.innerHTML = data.officers.length > 0 
                 ? data.officers.map((o, index) => `
@@ -138,15 +159,14 @@
                                 <span class="fw-bold text-dark">${o.petugas}</span>
                             </div>
                         </td>
-                        <td class="text-center py-3 text-muted">${o.mingguan}</td>
+                        <td class="text-center py-3 text-muted">${o.harian}</td>
                         <td class="text-center py-3">
                             <span class="badge bg-primary rounded-3 px-3 py-2 fw-bold shadow-sm" style="min-width: 45px;">${o.bulanan}</span>
                         </td>
                     </tr>
                 `).join('')
-                : '<tr><td colspan="3" class="text-center py-5 text-muted small">Belum ada data aktivitas petugas</td></tr>';
+                : '<tr><td colspan="3" class="text-center py-5 text-muted small">Belum ada aktivitas di periode ini</td></tr>';
 
-            // 3. Render Modern History Cards
             const historyList = document.getElementById('list-history');
             historyList.innerHTML = data.history.length > 0
                 ? data.history.map((h, index) => `
@@ -184,7 +204,7 @@
                         </div>
                     </div>
                 `).join('')
-                : '<div class="text-center py-5 text-muted small">Tidak ada riwayat untuk ditampilkan</div>';
+                : '<div class="text-center py-5 text-muted small">Tidak ada riwayat untuk periode ini</div>';
 
         } catch (error) {
             console.error("Dashboard Error:", error);
@@ -196,8 +216,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
+        populatePeriodFilter();
         refreshDashboard();
-        setInterval(refreshDashboard, 300000); // 5 menit auto-sync
     });
 </script>
 
