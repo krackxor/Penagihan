@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Dashboard Utama dengan rincian Nomen & Nominal serta Live Feed per Jam"""
+        """Statistik Lengkap dengan Rincian Bayar, Janji, RKS, dan Nama Petugas Akurat"""
         try:
             db = get_db()
             
@@ -20,44 +20,66 @@ def register_pcez_routes(app, get_db):
             else:
                 target_dt = today
 
-            # Periode Berjalan (n): "01-2026"
+            # Periode Berjalan (Contoh: "01-2026")
             curr_period_str = target_dt.strftime('%m-%Y')
-            # Periode Lalu (n-1): "12-2025"
+            # Periode Target (Contoh: "12-2025")
             last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
             prev_period_str = last_month_dt.strftime('%m-%Y')
 
-            # 1. Query Global: Nomen & Nominal (Sisa Target, Undue, Current)
+            # 1. Query Global: Ringkasan Total Tagihan & Pencapaian
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{prev_period_str}'), 0) as total_nomen_mc,
                 COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{prev_period_str}'), 0) as total_nominal_mc,
                 
-                -- NOMINAL LUNAS UNDUE (MB n-1)
+                -- UANG TUNGGAKAN LAMA (UNDUE)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{prev_period_str}')
                 ), 0) as nom_undue,
                 
-                -- NOMINAL LUNAS CURRENT (Collection n)
+                -- UANG TAGIHAN BULAN INI (CURRENT)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as nom_current,
 
-                -- JUMLAH ORANG (NOMEN) UNDUE
+                -- JUMLAH ORANG
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{prev_period_str}')
                 ), 0) as count_undue,
                 
-                -- JUMLAH ORANG (NOMEN) CURRENT
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as count_current
             """
             
-            # 2. Query History Tim (Ringkasan/Rekap per Hari)
+            # 2. Query Urutan Petugas Terbaik (Ranking dalam 1 Periode)
+            # Menampilkan: Nama, Bayar, Janji, RKS, Total Lokasi, Total Nominal Uang
+            officer_ranking_query = f"""
+            SELECT 
+                COALESCE(
+                    (SELECT rp.petugas FROM rute_petugas rp 
+                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
+                    k.petugas_name, 'Petugas'
+                ) as petugas,
+                COUNT(*) as total_dijalan,
+                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
+                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
+                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
+                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 
+                    COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
+                    ELSE 0 END) as total_nominal
+            FROM kunjungan_petugas k
+            WHERE k.periode = '{curr_period_str}'
+            GROUP BY petugas
+            ORDER BY total_nominal DESC
+            """
+
+            # 3. Query Laporan Harian Tim (Rekap Harian per Petugas)
             history_tim_query = f"""
             SELECT 
                 date(k.created_at) as tanggal,
@@ -67,26 +89,20 @@ def register_pcez_routes(app, get_db):
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
                     k.petugas_name, 'Petugas'
                 ) as petugas,
-                COUNT(*) as total,
+                COUNT(*) as total_dijalan,
                 SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
+                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
+                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
                 SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
-                    ELSE 0 END) as nom_masuk,
-                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 
-                    COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
-                    ELSE 0 END) as nom_potensi,
-                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
-                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 
-                    COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
-                    ELSE 0 END) as nom_hilang
+                    ELSE 0 END) as total_nominal
             FROM kunjungan_petugas k
             WHERE k.periode = '{curr_period_str}'
             GROUP BY tanggal, petugas
             ORDER BY tanggal DESC LIMIT 15
             """
 
-            # 3. Query Log Aktivitas Petugas (SUDAH DIPERBAIKI: JOIN NAMA PELANGGAN)
+            # 4. Query Live Feed (Per Jam per Tugas - Perbaikan Nama Pelanggan)
             log_petugas_query = f"""
             SELECT 
                 k.created_at as waktu,
@@ -108,6 +124,7 @@ def register_pcez_routes(app, get_db):
             """
 
             g_stat = db.execute(global_query).fetchone()
+            o_rank = db.execute(officer_ranking_query).fetchall()
             h_tim = db.execute(history_tim_query).fetchall()
             l_petugas = db.execute(log_petugas_query).fetchall()
             
@@ -116,16 +133,15 @@ def register_pcez_routes(app, get_db):
                 "nom_undue": 0, "nom_current": 0
             }
             
-            # Hitung Sisa Target (Nomen & Nominal)
             res_global['total_lunas_mc'] = res_global.get('count_undue', 0) + res_global.get('count_current', 0)
             res_global['sisa_nomen'] = res_global['total_nomen_mc'] - res_global['total_lunas_mc']
             res_global['sisa_nominal'] = res_global['total_nominal_mc'] - (res_global.get('nom_undue', 0) + res_global.get('nom_current', 0))
 
             return jsonify({
                 "global": res_global,
-                "history": [dict(row) for row in h_tim], 
-                "log_petugas": [dict(row) for row in l_petugas], 
-                "officers": [dict(row) for row in db.execute(f"SELECT COALESCE(petugas_name, 'Petugas') as petugas, COUNT(*) as bulanan FROM kunjungan_petugas WHERE periode='{curr_period_str}' GROUP BY petugas ORDER BY bulanan DESC").fetchall()],
+                "officers": [dict(row) for row in o_rank], # Urutan Petugas Terbaik
+                "history": [dict(row) for row in h_tim],  # Laporan Harian Tim
+                "log_petugas": [dict(row) for row in l_petugas], # Live Feed per Jam
                 "active_period": curr_period_str,
                 "target_mc_period": prev_period_str
             })
