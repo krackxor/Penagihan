@@ -4,14 +4,13 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Lengkap dengan Sinkronisasi Waktu WIB dan Logika Smart Period"""
+        """Statistik Strategis: Target (N-1) vs Realisasi (N)"""
         try:
             db = get_db()
-            
-            # --- LOGIKA PERIODE DINAMIS ---
-            req_periode = request.args.get('periode') 
             today = datetime.now()
             
+            # --- 1. PERIODE REALISASI (Bulan Berjalan / N) ---
+            req_periode = request.args.get('periode') 
             if req_periode:
                 try:
                     target_dt = datetime.strptime(req_periode, '%m-%Y')
@@ -20,25 +19,36 @@ def register_pcez_routes(app, get_db):
             else:
                 target_dt = today
 
-            curr_period_str = target_dt.strftime('%m-%Y')
-            last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
-            prev_period_str = last_month_dt.strftime('%m-%Y')
+            curr_period_str = target_dt.strftime('%m-%Y') # Contoh: 01-2026
 
-            # --- SMART CHECK: Validasi keberadaan data MC ---
-            check_mc = db.execute(f"SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{curr_period_str}'").fetchone()[0]
-            target_period = curr_period_str if check_mc > 0 else prev_period_str
+            # --- 2. LOGIKA TARGET SMART (N-1) ---
+            # Mencari MC terbaru yang tersedia di database sebagai pembagi (Target)
+            last_mc_query = db.execute("""
+                SELECT periode FROM master_pelanggan 
+                WHERE tipe = 'MC' 
+                ORDER BY substr(periode,4,4) DESC, substr(periode,1,2) DESC 
+                LIMIT 1
+            """).fetchone()
+            
+            # Gunakan MC terbaru yang ditemukan, jika tidak ada baru gunakan bulan sebelumnya secara manual
+            if last_mc_query:
+                target_period = last_mc_query[0]
+            else:
+                target_period = (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
 
-            # 1. Query Global: Ringkasan Total Tagihan & Pencapaian
+            # 3. Query Global: Struktur Target N-1 vs Realisasi N
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
                 COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nominal_mc,
                 
+                -- MB/ARDEB (Data N-1): Pembayaran sistem pusat periode target
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
+                -- COLLECTION/MAINBILL (Data N): Hasil kerja harian periode berjalan
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
@@ -55,7 +65,7 @@ def register_pcez_routes(app, get_db):
                 ), 0) as count_current
             """
             
-            # 2. Query Urutan Petugas Terbaik (Ranking)
+            # 4. Query Ranking Petugas (Tetap mengacu pada Aktivitas periode berjalan)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
@@ -77,7 +87,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY total_nominal DESC
             """
 
-            # 3. Query Laporan Harian Tim (Rekap Harian)
+            # 5. Query Laporan Harian Tim
             history_tim_query = f"""
             SELECT 
                 date(k.created_at, '+7 hours') as tanggal,
@@ -100,7 +110,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY tanggal DESC LIMIT 20
             """
 
-            # 4. Query Live Feed (WIB +7 Jam)
+            # 6. Query Live Feed
             log_petugas_query = f"""
             SELECT 
                 datetime(k.created_at, '+7 hours') as waktu,
@@ -127,7 +137,7 @@ def register_pcez_routes(app, get_db):
             l_petugas = db.execute(log_petugas_query).fetchall()
             
             res_global = dict(g_stat) if g_stat else {
-                "total_nomen_mc": 0, "total_nominal_mc": 0, "count_undue": 0, "count_current": 0,
+                "total_nomen_mc": 1, "total_nominal_mc": 1, "count_undue": 0, "count_current": 0,
                 "nom_undue": 0, "nom_current": 0
             }
             
@@ -154,7 +164,10 @@ def register_pcez_routes(app, get_db):
             req_periode = request.args.get('periode')
             target_dt = datetime.strptime(req_periode, '%m-%Y') if req_periode else datetime.now()
             curr_p = target_dt.strftime('%m-%Y')
-            last_p = (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
+            
+            # Mencari periode terakhir yang tersedia
+            last_mc = db.execute("SELECT periode FROM master_pelanggan ORDER BY substr(periode,4,4) DESC, substr(periode,1,2) DESC LIMIT 1").fetchone()
+            last_p = last_mc[0] if last_mc else curr_p
 
             query = f"""
             SELECT 
