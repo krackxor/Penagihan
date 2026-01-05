@@ -25,7 +25,7 @@
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
                 <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">JUMLAH TAGIHAN</small>
-                <h4 class="fw-bold mb-0" id="g-nomen-mc">0</h4>
+                <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
@@ -64,13 +64,13 @@
         </div>
     </div>
 
-    <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white">
-        <div class="row text-center">
-            <div class="col-7 border-end">
+    <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white text-center">
+        <div class="row g-0">
+            <div class="col-7 text-start border-end">
                 <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">BELUM DITAGIH (UANG)</small>
                 <h5 class="fw-bold mb-0 text-danger" id="stat-sisa-nom">Rp 0</h5>
             </div>
-            <div class="col-5">
+            <div class="col-5 ps-3 text-start">
                 <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">SISA ORANG</small>
                 <h5 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0</h5>
             </div>
@@ -132,7 +132,7 @@
 
         try {
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
-            const data = await res.json();
+            const data = await response.json();
             const g = data.global;
 
             document.getElementById('g-nomen-mc').innerText = g.total_nomen_mc.toLocaleString();
@@ -224,7 +224,6 @@
         }
 
         container.innerHTML = currentLogs.map(log => {
-            // PAKSA ZONA WAKTU ASIA/JAKARTA (WIB)
             const dateObj = new Date(log.waktu);
             const jamWIB = dateObj.toLocaleTimeString('id-ID', { 
                 timeZone: 'Asia/Jakarta', 
@@ -264,7 +263,6 @@
 </script>
 
 <style>
-    /* Ikon Kedap-Kedip Real-Time */
     .realtime-dot {
         width: 8px;
         height: 8px;
@@ -274,17 +272,13 @@
         box-shadow: 0 0 0 rgba(255, 0, 0, 0.4);
         animation: pulse-red 1.5s infinite;
     }
-
     @keyframes pulse-red {
         0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
         70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0); }
     }
-
     .progress-bar { transition: width 0.8s ease; }
     .btn-white { background: white; border: none; }
     .rounded-5 { border-radius: 1.5rem !important; }
-</style>
-{% endblock %}
 </style>
 {% endblock %}
