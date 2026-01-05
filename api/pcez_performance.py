@@ -86,12 +86,12 @@ def register_pcez_routes(app, get_db):
             ORDER BY tanggal DESC LIMIT 15
             """
 
-            # 3. Query Log Aktivitas Petugas (Live Feed Mentah per Tugas + Jam)
+            # 3. Query Log Aktivitas Petugas (SUDAH DIPERBAIKI: JOIN NAMA PELANGGAN)
             log_petugas_query = f"""
             SELECT 
                 k.created_at as waktu,
                 k.nomen,
-                k.nama_pelanggan as nama,
+                COALESCE(m_nama.nama, 'Pelanggan') as nama,
                 k.keterangan,
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
@@ -101,7 +101,9 @@ def register_pcez_routes(app, get_db):
                 ) as petugas,
                 COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) as nominal
             FROM kunjungan_petugas k
+            LEFT JOIN master_pelanggan m_nama ON k.nomen = m_nama.nomen 
             WHERE k.periode = '{curr_period_str}'
+            GROUP BY k.id
             ORDER BY k.created_at DESC LIMIT 100
             """
 
@@ -121,8 +123,8 @@ def register_pcez_routes(app, get_db):
 
             return jsonify({
                 "global": res_global,
-                "history": [dict(row) for row in h_tim], # Tetap gunakan key 'history' untuk ringkasan tim
-                "log_petugas": [dict(row) for row in l_petugas], # Key baru untuk Live Feed individu
+                "history": [dict(row) for row in h_tim], 
+                "log_petugas": [dict(row) for row in l_petugas], 
                 "officers": [dict(row) for row in db.execute(f"SELECT COALESCE(petugas_name, 'Petugas') as petugas, COUNT(*) as bulanan FROM kunjungan_petugas WHERE periode='{curr_period_str}' GROUP BY petugas ORDER BY bulanan DESC").fetchall()],
                 "active_period": curr_period_str,
                 "target_mc_period": prev_period_str
