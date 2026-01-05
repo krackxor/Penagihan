@@ -6,8 +6,10 @@
             <h4 class="fw-bold mb-1">Daftar Tagihan 📋</h4>
             <p class="text-muted small mb-0">Kelola penagihan pelanggan di lapangan</p>
         </div>
-        <select id="filter-periode" class="form-select form-select-sm border-0 shadow-sm rounded-pill px-3" style="width: 140px; font-size: 0.75rem;" onchange="loadData()">
-        </select>
+        <input type="month" id="filter-periode" 
+               class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" 
+               style="width: 160px; font-size: 0.75rem;" 
+               onchange="loadData()">
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-3 mx-2">
@@ -107,7 +109,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
-        populatePeriodFilter();
+        initCalendar(); // Set default ke bulan berjalan
         loadPetugasDropdown();
         loadData();
 
@@ -117,15 +119,12 @@
         });
     });
 
-    function populatePeriodFilter() {
-        const select = document.getElementById('filter-periode');
+    // Inisialisasi input kalender ke bulan/tahun saat ini
+    function initCalendar() {
         const now = new Date();
-        for (let i = 0; i < 6; i++) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const val = `${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
-            const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-            select.innerHTML += `<option value="${val}">${label}</option>`;
-        }
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('filter-periode').value = `${year}-${month}`;
     }
 
     async function loadPetugasDropdown() {
@@ -137,7 +136,14 @@
 
     async function loadData() {
         const petugas = document.getElementById('filter-petugas').value;
-        const periode = document.getElementById('filter-periode').value;
+        const rawPeriode = document.getElementById('filter-periode').value; // Format: YYYY-MM
+        
+        if (!rawPeriode) return;
+        
+        // KONVERSI: YYYY-MM -> MM-YYYY agar cocok dengan Backend
+        const parts = rawPeriode.split('-');
+        const periode = `${parts[1]}-${parts[0]}`; 
+
         const container = document.getElementById('list-container');
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
 
@@ -285,4 +291,12 @@
         }
     }
 </script>
+
+<style>
+    /* Styling khusus agar input month seragam dengan desain */
+    input[type="month"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        filter: invert(33%) sepia(87%) saturate(1637%) hue-rotate(202deg) brightness(91%) contrast(101%);
+    }
+</style>
 {% endblock %}
