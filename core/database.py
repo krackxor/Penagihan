@@ -16,6 +16,9 @@ def get_db_connection():
     conn.execute('PRAGMA journal_mode=WAL;')
     conn.execute('PRAGMA synchronous=NORMAL;')
     
+    # Mengaktifkan foreign key support untuk menjaga integritas data antar periode
+    conn.execute('PRAGMA foreign_keys = ON;')
+    
     return conn
 
 def init_db(app):
@@ -29,11 +32,12 @@ def init_db(app):
                 with open(schema_path, mode='r') as f:
                     content = f.read()
                     # Menjalankan script SQL
+                    # executescript sangat kuat untuk menjalankan banyak perintah CREATE TABLE sekaligus
                     db.cursor().executescript(content)
                 db.commit()
-                print("✅ Database initialized successfully.")
+                print("✅ Database initialized successfully with dynamic period support.")
             else:
                 print(f"⚠️ Warning: {schema_path} not found.")
         except Exception as e:
-            # Jika masih error 'import', print isi content di sini untuk debug
+            # Jika masih error, print detail error untuk debug
             print(f"❌ Error saat inisialisasi database: {e}")
