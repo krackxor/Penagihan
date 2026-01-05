@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Dashboard Utama dengan rincian Nomen & Nominal Lengkap"""
+        """Statistik Dashboard Utama dengan rincian Nomen & Nominal serta Live Feed per Jam"""
         try:
             db = get_db()
             
@@ -26,7 +26,7 @@ def register_pcez_routes(app, get_db):
             last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
             prev_period_str = last_month_dt.strftime('%m-%Y')
 
-            # Query Global: Target MC (n-1) vs Realisasi (Nomen & Nominal)
+            # 1. Query Global: Nomen & Nominal (Sisa Target, Undue, Current)
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{prev_period_str}'), 0) as total_nomen_mc,
@@ -57,45 +57,25 @@ def register_pcez_routes(app, get_db):
                 ), 0) as count_current
             """
             
-            # Query Officer: Ambil petugas dari rute terakhir
-            officer_query = f"""
-            SELECT 
-                COALESCE(
-                    (SELECT rp.petugas FROM rute_petugas rp 
-                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
-                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name, 'Petugas'
-                ) as petugas,
-                SUM(CASE WHEN date(k.created_at) = date('now', 'localtime') THEN 1 ELSE 0 END) as harian,
-                COUNT(k.id) as bulanan
-            FROM kunjungan_petugas k
-            WHERE k.periode = '{curr_period_str}'
-            GROUP BY petugas
-            ORDER BY bulanan DESC
-            """
-
-            # Query History Tim (Ringkasan dengan rincian Nomen & Nominal)
-            history_query = f"""
+            # 2. Query History Tim (Ringkasan/Rekap per Hari)
+            history_tim_query = f"""
             SELECT 
                 date(k.created_at) as tanggal,
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name, 'Sistem'
+                    k.petugas_name, 'Petugas'
                 ) as petugas,
                 COUNT(*) as total,
-                -- LUNAS
                 SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
                 SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as nom_masuk,
-                -- JANJI BAYAR
                 SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
                 SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as nom_potensi,
-                -- RKS/Rumah Kosong
                 SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
                 SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
@@ -106,9 +86,28 @@ def register_pcez_routes(app, get_db):
             ORDER BY tanggal DESC LIMIT 15
             """
 
+            # 3. Query Log Aktivitas Petugas (Live Feed Mentah per Tugas + Jam)
+            log_petugas_query = f"""
+            SELECT 
+                k.created_at as waktu,
+                k.nomen,
+                k.nama_pelanggan as nama,
+                k.keterangan,
+                COALESCE(
+                    (SELECT rp.petugas FROM rute_petugas rp 
+                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
+                    k.petugas_name, 'Petugas'
+                ) as petugas,
+                COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) as nominal
+            FROM kunjungan_petugas k
+            WHERE k.periode = '{curr_period_str}'
+            ORDER BY k.created_at DESC LIMIT 100
+            """
+
             g_stat = db.execute(global_query).fetchone()
-            o_stat = db.execute(officer_query).fetchall()
-            h_stat = db.execute(history_query).fetchall()
+            h_tim = db.execute(history_tim_query).fetchall()
+            l_petugas = db.execute(log_petugas_query).fetchall()
             
             res_global = dict(g_stat) if g_stat else {
                 "total_nomen_mc": 0, "total_nominal_mc": 0, "count_undue": 0, "count_current": 0,
@@ -122,8 +121,9 @@ def register_pcez_routes(app, get_db):
 
             return jsonify({
                 "global": res_global,
-                "officers": [dict(row) for row in o_stat],
-                "history": [dict(row) for row in h_stat],
+                "history": [dict(row) for row in h_tim], # Tetap gunakan key 'history' untuk ringkasan tim
+                "log_petugas": [dict(row) for row in l_petugas], # Key baru untuk Live Feed individu
+                "officers": [dict(row) for row in db.execute(f"SELECT COALESCE(petugas_name, 'Petugas') as petugas, COUNT(*) as bulanan FROM kunjungan_petugas WHERE periode='{curr_period_str}' GROUP BY petugas ORDER BY bulanan DESC").fetchall()],
                 "active_period": curr_period_str,
                 "target_mc_period": prev_period_str
             })
