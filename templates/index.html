@@ -62,6 +62,17 @@
                 <span id="stat-percent" class="fw-bold h5 mb-0">0%</span>
             </div>
         </div>
+
+        <div class="d-flex gap-2 mt-3 pt-2 border-top border-white border-opacity-10">
+            <div class="flex-fill">
+                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS UNDUE</small>
+                <span class="fw-bold" id="val-undue" style="font-size: 0.85rem;">0</span>
+            </div>
+            <div class="flex-fill border-start border-white border-opacity-10 ps-2">
+                <small class="opacity-75 d-block" style="font-size: 0.55rem;">LUNAS CURRENT</small>
+                <span class="fw-bold" id="val-current" style="font-size: 0.85rem;">0</span>
+            </div>
+        </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-3 px-1">
@@ -142,6 +153,10 @@
             document.getElementById('stat-sisa').innerText = (global.sisa_target || 0).toLocaleString();
             document.getElementById('stat-realisasi').innerText = `${global.total_lunas_mc || 0} Lunas / ${global.total_nomen_mc || 0} MC`;
             
+            // Rincian Undue dan Current
+            document.getElementById('val-undue').innerText = (global.total_undue || 0).toLocaleString();
+            document.getElementById('val-current').innerText = (global.total_current || 0).toLocaleString();
+
             const percent = global.total_nomen_mc > 0 
                 ? Math.round((global.total_lunas_mc / global.total_nomen_mc) * 100) 
                 : 0;
@@ -159,12 +174,12 @@
                                 <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-3 fw-bold shadow-sm" style="width: 32px; height: 32px; font-size: 0.75rem;">
                                     ${index + 1}
                                 </div>
-                                <span class="fw-bold text-dark">${o.petugas}</span>
+                                <span class="fw-bold text-dark">${o.petugas || 'Tanpa Nama'}</span>
                             </div>
                         </td>
-                        <td class="text-center py-3 text-muted">${o.harian}</td>
+                        <td class="text-center py-3 text-muted">${o.harian || 0}</td>
                         <td class="text-center py-3">
-                            <span class="badge bg-primary rounded-3 px-3 py-2 fw-bold shadow-sm" style="min-width: 45px;">${o.bulanan}</span>
+                            <span class="badge bg-primary rounded-3 px-3 py-2 fw-bold shadow-sm" style="min-width: 45px;">${o.bulanan || 0}</span>
                         </td>
                     </tr>
                 `).join('')
@@ -180,7 +195,7 @@
                                     <i class="fas fa-user-edit text-primary"></i>
                                 </div>
                                 <div>
-                                    <span class="fw-bold d-block text-dark" style="font-size: 0.9rem;">${h.petugas}</span>
+                                    <span class="fw-bold d-block text-dark" style="font-size: 0.9rem;">${h.petugas || 'Sistem'}</span>
                                     <small class="text-muted" style="font-size: 0.7rem;">${h.tanggal}</small>
                                 </div>
                             </div>
@@ -189,19 +204,19 @@
                             <div class="col-4">
                                 <div class="p-2 bg-success-subtle rounded-3 border border-success-subtle">
                                     <small class="text-success fw-bold d-block" style="font-size: 0.6rem;">LUNAS</small>
-                                    <span class="h6 mb-0 fw-bold text-success">${h.jml_bayar}</span>
+                                    <span class="h6 mb-0 fw-bold text-success">${h.jml_bayar || 0}</span>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="p-2 bg-warning-subtle rounded-3 border border-warning-subtle">
                                     <small class="text-warning fw-bold d-block" style="font-size: 0.6rem;">JANJI</small>
-                                    <span class="h6 mb-0 fw-bold text-warning">${h.jml_janji}</span>
+                                    <span class="h6 mb-0 fw-bold text-warning">${h.jml_janji || 0}</span>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="p-2 bg-danger-subtle rounded-3 border border-danger-subtle">
                                     <small class="text-danger fw-bold d-block" style="font-size: 0.6rem;">RKS</small>
-                                    <span class="h6 mb-0 fw-bold text-danger">${h.jml_rks}</span>
+                                    <span class="h6 mb-0 fw-bold text-danger">${h.jml_rks || 0}</span>
                                 </div>
                             </div>
                         </div>
