@@ -4,8 +4,54 @@ from flask import Blueprint, jsonify, request, current_app
 from core.database import get_db_connection
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from PIL import Image, ImageDraw, ImageFont
 
 belum_bayar_bp = Blueprint('belum_bayar', __name__)
+
+def add_watermark(image_path, info):
+    """Fungsi untuk menambahkan watermark teks pada foto hasil kunjungan."""
+    try:
+        img = Image.open(image_path)
+        draw = ImageDraw.Draw(img)
+        
+        # Pengaturan ukuran font proporsional (4% dari lebar gambar)
+        width, height = img.size
+        font_size = int(width * 0.04)
+        
+        # Mencoba memuat font tebal, jika tidak ada gunakan font default
+        try:
+            # Jalur font umum di server Linux (Ubuntu)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+        except:
+            font = ImageFont.load_default()
+
+        # Susunan teks watermark
+        text = (
+            f"📅 {info['waktu']}\n"
+            f"👤 Petugas: {info['petugas']}\n"
+            f"🆔 Nomen: {info['nomen']}\n"
+            f"🏠 Pelanggan: {info['nama']}\n"
+            f"💰 Tagihan: Rp {info['nominal']}"
+        )
+
+        # Posisi di pojok kiri bawah dengan margin
+        margin = int(width * 0.02)
+        # Hitung tinggi blok teks (estimasi 5 baris)
+        text_height = font_size * 6 
+        x = margin
+        y = height - text_height - margin
+
+        # Tambahkan bayangan (Shadow) agar teks terbaca di latar terang
+        shadow_offset = 2
+        draw.multiline_text((x + shadow_offset, y + shadow_offset), text, font=font, fill="black", spacing=5)
+        # Tambahkan teks utama (Warna Kuning agar mencolok)
+        draw.multiline_text((x, y), text, font=font, fill="yellow", spacing=5)
+        
+        img.save(image_path)
+        return True
+    except Exception as e:
+        print(f"Gagal membuat watermark: {e}")
+        return False
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
@@ -63,13 +109,16 @@ def get_petugas_tabs():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas."""
+    """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas dengan Watermark."""
     # Menangkap data dari form sesuai skema kunjungan_petugas
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')          # Status: Janji Bayar, Sudah Bayar, dll
     no_hp = request.form.get('no_hp')          # Tangkap No HP (Input Terpisah)
     catatan = request.form.get('keterangan')   # Catatan tambahan lapangan
+    nama_pelanggan = request.form.get('nama_pelanggan') # Untuk watermark
+    nominal_display = request.form.get('nominal_display') # Untuk watermark
+    
     janji_dt = request.form.get('janji_bayar_dt')
     lat = request.form.get('latitude')
     lng = request.form.get('longitude')
@@ -90,13 +139,24 @@ def lapor_kunjungan():
             return jsonify({"error": "Format foto harus JPG atau PNG"}), 400
             
         filename = secure_filename(f"LOG_{nomen}_{timestamp}{ext}")
-        foto.save(os.path.join(upload_folder, filename))
+        foto_path = os.path.join(upload_folder, filename)
+        foto.save(foto_path)
+
+        # PROSES WATERMARK
+        info_watermark = {
+            'waktu': datetime.now().strftime('%d/%m/%Y %H:%M WIB'),
+            'petugas': petugas_name or "Petugas Lapangan",
+            'nomen': nomen,
+            'nama': nama_pelanggan or "-",
+            'nominal': nominal_display or "0"
+        }
+        add_watermark(foto_path, info_watermark)
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Insert ke tabel kunjungan_petugas (Field no_hp sekarang terpisah)
+        # Insert ke tabel kunjungan_petugas
         query_log = """
             INSERT INTO kunjungan_petugas (
                 nomen, petugas_name, keterangan, no_hp, 
@@ -109,7 +169,12 @@ def lapor_kunjungan():
         ))
         
         conn.commit()
-        return jsonify({"message": "Laporan kunjungan berhasil disimpan", "status": "success"}), 200
+        # Mengembalikan filename agar frontend bisa membuat URL Bukti Foto
+        return jsonify({
+            "message": "Laporan kunjungan berhasil disimpan", 
+            "status": "success",
+            "filename": filename
+        }), 200
     except Exception as e:
         return jsonify({"error": f"Database Error: {str(e)}"}), 500
     finally:
