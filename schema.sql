@@ -7,12 +7,9 @@ from werkzeug.utils import secure_filename
 
 belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
-def dict_factory(cursor, row):
-    """Konverter hasil query SQLite ke dictionary untuk respon JSON."""
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
+# Catatan: dict_factory tidak lagi wajib jika core/database.py 
+# sudah menggunakan conn.row_factory = sqlite3.Row, 
+# tapi tetap aman jika ingin mempertahankan konversi eksplisit ke dict.
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
@@ -22,48 +19,56 @@ def get_belum_bayar():
     """
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
-    conn.row_factory = dict_factory
+    # Menghapus row_factory manual agar mengikuti standar core/database.py
     cursor = conn.cursor()
     
-    # Query Canggih: Menggabungkan data pelanggan dengan nama petugas dari tabel rute_petugas
-    # Hanya menampilkan pelanggan yang BELUM ada di tabel master_bayar
-    query = """
-        SELECT p.*, r.petugas as nama_petugas 
-        FROM master_pelanggan p
-        LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-        WHERE p.nomen NOT IN (SELECT nomen FROM master_bayar)
-    """
-    params = []
-    
-    if petugas_filter and petugas_filter != 'all':
-        query += " AND r.petugas = ?"
-        params.append(petugas_filter)
+    try:
+        # Perbaikan: Pastikan tabel master_pelanggan dan rute_petugas ada di schema.sql
+        query = """
+            SELECT p.*, r.petugas as nama_petugas 
+            FROM master_pelanggan p
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            WHERE p.nomen NOT IN (SELECT nomen FROM master_bayar)
+        """
+        params = []
         
-    query += " ORDER BY p.pcez ASC"
-    
-    cursor.execute(query, params)
-    data = cursor.fetchall()
-    conn.close()
-    return jsonify(data)
+        if petugas_filter and petugas_filter != 'all':
+            query += " AND r.petugas = ?"
+            params.append(petugas_filter)
+            
+        query += " ORDER BY p.pcez ASC"
+        
+        cursor.execute(query, params)
+        data = [dict(row) for row in cursor.fetchall()] # Konversi Row ke Dict agar bisa di-jsonify
+        return jsonify(data)
+    except sqlite3.OperationalError as e:
+        # Menangani jika tabel belum terbuat atau database terkunci
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+    finally:
+        conn.close()
 
 @belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
 def get_petugas_tabs():
     """Mengambil daftar unik petugas dari tabel mapping rute."""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != ''")
-    petugas_list = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return jsonify(petugas_list)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != ''")
+        petugas_list = [row[0] for row in cursor.fetchall()]
+        return jsonify(petugas_list)
+    except sqlite3.OperationalError:
+        return jsonify([])
+    finally:
+        conn.close()
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
     """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas."""
-    # Menangkap data dari form
+    # Menangkap data dari form (Pastikan ID form di HTML sesuai)
     nomen = request.form.get('idpel')
-    petugas = request.form.get('petugas_name') # Bisa diambil dari session login nantinya
-    hasil = request.form.get('hasil')          # Keterangan status (Janji Bayar, RKS, dll)
-    catatan = request.form.get('keterangan')   # Catatan tambahan
+    petugas = request.form.get('petugas_name') 
+    hasil = request.form.get('hasil')          
+    catatan = request.form.get('keterangan')   
     no_hp = request.form.get('no_hp')
     janji_dt = request.form.get('janji_bayar_dt')
     lat = request.form.get('latitude')
@@ -75,6 +80,7 @@ def lapor_kunjungan():
     
     filename = None
     if foto:
+        # Konfigurasi folder statis agar bisa diakses lewat browser
         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
         os.makedirs(upload_folder, exist_ok=True)
             
@@ -83,11 +89,11 @@ def lapor_kunjungan():
         filename = secure_filename(f"LOG_{nomen}_{timestamp}{ext}")
         foto.save(os.path.join(upload_folder, filename))
 
+    conn = get_db_connection()
     try:
-        conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Insert ke tabel kunjungan_petugas sesuai skema baru
+        # Sesuai dengan tabel kunjungan_petugas di schema.sql
         query_log = """
             INSERT INTO kunjungan_petugas (
                 nomen, petugas_name, keterangan, no_hp, 
@@ -100,7 +106,8 @@ def lapor_kunjungan():
         ))
         
         conn.commit()
-        conn.close()
         return jsonify({"message": "Laporan kunjungan berhasil disimpan", "status": "success"}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Gagal menyimpan laporan: {str(e)}"}), 500
+    finally:
+        conn.close()
