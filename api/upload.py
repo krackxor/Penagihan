@@ -37,16 +37,16 @@ def handle_upload():
     db = get_db_connection()
     
     try:
-        # Load data sebagai string untuk mencegah perubahan format ID
+        # Load data sebagai string untuk mencegah perubahan format ID (IDPEL/NOTAG)
         df = pd.read_excel(file, dtype=str)
         file_type = identify_file_type(df)
         
         if not file_type:
             return jsonify({"error": "Format kolom file tidak dikenali"}), 400
 
-        # DETEKSI PERIODE OTOMATIS DARI ISI FILE (TGL_CATAT, TGL_BAYAR, PAY_DT, dll)
+        # DETEKSI PERIODE OTOMATIS DARI ISI FILE
         bulan, tahun = detect_file_period(df, file_type)
-        # Format periode standar: MM-YYYY
+        # Format periode standar: MM-YYYY (Digunakan sebagai kunci Pintu Ganda 2)
         periode_str = f"{str(bulan).zfill(2)}-{tahun}" if bulan else None
         periode_info = f" ({periode_str})" if periode_str else ""
 
@@ -71,24 +71,21 @@ def handle_upload():
             count_mc = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
-                nomet = str(row.get('NOMET', '')).split('.')[0].strip() # Tambahan Nomor Meter
+                nomet = str(row.get('NOMET', '')).split('.')[0].strip()
+                notag = str(row.get('NOTAGIHAN', '')).split('.')[0].strip() # Pintu Ganda 1
+                
                 if not nomen or nomen == 'NAN': continue
                 
                 zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "").strip()
+                pcez_val = clean_pcez(f"{zona[2:5]}/{zona[5:7]}" if len(zona) >= 7 else "000/00")
                 
-                if len(zona) >= 7:
-                    raw_pcez = f"{zona[2:5]}/{zona[5:7]}"
-                else:
-                    raw_pcez = "000/00"
-                
-                pcez_val = clean_pcez(raw_pcez)
-                
-                # INSERT DENGAN PERIODE (History didukung karena UNIQUE di nomen dilepas)
+                # INSERT MC sebagai target utama
                 db.execute("""
-                    INSERT INTO master_pelanggan (nomen, nomet, nama, pcez, rayon, block, nominal, tipe, periode) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'MC', ?)
+                    INSERT INTO master_pelanggan (nomen, notagihan, nomet, nama, pcez, rayon, block, nominal, tipe, periode) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'MC', ?)
                 """, (
                     nomen,
+                    notag if notag != 'NAN' else None,
                     nomet if nomet != 'NAN' else None,
                     row.get('NAMA_PEL'), 
                     pcez_val, 
@@ -104,13 +101,16 @@ def handle_upload():
             count_mb = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
+                notag = str(row.get('NOTAGIHAN', '')).split('.')[0].strip() # Pintu Ganda 1
+                
                 if nomen and nomen != 'NAN':
-                    # INSERT DENGAN PERIODE (History didukung)
+                    # INSERT MB (Status: UNDUE jika periode MB = periode MC)
                     db.execute("""
-                        INSERT INTO master_bayar (nomen, nominal, tgl_bayar, periode) 
-                        VALUES (?, ?, ?, ?)
+                        INSERT INTO master_bayar (nomen, notagihan, nominal, tgl_bayar, periode) 
+                        VALUES (?, ?, ?, ?, ?)
                     """, (
                         nomen, 
+                        notag if notag != 'NAN' else None,
                         row.get('NOMINAL'),
                         row.get('TGL_BAYAR'),
                         periode_str
@@ -122,13 +122,16 @@ def handle_upload():
             count_coll = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
+                notag = str(row.get('NOTAG', '')).split('.')[0].strip() # Pintu Ganda 1 (Field file: NOTAG)
+                
                 if nomen and nomen != 'NAN':
+                    # INSERT Collection (Status: CURRENT jika periode Coll > periode MC)
                     db.execute("""
-                        INSERT INTO collection_harian (nomen, notag, nominal, pay_dt, periode) 
+                        INSERT INTO collection_harian (nomen, notagihan, nominal, pay_dt, periode) 
                         VALUES (?, ?, ?, ?, ?)
                     """, (
                         nomen,
-                        row.get('NOTAG'),
+                        notag if notag != 'NAN' else None,
                         row.get('NOMINAL'),
                         row.get('PAY_DT'),
                         periode_str
