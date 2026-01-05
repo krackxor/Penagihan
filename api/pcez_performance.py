@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Dashboard Utama dengan Nominal Lengkap dan Smart Search History"""
+        """Statistik Dashboard Utama dengan rincian Nomen & Nominal Lengkap"""
         try:
             db = get_db()
             
@@ -26,7 +26,7 @@ def register_pcez_routes(app, get_db):
             last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
             prev_period_str = last_month_dt.strftime('%m-%Y')
 
-            # Query Global: Target MC (n-1) vs Realisasi
+            # Query Global: Target MC (n-1) vs Realisasi (Nomen & Nominal)
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{prev_period_str}'), 0) as total_nomen_mc,
@@ -36,27 +36,28 @@ def register_pcez_routes(app, get_db):
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{prev_period_str}')
-                ), 0) as total_nom_undue,
+                ), 0) as nom_undue,
                 
                 -- NOMINAL LUNAS CURRENT (Collection n)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
-                ), 0) as total_nom_current,
+                ), 0) as nom_current,
 
-                -- JUMLAH ORANG (NOMEN)
+                -- JUMLAH ORANG (NOMEN) UNDUE
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{prev_period_str}')
-                ), 0) as total_undue,
+                ), 0) as count_undue,
                 
+                -- JUMLAH ORANG (NOMEN) CURRENT
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
-                ), 0) as total_current
+                ), 0) as count_current
             """
             
-            # Query Officer: Ambil petugas dari rute berdasarkan rute terakhir pelanggan jika MC n-1 belum ada
+            # Query Officer: Ambil petugas dari rute terakhir
             officer_query = f"""
             SELECT 
                 COALESCE(
@@ -73,7 +74,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY bulanan DESC
             """
 
-            # Query History: Smart Search Nominal dan Petugas (Mencegah Nominal 0 sebelum tgl 10)
+            # Query History Tim (Ringkasan dengan rincian Nomen & Nominal)
             history_query = f"""
             SELECT 
                 date(k.created_at) as tanggal,
@@ -84,24 +85,25 @@ def register_pcez_routes(app, get_db):
                     k.petugas_name, 'Sistem'
                 ) as petugas,
                 COUNT(*) as total,
-                -- Hitung Orang
+                -- LUNAS
                 SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
-                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
-                -- Ambil Nominal Terakhir dari Database Pelanggan (Jika MC bulan ini belum turun)
                 SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as nom_masuk,
+                -- JANJI BAYAR
+                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
                 SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as nom_potensi,
+                -- RKS/Rumah Kosong
+                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
                 SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as nom_hilang
             FROM kunjungan_petugas k
             WHERE k.periode = '{curr_period_str}'
             GROUP BY tanggal, petugas
-            ORDER BY tanggal DESC LIMIT 20
+            ORDER BY tanggal DESC LIMIT 15
             """
 
             g_stat = db.execute(global_query).fetchone()
@@ -109,12 +111,14 @@ def register_pcez_routes(app, get_db):
             h_stat = db.execute(history_query).fetchall()
             
             res_global = dict(g_stat) if g_stat else {
-                "total_nomen_mc": 0, "total_nominal_mc": 0, "total_undue": 0, "total_current": 0,
-                "total_nom_undue": 0, "total_nom_current": 0
+                "total_nomen_mc": 0, "total_nominal_mc": 0, "count_undue": 0, "count_current": 0,
+                "nom_undue": 0, "nom_current": 0
             }
             
-            res_global['total_lunas_mc'] = res_global.get('total_undue', 0) + res_global.get('total_current', 0)
-            res_global['sisa_target'] = res_global['total_nomen_mc'] - res_global['total_lunas_mc']
+            # Hitung Sisa Target (Nomen & Nominal)
+            res_global['total_lunas_mc'] = res_global.get('count_undue', 0) + res_global.get('count_current', 0)
+            res_global['sisa_nomen'] = res_global['total_nomen_mc'] - res_global['total_lunas_mc']
+            res_global['sisa_nominal'] = res_global['total_nominal_mc'] - (res_global.get('nom_undue', 0) + res_global.get('nom_current', 0))
 
             return jsonify({
                 "global": res_global,
