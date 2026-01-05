@@ -91,11 +91,29 @@
     <h6 class="fw-bold mb-3 px-1"><i class="fas fa-users-cog me-2"></i>Log Aktivitas Tim (Ringkasan)</h6>
     <div id="list-history-tim" class="mb-4"></div>
 
-    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-stream me-2"></i>Log Aktivitas Petugas (Live Feed)</h6>
-    <div id="list-history-petugas" class="mb-5"></div>
+    <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+        <h6 class="fw-bold mb-0"><i class="fas fa-stream me-2 text-primary"></i>Live Feed Aktivitas</h6>
+        <span class="badge bg-danger rounded-pill animate__animated animate__flash animate__infinite" style="font-size: 0.6rem;">LIVE</span>
+    </div>
+
+    <div id="list-history-petugas" class="mb-3"></div>
+
+    <div class="d-flex justify-content-between align-items-center px-1 mb-5">
+        <button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm" id="btn-prev" onclick="changePage(-1)" disabled>
+            <i class="fas fa-chevron-left me-1"></i> Sebelumnya
+        </button>
+        <small class="text-muted fw-bold" id="page-info">Hal 1</small>
+        <button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm" id="btn-next" onclick="changePage(1)">
+            Berikutnya <i class="fas fa-chevron-right ms-1"></i>
+        </button>
+    </div>
 </div>
 
 <script>
+    let currentPage = 1;
+    let allLogs = [];
+    const logsPerPage = 10;
+
     const toIDR = (n) => {
         return new Intl.NumberFormat('id-ID', { 
             style: 'currency', currency: 'IDR', maximumFractionDigits: 0 
@@ -123,15 +141,12 @@
             const data = await response.json();
             const global = data.global;
 
-            // 1. Update Global Header & MC Stats
+            // Update Stats
             document.getElementById('g-nomen-mc').innerText = global.total_nomen_mc.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(global.total_nominal_mc);
-
-            // 2. Update Sisa Target Penagihan
             document.getElementById('stat-sisa-nom').innerText = toIDR(global.sisa_nominal || 0);
             document.getElementById('stat-sisa-nomen').innerText = `${(global.sisa_nomen || 0).toLocaleString()} Pelanggan`;
             document.getElementById('stat-realisasi').innerText = `${global.total_lunas_mc || 0} Lunas / ${global.total_nomen_mc || 0} MC`;
-            
             document.getElementById('val-undue').innerText = `${global.count_undue || 0} Pel`;
             document.getElementById('nom-undue').innerText = toIDR(global.nom_undue || 0);
             document.getElementById('val-current').innerText = `${global.count_current || 0} Pel`;
@@ -141,7 +156,7 @@
             document.getElementById('prog-bar').style.width = percent + '%';
             document.getElementById('stat-percent').innerText = percent + '%';
 
-            // 3. Render Top Performance
+            // Top Performance
             const officerList = document.getElementById('list-officers');
             officerList.innerHTML = data.officers.length > 0 ? data.officers.map((o, idx) => `
                 <tr class="align-middle">
@@ -155,7 +170,7 @@
                     <td class="text-center py-3"><span class="badge bg-primary px-3 rounded-pill">${o.bulanan || 0}</span></td>
                 </tr>`).join('') : '<tr><td colspan="3" class="text-center py-4 text-muted small">Belum ada aktivitas</td></tr>';
 
-            // 4. Render Log Aktivitas Tim (Kartu Sejajar/Grid)
+            // Log Aktivitas Tim (Ringkasan)
             const historyTim = document.getElementById('list-history-tim');
             historyTim.innerHTML = data.history.length > 0 ? data.history.map(h => `
                 <div class="card p-3 shadow-sm mb-3 rounded-4 border-0">
@@ -188,28 +203,60 @@
                     </div>
                 </div>`).join('') : '<div class="text-center py-4 text-muted small">Tidak ada rekap aktivitas</div>';
 
-            // 5. Render Log Aktivitas Petugas (Live Feed Kronologis)
-            const historyPetugas = document.getElementById('list-history-petugas');
-            // Catatan: Pastikan API mengirimkan list log mentah (log_petugas) jika ingin benar-benar live per baris.
-            // Di sini kita gunakan data history sementara sebagai visualisasi.
-            historyPetugas.innerHTML = data.history.length > 0 ? data.history.map(h => `
-                <div class="d-flex align-items-start mb-3 bg-white p-2 rounded-3 border-bottom shadow-none">
-                    <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle me-3"><i class="fas fa-history" style="font-size: 0.75rem;"></i></div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between mb-1">
-                            <small class="fw-bold text-dark">${h.petugas}</small>
-                            <small class="text-muted" style="font-size: 0.6rem;">${h.tanggal}</small>
-                        </div>
-                        <div class="small text-muted" style="font-size: 0.7rem;">Melakukan penagihan di wilayah kerja tersebut.</div>
-                        <div class="mt-1"><span class="badge bg-primary rounded-pill" style="font-size: 0.6rem;">${h.total} Aksi Terdeteksi</span></div>
-                    </div>
-                </div>`).join('') : '<div class="text-center py-4 text-muted small">Belum ada feed aktivitas</div>';
+            // DATA LIVE FEED (Simpan ke variabel global untuk pagination)
+            allLogs = data.log_petugas || []; 
+            currentPage = 1;
+            renderLiveLogs();
 
         } catch (error) {
             console.error("Dashboard Error:", error);
         } finally {
             setTimeout(() => btn.classList.remove('fa-spin'), 1000);
         }
+    }
+
+    function renderLiveLogs() {
+        const historyPetugas = document.getElementById('list-history-petugas');
+        const start = (currentPage - 1) * logsPerPage;
+        const end = start + logsPerPage;
+        const currentLogs = allLogs.slice(start, end);
+
+        if (currentLogs.length === 0) {
+            historyPetugas.innerHTML = '<div class="text-center py-4 text-muted small">Belum ada feed aktivitas</div>';
+            return;
+        }
+
+        historyPetugas.innerHTML = currentLogs.map(log => `
+            <div class="d-flex align-items-start mb-3 bg-white p-3 rounded-4 border-bottom shadow-sm animate__animated animate__fadeIn">
+                <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle me-3" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-history" style="font-size: 0.8rem;"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between mb-1">
+                        <small class="fw-bold text-dark" style="font-size: 0.85rem;">${log.petugas}</small>
+                        <small class="text-primary fw-bold" style="font-size: 0.7rem;">
+                            <i class="far fa-clock me-1"></i>${new Date(log.waktu).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </small>
+                    </div>
+                    <div class="small text-muted mb-1" style="font-size: 0.7rem;">IDPEL: <span class="text-dark fw-bold">${log.nomen}</span> - ${log.nama}</div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success' : 'bg-secondary'} rounded-pill" style="font-size: 0.6rem; padding: 4px 10px;">${log.keterangan}</span>
+                        <span class="fw-bold text-dark" style="font-size: 0.75rem;">${toIDR(log.nominal)}</span>
+                    </div>
+                </div>
+            </div>`).join('');
+
+        // Update Pagination Info
+        document.getElementById('page-info').innerText = `Hal ${currentPage} / ${Math.ceil(allLogs.length / logsPerPage) || 1}`;
+        document.getElementById('btn-prev').disabled = currentPage === 1;
+        document.getElementById('btn-next').disabled = currentPage >= Math.ceil(allLogs.length / logsPerPage);
+    }
+
+    function changePage(step) {
+        currentPage += step;
+        renderLiveLogs();
+        // Scroll ke atas section live feed
+        document.getElementById('list-history-petugas').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -229,5 +276,6 @@
     .text-warning { color: #ffc107 !important; }
     .text-danger { color: #dc3545 !important; }
     .progress-bar { transition: width 0.8s ease; }
+    .animate__fadeIn { animation-duration: 0.5s; }
 </style>
 {% endblock %}
