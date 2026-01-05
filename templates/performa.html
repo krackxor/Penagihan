@@ -1,51 +1,91 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="animate__animated animate__fadeIn px-2 pb-5" style="background: #f8f9fa; min-height: 100vh;">
-    <div class="pt-4 mb-3">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h4 class="fw-bold mb-0 text-dark">Performance Tracker ⚡</h4>
-            <span class="badge bg-primary-subtle text-primary rounded-pill px-3">
-                <i class="fas fa-calendar-alt me-1"></i> <span id="current-period-label">...</span>
-            </span>
+<div class="animate__animated animate__fadeIn px-2 pb-5" style="background: #f0f3f7; min-height: 100vh;">
+    <div class="pt-4 mb-3 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0 text-dark">Strategic Commander 🎖️</h4>
+            <div id="ai-status" class="small text-success fw-bold animate__animated animate__pulse animate__infinite">
+                <i class="fas fa-brain me-1"></i> AI Analysis Active
+            </div>
         </div>
-        <div class="input-group input-group-sm shadow-sm rounded-4 overflow-hidden border-0">
-            <span class="input-group-text bg-white border-0"><i class="fas fa-search text-muted"></i></span>
-            <input type="text" id="searchPetugas" class="form-control border-0 py-2" placeholder="Cari nama petugas..." onkeyup="filterLeaderboard()">
+        <button onclick="loadDashboardData()" class="btn btn-white shadow-sm rounded-circle p-2 border-0">
+            <i class="fas fa-sync-alt text-primary" id="sync-icon"></i>
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white shadow-primary" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+        <div class="card-body p-4">
+            <div class="row">
+                <div class="col-7">
+                    <small class="text-white-50 fw-bold text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Projected EOM Revenue</small>
+                    <h2 class="fw-bold mb-0" id="stat-projected-nominal">Rp 0</h2>
+                    <div class="mt-2">
+                        <span id="stat-velocity" class="badge bg-primary rounded-pill" style="font-size: 0.6rem;">Velocity: Calculating...</span>
+                    </div>
+                </div>
+                <div class="col-5 text-end">
+                    <div class="position-relative d-inline-block">
+                        <h3 class="fw-bold mb-0" id="stat-total-progress">0%</h3>
+                        <small class="text-white-50 d-block" style="font-size: 0.5rem;">PROGRESS</small>
+                    </div>
+                </div>
+            </div>
+            
+            <hr class="my-3 opacity-25">
+            
+            <div class="row text-center g-2">
+                <div class="col-4">
+                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">DAILY TARGET</small>
+                    <span class="fw-bold d-block" id="ai-daily-need" style="font-size: 0.7rem;">Rp 0</span>
+                </div>
+                <div class="col-4 border-start border-white border-opacity-10">
+                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">PROBABILITY</small>
+                    <span class="fw-bold d-block text-info" id="ai-capacity" style="font-size: 0.7rem;">0%</span>
+                </div>
+                <div class="col-4 border-start border-white border-opacity-10">
+                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">DEFICIT GAP</small>
+                    <span class="fw-bold d-block text-warning" id="ai-gap" style="font-size: 0.7rem;">Rp 0</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="row g-2 mb-4" id="podium-highlights"></div>
+    <div id="ai-insight-card" class="card border-0 shadow-sm rounded-4 mb-4 border-start border-warning border-4" style="display:none;">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-start">
+                <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
+                    <i class="fas fa-robot text-warning"></i>
+                </div>
+                <div>
+                    <h6 class="fw-bold mb-1 small text-dark">Command Intelligence</h6>
+                    <p class="mb-0 text-muted" id="ai-strategy-text" style="font-size: 0.65rem; line-height: 1.4;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="fw-bold mb-0 small"><i class="fas fa-chart-line me-2 text-primary"></i>Output Analysis</h6>
-                <div class="btn-group btn-group-sm shadow-sm" style="border-radius: 8px; overflow: hidden;">
-                    <input type="radio" class="btn-check" name="v-mode" id="v-nomen" checked onchange="updateMainChart('nomen')">
-                    <label class="btn btn-white px-3 border-0" for="v-nomen">Data</label>
-                    <input type="radio" class="btn-check" name="v-mode" id="v-nominal" onchange="updateMainChart('nominal')">
-                    <label class="btn btn-white px-3 border-0" for="v-nominal">Rupiah</label>
+                <h6 class="fw-bold mb-0 small"><i class="fas fa-chart-pie me-2 text-primary"></i>Squad Distribution</h6>
+                <div class="dropdown">
+                    <button class="btn btn-light btn-sm rounded-pill px-3 border-0" style="font-size: 0.6rem;" id="chartSortBtn">
+                        Sort by Lunas
+                    </button>
                 </div>
             </div>
-            <div style="height: 180px;">
+            <div style="height: 160px;">
                 <canvas id="mainChart"></canvas>
             </div>
         </div>
     </div>
 
     <div class="px-1 mb-3 d-flex justify-content-between align-items-center">
-        <h6 class="fw-bold mb-0">Petugas Ranking</h6>
-        <div class="dropdown">
-            <button class="btn btn-sm btn-white rounded-pill px-3 dropdown-toggle shadow-sm border-0" type="button" data-bs-toggle="dropdown">
-                <i class="fas fa-sort-amount-down me-1"></i> Filter
-            </button>
-            <ul class="dropdown-menu border-0 shadow-lg rounded-4">
-                <li><a class="dropdown-item small" href="#" onclick="renderLeaderboard('jml_lunas')">Banyak Lunas</a></li>
-                <li><a class="dropdown-item small" href="#" onclick="renderLeaderboard('nom_lunas')">Rupiah Tertinggi</a></li>
-                <li><a class="dropdown-item small" href="#" onclick="renderLeaderboard('success_rate')">Success Rate</a></li>
-            </ul>
-        </div>
+        <h6 class="fw-bold mb-0">Operational Leaderboard 🏆</h6>
+        <span class="badge bg-white text-muted border small fw-normal rounded-pill" style="font-size: 0.6rem;">
+            Real-time WIB
+        </span>
     </div>
     
     <div id="table-leaderboard" class="mb-5"></div>
@@ -55,135 +95,144 @@
 <script>
 let mainChartObj;
 let rawOfficers = [];
+const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
 async function loadDashboardData() {
+    const icon = document.getElementById('sync-icon');
+    icon.classList.add('fa-spin');
+
     try {
         const res = await fetch('/api/performance/full-stats');
         const data = await res.json();
         
-        rawOfficers = data.history_tim.map(off => ({
+        rawOfficers = data.officers.map(off => ({
             ...off,
-            success_rate: ((off.jml_lunas / (off.jml_lunas + off.jml_janji + off.jml_rks)) * 100) || 0
+            success_rate: ((off.jml_bayar / off.total_dijalan) * 100) || 0
         }));
 
-        document.getElementById('current-period-label').innerText = data.target_mc_period;
-        updateMainChart('nomen');
-        renderPodium(rawOfficers);
-        renderLeaderboard('jml_lunas');
+        processUltraAI(data);
+        renderLeaderboard();
+        renderChart();
 
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("AI Engine Error:", e); }
+    finally { setTimeout(() => icon.classList.remove('fa-spin'), 600); }
 }
 
-function renderPodium(data) {
-    const sorted = [...data].sort((a, b) => b.jml_lunas - a.jml_lunas).slice(0, 3);
-    const podiumContainer = document.getElementById('podium-highlights');
-    const meta = [
-        { color: '#FFD700', icon: 'fa-crown', label: '1st' },
-        { color: '#95a5a6', icon: 'fa-medal', label: '2nd' },
-        { color: '#d35400', icon: 'fa-award', label: '3rd' }
-    ];
+function processUltraAI(data) {
+    const g = data.global;
+    const today = new Date();
+    const day = today.getDate();
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const remainingDays = (lastDay - day) || 1;
+    
+    // Logic Analysis
+    const currentRevenue = g.nom_undue + g.nom_current;
+    const velocity = currentRevenue / day;
+    const projection = velocity * lastDay;
+    const gap = Math.max(0, g.total_nominal_mc - currentRevenue);
+    const dailyNeed = gap / remainingDays;
 
-    podiumContainer.innerHTML = sorted.map((p, i) => `
-        <div class="col-4">
-            <div class="card border-0 shadow-sm rounded-4 text-center p-2 h-100 bg-white">
-                <div class="position-absolute top-0 start-50 translate-middle-x mt-n2">
-                    <span class="badge rounded-pill shadow-sm" style="background:${meta[i].color}; font-size:0.5rem;">${meta[i].label}</span>
+    // UI Transformation
+    document.getElementById('stat-projected-nominal').innerText = toIDR(projection);
+    document.getElementById('stat-total-progress').innerText = ((currentRevenue / g.total_nominal_mc) * 100).toFixed(1) + '%';
+    document.getElementById('stat-velocity').innerText = `Run Rate: ${toIDR(velocity)} / Day`;
+    document.getElementById('ai-daily-need').innerText = toIDR(dailyNeed);
+    document.getElementById('ai-gap').innerText = toIDR(gap);
+    
+    const probability = (projection / g.total_nominal_mc) * 100;
+    const capElement = document.getElementById('ai-capacity');
+    capElement.innerText = probability.toFixed(0) + '%';
+    capElement.className = `fw-bold d-block ${probability < 90 ? 'text-danger' : 'text-info'}`;
+
+    // Strategic Insights
+    const insightCard = document.getElementById('ai-insight-card');
+    const insightText = document.getElementById('ai-strategy-text');
+    insightCard.style.display = 'block';
+
+    if (probability < 100) {
+        const uplift = ((dailyNeed / velocity) * 100 - 100).toFixed(0);
+        insightText.innerHTML = `⚠️ <b>Critical Gap:</b> Proyeksi akhir bulan defisit sebesar <b>${toIDR(gap)}</b>. Squad membutuhkan <b>uplift performa ${uplift}%</b> mulai besok untuk mencapai target 100%.`;
+    } else {
+        insightText.innerHTML = `🚀 <b>Optimized:</b> Tim berada dalam jalur aman. Prediksi surplus <b>${toIDR(projection - g.total_nominal_mc)}</b>. Disarankan fokus pada penagihan <i>high-value ticket</i> untuk bonus maksimal.`;
+    }
+}
+
+function renderLeaderboard() {
+    const container = document.getElementById('table-leaderboard');
+    const sorted = [...rawOfficers].sort((a, b) => b.jml_bayar - a.jml_bayar);
+
+    container.innerHTML = sorted.map((l, index) => {
+        let statusTag = '';
+        if (l.success_rate > 70) statusTag = '<span class="text-info"><i class="fas fa-bolt"></i> Elite</span>';
+        else if (l.success_rate < 30) statusTag = '<span class="text-danger"><i class="fas fa-clock"></i> Slow</span>';
+        else statusTag = '<span class="text-muted">Steady</span>';
+
+        return `
+        <div class="card mb-2 border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                    <div class="me-3 text-center" style="width: 20px;">
+                        <span class="small fw-bold text-muted">${index + 1}</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="fw-bold mb-0 small" style="font-size: 0.8rem;">${l.petugas}</h6>
+                            <small style="font-size: 0.55rem; font-weight: 600;">${statusTag}</small>
+                        </div>
+                        <div class="progress" style="height: 4px; border-radius: 10px;">
+                            <div class="progress-bar ${l.success_rate < 30 ? 'bg-danger' : 'bg-primary'}" 
+                                 style="width: ${l.success_rate}%"></div>
+                        </div>
+                    </div>
+                    <div class="ms-3 text-end" style="min-width: 80px;">
+                        <div class="fw-bold text-dark mb-0" style="font-size: 0.8rem;">${l.jml_bayar} <small class="text-muted fw-normal" style="font-size: 0.6rem;">Lns</small></div>
+                        <div class="text-primary fw-bold" style="font-size: 0.65rem;">${toIDR(l.total_nominal)}</div>
+                    </div>
                 </div>
-                <div class="mx-auto mt-2 mb-1 d-flex align-items-center justify-content-center rounded-circle" 
-                     style="width: 40px; height: 40px; background: ${meta[i].color}20; color: ${meta[i].color}">
-                    <i class="fas ${meta[i].icon}"></i>
-                </div>
-                <h6 class="fw-bold mb-0 small text-truncate" style="font-size:0.7rem;">${p.petugas}</h6>
-                <p class="fw-bold text-dark mb-0" style="font-size: 0.8rem;">${p.jml_lunas}</p>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
-function updateMainChart(mode) {
+function renderChart() {
     const ctx = document.getElementById('mainChart').getContext('2d');
     if(mainChartObj) mainChartObj.destroy();
-    const dataSet = mode === 'nomen' ? rawOfficers.map(l => l.jml_lunas) : rawOfficers.map(l => l.nom_lunas);
     
     mainChartObj = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: rawOfficers.map(l => l.petugas.split(' ')[0]),
+            labels: rawOfficers.map(o => o.petugas.split(' ')[0]),
             datasets: [{
-                data: dataSet,
-                backgroundColor: '#0d6efd',
-                borderRadius: 5,
-                barThickness: 15
+                data: rawOfficers.map(o => o.jml_bayar),
+                backgroundColor: 'rgba(13, 110, 253, 0.8)',
+                hoverBackgroundColor: '#0d6efd',
+                borderRadius: 4,
+                borderSkipped: false
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, grid:{drawBorder:false, color:'#f0f0f0'} }, x: { grid: { display: false } } }
+            scales: { 
+                y: { display: false }, 
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { font: { size: 8, family: 'Inter' }, color: '#94a3b8' } 
+                } 
+            }
         }
     });
-}
-
-function getGelar(l, index, sortBy) {
-    if (index === 0 && sortBy === 'jml_lunas') return '<span class="badge bg-warning-subtle text-warning ms-1" style="font-size:0.5rem;">The Closer</span>';
-    if (l.nom_lunas > 10000000) return '<span class="badge bg-success-subtle text-success ms-1" style="font-size:0.5rem;">Big Earner</span>';
-    if (l.success_rate > 80) return '<span class="badge bg-info-subtle text-info ms-1" style="font-size:0.5rem;">Sniper</span>';
-    return '';
-}
-
-function renderLeaderboard(sortBy) {
-    const container = document.getElementById('table-leaderboard');
-    const toIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
-    const sorted = [...rawOfficers].sort((a, b) => b[sortBy] - a[sortBy]);
-
-    container.innerHTML = sorted.map((l, index) => `
-        <div class="card mb-2 border-0 shadow-sm rounded-4 petugas-item animate__animated animate__fadeInUp">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center">
-                    <div class="fw-bold text-muted me-3" style="width: 20px; font-size:0.8rem;">${index + 1}</div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex align-items-center">
-                            <h6 class="fw-bold mb-0 text-nama" style="font-size: 0.85rem;">${l.petugas}</h6>
-                            ${getGelar(l, index, sortBy)}
-                        </div>
-                        <div class="progress mt-2" style="height: 4px; width: 70%;">
-                            <div class="progress-bar rounded-pill" style="width: ${l.success_rate}%"></div>
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <span class="d-block fw-bold text-dark" style="font-size: 0.8rem;">${l.jml_lunas} <small class="text-muted">Pel</small></span>
-                        <span class="text-primary fw-bold" style="font-size: 0.7rem;">Rp ${toIDR(l.nom_lunas)}</span>
-                    </div>
-                </div>
-                <div class="d-flex justify-content-between mt-2 pt-2 border-top border-light" style="font-size: 0.6rem;">
-                    <div class="text-muted">Efficiency: <b class="text-dark">${l.success_rate.toFixed(1)}%</b></div>
-                    <div class="text-muted">Kunjungan: <b class="text-dark">${l.jml_lunas + l.jml_janji + l.jml_rks}</b></div>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function filterLeaderboard() {
-    let input = document.getElementById('searchPetugas').value.toLowerCase();
-    let items = document.getElementsByClassName('petugas-item');
-    for (let item of items) {
-        let name = item.querySelector('.text-nama').innerText.toLowerCase();
-        item.style.display = name.includes(input) ? "" : "none";
-    }
 }
 
 document.addEventListener('DOMContentLoaded', loadDashboardData);
 </script>
 
 <style>
-    .bg-primary-subtle { background-color: #e7f1ff; }
-    .bg-warning-subtle { background-color: #fff3cd; }
-    .bg-success-subtle { background-color: #d1e7dd; }
-    .bg-info-subtle { background-color: #cff4fc; }
-    .btn-white { background: white; color: #444; }
-    .btn-check:checked + .btn-white { background: #0d6efd; color: white; }
-    .mt-n2 { margin-top: -10px; }
+    body { font-family: 'Inter', sans-serif; }
+    .rounded-5 { border-radius: 1.5rem !important; }
+    .shadow-primary { box-shadow: 0 10px 25px -5px rgba(13, 110, 253, 0.3); }
+    .progress-bar { transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+    .card { transition: transform 0.2s ease; }
+    .btn-white { background: #fff; }
 </style>
 {% endblock %}
