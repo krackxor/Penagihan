@@ -7,96 +7,107 @@ from werkzeug.utils import secure_filename
 
 belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
-def dict_factory(cursor, row):
-    """Konverter hasil query SQLite ke dictionary."""
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
-
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """Mengambil daftar pelanggan belum bayar dengan filter petugas."""
-    petugas = request.args.get('petugas')
+    """
+    Mengambil daftar pelanggan yang belum bayar.
+    Data digabungkan (JOIN) antara master_pelanggan dan rute_petugas.
+    """
+    petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
-    conn.row_factory = dict_factory # Solusi untuk TypeError dictionary=True
+    # row_factory sudah diatur di core/database.py sebagai sqlite3.Row
     cursor = conn.cursor()
     
-    # Query menggunakan placeholder '?' untuk SQLite
-    query = "SELECT * FROM pelanggan_tagihan WHERE status_bayar = 'BELUM BAYAR'"
-    params = []
-    
-    if petugas and petugas != 'all':
-        query += " AND petugas = ?"
-        params.append(petugas)
+    try:
+        # Query Canggih: Menggabungkan pelanggan dengan petugas berdasarkan pcez
+        # Hanya menampilkan pelanggan yang BELUM ada di tabel master_bayar
+        query = """
+            SELECT p.*, r.petugas as nama_petugas 
+            FROM master_pelanggan p
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            WHERE p.nomen NOT IN (SELECT nomen FROM master_bayar)
+        """
+        params = []
         
-    cursor.execute(query, params)
-    data = cursor.fetchall()
-    conn.close()
-    return jsonify(data)
+        if petugas_filter and petugas_filter != 'all':
+            query += " AND r.petugas = ?"
+            params.append(petugas_filter)
+            
+        query += " ORDER BY p.pcez ASC"
+        
+        cursor.execute(query, params)
+        # Konversi objek Row ke dictionary agar bisa di-jsonify
+        data = [dict(row) for row in cursor.fetchall()]
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 @belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
 def get_petugas_tabs():
-    """Mengambil daftar unik petugas untuk filter di UI."""
+    """Mengambil daftar unik petugas dari tabel mapping rute petugas."""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    # Mengambil petugas yang aktif saja dari tabel tagihan
-    cursor.execute("SELECT DISTINCT petugas FROM pelanggan_tagihan WHERE petugas IS NOT NULL AND petugas != ''")
-    petugas_list = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return jsonify(petugas_list)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != ''")
+        petugas_list = [row[0] for row in cursor.fetchall()]
+        return jsonify(petugas_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Mencatat laporan kunjungan lapangan beserta foto dan koordinat."""
-    idpel = request.form.get('idpel')
-    hasil = request.form.get('hasil')
-    keterangan = request.form.get('keterangan')
-    lat = request.form.get('latitude') # Fitur Canggih: Koordinat GPS
+    """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas."""
+    # Menangkap data dari form sesuai skema kunjungan_petugas
+    nomen = request.form.get('idpel')
+    petugas_name = request.form.get('petugas_name')
+    hasil = request.form.get('hasil')          # Status: Janji Bayar, RKS, dll
+    catatan = request.form.get('keterangan')   # Catatan tambahan lapangan
+    no_hp = request.form.get('no_hp')
+    janji_dt = request.form.get('janji_bayar_dt')
+    lat = request.form.get('latitude')
     lng = request.form.get('longitude')
     foto = request.files.get('foto')
     
-    # Validasi input minimal
-    if not idpel or not hasil:
-        return jsonify({"error": "ID Pelanggan dan Hasil wajib diisi"}), 400
+    if not nomen or not hasil:
+        return jsonify({"error": "Nomen dan Hasil Kunjungan wajib diisi"}), 400
     
     filename = None
     if foto:
-        # Konfigurasi folder upload yang aman
         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
         os.makedirs(upload_folder, exist_ok=True)
             
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         ext = os.path.splitext(foto.filename)[1].lower()
         
-        # Validasi ekstensi file untuk keamanan
         if ext not in ['.jpg', '.jpeg', '.png']:
             return jsonify({"error": "Format foto harus JPG atau PNG"}), 400
             
-        filename = secure_filename(f"{idpel}_{timestamp}{ext}")
+        filename = secure_filename(f"LOG_{nomen}_{timestamp}{ext}")
         foto.save(os.path.join(upload_folder, filename))
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # 1. Masukkan ke tabel history_kunjungan
-        # Menggunakan placeholder '?' untuk SQLite
-        query_history = """
-            INSERT INTO history_kunjungan (nomen, created_at, keterangan, foto_path, latitude, longitude)
-            VALUES (?, ?, ?, ?, ?, ?)
+        # Insert ke tabel kunjungan_petugas sesuai skema terbaru
+        query_log = """
+            INSERT INTO kunjungan_petugas (
+                nomen, petugas_name, keterangan, no_hp, 
+                catatan, janji_bayar_dt, foto_path, latitude, longitude
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cursor.execute(query_history, (idpel, now, hasil + ": " + keterangan, filename, lat, lng))
-        
-        # 2. Update status di tabel utama pelanggan_tagihan
-        query_update = "UPDATE pelanggan_tagihan SET last_kunjungan = ? WHERE nomen = ?"
-        cursor.execute(query_update, (now, idpel))
+        cursor.execute(query_log, (
+            nomen, petugas_name, hasil, no_hp, 
+            catatan, janji_dt, filename, lat, lng
+        ))
         
         conn.commit()
-        conn.close()
-        return jsonify({"message": "Laporan berhasil disimpan", "status": "success"}), 200
+        return jsonify({"message": "Laporan kunjungan berhasil disimpan", "status": "success"}), 200
     except Exception as e:
-        print(f"Database Error: {e}")
-        return jsonify({"error": "Terjadi kesalahan saat menyimpan ke database"}), 500
+        return jsonify({"error": f"Database Error: {str(e)}"}), 500
+    finally:
+        conn.close()
