@@ -22,7 +22,7 @@ def get_db_connection():
     return conn
 
 def init_db(app):
-    """Membaca schema.sql dan membuat tabel jika belum ada."""
+    """Membaca schema.sql dan memastikan tabel serta kolom baru tersedia."""
     with app.app_context():
         try:
             db = get_db_connection()
@@ -31,13 +31,36 @@ def init_db(app):
             if os.path.exists(schema_path):
                 with open(schema_path, mode='r') as f:
                     content = f.read()
-                    # Menjalankan script SQL
-                    # executescript sangat kuat untuk menjalankan banyak perintah CREATE TABLE sekaligus
+                    # Menjalankan script SQL untuk membuat tabel jika belum ada
                     db.cursor().executescript(content)
+                
+                # --- LOGIKA AUTO-MIGRASI KOLOM (Pencegah Error no column named nomet) ---
+                cursor = db.cursor()
+                
+                # Cek kolom di master_pelanggan
+                cursor.execute("PRAGMA table_info(master_pelanggan)")
+                cols_pelanggan = [row['name'] for row in cursor.fetchall()]
+                
+                if 'nomet' not in cols_pelanggan:
+                    cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN nomet TEXT")
+                    print("➕ Kolom 'nomet' berhasil ditambahkan ke master_pelanggan.")
+                
+                if 'periode' not in cols_pelanggan:
+                    cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN periode TEXT")
+                    print("➕ Kolom 'periode' berhasil ditambahkan ke master_pelanggan.")
+
+                # Cek kolom periode di tabel transaksi lainnya
+                tables_to_check = ['master_bayar', 'collection_harian', 'kunjungan_petugas']
+                for table in tables_to_check:
+                    cursor.execute(f"PRAGMA table_info({table})")
+                    cols = [row['name'] for row in cursor.fetchall()]
+                    if 'periode' not in cols:
+                        cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
+                        print(f"➕ Kolom 'periode' berhasil ditambahkan ke {table}.")
+
                 db.commit()
-                print("✅ Database initialized successfully with dynamic period support.")
+                print("✅ Database initialized and migrated successfully.")
             else:
                 print(f"⚠️ Warning: {schema_path} not found.")
         except Exception as e:
-            # Jika masih error, print detail error untuk debug
             print(f"❌ Error saat inisialisasi database: {e}")
