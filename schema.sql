@@ -1,113 +1,47 @@
-import os
-import sqlite3
-from flask import Blueprint, jsonify, request, current_app
-from core.database import get_db_connection
-from datetime import datetime
-from werkzeug.utils import secure_filename
+-- 1. Tabel Master Pelanggan
+CREATE TABLE IF NOT EXISTS master_pelanggan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomen TEXT UNIQUE,
+    nama TEXT,
+    pcez TEXT,
+    rayon TEXT,
+    block TEXT,
+    nominal REAL,
+    tipe TEXT DEFAULT 'MC',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-belum_bayar_bp = Blueprint('belum_bayar', __name__)
+-- 2. Tabel Mapping Rute & Petugas
+CREATE TABLE IF NOT EXISTS rute_petugas (
+    pcez TEXT PRIMARY KEY,
+    petugas TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-# Catatan: dict_factory tidak lagi wajib jika core/database.py 
-# sudah menggunakan conn.row_factory = sqlite3.Row, 
-# tapi tetap aman jika ingin mempertahankan konversi eksplisit ke dict.
+-- 3. Tabel Master Bayar (Lunas)
+CREATE TABLE IF NOT EXISTS master_bayar (
+    nomen TEXT PRIMARY KEY,
+    nominal REAL,
+    tgl_bayar TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-@belum_bayar_bp.route('', methods=['GET'])
-def get_belum_bayar():
-    """
-    Mengambil daftar pelanggan yang belum bayar.
-    Data digabungkan (JOIN) antara master_pelanggan dan rute_petugas.
-    """
-    petugas_filter = request.args.get('petugas')
-    conn = get_db_connection()
-    # Menghapus row_factory manual agar mengikuti standar core/database.py
-    cursor = conn.cursor()
-    
-    try:
-        # Perbaikan: Pastikan tabel master_pelanggan dan rute_petugas ada di schema.sql
-        query = """
-            SELECT p.*, r.petugas as nama_petugas 
-            FROM master_pelanggan p
-            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE p.nomen NOT IN (SELECT nomen FROM master_bayar)
-        """
-        params = []
-        
-        if petugas_filter and petugas_filter != 'all':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
-            
-        query += " ORDER BY p.pcez ASC"
-        
-        cursor.execute(query, params)
-        data = [dict(row) for row in cursor.fetchall()] # Konversi Row ke Dict agar bisa di-jsonify
-        return jsonify(data)
-    except sqlite3.OperationalError as e:
-        # Menangani jika tabel belum terbuat atau database terkunci
-        return jsonify({"error": f"Database error: {str(e)}"}), 500
-    finally:
-        conn.close()
+-- 4. Tabel Kunjungan Petugas (Laporan Lapangan)
+CREATE TABLE IF NOT EXISTS kunjungan_petugas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomen TEXT,
+    petugas_name TEXT,
+    keterangan TEXT,
+    no_hp TEXT,
+    catatan TEXT,
+    janji_bayar_dt TEXT,
+    foto_path TEXT,
+    latitude TEXT,
+    longitude TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
-def get_petugas_tabs():
-    """Mengambil daftar unik petugas dari tabel mapping rute."""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != ''")
-        petugas_list = [row[0] for row in cursor.fetchall()]
-        return jsonify(petugas_list)
-    except sqlite3.OperationalError:
-        return jsonify([])
-    finally:
-        conn.close()
-
-@belum_bayar_bp.route('/lapor', methods=['POST'])
-def lapor_kunjungan():
-    """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas."""
-    # Menangkap data dari form (Pastikan ID form di HTML sesuai)
-    nomen = request.form.get('idpel')
-    petugas = request.form.get('petugas_name') 
-    hasil = request.form.get('hasil')          
-    catatan = request.form.get('keterangan')   
-    no_hp = request.form.get('no_hp')
-    janji_dt = request.form.get('janji_bayar_dt')
-    lat = request.form.get('latitude')
-    lng = request.form.get('longitude')
-    foto = request.files.get('foto')
-    
-    if not nomen or not hasil:
-        return jsonify({"error": "Nomen dan Hasil Kunjungan wajib diisi"}), 400
-    
-    filename = None
-    if foto:
-        # Konfigurasi folder statis agar bisa diakses lewat browser
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
-        os.makedirs(upload_folder, exist_ok=True)
-            
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        ext = os.path.splitext(foto.filename)[1].lower()
-        filename = secure_filename(f"LOG_{nomen}_{timestamp}{ext}")
-        foto.save(os.path.join(upload_folder, filename))
-
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        
-        # Sesuai dengan tabel kunjungan_petugas di schema.sql
-        query_log = """
-            INSERT INTO kunjungan_petugas (
-                nomen, petugas_name, keterangan, no_hp, 
-                catatan, janji_bayar_dt, foto_path, latitude, longitude
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        cursor.execute(query_log, (
-            nomen, petugas, hasil, no_hp, 
-            catatan, janji_dt, filename, lat, lng
-        ))
-        
-        conn.commit()
-        return jsonify({"message": "Laporan kunjungan berhasil disimpan", "status": "success"}), 200
-    except Exception as e:
-        return jsonify({"error": f"Gagal menyimpan laporan: {str(e)}"}), 500
-    finally:
-        conn.close()
+-- Indexing untuk Performa Tinggi
+CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
+CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
+CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
