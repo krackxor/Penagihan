@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Lengkap dengan Rincian Bayar, Janji, RKS, dan Nama Petugas Akurat"""
+        """Statistik Lengkap dengan Logika Smart Period dan Rincian Metrik Terperinci"""
         try:
             db = get_db()
             
@@ -20,44 +20,49 @@ def register_pcez_routes(app, get_db):
             else:
                 target_dt = today
 
-            # Periode Berjalan (Contoh: "01-2026")
+            # Periode Berjalan yang dipilih user
             curr_period_str = target_dt.strftime('%m-%Y')
-            # Periode Target (Contoh: "12-2025")
+            
+            # Periode Target (Bulan Lalu n-1)
             last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
             prev_period_str = last_month_dt.strftime('%m-%Y')
+
+            # --- SMART CHECK: Validasi keberadaan data MC ---
+            # Jika user pilih Jan 2026 tapi data Jan belum ada, sistem otomatis pakai data Des 2025
+            check_mc = db.execute(f"SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{curr_period_str}'").fetchone()[0]
+            target_period = curr_period_str if check_mc > 0 else prev_period_str
 
             # 1. Query Global: Ringkasan Total Tagihan & Pencapaian
             global_query = f"""
             SELECT 
-                COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{prev_period_str}'), 0) as total_nomen_mc,
-                COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{prev_period_str}'), 0) as total_nominal_mc,
+                COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
+                COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nominal_mc,
                 
-                -- UANG TUNGGAKAN LAMA (UNDUE)
+                -- UANG TUNGGAKAN LAMA (MB di periode target)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
-                 WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
-                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{prev_period_str}')
+                 WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
+                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
-                -- UANG TAGIHAN BULAN INI (CURRENT)
+                -- UANG TAGIHAN BULAN INI (Collection di periode berjalan)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
-                 WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
+                 WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as nom_current,
 
                 -- JUMLAH ORANG
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
-                 WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
-                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{prev_period_str}')
+                 WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
+                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as count_undue,
                 
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
-                 WHERE m.tipe = 'MC' AND m.periode = '{prev_period_str}'
+                 WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as count_current
             """
             
-            # 2. Query Urutan Petugas Terbaik (Ranking dalam 1 Periode)
-            # Menampilkan: Nama, Bayar, Janji, RKS, Total Lokasi, Total Nominal Uang
+            # 2. Query Urutan Petugas Terbaik (Ranking)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
@@ -79,7 +84,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY total_nominal DESC
             """
 
-            # 3. Query Laporan Harian Tim (Rekap Harian per Petugas)
+            # 3. Query Laporan Harian Tim (Rekap Harian)
             history_tim_query = f"""
             SELECT 
                 date(k.created_at) as tanggal,
@@ -99,10 +104,10 @@ def register_pcez_routes(app, get_db):
             FROM kunjungan_petugas k
             WHERE k.periode = '{curr_period_str}'
             GROUP BY tanggal, petugas
-            ORDER BY tanggal DESC LIMIT 15
+            ORDER BY tanggal DESC LIMIT 20
             """
 
-            # 4. Query Live Feed (Per Jam per Tugas - Perbaikan Nama Pelanggan)
+            # 4. Query Live Feed (Per Jam per Tugas)
             log_petugas_query = f"""
             SELECT 
                 k.created_at as waktu,
@@ -139,11 +144,11 @@ def register_pcez_routes(app, get_db):
 
             return jsonify({
                 "global": res_global,
-                "officers": [dict(row) for row in o_rank], # Urutan Petugas Terbaik
-                "history": [dict(row) for row in h_tim],  # Laporan Harian Tim
-                "log_petugas": [dict(row) for row in l_petugas], # Live Feed per Jam
+                "officers": [dict(row) for row in o_rank],
+                "history": [dict(row) for row in h_tim], 
+                "log_petugas": [dict(row) for row in l_petugas],
                 "active_period": curr_period_str,
-                "target_mc_period": prev_period_str
+                "target_mc_period": target_period
             })
         except Exception as e:
             print(f"Error Performance API: {str(e)}")
