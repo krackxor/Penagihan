@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Lengkap dengan Sinkronisasi Waktu WIB dan Logika Smart Period"""
+        """Statistik Lengkap dengan Logika Smart Period dan Perbaikan Deteksi Nama Petugas"""
         try:
             db = get_db()
             
@@ -55,20 +55,20 @@ def register_pcez_routes(app, get_db):
                 ), 0) as count_current
             """
             
-            # 2. Query Urutan Petugas Terbaik (Ranking)
+            # 2. Query Urutan Petugas Terbaik (Ranking) - PERBAIKAN: Deteksi Nama Pintar
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name, 'Petugas'
+                    k.petugas_name
                 ) as petugas,
                 COUNT(*) as total_dijalan,
-                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
-                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
-                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 
+                SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
+                SUM(CASE WHEN k.keterangan LIKE '%Janji Bayar%' OR k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
+                SUM(CASE WHEN k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
+                SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as total_nominal
             FROM kunjungan_petugas k
@@ -77,7 +77,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY total_nominal DESC
             """
 
-            # 3. Query Laporan Harian Tim (Rekap Harian)
+            # 3. Query Laporan Harian Tim (Rekap Harian) - PERBAIKAN: Zona Waktu WIB (+7 Jam)
             history_tim_query = f"""
             SELECT 
                 date(k.created_at, '+7 hours') as tanggal,
@@ -85,13 +85,13 @@ def register_pcez_routes(app, get_db):
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name, 'Petugas'
+                    k.petugas_name
                 ) as petugas,
                 COUNT(*) as total_dijalan,
-                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
-                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
-                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 
+                SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
+                SUM(CASE WHEN k.keterangan LIKE '%Janji Bayar%' OR k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
+                SUM(CASE WHEN k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
+                SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as total_nominal
             FROM kunjungan_petugas k
@@ -100,7 +100,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY tanggal DESC LIMIT 20
             """
 
-            # 4. Query Live Feed (DIPERBARUI: Konversi ke WIB +7 Jam)
+            # 4. Query Live Feed (DIPERBARUI: Konversi ke WIB +7 Jam dan Nama Pintar)
             log_petugas_query = f"""
             SELECT 
                 datetime(k.created_at, '+7 hours') as waktu,
@@ -111,7 +111,7 @@ def register_pcez_routes(app, get_db):
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name, 'Petugas'
+                    k.petugas_name
                 ) as petugas,
                 COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) as nominal
             FROM kunjungan_petugas k
@@ -181,10 +181,10 @@ def register_pcez_routes(app, get_db):
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name, 'Petugas'
+                    k.petugas_name
                 ) as petugas,
                 COUNT(*) as total_dikunjungi,
-                ROUND(CAST(SUM(CASE WHEN keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 100, 1) as performa
+                ROUND(CAST(SUM(CASE WHEN keterangan LIKE '%Sudah Bayar%' OR keterangan LIKE '%Bayar%' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 100, 1) as performa
             FROM kunjungan_petugas k
             WHERE k.periode = '{target_period}'
             GROUP BY petugas
