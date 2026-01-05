@@ -180,7 +180,6 @@
 
             // 4. Render Laporan Harian
             const hts = document.getElementById('history-tim-section');
-            // Pastikan menggunakan key 'history' sesuai data dari backend
             const historyData = data.history || [];
             hts.innerHTML = historyData.map(h => `
                 <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-white border-start border-primary border-4">
@@ -232,12 +231,13 @@
         }
 
         container.innerHTML = currentLogs.map(log => {
-            // PAKSA ZONA WAKTU ASIA/JAKARTA (WIB)
             let jamWIB = "--:--";
             if(log.waktu) {
-                const dateObj = new Date(log.waktu);
+                // Konversi waktu dari string database
+                // Menambahkan ' UTC' atau penanganan offset agar Date object sinkron
+                const dateObj = new Date(log.waktu.replace(' ', 'T'));
+                
                 jamWIB = dateObj.toLocaleTimeString('id-ID', { 
-                    timeZone: 'Asia/Jakarta', 
                     hour: '2-digit', 
                     minute: '2-digit',
                     hour12: false 
@@ -253,7 +253,7 @@
                     <div class="small mb-1">ID: <b>${log.nomen}</b> - ${log.nama || 'Pelanggan'}</div>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success' : 'bg-secondary'} rounded-pill" style="font-size:0.6rem; padding: 5px 10px;">${log.keterangan}</span>
-                        <span class="fw-bold text-dark" style="font-size:0.85rem;">${toIDR(log.nominal)}</span>
+                        <span class="fw-bold" style="font-size:0.75rem;">${toIDR(log.nominal)}</span>
                     </div>
                 </div>
             `;
@@ -271,13 +271,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => { 
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         initCalendar(); 
         refreshDashboard(); 
     });
 </script>
 
 <style>
-    /* Ikon Kedap-Kedip */
     .realtime-dot { 
         width: 8px; height: 8px; background-color: #ff0000; border-radius: 50%; 
         display: inline-block; animation: pulse-red 1.5s infinite; 
