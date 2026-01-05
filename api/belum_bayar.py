@@ -23,11 +23,11 @@ def add_watermark(image_path, info):
             font = ImageFont.load_default()
 
         text = (
-            f"📅 {info['waktu']}\n"
-            f"👤 Petugas: {info['petugas']}\n"
-            f"🆔 Nomen: {info['nomen']}\n"
-            f"🏠 Pelanggan: {info['nama']}\n"
-            f"💰 Tagihan: Rp {info['nominal']}"
+            f"{info['waktu']}\n"
+            f"Petugas: {info['petugas']}\n"
+            f"Nomen: {info['nomen']}\n"
+            f"Pelanggan: {info['nama']}\n"
+            f"Tagihan: Rp {info['nominal']}"
         )
 
         margin = int(width * 0.02)
@@ -48,45 +48,36 @@ def add_watermark(image_path, info):
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     """
-    Mengambil daftar pelanggan yang belum bayar dengan Logika Periode Dinamis.
-    Mendukung parameter 'periode' dari request (Format: MM-YYYY).
+    Mengambil daftar pelanggan yang belum bayar dengan Logika Pintu Ganda.
+    - Pintu 1: NOTAGIHAN (Mencocokkan lembar tagihan spesifik)
+    - Pintu 2: PERIODE (Mencocokkan siklus Undue vs Current)
     """
     petugas_filter = request.args.get('petugas')
-    # Ambil periode dari request, jika tidak ada gunakan bulan berjalan
     req_periode = request.args.get('periode') 
     
-    # --- LOGIKA PENENTUAN PERIODE ---
     today = datetime.now()
     
+    # Penentuan Periode Dinamis
     if req_periode:
-        # Jika periode dipilih manual (MM-YYYY)
         try:
             target_dt = datetime.strptime(req_periode, '%m-%Y')
-            curr_month_sql = target_dt.strftime('%Y-%m')
-            # n-1 untuk filter MB (Undue)
-            last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
-            period_mb_filter = last_month_dt.strftime('%Y%m')
-            # Periode untuk filter master_pelanggan (n-1 sesuai SOP)
-            target_mc_periode = last_month_dt.strftime('%m-%Y')
         except:
-            # Fallback jika format salah
-            curr_month_sql = today.strftime('%Y-%m')
-            last_month_dt = today.replace(day=1) - timedelta(days=1)
-            period_mb_filter = last_month_dt.strftime('%Y%m')
-            target_mc_periode = last_month_dt.strftime('%m-%Y')
+            target_dt = today
     else:
-        # Default otomatis (Bulan Berjalan)
-        curr_month_sql = today.strftime('%Y-%m')
-        last_month_dt = today.replace(day=1) - timedelta(days=1)
-        period_mb_filter = last_month_dt.strftime('%Y%m')
-        target_mc_periode = last_month_dt.strftime('%m-%Y')
+        target_dt = today
+
+    # 1. Periode Berjalan (n) untuk Collection: "12-2025"
+    curr_period_str = target_dt.strftime('%m-%Y')
+    
+    # 2. Periode Lalu (n-1) untuk MC dan MB (Undue): "11-2025"
+    last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
+    prev_period_str = last_month_dt.strftime('%m-%Y')
 
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # QUERY DINAMIS BERBASIS PERIODE
-        # Menyaring master_pelanggan berdasarkan periode MC yang relevan
+        # QUERY DENGAN VALIDASI PINTU GANDA (NOTAGIHAN & PERIODE)
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
@@ -94,24 +85,23 @@ def get_belum_bayar():
             WHERE p.tipe = 'MC' 
             AND p.periode = ?
             
-            -- A. Tidak ada di MB periode rek n-1 (Pembayaran Undue)
-            AND p.nomen NOT IN (
-                SELECT nomen FROM master_bayar 
+            -- A. Filter UNDUE: Tidak ada di MB periode n-1 dengan NOTAGIHAN yang sama
+            AND p.notagihan NOT IN (
+                SELECT notagihan FROM master_bayar 
                 WHERE periode = ?
             )
             
-            -- B. Tidak ada di Collection bulan berjalan (Pembayaran Current)
-            AND p.nomen NOT IN (
-                SELECT nomen FROM collection_harian
+            -- B. Filter CURRENT: Tidak ada di Collection periode n dengan NOTAGIHAN yang sama
+            AND p.notagihan NOT IN (
+                SELECT notagihan FROM collection_harian
                 WHERE periode = ?
             )
             
             AND p.nominal >= 100000
         """
         
-        # Mapping parameter: [Periode MC, Periode MB, Periode Collection]
-        # Sesuai SOP: MC (n-1), MB (n-1), Collection (n)
-        params = [target_mc_periode, period_mb_filter, curr_month_sql]
+        # Params: [MC Periode n-1, MB Periode n-1, Collection Periode n]
+        params = [prev_period_str, prev_period_str, curr_period_str]
         
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
@@ -129,7 +119,6 @@ def get_belum_bayar():
 
 @belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
 def get_petugas_tabs():
-    """Mengambil daftar unik petugas dari tabel mapping rute petugas."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -143,7 +132,6 @@ def get_petugas_tabs():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas dengan Watermark."""
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
@@ -175,7 +163,6 @@ def lapor_kunjungan():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
 
-        # Periode kunjungan otomatis (MM-YYYY)
         visit_period = datetime.now().strftime('%m-%Y')
 
         info_watermark = {
@@ -191,7 +178,6 @@ def lapor_kunjungan():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Simpan laporan dengan menyertakan kolom periode
         query_log = """
             INSERT INTO kunjungan_petugas (
                 nomen, petugas_name, keterangan, no_hp, 
