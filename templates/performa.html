@@ -1,77 +1,121 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="animate__animated animate__fadeIn px-2">
-    <div class="mb-4 d-flex justify-content-between align-items-center">
+<div class="animate__animated animate__fadeIn px-2 pb-5">
+    <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1">Performa Tim</h4>
-            <p class="text-muted small mb-0">Statistik real-time petugas lapangan</p>
+            <h4 class="fw-bold mb-1">Analisis Performa 📊</h4>
+            <p class="text-muted small mb-0">Statistik efektivitas tim lapangan</p>
         </div>
-        <div class="bg-primary-subtle text-primary rounded-circle p-2">
-            <i class="fas fa-chart-line fa-lg"></i>
+        <div class="bg-primary-subtle text-primary rounded-4 p-3 shadow-sm">
+            <i class="fas fa-chart-pie fa-lg"></i>
         </div>
     </div>
 
-    <div class="card bg-dark text-white mb-4 border-0 shadow-lg overflow-hidden">
+    <div class="card bg-dark text-white mb-4 border-0 shadow-lg overflow-hidden rounded-4">
         <div class="card-body p-4 position-relative">
             <div class="position-relative z-1">
-                <h6 class="text-white-50 small text-uppercase fw-bold mb-2">Total Efektivitas</h6>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-primary rounded-pill me-2" style="font-size: 0.6rem;">REAL-TIME</span>
+                    <h6 class="text-white-50 small text-uppercase fw-bold mb-0" style="letter-spacing: 1px;">Efektivitas Global</h6>
+                </div>
                 <div class="d-flex align-items-end gap-2">
-                    <h1 class="fw-bold mb-0" id="stat-efektivitas">0%</h1>
-                    <span class="text-success small mb-2"><i class="fas fa-arrow-up me-1"></i>Bulan ini</span>
+                    <h1 class="fw-bold mb-0" id="stat-efektivitas" style="font-size: 3.5rem;">0%</h1>
+                    <div class="mb-2">
+                        <span class="text-success small fw-bold"><i class="fas fa-caret-up me-1"></i>Live</span>
+                    </div>
                 </div>
-                <div class="progress mt-3 bg-secondary" style="height: 6px; border-radius: 10px;">
-                    <div id="progress-efektivitas" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                <div class="progress mt-3 bg-secondary bg-opacity-25" style="height: 8px; border-radius: 10px;">
+                    <div id="progress-efektivitas" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                 </div>
+                <p class="mt-2 text-white-50 small mb-0">Berdasarkan total tagihan terbayar bulan ini</p>
             </div>
-            <i class="fas fa-bolt position-absolute end-0 bottom-0 text-white-50 opacity-25" style="font-size: 8rem; margin-right: -20px; margin-bottom: -20px;"></i>
+            <i class="fas fa-rocket position-absolute end-0 bottom-0 text-white opacity-10" style="font-size: 10rem; margin-right: -20px; margin-bottom: -20px;"></i>
         </div>
     </div>
 
-    <div class="card mb-4 border-0 shadow-sm">
-        <div class="card-header bg-white py-3 border-0">
-            <h6 class="fw-bold mb-0 text-dark">Produktivitas Petugas (%)</h6>
+    <div class="card mb-4 border-0 shadow-sm rounded-4">
+        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0 text-dark">Visualisasi Produktivitas</h6>
+            <span class="text-muted small">Persentase (%)</span>
         </div>
         <div class="card-body pt-0">
-            <div style="height: 250px;">
+            <div style="height: 280px; position: relative;">
                 <canvas id="chartPerforma"></canvas>
             </div>
         </div>
     </div>
 
-    <h6 class="fw-bold px-2 mb-3">Peringkat Petugas</h6>
-    <div id="table-leaderboard" class="px-1 pb-4"></div>
+    <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+        <h6 class="fw-bold mb-0 text-dark">Peringkat Petugas</h6>
+        <i class="fas fa-sort-amount-down text-muted"></i>
+    </div>
+    
+    <div id="table-leaderboard" class="px-1">
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary spinner-border-sm"></div>
+        </div>
+    </div>
 </div>
+
+<div id="detailContainer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 async function loadDashboardData() {
     try {
+        // 1. Ambil Statistik Global
         const resStats = await fetch('/api/performance/stats-global');
         const stats = await resStats.json();
-        const efektivitas = stats.total_pelanggan > 0 ? ((stats.bayar_bulan_ini / stats.total_pelanggan) * 100).toFixed(1) : 0;
+        
+        const efektivitas = stats.total_pelanggan > 0 
+            ? ((stats.bayar_bulan_ini / stats.total_pelanggan) * 100).toFixed(1) 
+            : 0;
+            
         document.getElementById('stat-efektivitas').innerText = efektivitas + '%';
         document.getElementById('progress-efektivitas').style.width = efektivitas + '%';
 
+        // 2. Ambil Data Leaderboard
         const resLeader = await fetch('/api/performance/leaderboard');
         const leaders = await resLeader.json();
+        
         let tableHtml = '';
         leaders.forEach((l, index) => {
-            const rankColor = index === 0 ? 'bg-warning' : (index === 1 ? 'bg-secondary' : 'bg-light');
+            const isTop = index < 3;
+            const rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : index + 1));
+            
             tableHtml += `
-                <div class="card mb-2 border-0 shadow-sm">
+                <div class="card mb-3 border-0 shadow-sm rounded-4 animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.1}s">
                     <div class="card-body p-3 d-flex align-items-center">
-                        <div class="rank-circle ${rankColor} rounded-circle me-3 text-center" style="width:30px;height:30px;line-height:30px;">${index + 1}</div>
-                        <div class="flex-grow-1">
-                            <h6 class="fw-bold mb-0">${l.petugas}</h6>
-                            <small class="text-muted">${l.total_dikunjungi} Kunjungan</small>
+                        <div class="rounded-4 me-3 text-center fw-bold shadow-sm d-flex align-items-center justify-content-center ${isTop ? 'bg-primary text-white' : 'bg-light text-dark'}" 
+                             style="width:40px; height:40px; font-size: 0.9rem;">
+                             ${rankIcon}
                         </div>
-                        <div class="text-end text-primary fw-bold">${l.performa}%</div>
+                        <div class="flex-grow-1">
+                            <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">${l.petugas}</h6>
+                            <div class="d-flex align-items-center mt-1">
+                                <span class="text-muted" style="font-size: 0.75rem;">
+                                    <i class="fas fa-check-double text-success me-1"></i> ${l.total_dikunjungi} Selesai
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="text-primary fw-bold h6 mb-0">${l.performa}%</div>
+                            <small class="text-muted" style="font-size: 0.65rem;">Performa</small>
+                        </div>
                     </div>
                 </div>`;
         });
-        document.getElementById('table-leaderboard').innerHTML = tableHtml;
+        document.getElementById('table-leaderboard').innerHTML = tableHtml || '<div class="text-center text-muted py-4 small">Belum ada data tersedia</div>';
 
+        // 3. Inisialisasi Chart Modern
         const ctx = document.getElementById('chartPerforma').getContext('2d');
+        
+        // Gradient Effect
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, '#0d6efd');
+        gradient.addColorStop(1, '#6ea8fe');
+
         new Chart(ctx, {
             type: 'bar',
             data: {
@@ -79,14 +123,50 @@ async function loadDashboardData() {
                 datasets: [{
                     label: 'Performa %',
                     data: leaders.map(l => l.performa),
-                    backgroundColor: '#0061ff',
-                    borderRadius: 8
+                    backgroundColor: gradient,
+                    borderRadius: 12,
+                    borderSkipped: false,
+                    barThickness: 25
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                indexAxis: 'y', // Mengubah ke Horizontal bar agar lebih mudah dibaca di mobile
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1a1a',
+                        padding: 12,
+                        borderRadius: 10
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } },
+                        max: 100
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11, weight: 'bold' } }
+                    }
+                }
+            }
         });
-    } catch (e) { console.error(e); }
+
+    } catch (e) { 
+        console.error(e);
+        document.getElementById('table-leaderboard').innerHTML = '<div class="alert alert-danger small rounded-4 mx-2">Gagal memuat data statistik</div>';
+    }
 }
+
 document.addEventListener('DOMContentLoaded', loadDashboardData);
 </script>
+
+<style>
+    /* Styling tambahan untuk elemen yang tidak ada di Bootstrap default */
+    .bg-primary-subtle { background-color: #e7f1ff; }
+    .shadow-lg { box-shadow: 0 1rem 3rem rgba(0,0,0,.175)!important; }
+</style>
 {% endblock %}
