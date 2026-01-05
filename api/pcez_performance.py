@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Lengkap dengan Logika Smart Period dan Rincian Metrik Terperinci"""
+        """Statistik Lengkap dengan Sinkronisasi Waktu WIB dan Logika Smart Period"""
         try:
             db = get_db()
             
@@ -20,15 +20,11 @@ def register_pcez_routes(app, get_db):
             else:
                 target_dt = today
 
-            # Periode Berjalan yang dipilih user
             curr_period_str = target_dt.strftime('%m-%Y')
-            
-            # Periode Target (Bulan Lalu n-1)
             last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
             prev_period_str = last_month_dt.strftime('%m-%Y')
 
             # --- SMART CHECK: Validasi keberadaan data MC ---
-            # Jika user pilih Jan 2026 tapi data Jan belum ada, sistem otomatis pakai data Des 2025
             check_mc = db.execute(f"SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{curr_period_str}'").fetchone()[0]
             target_period = curr_period_str if check_mc > 0 else prev_period_str
 
@@ -38,19 +34,16 @@ def register_pcez_routes(app, get_db):
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
                 COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nominal_mc,
                 
-                -- UANG TUNGGAKAN LAMA (MB di periode target)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
-                -- UANG TAGIHAN BULAN INI (Collection di periode berjalan)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as nom_current,
 
-                -- JUMLAH ORANG
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
@@ -87,7 +80,7 @@ def register_pcez_routes(app, get_db):
             # 3. Query Laporan Harian Tim (Rekap Harian)
             history_tim_query = f"""
             SELECT 
-                date(k.created_at) as tanggal,
+                date(k.created_at, '+7 hours') as tanggal,
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
@@ -107,10 +100,10 @@ def register_pcez_routes(app, get_db):
             ORDER BY tanggal DESC LIMIT 20
             """
 
-            # 4. Query Live Feed (Per Jam per Tugas)
+            # 4. Query Live Feed (DIPERBARUI: Konversi ke WIB +7 Jam)
             log_petugas_query = f"""
             SELECT 
-                k.created_at as waktu,
+                datetime(k.created_at, '+7 hours') as waktu,
                 k.nomen,
                 COALESCE(m_nama.nama, 'Pelanggan') as nama,
                 k.keterangan,
