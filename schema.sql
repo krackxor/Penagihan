@@ -1,8 +1,9 @@
 -- 1. Tabel Master Pelanggan (Data Utama dari file MC)
--- Ditambahkan kolom 'periode' dan penghapusan UNIQUE pada nomen agar bisa menyimpan IDPEL yang sama di bulan berbeda
+-- Ditambahkan nomet (Nomor Meter) dan periode (Multi-Bulan)
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT,                 -- ID Pelanggan
+    nomet TEXT,                 -- Nomor Meter (Tambahan Baru)
     nama TEXT,                  -- Nama Pelanggan
     pcez TEXT,                  -- Kode Rute
     rayon TEXT,                 -- Kode Rayon
@@ -68,7 +69,6 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
 );
 
 -- 7. Indeks untuk Performa Kecepatan Tinggi (Indexing)
--- Diperbarui untuk menyertakan periode agar pencarian multi-bulan tetap cepat
 CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
 CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
 CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
