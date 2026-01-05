@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Dashboard Utama dengan Nominal Uang Lengkap dan Nama Petugas Otomatis"""
+        """Statistik Dashboard Utama dengan Nominal Lengkap dan Smart Search History"""
         try:
             db = get_db()
             
@@ -20,13 +20,13 @@ def register_pcez_routes(app, get_db):
             else:
                 target_dt = today
 
-            # Periode Berjalan (n): "12-2025"
+            # Periode Berjalan (n): "01-2026"
             curr_period_str = target_dt.strftime('%m-%Y')
-            # Periode Lalu (n-1): "11-2025"
+            # Periode Lalu (n-1): "12-2025"
             last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
             prev_period_str = last_month_dt.strftime('%m-%Y')
 
-            # Query Global: Mengambil Total Nomen & Total Nominal Rupiah
+            # Query Global: Target MC (n-1) vs Realisasi
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{prev_period_str}'), 0) as total_nomen_mc,
@@ -56,38 +56,49 @@ def register_pcez_routes(app, get_db):
                 ), 0) as total_current
             """
             
-            # Query Officer: Menampilkan Nama Petugas dari Mapping Rute (Join Otomatis)
+            # Query Officer: Ambil petugas dari rute berdasarkan rute terakhir pelanggan jika MC n-1 belum ada
             officer_query = f"""
             SELECT 
-                COALESCE(r.petugas, k.petugas_name, 'Petugas') as petugas,
+                COALESCE(
+                    (SELECT rp.petugas FROM rute_petugas rp 
+                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
+                    k.petugas_name, 'Petugas'
+                ) as petugas,
                 SUM(CASE WHEN date(k.created_at) = date('now', 'localtime') THEN 1 ELSE 0 END) as harian,
                 COUNT(k.id) as bulanan
             FROM kunjungan_petugas k
-            LEFT JOIN master_pelanggan m ON k.nomen = m.nomen AND m.periode = '{prev_period_str}'
-            LEFT JOIN rute_petugas r ON m.pcez = r.pcez
             WHERE k.periode = '{curr_period_str}'
             GROUP BY petugas
             ORDER BY bulanan DESC
             """
 
-            # Query History: Detail Log Aktivitas (Jumlah Orang + Nominal Uang)
+            # Query History: Smart Search Nominal dan Petugas (Mencegah Nominal 0 sebelum tgl 10)
             history_query = f"""
             SELECT 
                 date(k.created_at) as tanggal,
-                COALESCE(r.petugas, k.petugas_name, 'Sistem') as petugas,
+                COALESCE(
+                    (SELECT rp.petugas FROM rute_petugas rp 
+                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
+                    k.petugas_name, 'Sistem'
+                ) as petugas,
                 COUNT(*) as total,
-                -- LUNAS (UANG MASUK)
+                -- Hitung Orang
                 SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
-                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN m.nominal ELSE 0 END) as nom_masuk,
-                -- JANJI BAYAR (POTENSI)
                 SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN m.nominal ELSE 0 END) as nom_potensi,
-                -- RKS/LL (HILANG/TERTUNDA)
                 SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 1 ELSE 0 END) as jml_rks,
-                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN m.nominal ELSE 0 END) as nom_hilang
+                -- Ambil Nominal Terakhir dari Database Pelanggan (Jika MC bulan ini belum turun)
+                SUM(CASE WHEN k.keterangan LIKE 'Sudah Bayar%' THEN 
+                    COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
+                    ELSE 0 END) as nom_masuk,
+                SUM(CASE WHEN k.keterangan LIKE 'Janji Bayar%' THEN 
+                    COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
+                    ELSE 0 END) as nom_potensi,
+                SUM(CASE WHEN k.keterangan LIKE 'Rumah Kosong%' OR k.keterangan LIKE 'RKS%' THEN 
+                    COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
+                    ELSE 0 END) as nom_hilang
             FROM kunjungan_petugas k
-            LEFT JOIN master_pelanggan m ON k.nomen = m.nomen AND m.periode = '{prev_period_str}'
-            LEFT JOIN rute_petugas r ON m.pcez = r.pcez
             WHERE k.periode = '{curr_period_str}'
             GROUP BY tanggal, petugas
             ORDER BY tanggal DESC LIMIT 20
@@ -98,8 +109,7 @@ def register_pcez_routes(app, get_db):
             h_stat = db.execute(history_query).fetchall()
             
             res_global = dict(g_stat) if g_stat else {
-                "total_nomen_mc": 0, "total_nominal_mc": 0, 
-                "total_undue": 0, "total_current": 0,
+                "total_nomen_mc": 0, "total_nominal_mc": 0, "total_undue": 0, "total_current": 0,
                 "total_nom_undue": 0, "total_nom_current": 0
             }
             
@@ -123,7 +133,6 @@ def register_pcez_routes(app, get_db):
             db = get_db()
             req_periode = request.args.get('periode')
             target_dt = datetime.strptime(req_periode, '%m-%Y') if req_periode else datetime.now()
-
             curr_p = target_dt.strftime('%m-%Y')
             last_p = (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
 
@@ -146,15 +155,17 @@ def register_pcez_routes(app, get_db):
             db = get_db()
             req_periode = request.args.get('periode')
             target_period = req_periode if req_periode else datetime.now().strftime('%m-%Y')
-
             query = f"""
             SELECT 
-                COALESCE(r.petugas, k.petugas_name, 'Petugas') as petugas,
+                COALESCE(
+                    (SELECT rp.petugas FROM rute_petugas rp 
+                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
+                    k.petugas_name, 'Petugas'
+                ) as petugas,
                 COUNT(*) as total_dikunjungi,
                 ROUND(CAST(SUM(CASE WHEN keterangan LIKE 'Sudah Bayar%' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 100, 1) as performa
             FROM kunjungan_petugas k
-            LEFT JOIN master_pelanggan m ON k.nomen = m.nomen 
-            LEFT JOIN rute_petugas r ON m.pcez = r.pcez
             WHERE k.periode = '{target_period}'
             GROUP BY petugas
             ORDER BY performa DESC
