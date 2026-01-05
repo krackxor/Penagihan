@@ -49,50 +49,69 @@ def add_watermark(image_path, info):
 def get_belum_bayar():
     """
     Mengambil daftar pelanggan yang belum bayar dengan Logika Periode Dinamis.
-    - MC: Data bulan n-1
-    - MB: Filter periode n-1 (Undue)
-    - Collection: Filter bulan berjalan (Current)
+    Mendukung parameter 'periode' dari request (Format: MM-YYYY).
     """
     petugas_filter = request.args.get('petugas')
+    # Ambil periode dari request, jika tidak ada gunakan bulan berjalan
+    req_periode = request.args.get('periode') 
     
-    # --- LOGIKA PERIODE DINAMIS ---
+    # --- LOGIKA PENENTUAN PERIODE ---
     today = datetime.now()
-    # 1. Periode Current (Bulan Berjalan): "2026-01"
-    curr_month_sql = today.strftime('%Y-%m')
     
-    # 2. Periode Undue (Mundur 1 Bulan): "202511" (Format BULAN_REK MB)
-    # Logika: Mundur ke hari terakhir bulan lalu
-    last_month_date = today.replace(day=1) - timedelta(days=1)
-    period_mb_filter = last_month_date.strftime('%Y%m') 
+    if req_periode:
+        # Jika periode dipilih manual (MM-YYYY)
+        try:
+            target_dt = datetime.strptime(req_periode, '%m-%Y')
+            curr_month_sql = target_dt.strftime('%Y-%m')
+            # n-1 untuk filter MB (Undue)
+            last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
+            period_mb_filter = last_month_dt.strftime('%Y%m')
+            # Periode untuk filter master_pelanggan (n-1 sesuai SOP)
+            target_mc_periode = last_month_dt.strftime('%m-%Y')
+        except:
+            # Fallback jika format salah
+            curr_month_sql = today.strftime('%Y-%m')
+            last_month_dt = today.replace(day=1) - timedelta(days=1)
+            period_mb_filter = last_month_dt.strftime('%Y%m')
+            target_mc_periode = last_month_dt.strftime('%m-%Y')
+    else:
+        # Default otomatis (Bulan Berjalan)
+        curr_month_sql = today.strftime('%Y-%m')
+        last_month_dt = today.replace(day=1) - timedelta(days=1)
+        period_mb_filter = last_month_dt.strftime('%Y%m')
+        target_mc_periode = last_month_dt.strftime('%m-%Y')
 
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # QUERY DINAMIS SESUAI SOP PERIODE
+        # QUERY DINAMIS BERBASIS PERIODE
+        # Menyaring master_pelanggan berdasarkan periode MC yang relevan
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.tipe = 'MC' 
-            -- Kondisi 3: BELUM BAYAR jika...
+            AND p.periode = ?
             
             -- A. Tidak ada di MB periode rek n-1 (Pembayaran Undue)
             AND p.nomen NOT IN (
                 SELECT nomen FROM master_bayar 
-                WHERE tgl_bayar LIKE ? 
+                WHERE periode = ?
             )
             
             -- B. Tidak ada di Collection bulan berjalan (Pembayaran Current)
             AND p.nomen NOT IN (
                 SELECT nomen FROM collection_harian
-                WHERE updated_at LIKE ?
+                WHERE periode = ?
             )
             
             AND p.nominal >= 100000
         """
-        # Parameter: [Filter MB (n-1), Filter Collection (n)]
-        params = [f"%{period_mb_filter}%", f"{curr_month_sql}%"]
+        
+        # Mapping parameter: [Periode MC, Periode MB, Periode Collection]
+        # Sesuai SOP: MC (n-1), MB (n-1), Collection (n)
+        params = [target_mc_periode, period_mb_filter, curr_month_sql]
         
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
@@ -156,6 +175,9 @@ def lapor_kunjungan():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
 
+        # Periode kunjungan otomatis (MM-YYYY)
+        visit_period = datetime.now().strftime('%m-%Y')
+
         info_watermark = {
             'waktu': datetime.now().strftime('%d/%m/%Y %H:%M WIB'),
             'petugas': petugas_name or "Petugas Lapangan",
@@ -169,15 +191,16 @@ def lapor_kunjungan():
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Simpan laporan dengan menyertakan kolom periode
         query_log = """
             INSERT INTO kunjungan_petugas (
                 nomen, petugas_name, keterangan, no_hp, 
-                catatan, janji_bayar_dt, foto_path, latitude, longitude
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                catatan, janji_bayar_dt, foto_path, latitude, longitude, periode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         cursor.execute(query_log, (
             nomen, petugas_name, hasil, no_hp, 
-            catatan, janji_dt, filename, lat, lng
+            catatan, janji_dt, filename, lat, lng, visit_period
         ))
         
         conn.commit()
