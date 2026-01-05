@@ -44,6 +44,7 @@
             <div>
                 <small class="opacity-75">Sisa Target Penagihan</small>
                 <h1 class="fw-bold mb-0" id="stat-sisa">0</h1>
+                <small id="label-periode-analisa" style="font-size: 0.65rem; border-radius: 4px;" class="bg-white bg-opacity-25 px-2 py-1 d-inline-block mt-1"></small>
             </div>
             <div class="bg-white bg-opacity-25 p-3 rounded-4 shadow-sm">
                 <i class="fas fa-bullseye fa-lg"></i>
@@ -103,7 +104,6 @@
         }).format(n);
     };
 
-    // Fungsi inisialisasi tanggal hari ini ke Input Kalender
     function initCalendar() {
         const now = new Date();
         const year = now.getFullYear();
@@ -113,12 +113,11 @@
 
     async function refreshDashboard() {
         const btn = document.getElementById('btn-refresh');
-        const rawPeriode = document.getElementById('filter-periode').value; // Format: YYYY-MM (misal: 2000-01)
+        const rawPeriode = document.getElementById('filter-periode').value; 
         
         if (!rawPeriode) return;
         btn.classList.add('fa-spin');
         
-        // KONVERSI: YYYY-MM -> MM-YYYY agar cocok dengan Backend/Database
         const parts = rawPeriode.split('-');
         const periode = `${parts[1]}-${parts[0]}`; 
 
@@ -129,6 +128,14 @@
             if (data.status === "error") throw new Error(data.message);
 
             const global = data.global;
+
+            // Update Label Periode Analisa
+            const bulanNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const targetBulanIdx = parseInt(parts[1]) - 2; // n-1
+            const targetTahun = targetBulanIdx < 0 ? parseInt(parts[0]) - 1 : parts[0];
+            const targetBulanName = bulanNames[targetBulanIdx < 0 ? 11 : targetBulanIdx];
+            
+            document.getElementById('label-periode-analisa').innerText = `Target MC ${targetBulanName} ${targetTahun} vs Bayar Bulan Ini`;
 
             document.getElementById('g-nomen-mc').innerText = (global.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(global.total_nominal_mc || 0);
@@ -212,7 +219,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
-        initCalendar(); // Set default kalender ke bulan sekarang
+        initCalendar();
         refreshDashboard();
     });
 </script>
@@ -225,7 +232,6 @@
     .text-success { color: #198754 !important; }
     .text-warning { color: #ffc107 !important; }
     .text-danger { color: #dc3545 !important; }
-    /* Mempercantik input kalender agar seragam dengan tombol */
     input[type="month"]::-webkit-calendar-picker-indicator {
         cursor: pointer;
         filter: invert(33%) sepia(87%) saturate(1637%) hue-rotate(202deg) brightness(91%) contrast(101%);
