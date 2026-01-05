@@ -65,12 +65,12 @@
     </div>
 
     <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white text-center">
-        <div class="row g-0">
-            <div class="col-7 text-start border-end">
+        <div class="row g-0 text-start">
+            <div class="col-7 border-end ps-2">
                 <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">BELUM DITAGIH (UANG)</small>
                 <h5 class="fw-bold mb-0 text-danger" id="stat-sisa-nom">Rp 0</h5>
             </div>
-            <div class="col-5 ps-3 text-start">
+            <div class="col-5 ps-3">
                 <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">SISA ORANG</small>
                 <h5 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0</h5>
             </div>
@@ -78,26 +78,27 @@
     </div>
 
     <div class="card border-0 shadow-sm mb-4 rounded-4">
-        <div class="card-header bg-white py-3 border-0"><h6 class="fw-bold mb-0">Performa Kerja Petugas</h6></div>
-        <div class="card-body pt-0"><canvas id="performaChart" style="height: 200px;"></canvas></div>
+        <div class="card-header bg-white py-3 border-0">
+            <h6 class="fw-bold mb-0">Lokasi Dikunjungi Tim</h6>
+        </div>
+        <div class="card-body pt-0">
+            <canvas id="performaChart" style="height: 180px;"></canvas>
+        </div>
     </div>
 
     <h6 class="fw-bold mb-3 px-1"><i class="fas fa-trophy text-warning me-2"></i>Peringkat Petugas Periode Ini</h6>
     <div id="leaderboard-section" class="mb-4"></div>
 
-    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-users me-2"></i>Aktivitas Tim Per Hari</h6>
+    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-users me-2"></i>Laporan Harian Tim</h6>
     <div id="history-tim-section" class="mb-4"></div>
 
     <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
-        <h6 class="fw-bold mb-0">
-            <i class="fas fa-clock text-primary me-2"></i>Update Langsung
-        </h6>
+        <h6 class="fw-bold mb-0"><i class="fas fa-clock text-primary me-2"></i>Update Langsung</h6>
         <div class="d-flex align-items-center bg-white shadow-sm rounded-pill px-3 py-1 border">
             <span class="realtime-dot me-2"></span>
             <small class="fw-bold text-dark" style="font-size: 0.65rem;">LIVE WIB</small>
         </div>
     </div>
-
     <div id="list-history-petugas" class="mb-3"></div>
 
     <div class="d-flex justify-content-between align-items-center px-1 mb-5">
@@ -109,13 +110,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let currentPage = 1;
-    let allLogs = [];
-    const logsPerPage = 10;
+    let currentPage = 1; 
+    let allLogs = []; 
+    const logsPerPage = 10; 
     let myChart = null;
 
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-
+    
     function initCalendar() {
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -125,16 +126,20 @@
         const btn = document.getElementById('btn-refresh');
         const rawPeriode = document.getElementById('filter-periode').value; 
         if (!rawPeriode) return;
-        btn.classList.add('fa-spin');
         
+        btn.classList.add('fa-spin');
         const parts = rawPeriode.split('-');
         const periode = `${parts[1]}-${parts[0]}`; 
 
         try {
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
-            const data = await response.json();
+            const data = await res.json();
+            
+            if(data.status === 'error') throw new Error(data.message);
+
             const g = data.global;
 
+            // 1. Update Statistik Global
             document.getElementById('g-nomen-mc').innerText = g.total_nomen_mc.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc);
             document.getElementById('stat-sisa-nom').innerText = toIDR(g.sisa_nominal);
@@ -150,9 +155,10 @@
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
+            // 2. Render Grafik
             renderChart(data.officers);
-
-            // Leaderboard
+            
+            // 3. Render Peringkat
             const lb = document.getElementById('leaderboard-section');
             lb.innerHTML = data.officers.map((o, i) => `
                 <div class="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-white">
@@ -172,32 +178,32 @@
                 </div>
             `).join('');
 
-            // Rekap Tim
+            // 4. Render Laporan Harian
             const hts = document.getElementById('history-tim-section');
             hts.innerHTML = data.history.map(h => `
                 <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-white border-start border-primary border-4">
-                    <div class="d-flex justify-content-between small mb-2">
-                        <span class="fw-bold">${h.petugas}</span>
-                        <span class="text-muted">${h.tanggal}</span>
-                    </div>
+                    <div class="d-flex justify-content-between small mb-2"><span class="fw-bold">${h.petugas}</span><span class="text-muted">${h.tanggal}</span></div>
                     <div class="row g-1 text-center" style="font-size:0.7rem;">
                         <div class="col-4 text-success border-end">Bayar: ${h.jml_bayar}</div>
                         <div class="col-4 text-warning border-end">Janji: ${h.jml_janji}</div>
                         <div class="col-4 text-danger">Kendala: ${h.jml_rks}</div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                        <small class="text-muted">Jalan: ${h.total_dijalan}</small>
-                        <small class="fw-bold text-success">${toIDR(h.total_nominal)}</small>
+                        <small class="text-muted">Jalan: ${h.total_dijalan}</small><small class="fw-bold text-success">${toIDR(h.total_nominal)}</small>
                     </div>
                 </div>
             `).join('');
 
+            // 5. Update Live Feed
             allLogs = data.log_petugas || [];
             currentPage = 1;
             renderLiveLogs();
 
-        } catch (e) { console.error(e); }
-        finally { btn.classList.remove('fa-spin'); }
+        } catch (e) { 
+            console.error("Dashboard Error:", e); 
+        } finally { 
+            btn.classList.remove('fa-spin'); 
+        }
     }
 
     function renderChart(officers) {
@@ -207,7 +213,7 @@
             type: 'bar',
             data: {
                 labels: officers.map(o => o.petugas),
-                datasets: [{ label: 'Lokasi Dikunjungi', data: officers.map(o => o.total_dijalan), backgroundColor: '#0d6efd', borderRadius: 8 }]
+                datasets: [{ label: 'Lokasi', data: officers.map(o => o.total_dijalan), backgroundColor: '#0d6efd', borderRadius: 8 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
         });
@@ -224,25 +230,17 @@
         }
 
         container.innerHTML = currentLogs.map(log => {
-            const dateObj = new Date(log.waktu);
-            const jamWIB = dateObj.toLocaleTimeString('id-ID', { 
-                timeZone: 'Asia/Jakarta', 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: false 
-            });
-
+            const jamWIB = new Date(log.waktu).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false });
             return `
                 <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
                     <div class="d-flex justify-content-between small mb-1">
                         <span class="fw-bold text-primary">${log.petugas}</span>
                         <span class="text-dark fw-bold"><i class="far fa-clock me-1 text-muted"></i>${jamWIB} WIB</span>
                     </div>
-                    <div class="small mb-1 text-muted">Nomor Tagihan: <span class="text-dark fw-bold">${log.nomen}</span></div>
-                    <div class="small mb-2 text-muted">Nama: <span class="text-dark">${log.nama || 'Pelanggan'}</span></div>
+                    <div class="small mb-1">ID: <b>${log.nomen}</b> - ${log.nama}</div>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success' : 'bg-secondary'} rounded-pill" style="font-size:0.6rem; padding: 5px 10px;">${log.keterangan}</span>
-                        <span class="fw-bold text-dark" style="font-size:0.85rem;">${toIDR(log.nominal)}</span>
+                        <span class="fw-bold" style="font-size:0.75rem;">${toIDR(log.nominal)}</span>
                     </div>
                 </div>
             `;
@@ -259,23 +257,22 @@
         document.getElementById('list-history-petugas').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    document.addEventListener('DOMContentLoaded', () => { initCalendar(); refreshDashboard(); });
+    document.addEventListener('DOMContentLoaded', () => { 
+        initCalendar(); 
+        refreshDashboard(); 
+    });
 </script>
 
 <style>
-    .realtime-dot {
-        width: 8px;
-        height: 8px;
-        background-color: #ff0000;
-        border-radius: 50%;
-        display: inline-block;
-        box-shadow: 0 0 0 rgba(255, 0, 0, 0.4);
-        animation: pulse-red 1.5s infinite;
+    /* Ikon Kedap-Kedip */
+    .realtime-dot { 
+        width: 8px; height: 8px; background-color: #ff0000; border-radius: 50%; 
+        display: inline-block; animation: pulse-red 1.5s infinite; 
     }
-    @keyframes pulse-red {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0); }
+    @keyframes pulse-red { 
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); } 
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); } 
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); } 
     }
     .progress-bar { transition: width 0.8s ease; }
     .btn-white { background: white; border: none; }
