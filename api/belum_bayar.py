@@ -2,7 +2,7 @@ import os
 import sqlite3
 from flask import Blueprint, jsonify, request, current_app
 from core.database import get_db_connection
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
 
@@ -14,18 +14,14 @@ def add_watermark(image_path, info):
         img = Image.open(image_path)
         draw = ImageDraw.Draw(img)
         
-        # Pengaturan ukuran font proporsional (4% dari lebar gambar)
         width, height = img.size
         font_size = int(width * 0.04)
         
-        # Mencoba memuat font tebal, jika tidak ada gunakan font default
         try:
-            # Jalur font umum di server Linux (Ubuntu)
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except:
             font = ImageFont.load_default()
 
-        # Susunan teks watermark
         text = (
             f"📅 {info['waktu']}\n"
             f"👤 Petugas: {info['petugas']}\n"
@@ -34,17 +30,13 @@ def add_watermark(image_path, info):
             f"💰 Tagihan: Rp {info['nominal']}"
         )
 
-        # Posisi di pojok kiri bawah dengan margin
         margin = int(width * 0.02)
-        # Hitung tinggi blok teks (estimasi 5 baris)
         text_height = font_size * 6 
         x = margin
         y = height - text_height - margin
 
-        # Tambahkan bayangan (Shadow) agar teks terbaca di latar terang
         shadow_offset = 2
         draw.multiline_text((x + shadow_offset, y + shadow_offset), text, font=font, fill="black", spacing=5)
-        # Tambahkan teks utama (Warna Kuning agar mencolok)
         draw.multiline_text((x, y), text, font=font, fill="yellow", spacing=5)
         
         img.save(image_path)
@@ -56,33 +48,56 @@ def add_watermark(image_path, info):
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     """
-    Mengambil daftar pelanggan yang belum bayar.
-    Data digabungkan (JOIN) antara master_pelanggan dan rute_petugas.
-    Update: Hanya menampilkan nominal >= 100.000, limit 10, urutan nominal terbesar.
+    Mengambil daftar pelanggan yang belum bayar dengan Logika Periode Dinamis.
+    - MC: Data bulan n-1
+    - MB: Filter periode n-1 (Undue)
+    - Collection: Filter bulan berjalan (Current)
     """
     petugas_filter = request.args.get('petugas')
+    
+    # --- LOGIKA PERIODE DINAMIS ---
+    today = datetime.now()
+    # 1. Periode Current (Bulan Berjalan): "2026-01"
+    curr_month_sql = today.strftime('%Y-%m')
+    
+    # 2. Periode Undue (Mundur 1 Bulan): "202511" (Format BULAN_REK MB)
+    # Logika: Mundur ke hari terakhir bulan lalu
+    last_month_date = today.replace(day=1) - timedelta(days=1)
+    period_mb_filter = last_month_date.strftime('%Y%m') 
+
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # QUERY DIOPTIMASI:
-        # 1. Nominal >= 100.000 (SOP Efisiensi)
-        # 2. Urutan Nominal Terbesar (Prioritas)
-        # 3. Limit 10 (Fokus Petugas)
+        # QUERY DINAMIS SESUAI SOP PERIODE
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE p.nomen NOT IN (SELECT nomen FROM master_bayar)
+            WHERE p.tipe = 'MC' 
+            -- Kondisi 3: BELUM BAYAR jika...
+            
+            -- A. Tidak ada di MB periode rek n-1 (Pembayaran Undue)
+            AND p.nomen NOT IN (
+                SELECT nomen FROM master_bayar 
+                WHERE tgl_bayar LIKE ? 
+            )
+            
+            -- B. Tidak ada di Collection bulan berjalan (Pembayaran Current)
+            AND p.nomen NOT IN (
+                SELECT nomen FROM collection_harian
+                WHERE updated_at LIKE ?
+            )
+            
             AND p.nominal >= 100000
         """
-        params = []
+        # Parameter: [Filter MB (n-1), Filter Collection (n)]
+        params = [f"%{period_mb_filter}%", f"{curr_month_sql}%"]
         
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        # Urutan: Nominal terbesar, lalu kelompokkan per rute (pcez)
         query += " ORDER BY p.nominal DESC, p.pcez ASC LIMIT 10"
         
         cursor.execute(query, params)
@@ -110,14 +125,13 @@ def get_petugas_tabs():
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
     """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas dengan Watermark."""
-    # Menangkap data dari form sesuai skema kunjungan_petugas
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
-    hasil = request.form.get('hasil')          # Status: Janji Bayar, Sudah Bayar, dll
-    no_hp = request.form.get('no_hp')          # Tangkap No HP (Input Terpisah)
-    catatan = request.form.get('keterangan')   # Catatan tambahan lapangan
-    nama_pelanggan = request.form.get('nama_pelanggan') # Untuk watermark
-    nominal_display = request.form.get('nominal_display') # Untuk watermark
+    hasil = request.form.get('hasil')
+    no_hp = request.form.get('no_hp')
+    catatan = request.form.get('keterangan')
+    nama_pelanggan = request.form.get('nama_pelanggan') 
+    nominal_display = request.form.get('nominal_display') 
     
     janji_dt = request.form.get('janji_bayar_dt')
     lat = request.form.get('latitude')
@@ -142,7 +156,6 @@ def lapor_kunjungan():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
 
-        # PROSES WATERMARK
         info_watermark = {
             'waktu': datetime.now().strftime('%d/%m/%Y %H:%M WIB'),
             'petugas': petugas_name or "Petugas Lapangan",
@@ -156,7 +169,6 @@ def lapor_kunjungan():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Insert ke tabel kunjungan_petugas
         query_log = """
             INSERT INTO kunjungan_petugas (
                 nomen, petugas_name, keterangan, no_hp, 
@@ -169,7 +181,6 @@ def lapor_kunjungan():
         ))
         
         conn.commit()
-        # Mengembalikan filename agar frontend bisa membuat URL Bukti Foto
         return jsonify({
             "message": "Laporan kunjungan berhasil disimpan", 
             "status": "success",
