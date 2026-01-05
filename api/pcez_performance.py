@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Lengkap dengan Logika Smart Period dan Perbaikan Deteksi Nama Petugas"""
+        """Statistik Lengkap dengan Sinkronisasi Waktu WIB dan Logika Smart Period"""
         try:
             db = get_db()
             
@@ -55,7 +55,7 @@ def register_pcez_routes(app, get_db):
                 ), 0) as count_current
             """
             
-            # 2. Query Urutan Petugas Terbaik (Ranking) - PERBAIKAN: Deteksi Nama Pintar
+            # 2. Query Urutan Petugas Terbaik (Ranking)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
@@ -67,7 +67,7 @@ def register_pcez_routes(app, get_db):
                 COUNT(*) as total_dijalan,
                 SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
                 SUM(CASE WHEN k.keterangan LIKE '%Janji Bayar%' OR k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
+                SUM(CASE WHEN k.keterangan LIKE '%Rumah Kosong%' OR k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
                 SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as total_nominal
@@ -77,7 +77,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY total_nominal DESC
             """
 
-            # 3. Query Laporan Harian Tim (Rekap Harian) - PERBAIKAN: Zona Waktu WIB (+7 Jam)
+            # 3. Query Laporan Harian Tim (Rekap Harian)
             history_tim_query = f"""
             SELECT 
                 date(k.created_at, '+7 hours') as tanggal,
@@ -90,7 +90,7 @@ def register_pcez_routes(app, get_db):
                 COUNT(*) as total_dijalan,
                 SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 1 ELSE 0 END) as jml_bayar,
                 SUM(CASE WHEN k.keterangan LIKE '%Janji Bayar%' OR k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
+                SUM(CASE WHEN k.keterangan LIKE '%Rumah Kosong%' OR k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
                 SUM(CASE WHEN k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%' THEN 
                     COALESCE((SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 0) 
                     ELSE 0 END) as total_nominal
@@ -100,7 +100,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY tanggal DESC LIMIT 20
             """
 
-            # 4. Query Live Feed (DIPERBARUI: Konversi ke WIB +7 Jam dan Nama Pintar)
+            # 4. Query Live Feed (WIB +7 Jam)
             log_petugas_query = f"""
             SELECT 
                 datetime(k.created_at, '+7 hours') as waktu,
