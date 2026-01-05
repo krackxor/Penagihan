@@ -23,8 +23,9 @@
                 <div class="col-12 mt-2">
                     <div class="input-group bg-light rounded-3 px-2 border">
                         <span class="input-group-text border-0 bg-transparent"><i class="fas fa-search text-muted"></i></span>
-                        <input type="text" id="searchBar" class="form-control border-0 bg-transparent py-2 shadow-none" placeholder="Cari Nama / IDPEL..." onkeyup="liveSearch()">
+                        <input type="text" id="searchBar" class="form-control border-0 bg-transparent py-2 shadow-none" placeholder="Cari Nama, IDPEL, atau Alamat..." onkeyup="liveSearch()">
                     </div>
+                    <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Menampilkan 10 data prioritas (Tagihan > Rp 100.000)</small>
                 </div>
             </div>
         </div>
@@ -96,6 +97,12 @@
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
         loadPetugasDropdown();
         loadData();
+
+        // Handle submit form
+        document.getElementById('formKunjungan').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await simpanLaporan();
+        });
     });
 
     async function loadPetugasDropdown() {
@@ -130,11 +137,11 @@
 
         container.innerHTML = data.map(item => `
             <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card animate__animated animate__fadeInUp" 
-                 data-search="${item.nama} ${item.idpel}">
+                 data-search="${item.nama} ${item.nomen} ${item.alamat} ${item.pcez}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge bg-primary-subtle text-primary rounded-pill px-3">${item.idpel}</span>
-                        <small class="text-muted fw-bold">${item.tarif}/${item.daya}</small>
+                        <span class="badge bg-primary-subtle text-primary rounded-pill px-3">${item.nomen}</span>
+                        <small class="text-muted fw-bold">${item.block || ''}</small>
                     </div>
                     <h6 class="fw-bold mb-1 text-dark">${item.nama}</h6>
                     <p class="text-muted small mb-3 text-truncate" style="max-width: 250px;">
@@ -144,10 +151,10 @@
                     <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-2">
                         <div>
                             <small class="d-block text-muted" style="font-size: 10px;">TAGIHAN</small>
-                            <span class="fw-bold text-success h6">Rp ${Number(item.total_tagihan).toLocaleString('id-ID')}</span>
+                            <span class="fw-bold text-success h6">Rp ${Number(item.nominal).toLocaleString('id-ID')}</span>
                         </div>
                         <button class="btn btn-primary rounded-3 px-4 fw-bold shadow-sm" 
-                                onclick="openModal('${item.idpel}', '${item.nama}', '${item.tarif}/${item.daya}')">
+                                onclick="openModal('${item.nomen}', '${item.nama}', '${item.pcez || ''}')">
                             LAPOR
                         </button>
                     </div>
@@ -165,7 +172,7 @@
     }
 
     function updateSummary(data) {
-        const totalNominal = data.reduce((acc, curr) => acc + Number(curr.total_tagihan), 0);
+        const totalNominal = data.reduce((acc, curr) => acc + Number(curr.nominal), 0);
         document.getElementById('summary-area').innerHTML = `
             <div class="d-flex justify-content-between small px-1">
                 <span class="text-muted">Total: <b>${data.length} Pelanggan</b></span>
@@ -174,8 +181,8 @@
         `;
     }
 
-    function openModal(idpel, nama, info) {
-        document.getElementById('modal-idpel').value = idpel;
+    function openModal(nomen, nama, info) {
+        document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nama').innerText = nama;
         document.getElementById('modal-info-tambahan').innerText = info;
         document.getElementById('formKunjungan').reset();
