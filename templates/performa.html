@@ -4,9 +4,9 @@
 <div class="animate__animated animate__fadeIn px-2 pb-5" style="background: #f0f3f7; min-height: 100vh;">
     <div class="pt-4 mb-3 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-0 text-dark">Strategic Commander 🎖️</h4>
+            <h4 class="fw-bold mb-0 text-dark">Arahan H. Samsul 🎖️</h4>
             <div id="ai-status" class="small text-success fw-bold animate__animated animate__pulse animate__infinite">
-                <i class="fas fa-brain me-1"></i> AI Analysis Active
+                <i class="fas fa-user-tie me-1"></i> Haji Samsul is Monitoring...
             </div>
         </div>
         <button onclick="loadDashboardData()" class="btn btn-white shadow-sm rounded-circle p-2 border-0">
@@ -14,20 +14,20 @@
         </button>
     </div>
 
-    <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white shadow-primary" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+    <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white shadow-primary" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
         <div class="card-body p-4">
             <div class="row">
                 <div class="col-7">
-                    <small class="text-white-50 fw-bold text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Projected EOM Revenue</small>
+                    <small class="text-white-50 fw-bold text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Estimasi Akhir Bulan</small>
                     <h2 class="fw-bold mb-0" id="stat-projected-nominal">Rp 0</h2>
                     <div class="mt-2">
-                        <span id="stat-velocity" class="badge bg-primary rounded-pill" style="font-size: 0.6rem;">Velocity: Calculating...</span>
+                        <span id="stat-velocity" class="badge bg-primary rounded-pill" style="font-size: 0.6rem;">Nunggu data...</span>
                     </div>
                 </div>
                 <div class="col-5 text-end">
                     <div class="position-relative d-inline-block">
                         <h3 class="fw-bold mb-0" id="stat-total-progress">0%</h3>
-                        <small class="text-white-50 d-block" style="font-size: 0.5rem;">PROGRESS</small>
+                        <small class="text-white-50 d-block" style="font-size: 0.5rem;">Capaian Target</small>
                     </div>
                 </div>
             </div>
@@ -36,30 +36,31 @@
             
             <div class="row text-center g-2">
                 <div class="col-4">
-                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">DAILY TARGET</small>
+                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">SETORAN HARIAN</small>
                     <span class="fw-bold d-block" id="ai-daily-need" style="font-size: 0.7rem;">Rp 0</span>
                 </div>
                 <div class="col-4 border-start border-white border-opacity-10">
-                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">PROBABILITY</small>
+                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">PELUANG FINISH</small>
                     <span class="fw-bold d-block text-info" id="ai-capacity" style="font-size: 0.7rem;">0%</span>
                 </div>
                 <div class="col-4 border-start border-white border-opacity-10">
-                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">DEFICIT GAP</small>
+                    <small class="d-block text-white-50 mb-1" style="font-size: 0.55rem;">KURANGNYA</small>
                     <span class="fw-bold d-block text-warning" id="ai-gap" style="font-size: 0.7rem;">Rp 0</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="ai-insight-card" class="card border-0 shadow-sm rounded-4 mb-4 border-start border-warning border-4" style="display:none;">
+    <div id="ai-insight-card" class="card border-0 shadow-sm rounded-4 mb-4 border-start border-primary border-4" style="display:none;">
         <div class="card-body p-3">
             <div class="d-flex align-items-start">
-                <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
-                    <i class="fas fa-robot text-warning"></i>
+                <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3 text-center" style="min-width: 50px;">
+                    <i class="fas fa-user-circle text-primary fa-2x"></i>
+                    <small class="d-block fw-bold text-primary" style="font-size: 0.5rem;">H. SAMSUL</small>
                 </div>
                 <div>
-                    <h6 class="fw-bold mb-1 small text-dark">Command Intelligence</h6>
-                    <p class="mb-0 text-muted" id="ai-strategy-text" style="font-size: 0.65rem; line-height: 1.4;"></p>
+                    <h6 class="fw-bold mb-1 small text-dark">Analisis & Perintah Haji Samsul</h6>
+                    <p class="mb-0 text-muted fst-italic" id="ai-strategy-text" style="font-size: 0.7rem; line-height: 1.4;"></p>
                 </div>
             </div>
         </div>
@@ -68,12 +69,7 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="fw-bold mb-0 small"><i class="fas fa-chart-pie me-2 text-primary"></i>Squad Distribution</h6>
-                <div class="dropdown">
-                    <button class="btn btn-light btn-sm rounded-pill px-3 border-0" style="font-size: 0.6rem;" id="chartSortBtn">
-                        Sort by Lunas
-                    </button>
-                </div>
+                <h6 class="fw-bold mb-0 small"><i class="fas fa-chart-pie me-2 text-primary"></i>Sebaran Lunas Anak Buah</h6>
             </div>
             <div style="height: 160px;">
                 <canvas id="mainChart"></canvas>
@@ -82,10 +78,8 @@
     </div>
 
     <div class="px-1 mb-3 d-flex justify-content-between align-items-center">
-        <h6 class="fw-bold mb-0">Operational Leaderboard 🏆</h6>
-        <span class="badge bg-white text-muted border small fw-normal rounded-pill" style="font-size: 0.6rem;">
-            Real-time WIB
-        </span>
+        <h6 class="fw-bold mb-0 text-dark">Ranking Kerja Tim 🏆</h6>
+        <span class="badge bg-white text-muted border small fw-normal rounded-pill" id="target-label" style="font-size: 0.6rem;">-</span>
     </div>
     
     <div id="table-leaderboard" class="mb-5"></div>
@@ -110,51 +104,54 @@ async function loadDashboardData() {
             success_rate: ((off.jml_bayar / off.total_dijalan) * 100) || 0
         }));
 
-        processUltraAI(data);
+        processHajiSamsulAI(data);
         renderLeaderboard();
         renderChart();
 
-    } catch (e) { console.error("AI Engine Error:", e); }
+    } catch (e) { console.error("Samsul Engine Error:", e); }
     finally { setTimeout(() => icon.classList.remove('fa-spin'), 600); }
 }
 
-function processUltraAI(data) {
+function processHajiSamsulAI(data) {
     const g = data.global;
     const today = new Date();
     const day = today.getDate();
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const remainingDays = (lastDay - day) || 1;
     
-    // Logic Analysis
     const currentRevenue = g.nom_undue + g.nom_current;
+    const totalTarget = g.total_nominal_mc || 1;
     const velocity = currentRevenue / day;
     const projection = velocity * lastDay;
-    const gap = Math.max(0, g.total_nominal_mc - currentRevenue);
+    const gap = Math.max(0, totalTarget - currentRevenue);
     const dailyNeed = gap / remainingDays;
+    const probability = (projection / totalTarget) * 100;
 
-    // UI Transformation
     document.getElementById('stat-projected-nominal').innerText = toIDR(projection);
-    document.getElementById('stat-total-progress').innerText = ((currentRevenue / g.total_nominal_mc) * 100).toFixed(1) + '%';
-    document.getElementById('stat-velocity').innerText = `Run Rate: ${toIDR(velocity)} / Day`;
+    document.getElementById('stat-total-progress').innerText = ((currentRevenue / totalTarget) * 100).toFixed(1) + '%';
+    document.getElementById('stat-velocity').innerText = `Laju: ${toIDR(velocity)} / Hari`;
     document.getElementById('ai-daily-need').innerText = toIDR(dailyNeed);
     document.getElementById('ai-gap').innerText = toIDR(gap);
+    document.getElementById('target-label').innerText = `Target: MC ${data.target_mc_period}`;
     
-    const probability = (projection / g.total_nominal_mc) * 100;
     const capElement = document.getElementById('ai-capacity');
     capElement.innerText = probability.toFixed(0) + '%';
     capElement.className = `fw-bold d-block ${probability < 90 ? 'text-danger' : 'text-info'}`;
 
-    // Strategic Insights
+    // --- LOGIKA KARAKTER HAJI SAMSUL ---
     const insightCard = document.getElementById('ai-insight-card');
     const insightText = document.getElementById('ai-strategy-text');
     insightCard.style.display = 'block';
 
-    if (probability < 100) {
-        const uplift = ((dailyNeed / velocity) * 100 - 100).toFixed(0);
-        insightText.innerHTML = `⚠️ <b>Critical Gap:</b> Proyeksi akhir bulan defisit sebesar <b>${toIDR(gap)}</b>. Squad membutuhkan <b>uplift performa ${uplift}%</b> mulai besok untuk mencapai target 100%.`;
+    let nasihat = "";
+    if (probability < 80) {
+        nasihat = `"Waduh! Kalo kerjanya begini terus, target <b>${data.target_mc_period}</b> kaga bakal tembus. Kurangnya masih <b>${toIDR(gap)}</b> lagi! Besok setorannya minimal kudu <b>${toIDR(dailyNeed)}</b> tiap hari. Jangan banyakan ngopi, tarik semua tagihan!"`;
+    } else if (probability < 100) {
+        nasihat = `"Dikit lagi ini, tipis! Proyeksi kita masih kurang dikit. Coba kasih tau anak-anak, fokus ke yang nominal gede dulu. Kalo besok bisa tembus <b>${toIDR(dailyNeed)}</b>, Haji traktir makan semua!"`;
     } else {
-        insightText.innerHTML = `🚀 <b>Optimized:</b> Tim berada dalam jalur aman. Prediksi surplus <b>${toIDR(projection - g.total_nominal_mc)}</b>. Disarankan fokus pada penagihan <i>high-value ticket</i> untuk bonus maksimal.`;
+        nasihat = `"Mantap! Begini baru namanya tim Haji Samsul. Proyeksi kita tembus target, malah ada lebih <b>${toIDR(projection - totalTarget)}</b>. Jaga ritmenya, jangan kendor sampe akhir bulan!"`;
     }
+    insightText.innerHTML = nasihat;
 }
 
 function renderLeaderboard() {
@@ -163,9 +160,9 @@ function renderLeaderboard() {
 
     container.innerHTML = sorted.map((l, index) => {
         let statusTag = '';
-        if (l.success_rate > 70) statusTag = '<span class="text-info"><i class="fas fa-bolt"></i> Elite</span>';
-        else if (l.success_rate < 30) statusTag = '<span class="text-danger"><i class="fas fa-clock"></i> Slow</span>';
-        else statusTag = '<span class="text-muted">Steady</span>';
+        if (l.success_rate > 70) statusTag = '<span class="text-info" style="font-size:0.55rem;">Jagoan Haji</span>';
+        else if (l.success_rate < 30) statusTag = '<span class="text-danger" style="font-size:0.55rem;">Lagi Loyo</span>';
+        else statusTag = '<span class="text-muted" style="font-size:0.55rem;">Stabil</span>';
 
         return `
         <div class="card mb-2 border-0 shadow-sm rounded-4 bg-white overflow-hidden">
@@ -177,7 +174,7 @@ function renderLeaderboard() {
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <h6 class="fw-bold mb-0 small" style="font-size: 0.8rem;">${l.petugas}</h6>
-                            <small style="font-size: 0.55rem; font-weight: 600;">${statusTag}</small>
+                            <small style="font-weight: 600;">${statusTag}</small>
                         </div>
                         <div class="progress" style="height: 4px; border-radius: 10px;">
                             <div class="progress-bar ${l.success_rate < 30 ? 'bg-danger' : 'bg-primary'}" 
@@ -205,9 +202,7 @@ function renderChart() {
             datasets: [{
                 data: rawOfficers.map(o => o.jml_bayar),
                 backgroundColor: 'rgba(13, 110, 253, 0.8)',
-                hoverBackgroundColor: '#0d6efd',
-                borderRadius: 4,
-                borderSkipped: false
+                borderRadius: 4
             }]
         },
         options: {
@@ -215,10 +210,7 @@ function renderChart() {
             plugins: { legend: { display: false } },
             scales: { 
                 y: { display: false }, 
-                x: { 
-                    grid: { display: false }, 
-                    ticks: { font: { size: 8, family: 'Inter' }, color: '#94a3b8' } 
-                } 
+                x: { grid: { display: false }, ticks: { font: { size: 8 } } } 
             }
         }
     });
@@ -231,8 +223,8 @@ document.addEventListener('DOMContentLoaded', loadDashboardData);
     body { font-family: 'Inter', sans-serif; }
     .rounded-5 { border-radius: 1.5rem !important; }
     .shadow-primary { box-shadow: 0 10px 25px -5px rgba(13, 110, 253, 0.3); }
-    .progress-bar { transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
-    .card { transition: transform 0.2s ease; }
+    .progress-bar { transition: width 1.2s ease; }
+    .card { border: none !important; }
     .btn-white { background: #fff; }
 </style>
 {% endblock %}
