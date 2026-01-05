@@ -9,8 +9,11 @@
                 <p class="text-muted small mb-0" id="display-date"></p>
             </div>
             <div class="d-flex gap-2">
-                <select id="filter-periode" class="form-select form-select-sm border-0 shadow-sm rounded-pill px-3" style="width: 130px; font-size: 0.75rem;" onchange="refreshDashboard()">
-                    </select>
+                <input type="month" id="filter-periode" 
+                       class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" 
+                       style="width: 160px; font-size: 0.75rem;" 
+                       onchange="refreshDashboard()">
+                
                 <button class="btn btn-white shadow-sm rounded-circle p-2" onclick="refreshDashboard()" id="btn-refresh">
                     <i class="fas fa-sync-alt text-primary"></i>
                 </button>
@@ -74,8 +77,7 @@
                         <th class="text-center border-0 py-3">TOTAL</th>
                     </tr>
                 </thead>
-                <tbody id="list-officers" class="border-0">
-                    </tbody>
+                <tbody id="list-officers" class="border-0"></tbody>
             </table>
         </div>
     </div>
@@ -89,8 +91,7 @@
         </div>
     </div>
     
-    <div id="list-history" class="mb-5">
-        </div>
+    <div id="list-history" class="mb-5"></div>
 </div>
 
 <script>
@@ -102,31 +103,26 @@
         }).format(n);
     };
 
-    // Fungsi untuk mengisi dropdown periode secara otomatis (6 bulan terakhir)
-    function populatePeriodFilter() {
-        const select = document.getElementById('filter-periode');
+    // Fungsi inisialisasi tanggal hari ini ke Input Kalender
+    function initCalendar() {
         const now = new Date();
-        for (let i = 0; i < 6; i++) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const val = `${String(date.getMonth() + 1).zfill(2)}-${date.getFullYear()}`;
-            const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-            select.innerHTML += `<option value="${val}">${label}</option>`;
-        }
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('filter-periode').value = `${year}-${month}`;
     }
-
-    String.prototype.zfill = function(size) {
-        var s = this;
-        while (s.length < (size || 2)) {s = "0" + s;}
-        return s;
-    };
 
     async function refreshDashboard() {
         const btn = document.getElementById('btn-refresh');
-        const periode = document.getElementById('filter-periode').value;
+        const rawPeriode = document.getElementById('filter-periode').value; // Format: YYYY-MM (misal: 2000-01)
+        
+        if (!rawPeriode) return;
         btn.classList.add('fa-spin');
         
+        // KONVERSI: YYYY-MM -> MM-YYYY agar cocok dengan Backend/Database
+        const parts = rawPeriode.split('-');
+        const periode = `${parts[1]}-${parts[0]}`; 
+
         try {
-            // Memanggil API dengan parameter periode
             const response = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const data = await response.json();
             
@@ -216,7 +212,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
-        populatePeriodFilter();
+        initCalendar(); // Set default kalender ke bulan sekarang
         refreshDashboard();
     });
 </script>
@@ -229,5 +225,10 @@
     .text-success { color: #198754 !important; }
     .text-warning { color: #ffc107 !important; }
     .text-danger { color: #dc3545 !important; }
+    /* Mempercantik input kalender agar seragam dengan tombol */
+    input[type="month"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        filter: invert(33%) sepia(87%) saturate(1637%) hue-rotate(202deg) brightness(91%) contrast(101%);
+    }
 </style>
 {% endblock %}
