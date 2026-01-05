@@ -1,231 +1,189 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="animate__animated animate__fadeIn px-2 pb-5" style="background: #f4f7fa; min-height: 100vh;">
-    <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
-        <div>
-            <h4 class="fw-bold mb-1 text-dark">Executive Analytics 💎</h4>
-            <p class="text-muted small mb-0" id="current-period-label">Memproses data...</p>
+<div class="animate__animated animate__fadeIn px-2 pb-5" style="background: #f8f9fa; min-height: 100vh;">
+    <div class="pt-4 mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4 class="fw-bold mb-0 text-dark">Performance Tracker ⚡</h4>
+            <span class="badge bg-primary-subtle text-primary rounded-pill px-3">
+                <i class="fas fa-calendar-alt me-1"></i> <span id="current-period-label">...</span>
+            </span>
         </div>
-        <div class="dropdown">
-            <button class="btn btn-white shadow-sm rounded-4 px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                <i class="fas fa-filter text-primary me-2"></i>Filter
-            </button>
-            <ul class="dropdown-menu border-0 shadow-lg rounded-4">
-                <li><a class="dropdown-item" href="#" onclick="loadDashboardData('nomen')">Urut Nomen</a></li>
-                <li><a class="dropdown-item" href="#" onclick="loadDashboardData('nominal')">Urut Rupiah</a></li>
-            </ul>
+        <div class="input-group input-group-sm shadow-sm rounded-4 overflow-hidden border-0">
+            <span class="input-group-text bg-white border-0"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchPetugas" class="form-control border-0 py-2" placeholder="Cari nama petugas..." onkeyup="filterLeaderboard()">
         </div>
     </div>
 
-    <div class="card border-0 shadow-lg mb-4 rounded-5 bg-primary text-white overflow-hidden">
-        <div class="card-body p-4 position-relative">
-            <div class="row align-items-center position-relative z-1">
-                <div class="col-7">
-                    <h6 class="text-white-50 small text-uppercase fw-bold mb-1">Efficiency Index</h6>
-                    <h1 class="fw-bold mb-0" id="stat-efektivitas" style="font-size: 3.5rem;">0%</h1>
-                    <div id="stat-trend" class="small mt-2">
-                        <span class="badge bg-white bg-opacity-25 rounded-pill px-3">Tracking Live Data</span>
-                    </div>
-                </div>
-                <div class="col-5 text-end">
-                    <canvas id="miniChart" style="max-height: 80px;"></canvas>
-                </div>
-            </div>
-            <div class="mt-4 p-3 bg-white bg-opacity-10 rounded-4">
-                <div class="d-flex justify-content-between small mb-2">
-                    <span class="opacity-75">Recovery Rate (Nominal)</span>
-                    <span class="fw-bold" id="stat-recovery">0%</span>
-                </div>
-                <div class="progress bg-white bg-opacity-20" style="height: 6px;">
-                    <div id="progress-recovery" class="progress-bar bg-white" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="row g-2 mb-4" id="podium-highlights"></div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="fw-bold mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Tren Produktivitas</h6>
-                <div class="btn-group btn-group-sm">
+                <h6 class="fw-bold mb-0 small"><i class="fas fa-chart-line me-2 text-primary"></i>Output Analysis</h6>
+                <div class="btn-group btn-group-sm shadow-sm" style="border-radius: 8px; overflow: hidden;">
                     <input type="radio" class="btn-check" name="v-mode" id="v-nomen" checked onchange="updateMainChart('nomen')">
-                    <label class="btn btn-outline-primary px-3" for="v-nomen">Pelanggan</label>
+                    <label class="btn btn-white px-3 border-0" for="v-nomen">Data</label>
                     <input type="radio" class="btn-check" name="v-mode" id="v-nominal" onchange="updateMainChart('nominal')">
-                    <label class="btn btn-outline-primary px-3" for="v-nominal">Rupiah</label>
+                    <label class="btn btn-white px-3 border-0" for="v-nominal">Rupiah</label>
                 </div>
             </div>
-            <div style="height: 250px;">
+            <div style="height: 180px;">
                 <canvas id="mainChart"></canvas>
             </div>
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-        <h6 class="fw-bold mb-0">Star Performers ✨</h6>
-        <span class="text-muted small" id="total-officers-count">0 Petugas</span>
+    <div class="px-1 mb-3 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0">Petugas Ranking</h6>
+        <div class="dropdown">
+            <button class="btn btn-sm btn-white rounded-pill px-3 dropdown-toggle shadow-sm border-0" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-sort-amount-down me-1"></i> Filter
+            </button>
+            <ul class="dropdown-menu border-0 shadow-lg rounded-4">
+                <li><a class="dropdown-item small" href="#" onclick="renderLeaderboard('jml_lunas')">Banyak Lunas</a></li>
+                <li><a class="dropdown-item small" href="#" onclick="renderLeaderboard('nom_lunas')">Rupiah Tertinggi</a></li>
+                <li><a class="dropdown-item small" href="#" onclick="renderLeaderboard('success_rate')">Success Rate</a></li>
+            </ul>
+        </div>
     </div>
     
-    <div id="table-leaderboard" class="mb-5">
-        </div>
+    <div id="table-leaderboard" class="mb-5"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let mainChartObj, miniChartObj;
-let rawData = [];
+let mainChartObj;
+let rawOfficers = [];
 
 async function loadDashboardData() {
     try {
         const res = await fetch('/api/performance/full-stats');
         const data = await res.json();
-        rawData = data;
-        const g = data.global;
-        const leaders = data.history_tim;
-
-        // 1. Update Global Card
-        const effNomen = g.total_nomen_mc > 0 ? ((g.total_lunas_nomen / g.total_nomen_mc) * 100).toFixed(1) : 0;
-        const effNominal = g.total_nominal_mc > 0 ? (( (g.nom_undue + g.nom_current) / g.total_nominal_mc) * 100).toFixed(1) : 0;
         
-        document.getElementById('stat-efektivitas').innerText = effNomen + '%';
-        document.getElementById('stat-recovery').innerText = effNominal + '%';
-        document.getElementById('progress-recovery').style.width = effNominal + '%';
-        document.getElementById('current-period-label').innerText = `Target Periode: ${data.target_mc_period}`;
-        document.getElementById('total-officers-count').innerText = `${leaders.length} Petugas Terdeteksi`;
+        rawOfficers = data.history_tim.map(off => ({
+            ...off,
+            success_rate: ((off.jml_lunas / (off.jml_lunas + off.jml_janji + off.jml_rks)) * 100) || 0
+        }));
 
-        // 2. Mini Trend Chart
-        renderMiniChart(leaders);
-
-        // 3. Main Productivity Chart
+        document.getElementById('current-period-label').innerText = data.target_mc_period;
         updateMainChart('nomen');
+        renderPodium(rawOfficers);
+        renderLeaderboard('jml_lunas');
 
-        // 4. Leaderboard with Achievement Badges
-        renderLeaderboard(leaders);
-
-    } catch (e) {
-        console.error("Dashboard Error:", e);
-    }
+    } catch (e) { console.error(e); }
 }
 
-function renderMiniChart(leaders) {
-    const ctx = document.getElementById('miniChart').getContext('2d');
-    if(miniChartObj) miniChartObj.destroy();
-    miniChartObj = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: leaders.map(l => l.petugas),
-            datasets: [{
-                data: leaders.map(l => l.jml_lunas),
-                borderColor: 'rgba(255,255,255,0.8)',
-                borderWidth: 2,
-                tension: 0.4,
-                pointRadius: 0,
-                fill: true,
-                backgroundColor: 'rgba(255,255,255,0.1)'
-            }]
-        },
-        options: { plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } }, maintainAspectRatio: false }
-    });
+function renderPodium(data) {
+    const sorted = [...data].sort((a, b) => b.jml_lunas - a.jml_lunas).slice(0, 3);
+    const podiumContainer = document.getElementById('podium-highlights');
+    const meta = [
+        { color: '#FFD700', icon: 'fa-crown', label: '1st' },
+        { color: '#95a5a6', icon: 'fa-medal', label: '2nd' },
+        { color: '#d35400', icon: 'fa-award', label: '3rd' }
+    ];
+
+    podiumContainer.innerHTML = sorted.map((p, i) => `
+        <div class="col-4">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-2 h-100 bg-white">
+                <div class="position-absolute top-0 start-50 translate-middle-x mt-n2">
+                    <span class="badge rounded-pill shadow-sm" style="background:${meta[i].color}; font-size:0.5rem;">${meta[i].label}</span>
+                </div>
+                <div class="mx-auto mt-2 mb-1 d-flex align-items-center justify-content-center rounded-circle" 
+                     style="width: 40px; height: 40px; background: ${meta[i].color}20; color: ${meta[i].color}">
+                    <i class="fas ${meta[i].icon}"></i>
+                </div>
+                <h6 class="fw-bold mb-0 small text-truncate" style="font-size:0.7rem;">${p.petugas}</h6>
+                <p class="fw-bold text-dark mb-0" style="font-size: 0.8rem;">${p.jml_lunas}</p>
+            </div>
+        </div>
+    `).join('');
 }
 
 function updateMainChart(mode) {
     const ctx = document.getElementById('mainChart').getContext('2d');
-    const leaders = rawData.history_tim;
     if(mainChartObj) mainChartObj.destroy();
-
-    const dataSet = mode === 'nomen' ? leaders.map(l => l.jml_lunas) : leaders.map(l => l.nom_lunas);
-    const label = mode === 'nomen' ? 'Total Lunas (Pel)' : 'Total Lunas (Rp)';
-
+    const dataSet = mode === 'nomen' ? rawOfficers.map(l => l.jml_lunas) : rawOfficers.map(l => l.nom_lunas);
+    
     mainChartObj = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: leaders.map(l => l.petugas),
+            labels: rawOfficers.map(l => l.petugas.split(' ')[0]),
             datasets: [{
-                label: label,
                 data: dataSet,
                 backgroundColor: '#0d6efd',
-                borderRadius: 10,
-                barThickness: 12
+                borderRadius: 5,
+                barThickness: 15
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 } } },
-                x: { grid: { display: false }, ticks: { font: { size: 9, weight: 'bold' } } }
-            }
+            scales: { y: { beginAtZero: true, grid:{drawBorder:false, color:'#f0f0f0'} }, x: { grid: { display: false } } }
         }
     });
 }
 
-function renderLeaderboard(leaders) {
+function getGelar(l, index, sortBy) {
+    if (index === 0 && sortBy === 'jml_lunas') return '<span class="badge bg-warning-subtle text-warning ms-1" style="font-size:0.5rem;">The Closer</span>';
+    if (l.nom_lunas > 10000000) return '<span class="badge bg-success-subtle text-success ms-1" style="font-size:0.5rem;">Big Earner</span>';
+    if (l.success_rate > 80) return '<span class="badge bg-info-subtle text-info ms-1" style="font-size:0.5rem;">Sniper</span>';
+    return '';
+}
+
+function renderLeaderboard(sortBy) {
     const container = document.getElementById('table-leaderboard');
     const toIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
+    const sorted = [...rawOfficers].sort((a, b) => b[sortBy] - a[sortBy]);
 
-    // Sort by Lunas
-    const sorted = [...leaders].sort((a,b) => b.jml_lunas - a.jml_lunas);
-
-    container.innerHTML = sorted.map((l, index) => {
-        // Achievement Badge Logic
-        let badge = '';
-        if (index === 0) badge = '<span class="badge bg-warning text-dark ms-2" style="font-size:0.5rem;"><i class="fas fa-crown me-1"></i>TOP NOMEN</span>';
-        if (l.nom_lunas > 5000000) badge += '<span class="badge bg-info text-white ms-1" style="font-size:0.5rem;"><i class="fas fa-money-bill-wave me-1"></i>BIG REVENUE</span>';
-        if (l.jml_rks > 5) badge += '<span class="badge bg-secondary text-white ms-1" style="font-size:0.5rem;"><i class="fas fa-home me-1"></i>RKS DETECTOR</span>';
-
-        return `
-            <div class="card mb-3 border-0 shadow-sm rounded-4 overflow-hidden animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.1}s">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-primary text-white rounded-circle me-3 fw-bold d-flex align-items-center justify-content-center" style="width:40px; height:40px; font-size:0.9rem;">
-                            ${index + 1}
+    container.innerHTML = sorted.map((l, index) => `
+        <div class="card mb-2 border-0 shadow-sm rounded-4 petugas-item animate__animated animate__fadeInUp">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                    <div class="fw-bold text-muted me-3" style="width: 20px; font-size:0.8rem;">${index + 1}</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center">
+                            <h6 class="fw-bold mb-0 text-nama" style="font-size: 0.85rem;">${l.petugas}</h6>
+                            ${getGelar(l, index, sortBy)}
                         </div>
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center">
-                                <h6 class="fw-bold mb-0 text-dark" style="font-size:0.9rem;">${l.petugas}</h6>
-                                ${badge}
-                            </div>
-                            <small class="text-muted" style="font-size:0.7rem;">Wilayah Operasional Sunter</small>
-                        </div>
-                        <div class="text-end">
-                            <h6 class="fw-bold text-primary mb-0">${((l.jml_lunas/(l.jml_lunas+l.jml_janji+l.jml_rks)*100)||0).toFixed(0)}%</h6>
-                            <small class="text-muted" style="font-size:0.6rem;">Success Rate</small>
+                        <div class="progress mt-2" style="height: 4px; width: 70%;">
+                            <div class="progress-bar rounded-pill" style="width: ${l.success_rate}%"></div>
                         </div>
                     </div>
-                    
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <div class="p-2 bg-light rounded-3 text-center">
-                                <small class="text-muted d-block" style="font-size:0.55rem;">LUNAS</small>
-                                <span class="fw-bold text-dark small">${l.jml_lunas}</span>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="p-2 bg-light rounded-3 text-center">
-                                <small class="text-muted d-block" style="font-size:0.55rem;">NOMINAL</small>
-                                <span class="fw-bold text-dark small">Rp ${toIDR(l.nom_lunas)}</span>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="p-2 bg-light rounded-3 text-center">
-                                <small class="text-muted d-block" style="font-size:0.55rem;">JANJI/RKS</small>
-                                <span class="fw-bold text-dark small">${l.jml_janji + l.jml_rks}</span>
-                            </div>
-                        </div>
+                    <div class="text-end">
+                        <span class="d-block fw-bold text-dark" style="font-size: 0.8rem;">${l.jml_lunas} <small class="text-muted">Pel</small></span>
+                        <span class="text-primary fw-bold" style="font-size: 0.7rem;">Rp ${toIDR(l.nom_lunas)}</span>
                     </div>
                 </div>
+                <div class="d-flex justify-content-between mt-2 pt-2 border-top border-light" style="font-size: 0.6rem;">
+                    <div class="text-muted">Efficiency: <b class="text-dark">${l.success_rate.toFixed(1)}%</b></div>
+                    <div class="text-muted">Kunjungan: <b class="text-dark">${l.jml_lunas + l.jml_janji + l.jml_rks}</b></div>
+                </div>
             </div>
-        `;
-    }).join('');
+        </div>
+    `).join('');
+}
+
+function filterLeaderboard() {
+    let input = document.getElementById('searchPetugas').value.toLowerCase();
+    let items = document.getElementsByClassName('petugas-item');
+    for (let item of items) {
+        let name = item.querySelector('.text-nama').innerText.toLowerCase();
+        item.style.display = name.includes(input) ? "" : "none";
+    }
 }
 
 document.addEventListener('DOMContentLoaded', loadDashboardData);
 </script>
 
 <style>
-    .btn-check:checked + .btn-outline-primary { background-color: #0d6efd; color: white; }
-    .card { transition: all 0.3s ease; }
-    .card:hover { transform: translateY(-3px); }
+    .bg-primary-subtle { background-color: #e7f1ff; }
+    .bg-warning-subtle { background-color: #fff3cd; }
+    .bg-success-subtle { background-color: #d1e7dd; }
+    .bg-info-subtle { background-color: #cff4fc; }
+    .btn-white { background: white; color: #444; }
+    .btn-check:checked + .btn-white { background: #0d6efd; color: white; }
+    .mt-n2 { margin-top: -10px; }
 </style>
 {% endblock %}
