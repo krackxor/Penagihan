@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="animate__animated animate__fadeIn">
-    <div class="px-2 mb-4">
-        <h4 class="fw-bold mb-1">Daftar Tagihan 📋</h4>
-        <p class="text-muted small">Kelola penagihan pelanggan di lapangan</p>
+    <div class="px-2 mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-1">Daftar Tagihan 📋</h4>
+            <p class="text-muted small mb-0">Kelola penagihan pelanggan di lapangan</p>
+        </div>
+        <select id="filter-periode" class="form-select form-select-sm border-0 shadow-sm rounded-pill px-3" style="width: 140px; font-size: 0.75rem;" onchange="loadData()">
+        </select>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-3 mx-2">
@@ -23,7 +27,7 @@
                 <div class="col-12 mt-2">
                     <div class="input-group bg-light rounded-3 px-2 border">
                         <span class="input-group-text border-0 bg-transparent"><i class="fas fa-search text-muted"></i></span>
-                        <input type="text" id="searchBar" class="form-control border-0 bg-transparent py-2 shadow-none" placeholder="Cari Nama, IDPEL, atau Alamat..." onkeyup="liveSearch()">
+                        <input type="text" id="searchBar" class="form-control border-0 bg-transparent py-2 shadow-none" placeholder="Cari Nama, IDPEL, NOMET atau Alamat..." onkeyup="liveSearch()">
                     </div>
                     <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Menampilkan 10 data prioritas (Tagihan > Rp 100.000)</small>
                 </div>
@@ -51,6 +55,7 @@
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="modal-idpel">
+                    <input type="hidden" id="modal-nomet">
                     <input type="hidden" id="modal-nominal-val">
                     
                     <div class="bg-primary-subtle p-3 rounded-4 mb-3 border border-primary-subtle">
@@ -102,6 +107,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
+        populatePeriodFilter();
         loadPetugasDropdown();
         loadData();
 
@@ -110,6 +116,17 @@
             await simpanLaporan();
         });
     });
+
+    function populatePeriodFilter() {
+        const select = document.getElementById('filter-periode');
+        const now = new Date();
+        for (let i = 0; i < 6; i++) {
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const val = `${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+            const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            select.innerHTML += `<option value="${val}">${label}</option>`;
+        }
+    }
 
     async function loadPetugasDropdown() {
         const res = await fetch('/api/belum-bayar/petugas-tabs');
@@ -120,11 +137,12 @@
 
     async function loadData() {
         const petugas = document.getElementById('filter-petugas').value;
+        const periode = document.getElementById('filter-periode').value;
         const container = document.getElementById('list-container');
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
 
         try {
-            const url = petugas === 'all' ? '/api/belum-bayar' : `/api/belum-bayar?petugas=${encodeURIComponent(petugas)}`;
+            const url = `/api/belum-bayar?petugas=${encodeURIComponent(petugas)}&periode=${periode}`;
             const res = await fetch(url);
             rawData = await res.json();
             renderCards(rawData);
@@ -143,11 +161,13 @@
 
         container.innerHTML = data.map(item => `
             <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card animate__animated animate__fadeInUp" 
-                 data-search="${item.nama} ${item.nomen} ${item.alamat} ${item.pcez}">
+                 data-search="${item.nama} ${item.nomen} ${item.nomet || ''} ${item.alamat} ${item.pcez}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge bg-primary-subtle text-primary rounded-pill px-3">${item.nomen}</span>
-                        <small class="text-muted fw-bold">${item.block || ''}</small>
+                        <span class="badge bg-primary-subtle text-primary rounded-pill px-2" style="font-size: 10px;">IDPEL: ${item.nomen}</span>
+                        <span class="badge bg-dark text-white rounded-pill px-2" style="font-size: 10px;">
+                            <i class="fas fa-tachometer-alt text-warning me-1"></i> NOMET: ${item.nomet || '-'}
+                        </span>
                     </div>
                     <h6 class="fw-bold mb-1 text-dark">${item.nama}</h6>
                     <p class="text-muted small mb-3 text-truncate" style="max-width: 250px;">
@@ -160,7 +180,7 @@
                             <span class="fw-bold text-success h6">Rp ${Number(item.nominal).toLocaleString('id-ID')}</span>
                         </div>
                         <button class="btn btn-primary rounded-3 px-4 fw-bold shadow-sm" 
-                                onclick="openModal('${item.nomen}', '${item.nama}', 'Rp ${Number(item.nominal).toLocaleString('id-ID')}', '${item.pcez || ''}')">
+                                onclick="openModal('${item.nomen}', '${item.nama}', 'Rp ${Number(item.nominal).toLocaleString('id-ID')}', '${item.nomet || '-'}', '${item.pcez || ''}')">
                             LAPOR
                         </button>
                     </div>
@@ -187,11 +207,12 @@
         `;
     }
 
-    function openModal(nomen, nama, nominal, info) {
+    function openModal(nomen, nama, nominal, nomet, info) {
         document.getElementById('modal-idpel').value = nomen;
+        document.getElementById('modal-nomet').value = nomet;
         document.getElementById('modal-nama').innerText = nama;
         document.getElementById('modal-nominal-val').value = nominal;
-        document.getElementById('modal-info-tambahan').innerText = info;
+        document.getElementById('modal-info-tambahan').innerText = `NOMET: ${nomet} | Rute: ${info}`;
         document.getElementById('formKunjungan').reset();
         modalKunjungan.show();
     }
@@ -200,6 +221,7 @@
         Swal.fire({ title: 'Menyimpan & Watermarking...', didOpen: () => { Swal.showLoading(); } });
         
         const idpel = document.getElementById('modal-idpel').value;
+        const nomet = document.getElementById('modal-nomet').value;
         const nama = document.getElementById('modal-nama').innerText;
         const nominalStr = document.getElementById('modal-nominal-val').value;
         const hasil = document.getElementById('modal-hasil').value;
@@ -208,8 +230,8 @@
 
         const formData = new FormData();
         formData.append('idpel', idpel);
-        formData.append('nama_pelanggan', nama); // Untuk Watermark di Backend
-        formData.append('nominal_display', nominalStr); // Untuk Watermark di Backend
+        formData.append('nama_pelanggan', nama);
+        formData.append('nominal_display', nominalStr);
         formData.append('hasil', hasil);
         formData.append('no_hp', no_hp);
         formData.append('keterangan', catatan);
@@ -222,27 +244,26 @@
             const dataRes = await res.json();
 
             if (res.ok) {
-                // Buat Link Foto Jika Ada
                 const domain = window.location.origin;
                 const urlFoto = dataRes.filename ? `${domain}/static/uploads/kunjungan/${dataRes.filename}` : '-';
 
-                // FORMAT PESAN WA MENARIK
-                const textWA = `*⚡ LAPORAN HASIL KUNJUNGAN ⚡*%0A` +
+                const textWA = `*⚡ LAPORAN RL ⚡*%0A` +
                                `-------------------------------------------%0A` +
                                `📌 *STATUS:* _${hasil.toUpperCase()}_%0A` +
                                `-------------------------------------------%0A` +
                                `📋 *Data Pelanggan:*%0A` +
-                               `• Nomen : ${idpel}%0A` +
+                               `• NOMEN : ${idpel}%0A` +
+                               `• NOMET : ${nomet}%0A` +
                                `• Nama  : ${nama}%0A` +
-                               `• Tagihan: *${nominalStr}*%0A` +
-                               `• No. HP: ${no_hp || '-'}%0A%0A` +
+                               `• HP: ${no_hp || '-'}%0A%0A` +
+                               `• Tagihan: *${nominalStr}*%0A` +                            
                                `📝 *Catatan:*%0A` +
                                `_${catatan || 'Tidak ada catatan'}_%0A%0A` +
                                `📷 *Bukti Foto (Watermarked):*%0A` +
                                `${urlFoto}%0A%0A` +
                                `⏰ _Waktu: ${new Date().toLocaleString('id-ID')} WIB_%0A` +
                                `-------------------------------------------%0A` +
-                               `_Powered by Sunter Pro_`;
+                               `_Powered by Khoirul Anwar_`;
 
                 Swal.fire({
                     icon: 'success',
