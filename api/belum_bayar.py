@@ -11,17 +11,18 @@ belum_bayar_bp = Blueprint('belum_bayar', __name__)
 def get_belum_bayar():
     """
     Mengambil daftar pelanggan yang belum bayar.
-    Optimasi: Minimal tagihan Rp 100.000, urutan nominal terbesar, 
-    dan dikelompokkan berdasarkan lokasi (PCEZ).
+    Data digabungkan (JOIN) antara master_pelanggan dan rute_petugas.
+    Update: Hanya menampilkan nominal >= 100.000, limit 10, urutan nominal terbesar.
     """
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Query dengan filter tambahan: nominal >= 100.000
-        # Diurutkan berdasarkan nominal terbesar (DESC) dan lokasi (PCEZ ASC)
-        # Dibatasi 10 data agar petugas fokus pada prioritas terdekat
+        # QUERY DIOPTIMASI:
+        # 1. Nominal >= 100.000 (SOP Efisiensi)
+        # 2. Urutan Nominal Terbesar (Prioritas)
+        # 3. Limit 10 (Fokus Petugas)
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
@@ -35,7 +36,7 @@ def get_belum_bayar():
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        # Urutan: Nominal terbesar dulu, lalu urutan blok/lokasi (pcez)
+        # Urutan: Nominal terbesar, lalu kelompokkan per rute (pcez)
         query += " ORDER BY p.nominal DESC, p.pcez ASC LIMIT 10"
         
         cursor.execute(query, params)
@@ -63,11 +64,12 @@ def get_petugas_tabs():
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
     """Mencatat laporan kunjungan lapangan ke tabel kunjungan_petugas."""
+    # Menangkap data dari form sesuai skema kunjungan_petugas
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
-    hasil = request.form.get('hasil')
-    catatan = request.form.get('keterangan')
-    no_hp = request.form.get('no_hp')
+    hasil = request.form.get('hasil')          # Status: Janji Bayar, Sudah Bayar, dll
+    no_hp = request.form.get('no_hp')          # Tangkap No HP (Input Terpisah)
+    catatan = request.form.get('keterangan')   # Catatan tambahan lapangan
     janji_dt = request.form.get('janji_bayar_dt')
     lat = request.form.get('latitude')
     lng = request.form.get('longitude')
@@ -94,6 +96,7 @@ def lapor_kunjungan():
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Insert ke tabel kunjungan_petugas (Field no_hp sekarang terpisah)
         query_log = """
             INSERT INTO kunjungan_petugas (
                 nomen, petugas_name, keterangan, no_hp, 
