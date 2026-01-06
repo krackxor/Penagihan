@@ -48,16 +48,16 @@ def add_watermark(image_path, info):
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     """
-    Mengambil daftar pelanggan yang belum bayar dengan Logika Pintu Ganda.
-    - Pintu 1: NOTAGIHAN (Mencocokkan lembar tagihan spesifik)
-    - Pintu 2: PERIODE (Mencocokkan siklus Undue vs Current)
+    Mengambil daftar pelanggan yang belum bayar.
+    LOGIKA TERBARU: 
+    - Hanya menampilkan tagihan CURRENT (Bulan Berjalan).
+    - Tagihan UNDUE (Bulan Lalu) dihapus dari daftar kerja petugas.
+    - Tagihan Ardebt (Berekor) tetap disaring keluar.
     """
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
     
     today = datetime.now()
-    
-    # Penentuan Periode Dinamis
     if req_periode:
         try:
             target_dt = datetime.strptime(req_periode, '%m-%Y')
@@ -66,18 +66,14 @@ def get_belum_bayar():
     else:
         target_dt = today
 
-    # 1. Periode Berjalan (n) untuk Collection: "12-2025"
+    # Periode berjalan untuk pengecekan data MC dan Collection
     curr_period_str = target_dt.strftime('%m-%Y')
-    
-    # 2. Periode Lalu (n-1) untuk MC dan MB (Undue): "11-2025"
-    last_month_dt = target_dt.replace(day=1) - timedelta(days=1)
-    prev_period_str = last_month_dt.strftime('%m-%Y')
 
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # QUERY DENGAN VALIDASI PINTU GANDA (NOTAGIHAN & PERIODE)
+        # QUERY DIPERBARUI: Fokus hanya pada CURRENT, Exclude Ardebt
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
@@ -85,29 +81,28 @@ def get_belum_bayar():
             WHERE p.tipe = 'MC' 
             AND p.periode = ?
             
-            -- A. Filter UNDUE: Tidak ada di MB periode n-1 dengan NOTAGIHAN yang sama
-            AND p.notagihan NOT IN (
-                SELECT notagihan FROM master_bayar 
-                WHERE periode = ?
-            )
-            
-            -- B. Filter CURRENT: Tidak ada di Collection periode n dengan NOTAGIHAN yang sama
+            -- 1. Filter PINTU: Belum ada di laporan harian bulan ini (Belum Bayar)
             AND p.notagihan NOT IN (
                 SELECT notagihan FROM collection_harian
                 WHERE periode = ?
+            )
+
+            -- 2. Filter EKSKLUSIF: Jangan tampilkan jika ada di daftar Ardebt (>1 bulan)
+            AND p.nomen NOT IN (
+                SELECT DISTINCT nomen FROM ardebt
             )
             
             AND p.nominal >= 100000
         """
         
-        # Params: [MC Periode n-1, MB Periode n-1, Collection Periode n]
-        params = [prev_period_str, prev_period_str, curr_period_str]
+        # Menggunakan periode berjalan (Current) sebagai parameter filter
+        params = [curr_period_str, curr_period_str]
         
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        query += " ORDER BY p.nominal DESC, p.pcez ASC LIMIT 10"
+        query += " ORDER BY p.nominal DESC LIMIT 10"
         
         cursor.execute(query, params)
         data = [dict(row) for row in cursor.fetchall()]
@@ -204,38 +199,40 @@ def lapor_kunjungan():
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
     """
-    Mengambil daftar tagihan berekor dari tabel ardebt.
-    - Menjumlahkan nominal (SUM)
-    - Menghitung jumlah bulan tunggakan (COUNT PERIODE_BILL)
-    - Menyaring nomen agar tidak tumpang tindih dengan daftar Belum Bayar (MC)
+    Mengambil daftar tagihan berekor (Ardebt).
+    Pembaruan: Data Ardebt yang diupload akan muncul dan mencocokkan petugas berdasarkan rute.
     """
+    petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Periode saat ini untuk filter exclude
-        curr_period = datetime.now().strftime('%m-%Y')
-
+        # Query fleksibel untuk menampilkan data Ardebt yang baru diupload
         query = """
             SELECT 
                 a.nomen, 
                 SUM(a.jumlah) as total_tunggakan, 
                 COUNT(a.periode_bill) as jumlah_ekor,
-                MAX(p.nama) as nama,
-                MAX(p.pcez) as pcez
+                COALESCE(MAX(p.nama), 'Pelanggan Ardebt') as nama,
+                COALESCE(MAX(p.pcez), '000/00') as pcez,
+                r.petugas as nama_petugas
             FROM ardebt a
             LEFT JOIN master_pelanggan p ON a.nomen = p.nomen
-            WHERE a.nomen NOT IN (
-                -- Pastikan nomen tidak ada di daftar Belum Bayar (Target MC) bulan ini
-                SELECT nomen FROM master_pelanggan 
-                WHERE tipe = 'MC' AND periode = ?
-            )
+            LEFT JOIN rute_petugas r ON (p.pcez = r.pcez)
             GROUP BY a.nomen
             HAVING total_tunggakan > 0
-            ORDER BY jumlah_ekor DESC, total_tunggakan DESC
         """
         
-        cursor.execute(query, (curr_period,))
+        params = []
+        if petugas_filter and petugas_filter != 'all':
+            # Membungkus query utama untuk melakukan filter petugas setelah agregasi
+            final_query = f"SELECT * FROM ({query}) AS sub WHERE sub.nama_petugas = ?"
+            params.append(petugas_filter)
+            cursor.execute(final_query, params)
+        else:
+            query += " ORDER BY jumlah_ekor DESC, total_tunggakan DESC"
+            cursor.execute(query)
+
         data = [dict(row) for row in cursor.fetchall()]
         return jsonify(data)
     except Exception as e:
