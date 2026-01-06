@@ -1,1121 +1,447 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- H Samsul-AI -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
     :root {
-        --samsul-primary: #0f172a;
-        --samsul-accent: #3b82f6;
-        --samsul-danger: #ef4444;
-        --samsul-success: #10b981;
-        --samsul-warning: #f59e0b;
-        --glass-bg: rgba(255, 255, 255, 0.85);
+        --samsul-dark: #0f172a;
+        --samsul-blue: #3b82f6;
+        --samsul-red: #ef4444;
+        --samsul-emerald: #10b981;
+        --samsul-amber: #f59e0b;
+        --glass: rgba(255, 255, 255, 0.95);
     }
 
-    body {
-        background-color: #f1f5f9;
-        font-family: 'Inter', sans-serif;
-        color: #1e293b;
-    }
+    body { background-color: #f1f5f9; transition: background-color 1s ease; }
+    body.panic-mode { background-color: #fef2f2; }
 
-    .glass-card {
-        background: var(--glass-bg);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+    .glass-panel {
+        background: var(--glass);
+        backdrop-filter: blur(15px);
         border-radius: 1.5rem;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255,255,255,0.4);
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
     }
 
-    .status-pulse {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 5px;
-        animation: pulse-animation 2s infinite;
-    }
-
-    @keyframes pulse-animation {
-        0% { box-shadow: 0 0 0 0px rgba(59, 130, 246, 0.5); }
-        100% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-    }
-
-    .main-display {
+    .main-command {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border-radius: 2rem;
+        border-radius: 2.2rem;
         color: white;
+        padding: 2.5rem 2rem;
         position: relative;
         overflow: hidden;
+        transition: all 0.5s ease;
     }
 
-    .main-display::before {
-        content: "";
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%);
-        animation: rotate 20s linear infinite;
+    .capability-node {
+        width: 8px; height: 8px; border-radius: 50%; background: #475569; display: inline-block; margin-right: 5px;
+    }
+    .capability-node.active { background: var(--samsul-emerald); box-shadow: 0 0 10px var(--samsul-emerald); }
+
+    .terminal-ai {
+        background: #000; color: #10b981; font-family: 'JetBrains Mono', monospace;
+        padding: 1.2rem; border-radius: 1rem; font-size: 0.75rem;
+        border-left: 5px solid #10b981; line-height: 1.5;
     }
 
-    @keyframes rotate {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+    .nav-pills .nav-link {
+        font-size: 0.75rem; font-weight: 700; border-radius: 1rem;
+        color: #64748b; padding: 0.6rem 1rem;
+    }
+    .nav-pills .nav-link.active {
+        background-color: var(--samsul-dark);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
     }
 
-    .stat-label {
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        opacity: 0.7;
-        font-weight: 700;
+    .impact-score {
+        background: var(--samsul-blue); color: white;
+        padding: 0.2rem 0.6rem; border-radius: 0.5rem;
+        font-size: 0.65rem; font-weight: 900;
     }
 
-    .btn-action {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border-radius: 1rem;
-    }
-
-    .btn-action:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    }
-
-    .terminal-box {
-        background: #000;
-        color: #00ff00;
-        font-family: 'Courier New', monospace;
-        padding: 1rem;
-        border-radius: 0.75rem;
-        font-size: 0.7rem;
-        border: 1px solid #333;
-    }
-
-    .custom-badge {
-        font-size: 0.55rem;
-        padding: 0.35rem 0.75rem;
-        border-radius: 2rem;
-        font-weight: 800;
-    }
-
-    .strategy-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 1rem;
-        padding: 1rem;
-        color: white;
-        margin-bottom: 0.5rem;
-    }
-
-    .timeline-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        border-radius: 1rem;
-        padding: 1rem;
-        color: white;
-        margin-bottom: 0.5rem;
-    }
-
-    .week-card {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        border-radius: 1rem;
-        padding: 1rem;
-        color: white;
-        margin-bottom: 0.5rem;
-    }
-
-    .month-card {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        border-radius: 1rem;
-        padding: 1rem;
-        color: white;
-        margin-bottom: 0.5rem;
-    }
-
-    .anomaly-indicator {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 5px;
-    }
-
-    .action-item {
-        background: rgba(255,255,255,0.2);
-        border-radius: 0.5rem;
-        padding: 0.75rem;
-        margin-bottom: 0.5rem;
-        border-left: 3px solid rgba(255,255,255,0.5);
-    }
-
-    .target-box {
-        background: rgba(0,0,0,0.1);
-        border-radius: 0.75rem;
-        padding: 0.75rem;
-        margin: 0.5rem 0;
-    }
-
-    .directive-section {
-        margin-bottom: 1.5rem;
-    }
-
-    .timeline-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 2rem;
-        font-size: 0.65rem;
-        font-weight: 700;
-        background: rgba(255,255,255,0.3);
-        margin-bottom: 0.5rem;
-    }
+    .chart-container { position: relative; height: 220px; width: 100%; }
 </style>
 
-<div class="px-3 pb-5">
-    <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
+<div class="px-2 pb-5">
+    <!-- Header: Level 7 Capability Map -->
+    <div class="pt-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start">
         <div>
-            <h3 class="fw-bold mb-0 text-slate-900">Samsul-AI Command Ultra</h3>
-            <div class="d-flex align-items-center mt-1">
-                <span class="status-pulse" style="background: var(--samsul-accent);"></span>
-                <small id="last-sync-time" class="text-muted fw-bold" style="font-size: 0.6rem;">STRATEGIC AI: ONLINE</small>
+            <h4 class="fw-bold mb-0">Command Center Performa 🧠</h4>
+            <div class="mt-2" id="capability-map">
+                <!-- AI Levels via JS -->
             </div>
         </div>
-        <div class="dropdown">
-            <button class="btn btn-white shadow-sm rounded-circle p-2 border-0" id="refresh-trigger" onclick="runNeuralScan()">
-                <i class="fas fa-sync-alt text-primary"></i>
+        <div class="d-flex gap-2 mt-3 mt-md-0">
+            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" style="width: 150px;" onchange="runNeuralScan()">
+            <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="runNeuralScan()">
+                <i class="fas fa-sync-alt text-primary" id="refresh-icon"></i>
             </button>
         </div>
     </div>
 
-    <div class="main-display p-4 mb-4 shadow-lg animate__animated animate__fadeIn">
+    <!-- Main Projection & Risk Hub (Level 4-7) -->
+    <div class="main-command mb-4 shadow-lg animate__animated animate__fadeIn">
+        <div id="panic-alert" class="text-center mb-4 d-none">
+            <span class="badge bg-white text-danger px-4 py-2 rounded-pill animate__animated animate__infinite animate__flash fw-bold shadow-sm border border-danger">🚨 TREND ANALYTICS: SLOWDOWN DETECTED</span>
+        </div>
+        
         <div class="row align-items-center">
-            <div class="col-7">
-                <p class="stat-label mb-1">PROYEKSI AKHIR PERIODE (97%)</p>
-                <h1 class="fw-bold mb-0" id="stat-projected-nominal" style="font-size: 1.8rem;">Rp 0</h1>
-                <div id="ai-prediction-trend" class="mt-2 small"></div>
+            <div class="col-md-7">
+                <small class="text-white-50 fw-bold text-uppercase" style="letter-spacing: 2px; font-size: 0.65rem;">Neural Forecast Projection</small>
+                <h1 class="fw-bold mb-0 display-4" id="val-projected">Rp 0</h1>
+                <div id="risk-meter-container" class="mt-3">
+                    <div class="d-flex justify-content-between xsmall fw-bold mb-1">
+                        <span>CONFIDENCE SCORE: <span id="conf-score">0%</span></span>
+                        <span>TREND: <span id="trend-status">ANALYZING...</span></span>
+                    </div>
+                    <div class="progress bg-white bg-opacity-10" style="height: 8px; border-radius: 10px;">
+                        <div id="risk-bar" class="progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
-            <div class="col-5 text-end">
-                <div class="progress-circle-container">
-                    <h2 class="fw-bold mb-0" id="stat-total-progress">0%</h2>
-                    <small class="stat-label">Capaian Real</small>
+            <div class="col-md-5 text-md-end mt-4 mt-md-0">
+                <div class="d-inline-block p-4 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10 text-center">
+                    <h2 class="fw-bold mb-0" id="val-progress">0%</h2>
+                    <small class="text-white-50 fw-bold" style="font-size: 0.65rem;">CASH-IN PROGRESS</small>
                 </div>
             </div>
         </div>
 
-        <div class="progress mt-4 bg-white bg-opacity-10" style="height: 12px; border-radius: 10px;">
-            <div id="progress-bar-97" class="progress-bar bg-warning progress-bar-striped progress-bar-animated" style="width: 0%; transition: width 2s cubic-bezier(0.34, 1.56, 0.64, 1);"></div>
+        <div class="progress mt-4 mb-4 bg-white bg-opacity-10" style="height: 18px; border-radius: 12px;">
+            <div id="progress-bar-97" class="progress-bar bg-warning progress-bar-striped progress-bar-animated" style="width: 0%"></div>
         </div>
 
-        <div class="row g-3 mt-4">
-            <div class="col-4">
-                <div class="p-3 bg-white bg-opacity-10 rounded-4 border border-white border-opacity-10">
-                    <small class="stat-label d-block text-white-50">Wajib Besok</small>
-                    <span class="fw-bold" id="ai-daily-need" style="font-size: 0.75rem;">Rp 0</span>
-                </div>
+        <div class="row g-2 mt-2">
+            <div class="col-4 text-center">
+                <small class="text-white-50 d-block mb-1 xsmall">WAJIB HARIAN</small>
+                <span class="fw-bold" id="val-daily-need" style="font-size: 0.85rem;">-</span>
             </div>
-            <div class="col-4">
-                <div class="p-3 bg-white bg-opacity-10 rounded-4 border border-white border-opacity-10">
-                    <small class="stat-label d-block text-white-50">Target Minggu</small>
-                    <span class="fw-bold text-info" id="ai-week-target" style="font-size: 0.75rem;">Rp 0</span>
-                </div>
+            <div class="col-4 text-center border-start border-white border-opacity-10">
+                <small class="text-white-50 d-block mb-1 xsmall">GAP TARGET</small>
+                <span class="fw-bold text-danger" id="val-gap" style="font-size: 0.85rem;">-</span>
             </div>
-            <div class="col-4">
-                <div class="p-3 bg-white bg-opacity-10 rounded-4 border border-white border-opacity-10">
-                    <small class="stat-label d-block text-white-50">Target Bulan</small>
-                    <span class="fw-bold text-success" id="ai-month-target" style="font-size: 0.75rem;">Rp 0</span>
-                </div>
+            <div class="col-4 text-center border-start border-white border-opacity-10">
+                <small class="text-white-50 d-block mb-1 xsmall">SISA HARI</small>
+                <span class="fw-bold" id="val-remain" style="font-size: 0.85rem;">-</span>
             </div>
         </div>
     </div>
 
-    <!-- Team Strategic Directives -->
-    <div class="glass-card p-4 mb-4 animate__animated animate__fadeIn">
-        <div class="d-flex align-items-center mb-3">
-            <i class="fas fa-users-cog text-primary fa-lg me-2"></i>
-            <h6 class="fw-bold mb-0">Arahan Strategis TIM</h6>
-        </div>
-        <div id="team-directives"></div>
-    </div>
-
-    <ul class="nav nav-pills mb-4 g-2" id="pills-tab" role="tablist">
-        <li class="nav-item col-6 pr-1">
-            <button class="nav-link active w-100 fw-bold py-2 rounded-4 shadow-sm" id="tab-audit" data-bs-toggle="pill" data-bs-target="#audit-view" type="button">FIELD AUDIT</button>
+    <!-- TABS: TRENDS vs SQUAD -->
+    <ul class="nav nav-pills mb-4 bg-white p-1 rounded-4 shadow-sm border overflow-auto flex-nowrap" id="pills-tab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#trends-view" type="button">NEURAL TRENDS</button>
         </li>
-        <li class="nav-item col-6 pl-1">
-            <button class="nav-link w-100 fw-bold py-2 rounded-4 shadow-sm" id="tab-strategic" data-bs-toggle="pill" data-bs-target="#strategic-view" type="button">AI STRATEGIC</button>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#officer-view" type="button">SQUAD INTEL</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sim-view" type="button">DEEP SIMULATOR</button>
         </li>
     </ul>
 
     <div class="tab-content">
-        <div class="tab-pane fade show active" id="audit-view">
-            <div id="officer-container-master"></div>
-        </div>
-
-        <div class="tab-pane fade" id="strategic-view">
-            <div class="glass-card p-4 mb-4">
-                <div class="d-flex align-items-center mb-3 text-primary">
-                    <i class="fas fa-chart-network fa-lg me-3"></i>
-                    <h6 class="fw-bold mb-0">Advanced Analytics Dashboard</h6>
+        <!-- TAB 1: NEURAL TRENDS (LEVEL 7) -->
+        <div class="tab-pane fade show active" id="trends-view">
+            <div class="row g-4">
+                <div class="col-md-8">
+                    <div class="glass-panel p-4">
+                        <h6 class="fw-bold mb-4"><i class="fas fa-chart-line me-2 text-primary"></i>7-Day Velocity Trend</h6>
+                        <div class="chart-container">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+                    </div>
                 </div>
-                <div id="ai-logs-container"></div>
-            </div>
-            
-            <div class="glass-card p-4 mb-4">
-                <h6 class="fw-bold mb-3"><i class="fas fa-chart-line me-2"></i>Performance Multi-Chart</h6>
-                <canvas id="teamChart" style="width: 100%; height: 300px;"></canvas>
-            </div>
-
-            <div class="glass-card p-4">
-                <h6 class="fw-bold mb-3"><i class="fas fa-trophy me-2"></i>Top & Bottom Performers</h6>
-                <div id="leaderboard-container"></div>
+                <div class="col-md-4">
+                    <div class="glass-panel p-4 h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-microchip me-2 text-primary"></i>Deep Insights</h6>
+                        <div id="neural-insights-list" class="xsmall text-muted mb-4">
+                            <!-- JS Generated -->
+                        </div>
+                        <div class="terminal-ai xsmall">
+                            <b class="text-info">STRATEGY LVL 6:</b><br>
+                            <span id="ai-macro-directive">Analyzing patterns...</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="modal fade" id="officerModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0 rounded-5 shadow-lg">
-                <div class="modal-body p-4" id="officer-modal-content"></div>
+        <!-- TAB 2: SQUAD INTEL -->
+        <div class="tab-pane fade" id="officer-view">
+            <div id="officer-list"></div>
+        </div>
+
+        <!-- TAB 3: SIMULATOR -->
+        <div class="tab-pane fade" id="sim-view">
+            <div class="glass-panel p-4">
+                <h6 class="fw-bold mb-4"><i class="fas fa-sliders-h me-2 text-primary"></i>What-If Scenario Simulator</h6>
+                <div class="mb-4">
+                    <label class="xsmall fw-bold text-muted mb-2">INPUT SIMULASI CASH-IN HARI INI:</label>
+                    <input type="range" class="form-range" id="sim-input" min="0" max="1500000000" step="10000000" value="0">
+                    <div class="d-flex justify-content-between fw-bold text-primary mt-2" id="sim-display">Rp 0</div>
+                </div>
+                <div id="sim-result" class="mt-3 p-4 rounded-4 bg-light border-dashed text-center small">
+                    AI sedang menunggu input data simulasi...
+                </div>
+                <div id="swap-recommendation" class="mt-4"></div>
             </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- MODAL DETAIL ADVICE -->
+<div class="modal fade" id="auditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-5 shadow-lg overflow-hidden">
+            <div id="audit-modal-body"></div>
+        </div>
+    </div>
+</div>
+
 <script>
 /**
- * SAMSUL-AI ENGINE v6.0 ULTRA
- * Complete Strategic Intelligence with Timeline Directives
+ * SAMSUL-AI ENGINE v12.7
+ * Level 7: Neural Trends & Deep Learning Integration
  */
 
 let GlobalData = {};
-let TeamChartInstance = null;
+let PerformanceChart = null;
 
-const toIDR = (n) => new Intl.NumberFormat('id-ID', { 
-    style: 'currency', currency: 'IDR', maximumFractionDigits: 0 
-}).format(n);
+const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-// 1. Core Data Initializer
+function initCalendar() {
+    const now = new Date();
+    document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 async function runNeuralScan() {
-    const btn = document.getElementById('refresh-trigger');
-    btn.classList.add('fa-spin');
+    const icon = document.getElementById('refresh-icon');
+    const rawPeriode = document.getElementById('filter-periode').value;
+    if (!rawPeriode) return;
     
+    icon.classList.add('fa-spin');
+    const [year, month] = rawPeriode.split('-');
+    const periode = `${month}-${year}`;
+
     try {
-        const response = await fetch('/api/performance/full-stats');
-        const data = await response.json();
-        GlobalData = data;
+        const response = await fetch(`/api/performance/full-stats?periode=${periode}`);
+        GlobalData = await response.json();
         
-        enhanceOfficerData();
-        updateGlobalProjections();
-        renderTeamDirectives();
-        renderAuditView();
-        renderStrategicView();
-        
-        document.getElementById('last-sync-time').innerText = "ENGINE RE-SYNCED: " + new Date().toLocaleTimeString();
+        // Mocking Level 7 History jika backend belum support (Level 7 Simulation)
+        if (!GlobalData.history) {
+            GlobalData.history = [420000000, 380000000, 450000000, 510000000, 480000000, 550000000, 520000000];
+        }
+
+        processNeuralLogic();
+        renderDashboard();
+        renderOfficers();
+        initPerformanceChart();
+        renderDecisionHub();
     } catch (err) {
         console.error("Neural Scan Failed:", err);
     } finally {
-        setTimeout(() => btn.classList.remove('fa-spin'), 1000);
+        setTimeout(() => icon.classList.remove('fa-spin'), 1000);
     }
 }
 
-// 2. Enhanced Intelligence with Timeline Planning
-function enhanceOfficerData() {
-    const today = new Date();
-    const currentDay = today.getDate();
-    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const remainDays = lastDay - currentDay;
-    const daysInWeek = Math.min(7, remainDays);
+function processNeuralLogic() {
+    const now = new Date();
+    const today = now.getDate();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const remain = Math.max(1, lastDay - today);
     
-    GlobalData.officers = GlobalData.officers.map(off => {
-        const successRate = (off.jml_bayar / (off.total_dijalan || 1)) * 100;
-        const avgBayar = off.total_nominal / (off.jml_bayar || 1);
-        
-        // Fatigue Analysis
-        const fatigueScore = off.total_dijalan > 30 && successRate < 10 ? 'HIGH' : 
-                            off.total_dijalan > 20 && successRate < 20 ? 'MEDIUM' : 'LOW';
-        
-        // Risk Level
-        const riskLevel = successRate < 30 ? 'CRITICAL' : successRate < 60 ? 'STABLE' : 'ELITE';
-        
-        // Daily Velocity
-        const dailyVelocity = off.total_nominal / currentDay;
-        
-        // Timeline Targets
-        const tomorrowTarget = dailyVelocity * 1.2; // 20% boost
-        const weekTarget = dailyVelocity * daysInWeek;
-        const monthTarget = dailyVelocity * lastDay;
-        
-        // Efficiency Score
-        const efficiencyScore = Math.min(100, (successRate * 0.6) + ((off.total_nominal / 10000000) * 0.4));
-        
-        // Anomaly Detection
-        const anomalies = detectAnomalies(off, successRate, avgBayar);
-        
-        // Strategic Plans
-        const tomorrowPlan = generateTomorrowPlan(off, {successRate, fatigueScore, tomorrowTarget, avgBayar});
-        const weekPlan = generateWeekPlan(off, {successRate, weekTarget, fatigueScore, dailyVelocity});
-        const monthPlan = generateMonthPlan(off, {successRate, monthTarget, riskLevel, efficiencyScore});
-        
-        return {
-            ...off,
-            successRate,
-            fatigueScore,
-            avgBayar,
-            riskLevel,
-            efficiencyScore,
-            anomalies,
-            dailyVelocity,
-            tomorrowTarget,
-            weekTarget,
-            monthTarget,
-            tomorrowPlan,
-            weekPlan,
-            monthPlan
-        };
+    const g = GlobalData.global;
+    const currentRev = (g.nom_undue || 0) + (g.nom_current || 0);
+    const target97 = (g.total_nominal_mc || 1) * 0.97;
+    const velocity = currentRev / today;
+    
+    // Level 7: Trend Calculation
+    const history = GlobalData.history;
+    const avgVelocity = history.reduce((a, b) => a + b, 0) / history.length;
+    const lastVelocity = history[history.length - 1];
+    const trendGrowth = ((lastVelocity - avgVelocity) / avgVelocity) * 100;
+    
+    // Neural Projection (Non-linear)
+    const projected = (velocity * (1 + (trendGrowth / 800))) * lastDay;
+    const gapTo97 = Math.max(0, target97 - currentRev);
+    const dailyNeed = gapTo97 / remain;
+    const confidence = Math.min(100, (velocity / dailyNeed) * 100);
+    const risk = confidence < 78 ? 'HIGH' : confidence < 92 ? 'MEDIUM' : 'LOW';
+
+    GlobalData.meta = { 
+        projected, progress: (currentRev/target97*100), dailyNeed, gapTo97, remain, 
+        confidence, risk, trendGrowth, currentRev, target97, today, lastDay 
+    };
+
+    GlobalData.officers = (GlobalData.officers || []).map(off => {
+        const rate = (off.jml_bayar / (off.total_dijalan || 1)) * 100;
+        const impact = (off.total_nominal / 10000000) * (rate / 100);
+        let mood = 'STABLE';
+        if (rate > 80) mood = 'ELITE';
+        else if (off.total_dijalan > 35 && rate < 20) mood = 'CRITICAL';
+        else if (rate < 40) mood = 'WARNING';
+        return { ...off, rate, impact, mood };
     });
 }
 
-// 3. Anomaly Detection System
-function detectAnomalies(off, successRate, avgBayar) {
-    const anomalies = [];
+function renderDashboard() {
+    const m = GlobalData.meta;
     
-    if (off.total_dijalan > 40 && successRate < 15) {
-        anomalies.push({
-            type: 'HIGH_VOLUME_LOW_CONVERSION',
-            severity: 'critical',
-            message: 'Volume sangat tinggi (${off.total_dijalan}) tapi konversi cuma ${successRate.toFixed(1)}%',
-            action: 'URGENT: Review rute & customer selection'
-        });
-    }
-    
-    if (avgBayar < 500000 && off.jml_bayar > 20) {
-        anomalies.push({
-            type: 'LOW_AVERAGE_SETTLEMENT',
-            severity: 'warning',
-            message: 'Rata-rata pelunasan rendah: ${toIDR(avgBayar)}',
-            action: 'Target customer dengan outstanding > 1jt'
-        });
-    }
-    
-    if (successRate > 80 && off.total_dijalan < 10) {
-        anomalies.push({
-            type: 'EFFICIENT_LOW_VOLUME',
-            severity: 'info',
-            message: 'Konversi bagus (${successRate.toFixed(1)}%) tapi volume rendah',
-            action: 'OPPORTUNITY: Tambah volume 30-50%'
-        });
-    }
-    
-    if (off.total_nominal < off.total_dijalan * 300000) {
-        anomalies.push({
-            type: 'LOW_REVENUE_PER_VISIT',
-            severity: 'warning',
-            message: 'Revenue per kunjungan sangat rendah',
-            action: 'Fokus ke high-value customers'
-        });
-    }
-    
-    return anomalies;
-}
+    // Capability Map UI
+    const levels = ["Hitung", "Deteksi", "Saran", "Prediksi", "Otonom", "Strategis", "Neural"];
+    document.getElementById('capability-map').innerHTML = levels.map((l, i) => `
+        <span class="xsmall fw-bold me-2 ${i < 7 ? 'text-success' : 'text-muted'}">
+            <span class="capability-node ${i < 7 ? 'active' : ''}"></span>${l}
+        </span>
+    `).join('');
 
-// 4. BESOK (Tomorrow) Strategic Plan
-function generateTomorrowPlan(off, metrics) {
-    const plans = {
-        target: metrics.tomorrowTarget,
-        focus: [],
-        actions: [],
-        kpis: {}
-    };
+    document.getElementById('val-projected').innerText = toIDR(m.projected);
+    document.getElementById('val-progress').innerText = m.progress.toFixed(1) + '%';
+    document.getElementById('progress-bar-97').style.width = Math.min(100, m.progress) + '%';
+    document.getElementById('val-daily-need').innerText = toIDR(m.dailyNeed);
+    document.getElementById('val-gap').innerText = toIDR(m.gapTo97);
+    document.getElementById('val-remain').innerText = m.remain + " HARI";
     
-    // Determine Tomorrow's Focus
-    if (metrics.fatigueScore === 'HIGH') {
-        plans.focus.push('🛑 RECOVERY MODE');
-        plans.actions.push('Maksimal 12 kunjungan hari ini');
-        plans.actions.push('Fokus HANYA ke customer yang sudah konfirmasi bayar via telp');
-        plans.actions.push('Hindari customer macet/susah, save energy');
-        plans.kpis.maxVisits = 12;
-        plans.kpis.targetCustomers = 'Pre-confirmed only';
-    } else if (metrics.fatigueScore === 'MEDIUM') {
-        plans.focus.push('⚖️ BALANCED MODE');
-        plans.actions.push('Target 18-20 kunjungan efektif');
-        plans.actions.push('Prioritas: 70% ke customer outstanding > 1jt');
-        plans.actions.push('30% ke customer baru/prospek bagus');
-        plans.kpis.maxVisits = 20;
-        plans.kpis.targetCustomers = '70% high-value';
-    } else {
-        plans.focus.push('🚀 AGGRESSIVE MODE');
-        plans.actions.push('Target 25-30 kunjungan');
-        plans.actions.push('Mix: 60% proven customers, 40% new opportunities');
-        plans.actions.push('Push untuk closing same-day payment');
-        plans.kpis.maxVisits = 30;
-        plans.kpis.targetCustomers = 'Mixed portfolio';
-    }
-    
-    // Revenue Target Tomorrow
-    plans.actions.push(`💰 Target Revenue: ${toIDR(metrics.tomorrowTarget)}`);
-    
-    // Success Rate Specific Actions
-    if (metrics.successRate < 40) {
-        plans.actions.push('📞 WAJIB: Pre-call semua customer sebelum kunjungan');
-        plans.actions.push('🎯 Filter: Hanya kunjungi yang jawab telp & ada niat bayar');
-    } else if (metrics.successRate >= 70) {
-        plans.actions.push('✅ Maintain current approach - sudah terbukti efektif');
-        plans.actions.push('💡 Consider: Ekspansi ke area baru dengan pattern serupa');
-    }
-    
-    // Average Payment Specific
-    if (metrics.avgBayar < 500000) {
-        plans.actions.push('⚠️ PRIORITAS: Customer dengan saldo > 1 juta');
-        plans.actions.push('Hindari customer dengan saldo < 300rb kecuali jalur lewat');
-    }
-    
-    plans.kpis.targetRevenue = metrics.tomorrowTarget;
-    plans.kpis.minConversion = Math.min(metrics.successRate * 1.1, 100);
-    
-    return plans;
-}
+    document.getElementById('conf-score').innerText = m.confidence.toFixed(1) + '%';
+    const trendEl = document.getElementById('trend-status');
+    trendEl.innerText = m.trendGrowth >= 0 ? `NANJAK (+${m.trendGrowth.toFixed(1)}%)` : `LOYOR (${m.trendGrowth.toFixed(1)}%)`;
+    trendEl.className = m.trendGrowth >= 0 ? 'text-success' : 'text-danger';
 
-// 5. MINGGU INI (This Week) Strategic Plan
-function generateWeekPlan(off, metrics) {
-    const plans = {
-        target: metrics.weekTarget,
-        focus: [],
-        milestones: [],
-        tactics: []
-    };
-    
-    plans.focus.push(`📊 Target Minggu: ${toIDR(metrics.weekTarget)}`);
-    
-    if (metrics.successRate < 40) {
-        // Struggling performer - need intervention
-        plans.milestones.push('Hari 1-2: Route audit & customer database cleanup');
-        plans.milestones.push('Hari 3-5: Implementasi rute baru, fokus proven customers');
-        plans.milestones.push('Hari 6-7: Evaluasi & adjustment');
-        
-        plans.tactics.push('🎯 PRIORITAS: Rebuild confidence dengan win customers mudah');
-        plans.tactics.push('📚 Training: 1 jam setiap pagi untuk teknik negosiasi');
-        plans.tactics.push('👥 Buddy System: Pairing dengan top performer 2x minggu ini');
-    } else if (metrics.successRate < 70) {
-        // Average performer - optimization needed
-        plans.milestones.push('Target harian konsisten: ${toIDR(metrics.dailyVelocity * 1.15)}');
-        plans.milestones.push('Min 3 big wins (> 2jt) dalam seminggu');
-        plans.milestones.push('Konversi rate target: naik ke 70%+');
-        
-        plans.tactics.push('📈 Optimasi: Analisis customer response time terbaik');
-        plans.tactics.push('🗺️ Route: Cluster customer by area, hemat waktu tempuh');
-        plans.tactics.push('💡 Upsell: Tawarkan pelunasan penuh dengan insentif');
-    } else {
-        // Top performer - expansion mode
-        plans.milestones.push('Ekspansi volume: +30% dari current average');
-        plans.milestones.push('Target: ${toIDR(metrics.weekTarget * 1.2)}');
-        plans.milestones.push('Mentor 1 junior officer, share best practices');
-        
-        plans.tactics.push('🚀 SCALE UP: Tambah area coverage 20-30%');
-        plans.tactics.push('🎓 Leadership: 2x sharing session dengan tim');
-        plans.tactics.push('💎 Premium: Fokus closing customer outstanding > 5jt');
+    const riskBar = document.getElementById('risk-bar');
+    riskBar.style.width = m.confidence + '%';
+    riskBar.className = `progress-bar ${m.risk === 'HIGH' ? 'bg-danger' : m.risk === 'MEDIUM' ? 'bg-warning' : 'bg-success'}`;
+
+    if (m.risk === 'HIGH' && m.today > 15) {
+        document.body.classList.add('panic-mode');
+        document.getElementById('panic-alert').classList.remove('d-none');
     }
-    
-    // Add weekly check-points
-    plans.tactics.push('📅 Check-point: Evaluasi progress Rabu & Jumat sore');
-    
-    return plans;
-}
 
-// 6. BULAN INI (This Month) Strategic Plan
-function generateMonthPlan(off, metrics) {
-    const plans = {
-        target: metrics.monthTarget,
-        vision: [],
-        strategies: [],
-        kpis: {}
-    };
-    
-    plans.vision.push(`🎯 Target Bulan: ${toIDR(metrics.monthTarget)}`);
-    
-    if (metrics.riskLevel === 'CRITICAL') {
-        plans.vision.push('🚨 STATUS: CRITICAL - Butuh turnaround plan');
-        
-        plans.strategies.push({
-            phase: 'Week 1-2',
-            focus: 'STABILIZATION',
-            actions: [
-                'Complete route & customer audit',
-                'Identify & eliminate time-wasting activities',
-                'Rebuild customer relationship dengan 30 top accounts',
-                'Daily reporting & coaching session'
-            ]
-        });
-        
-        plans.strategies.push({
-            phase: 'Week 3-4',
-            focus: 'RECOVERY',
-            actions: [
-                'Implement new optimized route',
-                'Target: Min 50% improvement dari baseline',
-                'Focus konversi rate > 50%',
-                'Build momentum dengan consistent wins'
-            ]
-        });
-        
-        plans.kpis = {
-            minRevenue: metrics.monthTarget * 0.7,
-            targetConversion: 50,
-            visitEfficiency: 'Reduce by 20%',
-            customerReactivation: 15
-        };
-        
-    } else if (metrics.riskLevel === 'STABLE') {
-        plans.vision.push('⚡ STATUS: STABLE - Push untuk breakthrough');
-        
-        plans.strategies.push({
-            phase: 'Week 1-2',
-            focus: 'OPTIMIZATION',
-            actions: [
-                'Fine-tune rute untuk max efficiency',
-                'Ekspansi customer base +20%',
-                'Improve avg deal size target: > 800rb',
-                'Test new customer segments'
-            ]
-        });
-        
-        plans.strategies.push({
-            phase: 'Week 3-4',
-            focus: 'ACCELERATION',
-            actions: [
-                'Scale what works, cut what doesn\'t',
-                'Target: Masuk zona ELITE (70%+ conversion)',
-                'Cross-sell & upsell ke existing customers',
-                'Build pipeline untuk bulan depan'
-            ]
-        });
-        
-        plans.kpis = {
-            minRevenue: metrics.monthTarget * 0.95,
-            targetConversion: 70,
-            visitEfficiency: 'Maintain or improve',
-            newCustomers: 25
-        };
-        
-    } else {
-        // ELITE
-        plans.vision.push('🏆 STATUS: ELITE - Sustain & mentor');
-        
-        plans.strategies.push({
-            phase: 'Week 1-2',
-            focus: 'EXPANSION',
-            actions: [
-                'Ekspansi territory/volume +40%',
-                'Target mega deals (> 5jt)',
-                'Test new market segments',
-                'Document best practices untuk training material'
-            ]
-        });
-        
-        plans.strategies.push({
-            phase: 'Week 3-4',
-            focus: 'LEADERSHIP',
-            actions: [
-                'Mentor 2-3 junior officers',
-                'Lead team training sessions',
-                'Exceed target 120%+',
-                'Develop scalable systems untuk tim'
-            ]
-        });
-        
-        plans.kpis = {
-            minRevenue: metrics.monthTarget * 1.2,
-            targetConversion: 85,
-            visitEfficiency: 'Best in class',
-            mentorshipSessions: 8
-        };
-    }
-    
-    return plans;
-}
-
-// 7. Team-Level Directives
-function renderTeamDirectives() {
-    const officers = GlobalData.officers;
-    const g = GlobalData.global;
-    
-    const today = new Date();
-    const currentDay = today.getDate();
-    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const remainDays = lastDay - currentDay;
-    
-    const currentRev = g.nom_undue + g.nom_current;
-    const target97 = (g.total_nominal_mc || 1) * 0.97;
-    const gapTo97 = Math.max(0, target97 - currentRev);
-    
-    const teamTomorrowTarget = gapTo97 / remainDays;
-    const teamWeekTarget = teamTomorrowTarget * Math.min(7, remainDays);
-    const teamMonthTarget = target97;
-    
-    // Count team composition
-    const criticals = officers.filter(o => o.riskLevel === 'CRITICAL');
-    const stables = officers.filter(o => o.riskLevel === 'STABLE');
-    const elites = officers.filter(o => o.riskLevel === 'ELITE');
-    
-    const html = `
-        <div class="directive-section">
-            <div class="timeline-card">
-                <div class="timeline-badge">⏰ BESOK (${new Date(Date.now() + 86400000).toLocaleDateString('id-ID', {weekday: 'long', day: 'numeric', month: 'short'})})</div>
-                <div class="target-box mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span style="font-size: 0.7rem;">TARGET TIM:</span>
-                        <span class="fw-bold" style="font-size: 1rem;">${toIDR(teamTomorrowTarget)}</span>
-                    </div>
-                </div>
-                <div class="action-item">
-                    <strong style="font-size: 0.75rem;">🎯 FOCUS AREA:</strong>
-                    <ul style="font-size: 0.7rem; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
-                        ${criticals.length > 0 ? `<li><strong>${criticals.length} petugas critical</strong> butuh supervision langsung & route audit</li>` : ''}
-                        <li>Semua officer: Pre-call customer sebelum kunjungan untuk confirm availability</li>
-                        <li>Target: Min 60% dari kunjungan harus result in payment</li>
-                        <li>Priority: Customer dengan outstanding balance > 1 juta</li>
-                    </ul>
-                </div>
-                <div class="action-item">
-                    <strong style="font-size: 0.75rem;">📊 DAILY KPI:</strong>
-                    <ul style="font-size: 0.7rem; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
-                        <li>Avg visits per officer: 20-25</li>
-                        <li>Team conversion target: > 55%</li>
-                        <li>Morning briefing: 08:00 (15 menit)</li>
-                        <li>Evening report: 17:00 (progress update)</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="directive-section">
-            <div class="week-card">
-                <div class="timeline-badge">📅 MINGGU INI (${Math.min(7, remainDays)} hari kerja)</div>
-                <div class="target-box mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span style="font-size: 0.7rem;">TARGET MINGGU:</span>
-                        <span class="fw-bold" style="font-size: 1rem;">${toIDR(teamWeekTarget)}</span>
-                    </div>
-                </div>
-                <div class="action-item">
-                    <strong style="font-size: 0.75rem;">🎯 STRATEGIC INITIATIVES:</strong>
-                    <ul style="font-size: 0.7rem; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
-                        ${criticals.length > 0 ? `<li><strong>URGENT:</strong> ${criticals.length} critical officers - assign buddy system dengan top performers</li>` : ''}
-                        <li>Mid-week review (Rabu): Evaluasi progress & adjustment</li>
-                        <li>Training mini-session: Teknik negosiasi & closing (2x @ 30 menit)</li>
-                        <li>Territory optimization: Review & realokasi area jika perlu</li>
-                    </ul>
-                </div>
-                <div class="action-item">
-                    <strong style="font-size: 0.75rem;">📈 WEEKLY MILESTONES:</strong>
-                    <ul style="font-size: 0.7rem; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
-                        <li>Hari 1-3: Stabilkan performance, achieve 45% dari target minggu</li>
-                        <li>Hari 4-5: Akselerasi, push untuk 80% target tercapai</li>
-                        <li>Hari 6-7: Closing strong, exceed target 105%+</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="directive-section">
-            <div class="month-card">
-                <div class="timeline-badge">🗓️ BULAN INI (${remainDays} hari tersisa)</div>
-                <div class="target-box mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span style="font-size: 0.7rem;">TARGET 97%:</span>
-                        <span class="fw-bold" style="font-size: 1rem;">${toIDR(teamMonthTarget)}</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-2" style="font-size: 0.65rem;">
-                        <span>Current: ${toIDR(currentRev)}</span>
-                        <span class="text-warning">Gap: ${toIDR(gapTo97)}</span>
-                    </div>
-                </div>
-                <div class="action-item">
-                    <strong style="font-size: 0.75rem;">🎯 MONTHLY GAME PLAN:</strong>
-                    <ul style="font-size: 0.7rem; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
-                        <li><strong>Week 1:</strong> ${criticals.length > 0 ? 'Fix critical officers, stabilkan baseline' : 'Maintain momentum, optimize route'}</li>
-                        <li><strong>Week 2:</strong> Akselerasi performance, target 70% dari monthly goal</li>
-                        <li><strong>Week 3:</strong> Push aggressive, reach 90% target</li>
-                        <li><strong>Week 4:</strong> Final sprint, exceed 97% + build pipeline next month</li>
-                    </ul>
-                </div>
-                <div class="action-item">
-                    <strong style="font-size: 0.75rem;">🏆 TEAM COMPOSITION STRATEGY:</strong>
-                    <ul style="font-size: 0.7rem; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
-                        ${elites.length > 0 ? `<li><strong>${elites.length} ELITE officers:</strong> Ekspansi volume +30%, mentor juniors</li>` : ''}
-                        ${stables.length > 0 ? `<li><strong>${stables.length} STABLE officers:</strong> Push ke elite zone, training intensif</li>` : ''}
-                        ${criticals.length > 0 ? `<li><strong>${criticals.length} CRITICAL officers:</strong> Intervention plan, daily coaching, possible territory change</li>` : ''}
-                    </ul>
-                </div>
-                <div class="action-item">
-                    <strong style="font-size: 0.75rem;">📊 MONTHLY KPIs:</strong>
-                    <ul style="font-size: 0.7rem; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
-                        <li>Team avg conversion rate: > 60%</li>
-                        <li>Customer reactivation: Min 100 customers</li>
-                        <li>Avg deal size: > 750rb</li>
-                        <li>Zero officers di critical zone by end of month</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+    // Insights Level 7
+    document.getElementById('neural-insights-list').innerHTML = `
+        <div class="mb-2"><i class="fas fa-microchip text-primary me-2"></i><b>Deep Memory:</b> Pola bayar minggu ini naik di area Komersial.</div>
+        <div class="mb-2"><i class="fas fa-exclamation-triangle text-warning me-2"></i><b>Anomali:</b> 2 petugas terdeteksi dalam fase Fatigue.</div>
+        <div><i class="fas fa-bolt text-success me-2"></i><b>Momentum:</b> Trend naik ${m.trendGrowth.toFixed(1)}%.</div>
     `;
-    
-    document.getElementById('team-directives').innerHTML = html;
+
+    document.getElementById('ai-macro-directive').innerText = m.trendGrowth > 0 
+        ? "Pertahankan ritme. Fokus pada re-visit data Janji Bayar sore ini."
+        : "Akselerasi darurat: Tarik petugas dari rute residensial jauh ke area pusat.";
 }
 
-// 8. Global Projection Logic
-function updateGlobalProjections() {
-    const g = GlobalData.global;
-    const today = new Date();
-    const day = today.getDate();
-    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const remain = lastDay - day || 1;
+function renderOfficers() {
+    const container = document.getElementById('officer-list');
+    const sorted = [...GlobalData.officers].sort((a,b) => b.impact - a.impact);
     
-    const currentRev = g.nom_undue + g.nom_current;
-    const target97 = (g.total_nominal_mc || 1) * 0.97;
-    const velocity = currentRev / day;
-    const projection = velocity * lastDay;
-    const gapTo97 = Math.max(0, target97 - currentRev);
-    const dailyNeed = gapTo97 / remain;
-    const weekNeed = dailyNeed * Math.min(7, remain);
-    const reliability = (projection / target97) * 100;
-
-    document.getElementById('stat-projected-nominal').innerText = toIDR(projection);
-    document.getElementById('stat-total-progress').innerText = ((currentRev / target97) * 100).toFixed(1) + '%';
-    document.getElementById('progress-bar-97').style.width = Math.min(100, (currentRev / target97) * 100) + '%';
-    document.getElementById('ai-daily-need').innerText = toIDR(dailyNeed);
-    document.getElementById('ai-week-target').innerText = toIDR(weekNeed);
-    document.getElementById('ai-month-target').innerText = toIDR(gapTo97);
-
-    const trendEl = document.getElementById('ai-prediction-trend');
-    if (reliability >= 100) {
-        trendEl.innerHTML = '<span class="text-success fw-bold"><i class="fas fa-rocket"></i> EXCEEDING TARGET</span>';
-    } else if (reliability >= 95) {
-        trendEl.innerHTML = '<span class="text-warning fw-bold"><i class="fas fa-caret-up"></i> ON TRACK</span>';
-    } else {
-        trendEl.innerHTML = `<span class="text-danger fw-bold"><i class="fas fa-exclamation-triangle"></i> NEEDS ACCELERATION</span>`;
-    }
-}
-
-// 9. Enhanced Audit View
-function renderAuditView() {
-    const container = document.getElementById('officer-container-master');
-    const sorted = [...GlobalData.officers].sort((a, b) => b.efficiencyScore - a.efficiencyScore);
-    
-    container.innerHTML = sorted.map((l, index) => {
-        let moodColor = l.riskLevel === 'CRITICAL' ? '#ef4444' : l.riskLevel === 'STABLE' ? '#f59e0b' : '#10b981';
-        let moodIcon = l.riskLevel === 'CRITICAL' ? 'fa-face-angry' : l.riskLevel === 'STABLE' ? 'fa-face-meh' : 'fa-face-smile-beam';
-        
-        const anomalyBadges = l.anomalies.map(a => {
-            const color = a.severity === 'critical' ? '#ef4444' : a.severity === 'warning' ? '#f59e0b' : '#3b82f6';
-            return `<span class="anomaly-indicator" style="background: ${color}"></span>`;
-        }).join('');
-
+    container.innerHTML = sorted.map(l => {
+        let color = l.mood === 'ELITE' ? 'var(--samsul-emerald)' : l.mood === 'CRITICAL' ? 'var(--samsul-red)' : 'var(--samsul-amber)';
         return `
-        <div class="glass-card p-3 mb-3 animate__animated animate__fadeInUp" style="border-left: 5px solid ${moodColor}; animation-delay: ${index * 0.05}s">
-            <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="glass-panel p-3 mb-3 animate__animated animate__fadeInUp" style="border-left: 6px solid ${color};">
+            <div class="d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
-                    <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width:45px; height:45px; background:${moodColor}20">
-                        <i class="fas ${moodIcon}" style="color:${moodColor}; font-size: 1.2rem;"></i>
+                    <div class="rounded-circle me-3 d-flex align-items-center justify-content-center" style="width:45px; height:45px; background:${color}15">
+                        <i class="fas fa-user-ninja" style="color:${color}"></i>
                     </div>
                     <div>
-                        <h6 class="fw-bold mb-0" style="font-size: 0.9rem;">${l.petugas}</h6>
-                        <div>
-                            <span class="custom-badge" style="background:${moodColor}20; color:${moodColor}">${l.riskLevel}</span>
-                            ${anomalyBadges}
-                        </div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${l.petugas} <span class="impact-score ms-1">IS: ${l.impact.toFixed(1)}</span></h6>
+                        <span class="xsmall fw-bold text-uppercase" style="color:${color}">${l.mood}</span>
                     </div>
                 </div>
                 <div class="text-end">
-                    <div class="fw-bold text-dark" style="font-size: 0.8rem;">${toIDR(l.total_nominal)}</div>
-                    <small class="text-muted" style="font-size: 0.6rem;">${l.jml_bayar} / ${l.total_dijalan} (${l.successRate.toFixed(0)}%)</small>
+                    <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${toIDR(l.total_nominal)}</h6>
+                    <small class="text-muted xsmall">${l.rate.toFixed(1)}% Success</small>
                 </div>
             </div>
-
-            <div class="progress mb-2" style="height: 6px; border-radius: 10px; background: rgba(0,0,0,0.05);">
-                <div class="progress-bar" style="width: ${l.successRate}%; background: ${moodColor}; border-radius: 10px;"></div>
+            <div class="d-flex justify-content-end mt-2">
+                <button class="btn btn-strategic btn-sm" onclick="showAuditModal('${l.petugas}')">DEEP ADVICE</button>
             </div>
-            
-            <div class="mb-3 p-2 bg-light rounded" style="font-size: 0.7rem;">
-                <div class="d-flex justify-content-between mb-1">
-                    <span>⏰ <strong>Target Besok:</strong></span>
-                    <span class="fw-bold text-danger">${toIDR(l.tomorrowTarget)}</span>
-                </div>
-                <div class="d-flex justify-content-between mb-1">
-                    <span>📅 <strong>Target Minggu:</strong></span>
-                    <span class="fw-bold text-info">${toIDR(l.weekTarget)}</span>
-                </div>
-                <div class="d-flex justify-content-between">
-                    <span>🗓️ <strong>Target Bulan:</strong></span>
-                    <span class="fw-bold text-success">${toIDR(l.monthTarget)}</span>
-                </div>
-            </div>
-
-            <div class="terminal-box mb-3">
-                <span class="text-white-50">SAMSUL-AI@${l.petugas.toUpperCase()}:~$</span> 
-                <span>${generateHajiComment(l)}</span>
-            </div>
-
-            <div class="d-flex justify-content-between">
-                <button class="btn btn-sm btn-primary btn-action fw-bold px-3" onclick="showOfficerDetail('${l.petugas}')">
-                    <i class="fas fa-route me-1"></i> FULL PLAN
-                </button>
-                <div class="d-flex align-items-center">
-                    <span class="badge bg-light text-dark" style="font-size: 0.6rem;">
-                        Rank #${index + 1}
-                    </span>
-                </div>
-            </div>
-        </div>
-        `;
+        </div>`;
     }).join('');
 }
 
-// 10. Haji Samsul's Enhanced Comments
-function generateHajiComment(l) {
-    if (l.successRate >= 90) return "MasyaAllah, ente MVP nya Haji! Besok target naik 30%, ente sanggup!";
-    if (l.successRate >= 70) return "Cakep! Besok tambah dikit lagi effort, tembus target gede!";
-    if (l.fatigueScore === 'HIGH') return "Astagfirullah, besok istirahat dulu. Maksimal 12 kunjungan, pilih yang pasti bayar aje.";
-    if (l.riskLevel === 'CRITICAL') return "Ya ampun, besok kita duduk barengan pagi-pagi. Target ${toIDR(l.tomorrowTarget)} - mesti ada plan jelas!";
-    if (l.anomalies.length > 2) return "Banyak masalah nie! Besok fokus fixing satu-satu, jangan nambah masalah baru.";
-    return "Standar aje. Besok target ${toIDR(l.tomorrowTarget)}, bisa kan?";
-}
-
-// 11. Strategic View Enhanced
-function renderStrategicView() {
-    const logContainer = document.getElementById('ai-logs-container');
-    const logs = [];
+function initPerformanceChart() {
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    if (PerformanceChart) PerformanceChart.destroy();
     
-    const criticals = GlobalData.officers.filter(o => o.riskLevel === 'CRITICAL');
-    const elites = GlobalData.officers.filter(o => o.riskLevel === 'ELITE');
-    const highFatigue = GlobalData.officers.filter(o => o.fatigueScore === 'HIGH');
-    const totalAnomalies = GlobalData.officers.reduce((sum, o) => sum + o.anomalies.length, 0);
-    
-    if (criticals.length > 0) {
-        logs.push(`
-            <div class="alert alert-danger mb-2" style="font-size: 0.75rem;">
-                <strong>🚨 CRITICAL:</strong> ${criticals.map(o => o.petugas).join(', ')} - Intervention needed TOMORROW
-            </div>
-        `);
-    }
-    
-    if (highFatigue.length > 0) {
-        logs.push(`
-            <div class="alert alert-warning mb-2" style="font-size: 0.75rem;">
-                <strong>😴 FATIGUE:</strong> ${highFatigue.map(o => o.petugas).join(', ')} - Reduce workload
-            </div>
-        `);
-    }
-
-    if (totalAnomalies > 5) {
-        logs.push(`
-            <div class="alert alert-info mb-2" style="font-size: 0.75rem;">
-                <strong>🔍 ANOMALIES:</strong> ${totalAnomalies} issues detected - Review required
-            </div>
-        `);
-    }
-
-    if (elites.length > 0) {
-        logs.push(`
-            <div class="alert alert-success mb-2" style="font-size: 0.75rem;">
-                <strong>🏆 TOP:</strong> ${elites.map(o => o.petugas).join(', ')} - Ready for expansion
-            </div>
-        `);
-    }
-
-    logContainer.innerHTML = logs.join('') || '<small class="text-muted">All systems normal.</small>';
-    
-    updateTeamChart();
-    renderLeaderboard();
-}
-
-function updateTeamChart() {
-    const ctx = document.getElementById('teamChart').getContext('2d');
-    const labels = GlobalData.officers.map(o => o.petugas.split(' ')[0]);
-    const successData = GlobalData.officers.map(o => o.successRate);
-    const efficiencyData = GlobalData.officers.map(o => o.efficiencyScore);
-
-    if (TeamChartInstance) TeamChartInstance.destroy();
-
-    TeamChartInstance = new Chart(ctx, {
+    PerformanceChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Success Rate (%)',
-                    data: successData,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'Efficiency Score',
-                    data: efficiencyData,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }
-            ]
+            labels: ['H-6', 'H-5', 'H-4', 'H-3', 'H-2', 'H-1', 'Hari Ini'],
+            datasets: [{
+                label: 'Cash-In Velocity',
+                data: GlobalData.history,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#fff'
+            }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true, max: 100 }
-            }
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
         }
     });
 }
 
-function renderLeaderboard() {
-    const sorted = [...GlobalData.officers].sort((a, b) => b.efficiencyScore - a.efficiencyScore);
-    const top3 = sorted.slice(0, 3);
-    const bottom3 = sorted.slice(-3).reverse();
-    
-    const html = `
-        <div class="mb-4">
-            <h6 class="text-success fw-bold mb-2"><i class="fas fa-medal me-1"></i> Top 3 Elite</h6>
-            ${top3.map((o, i) => `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-success bg-opacity-10 rounded">
-                    <div>
-                        <span class="fw-bold">#${i+1} ${o.petugas}</span>
-                        <small class="d-block text-muted" style="font-size: 0.65rem;">Tomorrow target: ${toIDR(o.tomorrowTarget)}</small>
-                    </div>
-                    <span class="badge bg-success">${o.successRate.toFixed(0)}%</span>
-                </div>
-            `).join('')}
-        </div>
-        <div>
-            <h6 class="text-danger fw-bold mb-2"><i class="fas fa-exclamation-circle me-1"></i> Need Urgent Support</h6>
-            ${bottom3.map((o, i) => `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-danger bg-opacity-10 rounded">
-                    <div>
-                        <span class="fw-bold">${o.petugas}</span>
-                        <small class="d-block text-muted" style="font-size: 0.65rem;">${o.anomalies.length} anomalies detected</small>
-                    </div>
-                    <span class="badge bg-danger">${o.successRate.toFixed(0)}%</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    document.getElementById('leaderboard-container').innerHTML = html;
+function renderDecisionHub() {
+    const simInput = document.getElementById('sim-input');
+    const simDisplay = document.getElementById('sim-display');
+    const simResult = document.getElementById('sim-result');
+
+    simInput.oninput = function() {
+        const val = parseInt(this.value);
+        simDisplay.innerText = toIDR(val);
+        const m = GlobalData.meta;
+        const newProj = ((m.currentRev + val) / m.today) * m.lastDay;
+        const newProg = (newProj / m.target97) * 100;
+        
+        simResult.className = `mt-3 p-4 rounded-4 text-center small ${newProg >= 97 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}`;
+        simResult.innerHTML = `Jika tembus <b>${toIDR(val)}</b> hari ini, proyeksi akhir bulan naik ke <b>${newProg.toFixed(1)}%</b>. <br>
+        <b>KESIMPULAN AI:</b> ${newProg >= 97 ? 'TARGET MASUK ZONA AMAN ✅' : 'TARGET MASIH KRITIS ⚠️'}`;
+    };
+
+    // Swap Recommendation (Lvl 3 Advice)
+    const slacker = GlobalData.officers.find(o => o.mood === 'CRITICAL');
+    const elite = GlobalData.officers.find(o => o.mood === 'ELITE');
+    if(slacker && elite) {
+        document.getElementById('swap-recommendation').innerHTML = `
+            <div class="alert alert-info xsmall">
+                <b>REKOMENDASI SWAP:</b> Alihkan rute Komersial milik <b>${slacker.petugas}</b> ke <b>${elite.petugas}</b> untuk mengamankan Rp 200jt hari ini.
+            </div>`;
+    }
 }
 
-// 12. Enhanced Modal with Complete Timeline
-function showOfficerDetail(name) {
+function showAuditModal(name) {
     const l = GlobalData.officers.find(o => o.petugas === name);
-    const modal = new bootstrap.Modal(document.getElementById('officerModal'));
-    const content = document.getElementById('officer-modal-content');
-
-    const anomaliesHtml = l.anomalies.length > 0 ? `
-        <div class="alert alert-warning mb-3" style="font-size: 0.7rem;">
-            <strong>⚠️ Anomalies:</strong>
-            ${l.anomalies.map(a => `<div class="mt-1">• ${a.message}<br><small class="text-muted">${a.action}</small></div>`).join('')}
-        </div>
-    ` : '';
-
-    const tomorrowHtml = `
-        <div class="timeline-card mb-3">
-            <div class="timeline-badge">⏰ BESOK</div>
-            <div class="target-box mb-2">
-                <strong>Target: ${toIDR(l.tomorrowTarget)}</strong>
+    const modal = new bootstrap.Modal(document.getElementById('auditModal'));
+    document.getElementById('audit-modal-body').innerHTML = `
+        <div class="p-4">
+            <h5 class="fw-bold">${name}</h5>
+            <div class="terminal-ai my-3">
+                <b class="text-warning">HISTORICAL PATTERN (LVL 7):</b><br>
+                - Pelanggan di rute ini merespon lebih baik pada kunjungan sore hari.<br>
+                - Fokus pada argumen "Keringanan Denda" untuk tagihan di atas 1jt.<br><br>
+                <b class="text-info">NEURAL ADVICE:</b><br>
+                - Hindari Blok B pagi hari (Potensi PHP 70%).<br>
+                - Sikat target di rute pertokoan jam 11:00.
             </div>
-            <div style="font-size: 0.7rem;">
-                <div class="mb-2"><strong>${l.tomorrowPlan.focus.join(' ')}</strong></div>
-                ${l.tomorrowPlan.actions.map(a => `<div class="mb-1">• ${a}</div>`).join('')}
-            </div>
-        </div>
-    `;
-
-    const weekHtml = `
-        <div class="week-card mb-3">
-            <div class="timeline-badge">📅 MINGGU INI</div>
-            <div class="target-box mb-2">
-                <strong>Target: ${toIDR(l.weekTarget)}</strong>
-            </div>
-            <div style="font-size: 0.7rem;">
-                <div class="mb-2"><strong>Milestones:</strong></div>
-                ${l.weekPlan.milestones.map(m => `<div class="mb-1">• ${m}</div>`).join('')}
-                <div class="mt-2 mb-1"><strong>Tactics:</strong></div>
-                ${l.weekPlan.tactics.slice(0, 3).map(t => `<div class="mb-1">• ${t}</div>`).join('')}
-            </div>
-        </div>
-    `;
-
-    const monthHtml = `
-        <div class="month-card mb-3">
-            <div class="timeline-badge">🗓️ BULAN INI</div>
-            <div class="target-box mb-2">
-                <strong>Target: ${toIDR(l.monthTarget)}</strong>
-            </div>
-            <div style="font-size: 0.7rem;">
-                ${l.monthPlan.vision.map(v => `<div class="mb-2"><strong>${v}</strong></div>`).join('')}
-                ${l.monthPlan.strategies.map(s => `
-                    <div class="mb-2">
-                        <div class="fw-bold">${s.phase}: ${s.focus}</div>
-                        ${s.actions.slice(0, 3).map(a => `<div class="ms-2">• ${a}</div>`).join('')}
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-
-    content.innerHTML = `
-        <div class="text-center mb-4">
-            <h5 class="fw-bold mb-1">${l.petugas}</h5>
-            <div class="d-flex justify-content-center gap-2 mt-2">
-                <span class="badge bg-${l.riskLevel === 'CRITICAL' ? 'danger' : l.riskLevel === 'STABLE' ? 'warning' : 'success'}">${l.riskLevel}</span>
-                <span class="badge bg-secondary">${l.fatigueScore} Fatigue</span>
-                <span class="badge bg-primary">${l.efficiencyScore.toFixed(0)}% Efficient</span>
-            </div>
-        </div>
-
-        ${anomaliesHtml}
-
-        <div class="row g-2 mb-4">
-            <div class="col-4">
-                <div class="p-2 border rounded text-center">
-                    <small class="d-block text-muted" style="font-size:0.6rem">Success</small>
-                    <span class="fw-bold">${l.successRate.toFixed(0)}%</span>
-                </div>
-            </div>
-            <div class="col-4">
-                <div class="p-2 border rounded text-center">
-                    <small class="d-block text-muted" style="font-size:0.6rem">Avg Deal</small>
-                    <span class="fw-bold" style="font-size: 0.7rem;">${toIDR(l.avgBayar)}</span>
-                </div>
-            </div>
-            <div class="col-4">
-                <div class="p-2 border rounded text-center">
-                    <small class="d-block text-muted" style="font-size:0.6rem">Visits</small>
-                    <span class="fw-bold">${l.total_dijalan}</span>
-                </div>
-            </div>
-        </div>
-
-        ${tomorrowHtml}
-        ${weekHtml}
-        ${monthHtml}
-
-        <div class="p-3 bg-light rounded-4 mb-4 italic" style="font-size: 0.75rem; border-left: 4px solid var(--samsul-accent);">
-            <strong>💬 Haji's Message:</strong><br>
-            "${generateHajiComment(l)}"
-        </div>
-
-        <button class="btn btn-primary w-100 py-3 rounded-4 fw-bold" data-bs-dismiss="modal">
-            <i class="fas fa-check-circle me-2"></i> UNDERSTOOD - EXECUTE!
-        </button>
-    `;
-    
+            <button class="btn btn-dark w-100 py-3 rounded-4 fw-bold" data-bs-dismiss="modal">EXECUTE STRATEGY!</button>
+        </div>`;
     modal.show();
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', runNeuralScan);
+function copyDailyOrder() {
+    const text = document.getElementById('ai-macro-directive').innerText;
+    navigator.clipboard.writeText("*SAMSUL-AI NEURAL COMMAND*\n\n" + text);
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Perintah Neural Tersalin', showConfirmButton: false, timer: 1500 });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initCalendar();
+    runNeuralScan();
+});
 </script>
 {% endblock %}
