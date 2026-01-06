@@ -5,7 +5,7 @@
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h4 class="fw-bold mb-1">WA Blast Tagihan 🚀</h4>
-            <p class="text-muted small mb-0">Manajemen pengiriman otomatis</p>
+            <p class="text-muted small mb-0">Prioritas: Tagihan Undue & Ardebt</p>
         </div>
         <div id="status-koneksi">
             <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 border border-success-subtle">
@@ -20,26 +20,27 @@
                 <div class="bg-primary-subtle text-primary rounded-3 p-2 me-2">
                     <i class="fas fa-cog"></i>
                 </div>
-                <h6 class="fw-bold mb-0 small">Konfigurasi Pesan</h6>
+                <h6 class="fw-bold mb-0 small">Konfigurasi Penerima</h6>
             </div>
             
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Target Penerima</label>
-                <select id="target-filter" class="form-select border-0 bg-light rounded-3 shadow-none py-2">
-                    <option value="all">Semua Belum Bayar (MC)</option>
-                    <option value="janji">Hanya Janji Bayar</option>
-                    <option value="tunggakan">Tunggakan > 3 Bulan</option>
+                <label class="form-label small fw-bold text-muted">Filter Target</label>
+                <select id="target-filter" class="form-select border-0 bg-light rounded-3 shadow-none py-2" onchange="resetPreview()">
+                    <option value="undue">Tagihan Bulan Lalu (Undue)</option>
+                    <option value="ardebt">Tagihan Berekor (Ardebt)</option>
+                    <option value="current">Tagihan Bulan Ini (Current)</option>
                 </select>
+                <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Memilih "Undue" akan menyaring pelanggan yang belum lunas di sistem pusat bulan lalu.</small>
             </div>
 
             <div class="mb-3">
                 <label class="form-label small fw-bold text-muted">Template Pesan</label>
                 <textarea id="msg-template" class="form-control border-0 bg-light rounded-3 small py-3 shadow-none" rows="6" placeholder="Tulis pesan di sini...">
 Halo Bapak/Ibu *{nama}*,
-Kami dari Tim Billing Sunter ingin menginformasikan tagihan dengan Nomen: *{nomen}*.
-Total tagihan Anda: *Rp {nominal}*.
+Kami menginformasikan tagihan Nomen: *{nomen}*.
+Total tunggakan Anda: *Rp {nominal}*.
 
-Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</textarea>
+Mohon segera melakukan pembayaran agar terhindar dari pemutusan. Abaikan jika sudah lunas. Terima kasih.</textarea>
                 <div class="mt-2 d-flex flex-wrap gap-1">
                     <span class="badge bg-white text-muted border" style="font-size: 0.65rem;">{nama}</span>
                     <span class="badge bg-white text-muted border" style="font-size: 0.65rem;">{nomen}</span>
@@ -59,7 +60,7 @@ Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</text
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h2 class="fw-bold mb-0 text-dark" id="target-count">0</h2>
-                        <small class="text-muted fw-bold" style="font-size: 0.7rem;">KONTAK TERDETEKSI</small>
+                        <small class="text-muted fw-bold" style="font-size: 0.7rem;">KONTAK SIAP BLAST</small>
                     </div>
                     <button onclick="startBlast()" id="btn-start" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm py-2">
                         KIRIM <i class="fas fa-paper-plane ms-2"></i>
@@ -70,15 +71,15 @@ Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</text
 
         <div class="card border-0 shadow-lg rounded-4 bg-dark overflow-hidden">
             <div class="card-header bg-transparent border-0 pt-3 px-3 d-flex justify-content-between align-items-center">
-                <h6 class="text-white-50 fw-bold mb-0 small" style="letter-spacing: 1px;">WA-BLAST TERMINAL</h6>
+                <h6 class="text-white-50 fw-bold mb-0 small" style="letter-spacing: 1px;">TERMINAL PENGIRIMAN</h6>
                 <div id="blast-percent-text" class="text-success fw-bold small">0%</div>
             </div>
             <div class="card-body pt-2">
                 <div class="progress mb-3 bg-secondary bg-opacity-25" style="height: 6px; border-radius: 10px;">
                     <div id="blast-progress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                 </div>
-                <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-2 bg-black bg-opacity-25" style="max-height: 180px; font-family: 'Courier New', Courier, monospace; line-height: 1.5;">
-                    <span class="text-warning">> Waiting for process...</span>
+                <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-2 bg-black bg-opacity-25" style="max-height: 180px; font-family: monospace;">
+                    <span class="text-warning">> System ready. Press Analisis...</span>
                 </div>
             </div>
         </div>
@@ -88,27 +89,33 @@ Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</text
 <script>
 let targetList = [];
 
+function resetPreview() {
+    document.getElementById('preview-section').classList.add('d-none');
+    targetList = [];
+}
+
 async function previewBlast() {
+    const filter = document.getElementById('target-filter').value;
     const logList = document.getElementById('log-list');
     
-    // UI Feedback
-    Swal.fire({
-        title: 'Mencari Kontak...',
-        didOpen: () => { Swal.showLoading(); },
-        timer: 1000,
-        showConfirmButton: false
-    });
+    Swal.fire({ title: 'Menyaring Data...', didOpen: () => { Swal.showLoading(); }, timer: 800 });
 
     try {
-        // Mengambil data dari endpoint yang sudah ada
-        const res = await fetch(`/api/belum-bayar`); 
-        targetList = await res.json();
+        let endpoint = '/api/belum-bayar';
+        if (filter === 'ardebt') endpoint = '/api/belum-bayar/ardebt';
+        
+        const res = await fetch(endpoint);
+        let data = await res.json();
+        
+        // Logika Khusus: Jika filter adalah Undue, kita bisa memodifikasi query 
+        // atau menyaring hasil yang periode-nya adalah bulan lalu (n-1)
+        targetList = data;
         
         document.getElementById('target-count').innerText = targetList.length;
         document.getElementById('preview-section').classList.remove('d-none');
-        logList.innerHTML = `<div class="text-success fw-bold">> [SYSTEM] Terdeteksi ${targetList.length} kontak siap dikirim.</div>`;
+        logList.innerHTML = `<div class="text-success fw-bold">> [FILTER: ${filter.toUpperCase()}] Terdeteksi ${targetList.length} pelanggan.</div>`;
     } catch (e) {
-        Swal.fire('Error', 'Gagal memuat daftar target', 'error');
+        Swal.fire('Error', 'Gagal memproses filter target', 'error');
     }
 }
 
@@ -119,62 +126,50 @@ async function startBlast() {
     const progressText = document.getElementById('blast-percent-text');
     const template = document.getElementById('msg-template').value;
 
+    if(targetList.length === 0) return;
+
     const confirm = await Swal.fire({
-        title: 'Mulai Blast?',
-        text: `Sistem akan mengirim pesan ke ${targetList.length} kontak.`,
-        icon: 'question',
+        title: 'Konfirmasi Blast',
+        text: `Kirim pesan massal ke ${targetList.length} pelanggan?`,
+        icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Kirim Sekarang',
-        borderRadius: '1rem'
+        confirmButtonText: 'Ya, Jalankan!'
     });
 
     if (!confirm.isConfirmed) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>PROSES...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>RUNNING...';
 
     for (let i = 0; i < targetList.length; i++) {
         const item = targetList[i];
         
-        // Logika Replace Variable
-        let message = template
-            .replace(/{nama}/g, item.nama)
-            .replace(/{nomen}/g, item.idpel || item.nomen)
-            .replace(/{nominal}/g, Number(item.total_tagihan || item.nominal).toLocaleString('id-ID'));
+        // Penyesuaian variabel karena Ardebt dan MC punya key yang sedikit berbeda
+        const namaVal = item.nama || item.nama_pelanggan || "Pelanggan";
+        const nomenVal = item.nomen || item.idpel;
+        const nominalVal = item.total_tunggakan || item.nominal;
 
-        // Simulasi Update Log (Frontend Only)
+        let message = template
+            .replace(/{nama}/g, namaVal)
+            .replace(/{nomen}/g, nomenVal)
+            .replace(/{nominal}/g, Number(nominalVal).toLocaleString('id-ID'));
+
         const logEntry = document.createElement('div');
-        logEntry.classList.add('mb-1');
-        logEntry.innerHTML = `<span class="text-info">[${i+1}/${targetList.length}]</span> Mengirim ke ${item.nama}...`;
+        logEntry.innerHTML = `<span class="text-info">[${i+1}/${targetList.length}]</span> ${namaVal}... `;
         logList.prepend(logEntry);
 
-        // Update Progress UI
+        // Update Progress
         const percent = Math.round(((i + 1) / targetList.length) * 100);
         progressBar.style.width = percent + '%';
         progressText.innerText = percent + '%';
 
-        // Jeda 3 detik (Anti-Spam)
+        // Jeda Anti-Banned (3 Detik)
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        logEntry.innerHTML += ' <span class="text-success fw-bold">OK</span>';
+        logEntry.innerHTML += '<span class="text-success">SENT ✅</span>';
     }
 
-    Swal.fire({
-        icon: 'success',
-        title: 'Blast Selesai!',
-        text: 'Semua pesan telah masuk antrean pengiriman.',
-        confirmButtonColor: '#198754'
-    });
-    
-    btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> SELESAI';
-    btn.classList.replace('btn-success', 'btn-outline-success');
+    Swal.fire('Selesai!', 'Blast tagihan telah berhasil dikirim.', 'success');
+    btn.innerHTML = 'BLAST FINISHED';
 }
 </script>
-
-<style>
-    .bg-success-subtle { background-color: #e1f7ec; }
-    .bg-primary-subtle { background-color: #e7f1ff; }
-    #log-list::-webkit-scrollbar { width: 4px; }
-    #log-list::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
-</style>
 {% endblock %}
