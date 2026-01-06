@@ -4,7 +4,7 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4">
         <h4 class="fw-bold mb-1">Import Data Master 📂</h4>
-        <p class="text-muted small">Kelola database MC, MB, atau Rute Petugas melalui file Excel (.xlsx / .xls)</p>
+        <p class="text-muted small">Kelola database MC, MB, Ardebt, atau Rute Petugas melalui file Excel</p>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
@@ -54,28 +54,51 @@
                     <h6 class="fw-bold small text-primary mb-2">FILE MC / MB</h6>
                     <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
                         <li><i class="fas fa-check-circle me-1 text-primary"></i> NOMEN / IDPEL</li>
-                        <li><i class="fas fa-check-circle me-1 text-primary"></i> <b>NOTAGIHAN</b> (Wajib)</li>
+                        <li><i class="fas fa-check-circle me-1 text-primary"></i> <b>NOTAGIHAN</b></li>
                         <li><i class="fas fa-check-circle me-1 text-primary"></i> NOMET / NAMA_PEL</li>
                         <li><i class="fas fa-check-circle me-1 text-primary"></i> NOMINAL</li>
                     </ul>
                 </div>
             </div>
+
+            <div class="col-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-danger border-4">
+                    <h6 class="fw-bold small text-danger mb-2">FILE ARDEBT</h6>
+                    <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
+                        <li><i class="fas fa-check-circle me-1 text-danger"></i> NOMEN</li>
+                        <li><i class="fas fa-check-circle me-1 text-danger"></i> <b>JUMLAH</b></li>
+                        <li><i class="fas fa-check-circle me-1 text-danger"></i> VOLUME</li>
+                        <li><i class="fas fa-check-circle me-1 text-danger"></i> PERIODE_BILL</li>
+                    </ul>
+                </div>
+            </div>
+
             <div class="col-6">
                 <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-success border-4">
                     <h6 class="fw-bold small text-success mb-2">FILE COLLECTION</h6>
                     <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
                         <li><i class="fas fa-check-circle me-1 text-success"></i> NOMEN / IDPEL</li>
-                        <li><i class="fas fa-check-circle me-1 text-success"></i> <b>NOTAG</b> (Wajib)</li>
+                        <li><i class="fas fa-check-circle me-1 text-success"></i> <b>NOTAG</b></li>
                         <li><i class="fas fa-check-circle me-1 text-success"></i> PAY_DT</li>
                         <li><i class="fas fa-check-circle me-1 text-success"></i> NOMINAL</li>
                     </ul>
                 </div>
             </div>
-            <div class="col-12">
-                <div class="card border-0 shadow-sm rounded-4 p-3 border-start border-info border-4">
-                    <h6 class="fw-bold small text-info mb-1"><i class="fas fa-info-circle me-1"></i> Logika Pintu Ganda</h6>
-                    <p class="mb-0 text-muted" style="font-size: 0.65rem;">Sistem mencocokkan <b>NOTAGIHAN</b> dan <b>PERIODE</b> secara otomatis untuk mengurangi sisa target di dashboard.</p>
+
+            <div class="col-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-info border-4">
+                    <h6 class="fw-bold small text-info mb-2">FILE RUTE</h6>
+                    <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
+                        <li><i class="fas fa-check-circle me-1 text-info"></i> PCEZ (Format: 000/00)</li>
+                        <li><i class="fas fa-check-circle me-1 text-info"></i> PETUGAS</li>
+                    </ul>
                 </div>
+            </div>
+            
+            <div class="col-12 text-center mt-3">
+                <p class="text-muted" style="font-size: 0.65rem;">
+                    <i class="fas fa-info-circle me-1"></i> Sistem mendeteksi tipe file secara otomatis berdasarkan nama kolom.
+                </p>
             </div>
         </div>
     </div>
@@ -89,7 +112,6 @@
     const fileSizePreview = document.getElementById('file-size-preview');
     const processContainer = document.getElementById('process-container');
 
-    // Drag and Drop Handlers
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, preventDefaults, false);
     });
@@ -124,7 +146,6 @@
             processContainer.classList.remove('d-none');
             processContainer.classList.add('animate__backInUp');
             
-            // UI Feedback
             dropArea.style.background = '#eff6ff';
             document.getElementById('upload-icon-container').innerHTML = '<i class="fas fa-check-circle text-success mb-3 animate__animated animate__bounceIn" style="font-size: 4rem;"></i>';
         }
