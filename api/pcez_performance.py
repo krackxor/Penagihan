@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Strategis: Target (N-1) vs Realisasi (N) + Integrasi Ardebt"""
+        """Statistik Strategis: Target (N-1) vs Realisasi (N) + Integrasi Ardebt Dinamis"""
         try:
             db = get_db()
             today = datetime.now()
@@ -34,17 +34,19 @@ def register_pcez_routes(app, get_db):
             else:
                 target_period = (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
 
-            # 3. Query Global: Target MC vs Realisasi (Current + Undue)
+            # 3. Query Global: Struktur Target N-1 vs Realisasi N
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
                 COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nominal_mc,
                 
+                -- MB/ARDEB (Data N-1): Pembayaran sistem pusat periode target
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
+                -- COLLECTION/MAINBILL (Data N): Hasil kerja harian periode berjalan
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
@@ -61,7 +63,7 @@ def register_pcez_routes(app, get_db):
                 ), 0) as count_current
             """
             
-            # 4. Query Ranking Petugas (INTEGRASI ARDEBT: Menghitung nominal dari MC atau Ardebt)
+            # 4. Query Ranking Petugas (INTEGRASI ARDEBT: Prioritas MC, Fallback ke SUM Ardebt)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
