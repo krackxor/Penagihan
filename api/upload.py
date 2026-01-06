@@ -58,7 +58,6 @@ def handle_upload():
         if file_type == 'rute':
             count = 0
             for _, row in df.iterrows():
-                # PCEZ dari file rute (Contoh: 096/01)
                 pcez = clean_pcez(row.get('PCEZ'))
                 petugas_raw = str(row.get('PETUGAS', '')).strip().upper()
                 
@@ -66,7 +65,6 @@ def handle_upload():
                     db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
                                (pcez, petugas_raw))
                     count += 1
-            print(f"✅ Berhasil sinkronisasi {count} rute petugas.")
 
         elif file_type == 'mc':
             count_mc = 0
@@ -77,9 +75,8 @@ def handle_upload():
                 
                 if not nomen or nomen == 'NAN': continue
                 
-                # ZONA_NOVAK dari MC (Contoh: 350960217)
                 zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "").strip()
-                pcez_val = clean_pcez(zona) # Langsung kirim ke clean_pcez
+                pcez_val = clean_pcez(zona) 
                 
                 db.execute("""
                     INSERT INTO master_pelanggan (nomen, notagihan, nomet, nama, pcez, nominal, tipe, periode) 
@@ -90,7 +87,6 @@ def handle_upload():
                     row.get('NAMA_PEL'), pcez_val, row.get('NOMINAL'), periode_str
                 ))
                 count_mc += 1
-            print(f"✅ Berhasil memproses {count_mc} pelanggan MC.")
 
         elif file_type == 'mb':
             count_mb = 0
@@ -115,6 +111,24 @@ def handle_upload():
                         VALUES (?, ?, ?, ?)
                     """, (nomen, notag if notag != 'NAN' else None, row.get('NOMINAL'), periode_str))
                     count_coll += 1
+
+        # --- LOGIKA BARU: PROSES FILE ARDEBT ---
+        elif file_type == 'ardebt':
+            # Kosongkan tabel ardebt lama sebelum mengisi yang baru agar data tetap aktual
+            db.execute("DELETE FROM ardebt")
+            count_ard = 0
+            for _, row in df.iterrows():
+                nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
+                jumlah = row.get('JUMLAH')
+                volume = row.get('VOLUME')
+                per_bill = row.get('PERIODE_BILL')
+                
+                if nomen and nomen != 'NAN':
+                    db.execute("""
+                        INSERT INTO ardebt (nomen, jumlah, volume, periode_bill) 
+                        VALUES (?, ?, ?, ?)
+                    """, (nomen, jumlah, volume, per_bill))
+                    count_ard += 1
 
         db.commit()
         return jsonify({"status": "success", "message": f"Data {file_type.upper()} Berhasil Diperbarui{periode_info}"})
