@@ -79,3 +79,8 @@ CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
 CREATE INDEX IF NOT EXISTS idx_notag_mb ON master_bayar(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notagihan);
 CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
+
+-- TAMBAHAN INDEKS UNTUK OPTIMASI TAGIHAN BEREKOR (ARDEBT)
+-- Mempercepat proses SUM(jumlah) dan filter exclude nomen
+CREATE INDEX IF NOT EXISTS idx_nomen_ardebt ON ardebt(nomen);
+CREATE INDEX IF NOT EXISTS idx_periode_bill_ardebt ON ardebt(periode_bill);
