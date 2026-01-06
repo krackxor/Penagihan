@@ -76,6 +76,11 @@ def create_app():
         """Halaman Daftar Kerja Petugas (Target MC)"""
         return render_template('belum_bayar.html')
 
+    @app.route('/tagihan-berekor')
+    def tagihan_berekor_page():
+        """Halaman khusus untuk menangani tunggakan lama (Ardebt)"""
+        return render_template('tagihan_berekor.html')
+
     @app.route('/performa')
     def performa_page():
         """Halaman Grafik & Leaderboard Petugas"""
