@@ -199,3 +199,46 @@ def lapor_kunjungan():
         return jsonify({"error": f"Database Error: {str(e)}"}), 500
     finally:
         conn.close()
+
+# --- TAMBAHAN ENDPOINT BARU: TAGIHAN BEREKOR (ARDEBT) ---
+@belum_bayar_bp.route('/ardebt', methods=['GET'])
+def get_tagihan_berekor():
+    """
+    Mengambil daftar tagihan berekor dari tabel ardebt.
+    - Menjumlahkan nominal (SUM)
+    - Menghitung jumlah bulan tunggakan (COUNT PERIODE_BILL)
+    - Menyaring nomen agar tidak tumpang tindih dengan daftar Belum Bayar (MC)
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Periode saat ini untuk filter exclude
+        curr_period = datetime.now().strftime('%m-%Y')
+
+        query = """
+            SELECT 
+                a.nomen, 
+                SUM(a.jumlah) as total_tunggakan, 
+                COUNT(a.periode_bill) as jumlah_ekor,
+                MAX(p.nama) as nama,
+                MAX(p.pcez) as pcez
+            FROM ardebt a
+            LEFT JOIN master_pelanggan p ON a.nomen = p.nomen
+            WHERE a.nomen NOT IN (
+                -- Pastikan nomen tidak ada di daftar Belum Bayar (Target MC) bulan ini
+                SELECT nomen FROM master_pelanggan 
+                WHERE tipe = 'MC' AND periode = ?
+            )
+            GROUP BY a.nomen
+            HAVING total_tunggakan > 0
+            ORDER BY jumlah_ekor DESC, total_tunggakan DESC
+        """
+        
+        cursor.execute(query, (curr_period,))
+        data = [dict(row) for row in cursor.fetchall()]
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
