@@ -24,7 +24,7 @@
     <div class="row g-2 mb-3">
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">JUMLAH TAGIHAN</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">JUMLAH TAGIHAN (MC)</small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
@@ -38,7 +38,7 @@
 
     <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%);">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1px; font-size: 0.6rem;">HASIL PENAGIHAN SAAT INI</small>
+            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1px; font-size: 0.6rem;">HASIL PENAGIHAN MC SAAT INI</small>
             <h1 class="fw-bold mb-0" id="stat-percent" style="font-size: 3.5rem;">0%</h1>
             <div class="progress my-3 bg-white bg-opacity-10" style="height: 8px; border-radius: 20px;">
                 <div id="prog-bar" class="progress-bar bg-white progress-bar-striped progress-bar-animated" style="width: 0%;"></div>
@@ -48,14 +48,14 @@
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">BAYAR UNDUE</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS PUSAT (UNDUE)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.8rem;">0 NOMEN</span>
                         <span class="small opacity-90" id="nom-undue" style="font-size: 0.65rem;">Rp 0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">BAYAR CURRENT</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS LAPANGAN (CURRENT)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.8rem;">0 NOMEN</span>
                         <span class="small opacity-90" id="nom-current" style="font-size: 0.65rem;">Rp 0</span>
                     </div>
@@ -67,11 +67,11 @@
     <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white text-center">
         <div class="row g-0 text-start">
             <div class="col-7 border-end ps-2">
-                <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">BELUM DITAGIH (UANG)</small>
+                <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">BELUM DITAGIH MC (UANG)</small>
                 <h5 class="fw-bold mb-0 text-danger" id="stat-sisa-nom">Rp 0</h5>
             </div>
             <div class="col-5 ps-3">
-                <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">SISA NOMEN</small>
+                <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">SISA NOMEN MC</small>
                 <h5 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0</h5>
             </div>
         </div>
@@ -139,26 +139,26 @@
 
             const g = data.global;
 
-            // 1. Update Statistik Global (Target MC Tetap Jadi Acuan Utama)
+            // 1. Update Statistik Global (MC sebagai target utama)
             document.getElementById('g-nomen-mc').innerText = g.total_nomen_mc.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc);
             document.getElementById('stat-sisa-nom').innerText = toIDR(g.sisa_nominal);
             document.getElementById('stat-sisa-nomen').innerText = g.sisa_nomen.toLocaleString();
             document.getElementById('stat-realisasi').innerText = `${g.total_lunas_mc.toLocaleString()} Selesai / ${g.total_nomen_mc.toLocaleString()} Total`;
             
-            document.getElementById('val-undue').innerText = `${g.count_undue} Orang`;
+            document.getElementById('val-undue').innerText = `${g.count_undue} NOMEN`;
             document.getElementById('nom-undue').innerText = toIDR(g.nom_undue);
-            document.getElementById('val-current').innerText = `${g.count_current} Orang`;
+            document.getElementById('val-current').innerText = `${g.count_current} NOMEN`;
             document.getElementById('nom-current').innerText = toIDR(g.nom_current);
 
             const pct = g.total_nomen_mc > 0 ? Math.round((g.total_lunas_mc / g.total_nomen_mc) * 100) : 0;
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            // 2. Render Grafik (Sekarang sudah termasuk MC + Ardebt)
+            // 2. Render Grafik Gabungan
             renderChart(data.officers);
             
-            // 3. Render Peringkat (Total Rupiah gabungan MC + Ardebt)
+            // 3. Render Peringkat (Total Rupiah MC + Ardebt)
             const lb = document.getElementById('leaderboard-section');
             lb.innerHTML = data.officers.map((o, i) => `
                 <div class="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-white">
@@ -174,14 +174,13 @@
                         <div class="col-4"><div class="bg-light p-2 rounded-2 text-warning"><div style="font-size:0.5rem;">JANJI</div><b>${o.jml_janji}</b></div></div>
                         <div class="col-4"><div class="bg-light p-2 rounded-2 text-danger"><div style="font-size:0.5rem;">KENDALA</div><b>${o.jml_rks}</b></div></div>
                     </div>
-                    <div class="mt-2 text-center small text-muted">Total Lokasi Dikunjungi: <b>${o.total_dijalan}</b></div>
+                    <div class="mt-2 text-center small text-muted">Total Lokasi (MC+Ard): <b>${o.total_dijalan}</b></div>
                 </div>
             `).join('');
 
-            // 4. Render Laporan Harian (Sekarang sudah termasuk nominal Ardebt)
+            // 4. Render History Laporan Tim
             const hts = document.getElementById('history-tim-section');
-            const historyData = data.history || [];
-            hts.innerHTML = historyData.map(h => `
+            hts.innerHTML = (data.history || []).map(h => `
                 <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-white border-start border-primary border-4">
                     <div class="d-flex justify-content-between small mb-2"><span class="fw-bold">${h.petugas}</span><span class="text-muted">${h.tanggal}</span></div>
                     <div class="row g-1 text-center" style="font-size:0.7rem;">
@@ -190,12 +189,12 @@
                         <div class="col-4 text-danger">Kendala: ${h.jml_rks}</div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                        <small class="text-muted">Jalan: ${h.total_dijalan}</small><small class="fw-bold text-success">${toIDR(h.total_nominal)}</small>
+                        <small class="text-muted">Total Kunjungan: ${h.total_dijalan}</small><small class="fw-bold text-success">${toIDR(h.total_nominal)}</small>
                     </div>
                 </div>
             `).join('');
 
-            // 5. Update Live Feed
+            // 5. Update Activity Feed
             allLogs = data.log_petugas || [];
             currentPage = 1;
             renderLiveLogs();
@@ -214,7 +213,7 @@
             type: 'bar',
             data: {
                 labels: officers.map(o => o.petugas),
-                datasets: [{ label: 'Lokasi', data: officers.map(o => o.total_dijalan), backgroundColor: '#0d6efd', borderRadius: 8 }]
+                datasets: [{ label: 'Lokasi Dikunjungi', data: officers.map(o => o.total_dijalan), backgroundColor: '#0d6efd', borderRadius: 8 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
         });
@@ -226,7 +225,7 @@
         const currentLogs = allLogs.slice(start, start + logsPerPage);
         
         if (currentLogs.length === 0) {
-            container.innerHTML = '<div class="text-center py-4 text-muted small">Belum ada laporan baru</div>';
+            container.innerHTML = '<div class="text-center py-4 text-muted small">Belum ada aktivitas baru</div>';
             return;
         }
 
@@ -234,13 +233,8 @@
             let jamWIB = "--:--";
             if(log.waktu) {
                 const dateObj = new Date(log.waktu.replace(' ', 'T'));
-                jamWIB = dateObj.toLocaleTimeString('id-ID', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    hour12: false 
-                });
+                jamWIB = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
             }
-
             return `
                 <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
                     <div class="d-flex justify-content-between small mb-1">
@@ -276,15 +270,8 @@
 </script>
 
 <style>
-    .realtime-dot { 
-        width: 8px; height: 8px; background-color: #ff0000; border-radius: 50%; 
-        display: inline-block; animation: pulse-red 1.5s infinite; 
-    }
-    @keyframes pulse-red { 
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); } 
-        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); } 
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0); } 
-    }
+    .realtime-dot { width: 8px; height: 8px; background-color: #ff0000; border-radius: 50%; display: inline-block; animation: pulse-red 1.5s infinite; }
+    @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0); } }
     .progress-bar { transition: width 0.8s ease; }
     .btn-white { background: white; border: none; }
     .rounded-5 { border-radius: 1.5rem !important; }
