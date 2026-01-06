@@ -4,7 +4,7 @@
     <div class="px-2 mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h4 class="fw-bold mb-1">Tagihan Berekor 🐉</h4>
-            <p class="text-muted small mb-0">Tunggakan Ardebt (Exclude Target MC)</p>
+            <p class="text-muted small mb-0">Tunggakan Ardebt (Tagihan > 1 Bulan)</p>
         </div>
         <div class="bg-danger text-white px-3 py-1 rounded-pill small fw-bold shadow-sm">
             ARDEBT
@@ -15,7 +15,7 @@
         <div class="card-body p-3">
             <div class="row g-2">
                 <div class="col-6">
-                    <label class="small fw-bold text-muted mb-1">Petugas</label>
+                    <label class="small fw-bold text-muted mb-1">Petugas (Rute)</label>
                     <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 shadow-none" onchange="loadArdebt()">
                         <option value="all">Semua</option>
                     </select>
@@ -40,7 +40,7 @@
     <div id="list-container" class="px-2">
         <div class="text-center py-5">
             <div class="spinner-border text-danger" role="status"></div>
-            <p class="mt-2 text-muted">Memuat data tunggakan...</p>
+            <p class="mt-2 text-muted">Memuat data tunggakan Ardebt...</p>
         </div>
     </div>
 </div>
@@ -84,7 +84,7 @@
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label small fw-bold">Foto Bukti</label>
+                        <label class="form-label small fw-bold">Foto Bukti (Watermarked)</label>
                         <input type="file" id="modal-foto" class="form-control rounded-3 bg-light border-0" accept="image/*" capture="camera">
                     </div>
                 </div>
@@ -117,7 +117,11 @@
         const res = await fetch('/api/belum-bayar/petugas-tabs');
         const list = await res.json();
         const select = document.getElementById('filter-petugas');
-        list.forEach(n => select.innerHTML += `<option value="${n}">${n}</option>`);
+        list.forEach(n => {
+            if(![...select.options].some(o => o.value === n)) {
+                select.innerHTML += `<option value="${n}">${n}</option>`;
+            }
+        });
     }
 
     async function loadArdebt() {
@@ -126,32 +130,29 @@
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-danger"></div></div>';
 
         try {
-            const res = await fetch('/api/belum-bayar/ardebt');
-            let data = await res.json();
+            // Memanggil API dengan parameter petugas untuk filter di sisi server (jika didukung) 
+            // atau melakukan filter di sisi client untuk akurasi instan
+            const res = await fetch(`/api/belum-bayar/ardebt?petugas=${encodeURIComponent(petugas)}`);
+            const data = await res.json();
             
-            // Filter berdasarkan petugas jika dipilih
-            if (petugas !== 'all') {
-                data = data.filter(item => item.nama_petugas === petugas);
-            }
-
             rawData = data;
             renderCards(data);
             updateSummary(data);
         } catch (err) {
-            container.innerHTML = '<div class="alert alert-danger mx-2">Koneksi gagal.</div>';
+            container.innerHTML = '<div class="alert alert-danger mx-2">Gagal memuat data Ardebt.</div>';
         }
     }
 
     function renderCards(data) {
         const container = document.getElementById('list-container');
         if (data.length === 0) {
-            container.innerHTML = '<div class="text-center mt-5"><i class="fas fa-check-double fa-3x text-success mb-3"></i><p>Tidak ada tunggakan berekor.</p></div>';
+            container.innerHTML = '<div class="text-center mt-5"><i class="fas fa-check-double fa-3x text-success mb-3"></i><p class="fw-bold">Tidak ada tunggakan Ardebt!</p></div>';
             return;
         }
 
         container.innerHTML = data.map(item => `
             <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card animate__animated animate__fadeInUp" 
-                 data-search="${item.nama} ${item.nomen} ${item.pcez}">
+                 data-search="${item.nama} ${item.nomen} ${item.pcez} ${item.nama_petugas || ''}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="badge bg-danger text-white rounded-pill px-2" style="font-size: 10px;">
@@ -161,8 +162,8 @@
                     </div>
                     <h6 class="fw-bold mb-1 text-dark">${item.nama || 'Pelanggan Ardebt'}</h6>
                     <p class="text-muted small mb-3">
-                        <i class="fas fa-route me-1 text-danger"></i> Rute: ${item.pcez || '-'} 
-                        ${item.nama_petugas ? ` | <i class="fas fa-user-check me-1"></i> ${item.nama_petugas}` : ''}
+                        <i class="fas fa-route me-1 text-danger"></i> Rute: ${item.pcez || '000/00'} 
+                        ${item.nama_petugas ? ` | <i class="fas fa-user-check me-1"></i> ${item.nama_petugas}` : ' | <i class="fas fa-user-slash me-1"></i> Belum Mapping'}
                     </p>
                     
                     <div class="d-flex justify-content-between align-items-center border-top pt-3">
@@ -182,8 +183,7 @@
 
     function liveSearch() {
         const query = document.getElementById('searchBar').value.toLowerCase();
-        const cards = document.querySelectorAll('.customer-card');
-        cards.forEach(card => {
+        document.querySelectorAll('.customer-card').forEach(card => {
             card.style.display = card.dataset.search.toLowerCase().includes(query) ? 'block' : 'none';
         });
     }
@@ -236,7 +236,7 @@
                 const domain = window.location.origin;
                 const urlFoto = dataRes.filename ? `${domain}/static/uploads/kunjungan/${dataRes.filename}` : '-';
 
-                const textWA = `*⚡ LAPORAN ARDEBT (BEREKOR) ⚡*%0A` +
+                const textWA = `*⚡ LAPORAN ARDEBT (TAGIHAN BEREKOR) ⚡*%0A` +
                                `-------------------------------------------%0A` +
                                `📌 *STATUS:* _${hasil.toUpperCase()}_%0A` +
                                `📋 *Data Pelanggan:*%0A` +
@@ -249,14 +249,14 @@
 
                 Swal.fire({
                     icon: 'success', title: 'Berhasil!',
-                    showConfirmButton: true, confirmButtonText: 'Kirim WA', confirmButtonColor: '#25D366'
+                    confirmButtonText: 'Kirim WA <i class="fab fa-whatsapp"></i>', confirmButtonColor: '#25D366'
                 }).then(() => {
                     window.open(`https://wa.me/?text=${textWA}`, '_blank');
                     modalKunjungan.hide();
                     loadArdebt();
                 });
             }
-        } catch (err) { Swal.fire('Error', 'Koneksi terputus', 'error'); }
+        } catch (err) { Swal.fire('Error', 'Cek koneksi internet.', 'error'); }
     }
 </script>
 {% endblock %}
