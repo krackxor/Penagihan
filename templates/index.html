@@ -86,8 +86,6 @@
         </div>
     </div>
 
-    <div id="health-check-area" class="mb-4"></div>
-
     <h6 class="fw-bold mb-3 px-1"><i class="fas fa-trophy text-warning me-2"></i>Peringkat Petugas (Bulan Ini)</h6>
     <div id="leaderboard-section" class="mb-4"></div>
 
@@ -131,20 +129,13 @@
         const periode = `${parts[1]}-${parts[0]}`; 
 
         try {
-            // Data Performance Stats
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const data = await res.json();
             
-            // Health Check Data
-            const resHealth = await fetch('/api/data-status');
-            const health = await resHealth.json();
-            renderHealthCheck(health);
-
             if(data.status === 'error') throw new Error(data.message);
 
             const g = data.global;
 
-            // Update UI Global
             document.getElementById('g-nomen-mc').innerText = g.total_nomen_mc.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc);
             document.getElementById('stat-sisa-nom').innerText = toIDR(g.sisa_nominal);
@@ -162,7 +153,6 @@
 
             renderChart(data.officers);
             
-            // Leaderboard
             const lb = document.getElementById('leaderboard-section');
             lb.innerHTML = data.officers.map((o, i) => `
                 <div class="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-white">
@@ -190,33 +180,6 @@
         } finally { 
             btn.classList.remove('fa-spin'); 
         }
-    }
-
-    function renderHealthCheck(status) {
-        const area = document.getElementById('health-check-area');
-        const labels = ['MC', 'MB', 'Collection', 'Ardebt'];
-        
-        area.innerHTML = `
-            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
-                <div class="p-3 bg-light border-bottom d-flex justify-content-between">
-                    <small class="fw-bold text-muted uppercase" style="font-size:0.6rem;">INTEGRITAS DATA</small>
-                    <i class="fas fa-heartbeat text-danger animate__animated animate__pulse animate__infinite"></i>
-                </div>
-                <div class="card-body p-2">
-                    <div class="row g-2">
-                        ${labels.map(l => {
-                            const isOk = status[l] && status[l].exists;
-                            return `
-                            <div class="col-3 text-center">
-                                <div class="p-2 rounded-3 ${isOk ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} border">
-                                    <div class="fw-bold" style="font-size:0.65rem;">${l}</div>
-                                    <i class="fas ${isOk ? 'fa-check-circle' : 'fa-times-circle'}" style="font-size:0.6rem;"></i>
-                                </div>
-                            </div>`;
-                        }).join('')}
-                    </div>
-                </div>
-            </div>`;
     }
 
     function renderChart(officers) {
