@@ -44,13 +44,13 @@ CREATE TABLE IF NOT EXISTS collection_harian (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Tabel Ardebt (Data Tunggakan)
+-- 5. Tabel Ardebt (Data Tunggakan Berekor)
 CREATE TABLE IF NOT EXISTS ardebt (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT,
-    jumlah REAL,
-    volume REAL,
-    periode_bill TEXT,           
+    nomen TEXT,                  -- Link ke master_pelanggan
+    jumlah REAL,                 -- Nominal per lembar tunggakan
+    volume REAL,                 -- Pemakaian air
+    periode_bill TEXT,           -- Bulan tunggakan (Contoh: '10-2025')
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -71,16 +71,21 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
 );
 
 -- 7. Indeks untuk Performa Kecepatan Tinggi (Indexing)
--- Mempercepat proses sinkronisasi, validasi pintu ganda, dan filter petugas
+-- Dioptimalkan untuk query filter antar tabel (MC vs MB vs Coll vs Ardebt)
+
+-- Indeks pada NOMEN (ID Pelanggan)
 CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
-CREATE INDEX IF NOT EXISTS idx_notag_pelanggan ON master_pelanggan(notagihan);
-CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
-CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
-CREATE INDEX IF NOT EXISTS idx_notag_mb ON master_bayar(notagihan);
-CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notagihan);
+CREATE INDEX IF NOT EXISTS idx_nomen_mb ON master_bayar(nomen);
+CREATE INDEX IF NOT EXISTS idx_nomen_coll ON collection_harian(nomen);
+CREATE INDEX IF NOT EXISTS idx_nomen_ardebt ON ardebt(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
 
--- TAMBAHAN INDEKS UNTUK OPTIMASI TAGIHAN BEREKOR (ARDEBT)
--- Mempercepat proses SUM(jumlah), COUNT periode, dan pencocokan rute petugas
-CREATE INDEX IF NOT EXISTS idx_nomen_ardebt ON ardebt(nomen);
+-- Indeks pada NOTAGIHAN (Nomor Tagihan)
+CREATE INDEX IF NOT EXISTS idx_notag_pelanggan ON master_pelanggan(notagihan);
+CREATE INDEX IF NOT EXISTS idx_notag_mb ON master_bayar(notagihan);
+CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notagihan);
+
+-- Indeks Tambahan untuk Pencarian & Filter Periode
+CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
+CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
 CREATE INDEX IF NOT EXISTS idx_periode_bill_ardebt ON ardebt(periode_bill);
