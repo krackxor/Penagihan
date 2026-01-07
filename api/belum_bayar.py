@@ -17,6 +17,7 @@ def add_watermark(image_path, info):
         font_size = int(width * 0.04)
         
         try:
+            # Pastikan path font sesuai dengan sistem OS Anda (Linux/Ubuntu)
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except:
             font = ImageFont.load_default()
@@ -44,11 +45,25 @@ def add_watermark(image_path, info):
         print(f"Gagal membuat watermark: {e}")
         return False
 
+@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
+def get_petugas_tabs():
+    """Mengambil daftar petugas unik untuk dropdown filter dari tabel rute."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != '' ORDER BY petugas ASC")
+        petugas_list = [row[0] for row in cursor.fetchall()]
+        return jsonify(petugas_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     """
     Mengambil daftar pelanggan TAGIHAN CURRENT (Bulan Berjalan).
-    Logika: MC yang belum lunas dan TIDAK memiliki tunggakan berekor (Ardebt).
+    Logika: Normalisasi PCEZ agar nama petugas terdeteksi meski format berbeda (092/01 vs 09201).
     """
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
@@ -63,31 +78,28 @@ def get_belum_bayar():
         target_dt = today
 
     curr_period_str = target_dt.strftime('%m-%Y')
-
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
+        # Perbaikan: Menggunakan REPLACE pada JOIN rute untuk sinkronisasi format kode
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
-            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            LEFT JOIN rute_petugas r ON REPLACE(r.pcez, '/', '') = p.pcez
             WHERE p.tipe = 'MC' 
             AND p.periode = ?
             
-            -- Filter: Belum bayar di sistem pusat
             AND NOT EXISTS (
                 SELECT 1 FROM master_bayar mb 
                 WHERE mb.notagihan = p.notagihan
             )
             
-            -- Filter: Belum bayar di laporan harian
             AND NOT EXISTS (
                 SELECT 1 FROM collection_harian c 
                 WHERE c.notag = p.notagihan
             )
 
-            -- Filter: Pelanggan yang tidak memiliki tunggakan berekor (dipisah ke menu Ardebt)
             AND NOT EXISTS (
                 SELECT 1 FROM ardebt a 
                 WHERE a.nomen = p.nomen
@@ -122,7 +134,6 @@ def lapor_kunjungan():
     nama_pelanggan = request.form.get('nama_pelanggan') 
     nominal_display = request.form.get('nominal_display') 
     
-    # Menangkap tanggal janji bayar jika ada
     janji_dt = request.form.get('janji_bayar_dt')
     lat = request.form.get('latitude')
     lng = request.form.get('longitude')
@@ -185,16 +196,11 @@ def lapor_kunjungan():
 def get_tagihan_berekor():
     """
     Mengambil daftar TAGIHAN BEREKOR (Ardebt).
-    Logika Revisi: 
-    - Max 10 data per hari.
-    - Sembunyikan jika sudah dilaporkan hari ini.
-    - Urutkan dari periode terlama (ASC).
+    Logika: Max 10 data, sembunyikan yang sudah dikunjungi hari ini.
     """
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Tanggal hari ini untuk filter sembunyikan yang sudah lapor
     today_str = datetime.now().strftime('%Y-%m-%d')
     
     try:
@@ -205,10 +211,9 @@ def get_tagihan_berekor():
                 r.petugas as nama_petugas
             FROM ardebt a
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
-            LEFT JOIN rute_petugas r ON (p.pcez = r.pcez)
+            LEFT JOIN rute_petugas r ON REPLACE(r.pcez, '/', '') = p.pcez
             WHERE 1=1
             
-            -- Filter: Sembunyikan jika sudah dilaporkan HARI INI
             AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = a.nomen 
@@ -221,7 +226,6 @@ def get_tagihan_berekor():
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        # Prioritas tunggakan terlama (ASC) dan limit 10 data
         query += " ORDER BY a.periode_bill ASC, a.nomen ASC LIMIT 10"
 
         cursor.execute(query, params)
