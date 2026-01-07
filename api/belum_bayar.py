@@ -48,11 +48,11 @@ def add_watermark(image_path, info):
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     """
-    Mengambil daftar pelanggan yang belum bayar.
-    LOGIKA TERBARU: 
-    - Hanya menampilkan tagihan CURRENT (Bulan Berjalan).
-    - Tagihan UNDUE (Bulan Lalu) dihapus dari daftar kerja petugas.
-    - Tagihan Ardebt (Berekor) tetap disaring keluar.
+    Mengambil daftar pelanggan yang belum bayar (Target CURRENT).
+    Logika: 
+    - Sumber: MC (master_pelanggan)
+    - Pengecekan: master_bayar (Notagihan IS NULL), collection_harian (Notagihan IS NULL)
+    - Pengecekan: ardebt (Nomen IS NULL)
     """
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
@@ -73,7 +73,7 @@ def get_belum_bayar():
     cursor = conn.cursor()
     
     try:
-        # QUERY DIPERBARUI: Fokus hanya pada CURRENT, Exclude Ardebt
+        # QUERY DIPERBARUI: Notagihan di MB & Collection harus NULL, Nomen di Ardebt harus NULL
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
@@ -81,22 +81,28 @@ def get_belum_bayar():
             WHERE p.tipe = 'MC' 
             AND p.periode = ?
             
-            -- 1. Filter PINTU: Belum ada di laporan harian bulan ini (Belum Bayar)
-            AND p.notagihan NOT IN (
-                SELECT notagihan FROM collection_harian
-                WHERE periode = ?
+            -- Filter MB: Notagihan tidak boleh ada di master_bayar
+            AND NOT EXISTS (
+                SELECT 1 FROM master_bayar mb 
+                WHERE mb.notagihan = p.notagihan
+            )
+            
+            -- Filter Collection: Notagihan tidak boleh ada di collection_harian
+            AND NOT EXISTS (
+                SELECT 1 FROM collection_harian c 
+                WHERE c.notagihan = p.notagihan
             )
 
-            -- 2. Filter EKSKLUSIF: Jangan tampilkan jika ada di daftar Ardebt (>1 bulan)
-            AND p.nomen NOT IN (
-                SELECT DISTINCT nomen FROM ardebt
+            -- Filter Ardebt: Nomen tidak boleh ada di daftar tunggakan berekor
+            AND NOT EXISTS (
+                SELECT 1 FROM ardebt a 
+                WHERE a.nomen = p.nomen
             )
             
             AND p.nominal >= 100000
         """
         
-        # Menggunakan periode berjalan (Current) sebagai parameter filter
-        params = [curr_period_str, curr_period_str]
+        params = [curr_period_str]
         
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
@@ -195,29 +201,31 @@ def lapor_kunjungan():
     finally:
         conn.close()
 
-# --- TAMBAHAN ENDPOINT BARU: TAGIHAN BEREKOR (ARDEBT) ---
+# --- ENDPOINT: TUNGGAKAN BEREKOR (ARDEBT) ---
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
     """
     Mengambil daftar tagihan berekor (Ardebt).
-    Pembaruan: Data Ardebt yang diupload akan muncul dan mencocokkan petugas berdasarkan rute.
+    Logika:
+    - Sumber: ardebt
+    - Link: master_pelanggan (MC) Nomen NOT NULL
     """
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Query fleksibel untuk menampilkan data Ardebt yang baru diupload
+        # Query: Ardebt link ke MC (Inner Join memastikan nomen ada di MC)
         query = """
             SELECT 
                 a.nomen, 
                 SUM(a.jumlah) as total_tunggakan, 
                 COUNT(a.periode_bill) as jumlah_ekor,
-                COALESCE(MAX(p.nama), 'Pelanggan Ardebt') as nama,
-                COALESCE(MAX(p.pcez), '000/00') as pcez,
+                p.nama,
+                p.pcez,
                 r.petugas as nama_petugas
             FROM ardebt a
-            LEFT JOIN master_pelanggan p ON a.nomen = p.nomen
+            INNER JOIN master_pelanggan p ON a.nomen = p.nomen
             LEFT JOIN rute_petugas r ON (p.pcez = r.pcez)
             GROUP BY a.nomen
             HAVING total_tunggakan > 0
@@ -225,13 +233,12 @@ def get_tagihan_berekor():
         
         params = []
         if petugas_filter and petugas_filter != 'all':
-            # Membungkus query utama untuk melakukan filter petugas setelah agregasi
             final_query = f"SELECT * FROM ({query}) AS sub WHERE sub.nama_petugas = ?"
             params.append(petugas_filter)
             cursor.execute(final_query, params)
         else:
-            query += " ORDER BY jumlah_ekor DESC, total_tunggakan DESC"
-            cursor.execute(query)
+            final_query = query + " ORDER BY jumlah_ekor DESC, total_tunggakan DESC"
+            cursor.execute(final_query)
 
         data = [dict(row) for row in cursor.fetchall()]
         return jsonify(data)
