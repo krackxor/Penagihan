@@ -1,67 +1,128 @@
-<div class="offcanvas offcanvas-start border-0 shadow-lg" tabindex="-1" id="offcanvasMenu" style="width: 290px; border-radius: 0 30px 30px 0;">
-    <div class="offcanvas-header py-4 px-4 text-white" style="background: var(--primary-gradient, linear-gradient(135deg, #1e293b 0%, #0f172a 100%));">
-        <div>
-            <div class="d-flex align-items-center mb-2">
-                <div class="bg-white rounded-circle text-primary d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
-                    <i class="fas fa-user-tie fa-lg"></i>
-                </div>
-                <h5 class="offcanvas-title fw-bold" id="offcanvasMenuLabel">Sunter Pro</h5>
+<div class="offcanvas offcanvas-start border-0 shadow-lg" tabindex="-1" id="offcanvasMenu" style="width: 290px; border-radius: 0 25px 25px 0;">
+    <div class="offcanvas-header py-4 px-4 text-white d-block" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="bg-white rounded-3 text-primary d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
+                <i class="fas fa-shield-alt fa-xl"></i>
             </div>
-            <small class="opacity-75"><i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i> Petugas Lapangan</small>
+            <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
-    </div>
-    
-    <div class="offcanvas-body p-0">
-        <div class="list-group list-group-flush mt-3 px-2">
-            <a href="/" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-home me-3 text-primary p-2 bg-primary-subtle rounded-3"></i>
-                <span class="fw-semibold">Beranda</span>
-            </a>
-
-            <a href="/belum-bayar" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-clipboard-list me-3 text-warning p-2 bg-warning-subtle rounded-3"></i>
-                <span class="fw-semibold">Penagihan Current</span>
-            </a>
-
-            <a href="/tunggakan-berekor" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-dragon me-3 text-danger p-2 bg-danger-subtle rounded-3"></i>
-                <span class="fw-semibold">Penagihan Berekor</span>
-            </a>
-
-            <a href="/history-bayar" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-chart-line me-3 text-info p-2 bg-info-subtle rounded-3"></i>
-                <span class="fw-semibold">Analisis Riwayat</span>
-            </a>
-
-            <a href="/performa" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-trophy me-3 text-success p-2 bg-success-subtle rounded-3"></i>
-                <span class="fw-semibold">Performa Tim</span>
-            </a>
-
-            <div class="my-4 border-top mx-3"></div>
-            <small class="px-4 text-muted text-uppercase fw-bold mb-2 d-block" style="font-size: 0.65rem; letter-spacing: 1px;">Admin Tools</small>
-
-            <a href="/wa-blast" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fab fa-whatsapp me-3 text-success p-2 bg-success-subtle rounded-3"></i>
-                <span class="fw-semibold">WA Blast Tagihan</span>
-            </a>
-
-            <a href="/upload" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-file-excel me-3 text-danger p-2 bg-danger-subtle rounded-3"></i>
-                <span class="fw-semibold">Import Data Excel</span>
-            </a>
-
-            <a href="/history" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-history me-3 text-secondary p-2 bg-secondary-subtle rounded-3"></i>
-                <span class="fw-semibold">Log System</span>
-            </a>
+        <div>
+            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px; font-family: 'Inter', sans-serif;">SUNTER PRO</h5>
+            <div class="d-flex align-items-center mt-1">
+                <span class="badge bg-success rounded-pill me-2" style="width: 7px; height: 7px; padding: 0;"> </span>
+                <small class="text-white-50 fw-medium">Sistem Monitoring Terpadu</small>
+            </div>
         </div>
     </div>
     
-    <div class="offcanvas-footer p-4 border-top">
-        <button class="btn btn-outline-danger w-100 rounded-3 fw-bold btn-sm">
-            <i class="fas fa-sign-out-alt me-1"></i> LOGOUT
+    <div class="offcanvas-body p-0 bg-white">
+        <div class="list-group list-group-flush mt-3 px-3">
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Operasional Lapangan</small>
+            
+            <a href="/" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-th-large"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Dashboard Ringkasan</span>
+            </a>
+
+            <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Penagihan Current</span>
+            </a>
+
+            <a href="/tunggakan-berekor" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Tunggakan Ardebt</span>
+            </a>
+
+            <div class="my-3 border-top opacity-25 mx-2"></div>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Analisis & Performa</small>
+
+            <a href="/history-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Analisis Riwayat</span>
+            </a>
+
+            <a href="/performa" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Kinerja Petugas</span>
+            </a>
+
+            <div class="my-3 border-top opacity-25 mx-2"></div>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Administrator</small>
+
+            <a href="/wa-blast" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Layanan Blast WA</span>
+            </a>
+
+            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-file-import"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Sinkronisasi Data</span>
+            </a>
+
+            <a href="/history" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-server"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Log Sistem</span>
+            </a>
+        </div>
+    </div>
+    
+    <div class="offcanvas-footer p-4 bg-light border-top">
+        <button class="btn btn-dark w-100 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center border-0" style="background: #1e293b;">
+            <i class="fas fa-sign-out-alt me-2" style="font-size: 0.9rem;"></i> KELUAR SISTEM
         </button>
+        <p class="text-center text-muted mt-3 mb-0" style="font-size: 0.65rem; font-weight: 500;">Versi Operasional 2.4.0</p>
     </div>
 </div>
+
+<style>
+    /* Styling Navigasi Formal */
+    .nav-link-custom {
+        transition: all 0.2s ease;
+        color: #475569 !important;
+        font-size: 0.9rem;
+    }
+    
+    .nav-link-custom:hover, .nav-link-custom.active-nav {
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+    }
+
+    .icon-box-formal {
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 1rem;
+        color: #64748b;
+        transition: all 0.2s ease;
+    }
+
+    .active-nav .icon-box-formal {
+        color: #3b82f6;
+    }
+
+    .active-nav {
+        border-left: 3px solid #3b82f6 !important;
+        background-color: #f8fafc !important;
+        font-weight: 600 !important;
+    }
+</style>
