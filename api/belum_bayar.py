@@ -9,11 +9,10 @@ from PIL import Image, ImageDraw, ImageFont
 belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
 def add_watermark(image_path, info):
-    """Fungsi untuk menambahkan watermark teks pada foto hasil kunjungan."""
+    """Menambahkan watermark informasi penagihan pada foto bukti kunjungan."""
     try:
         img = Image.open(image_path)
         draw = ImageDraw.Draw(img)
-        
         width, height = img.size
         font_size = int(width * 0.04)
         
@@ -48,12 +47,8 @@ def add_watermark(image_path, info):
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     """
-    Mengambil daftar pelanggan yang belum bayar (Target CURRENT).
-    Logika Pintu Ganda: 
-    - Sumber: MC (master_pelanggan)
-    - Pengecekan: master_bayar (notagihan match)
-    - Pengecekan: collection_harian (notag match)
-    - Pengecekan: ardebt (nomen match)
+    Mengambil daftar pelanggan TAGIHAN CURRENT (Bulan Berjalan).
+    Logika: MC yang belum lunas dan TIDAK memiliki tunggakan berekor (Ardebt).
     """
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
@@ -73,7 +68,6 @@ def get_belum_bayar():
     cursor = conn.cursor()
     
     try:
-        # QUERY DIPERBARUI: Cocokkan p.notagihan dengan c.notag (Collection)
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
@@ -81,19 +75,19 @@ def get_belum_bayar():
             WHERE p.tipe = 'MC' 
             AND p.periode = ?
             
-            -- Filter 1: Cek di Master Bayar (MB)
+            -- Filter: Belum bayar di sistem pusat
             AND NOT EXISTS (
                 SELECT 1 FROM master_bayar mb 
                 WHERE mb.notagihan = p.notagihan
             )
             
-            -- Filter 2: Cek di Collection Harian (Field notag)
+            -- Filter: Belum bayar di laporan harian
             AND NOT EXISTS (
                 SELECT 1 FROM collection_harian c 
                 WHERE c.notag = p.notagihan
             )
 
-            -- Filter 3: Cek di Ardebt (Berekor)
+            -- Filter: Pelanggan yang tidak memiliki tunggakan berekor (dipisah ke menu Ardebt)
             AND NOT EXISTS (
                 SELECT 1 FROM ardebt a 
                 WHERE a.nomen = p.nomen
@@ -103,7 +97,6 @@ def get_belum_bayar():
         """
         
         params = [curr_period_str]
-        
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
@@ -118,21 +111,9 @@ def get_belum_bayar():
     finally:
         conn.close()
 
-@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
-def get_petugas_tabs():
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != ''")
-        petugas_list = [row[0] for row in cursor.fetchall()]
-        return jsonify(petugas_list)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
-
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
+    """Menyimpan laporan hasil kunjungan petugas lapangan."""
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
@@ -141,6 +122,7 @@ def lapor_kunjungan():
     nama_pelanggan = request.form.get('nama_pelanggan') 
     nominal_display = request.form.get('nominal_display') 
     
+    # Menangkap tanggal janji bayar jika ada
     janji_dt = request.form.get('janji_bayar_dt')
     lat = request.form.get('latitude')
     lng = request.form.get('longitude')
@@ -153,7 +135,6 @@ def lapor_kunjungan():
     if foto:
         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
         os.makedirs(upload_folder, exist_ok=True)
-            
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         ext = os.path.splitext(foto.filename)[1].lower()
         
@@ -163,8 +144,6 @@ def lapor_kunjungan():
         filename = secure_filename(f"LOG_{nomen}_{timestamp}{ext}")
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
-
-        visit_period = datetime.now().strftime('%m-%Y')
 
         info_watermark = {
             'waktu': datetime.now().strftime('%d/%m/%Y %H:%M WIB'),
@@ -178,6 +157,7 @@ def lapor_kunjungan():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        visit_period = datetime.now().strftime('%m-%Y')
         
         query_log = """
             INSERT INTO kunjungan_petugas (
@@ -201,40 +181,48 @@ def lapor_kunjungan():
     finally:
         conn.close()
 
-# --- ENDPOINT: TUNGGAKAN BEREKOR (ARDEBT - RAW DATA) ---
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
     """
-    Mengambil rincian tagihan berekor (Ardebt).
-    LOGIKA: Tampil APA ADANYA (Tanpa SUM/COUNT).
+    Mengambil daftar TAGIHAN BEREKOR (Ardebt).
+    Logika Revisi: 
+    - Max 10 data per hari.
+    - Sembunyikan jika sudah dilaporkan hari ini.
+    - Urutkan dari periode terlama (ASC).
     """
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Tanggal hari ini untuk filter sembunyikan yang sudah lapor
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    
     try:
-        # Query RAW DATA: Menampilkan rincian per periode_bill, jumlah, dan volume
-        query = """
+        query = f"""
             SELECT 
-                a.id,
-                a.nomen, 
-                p.nama,
-                p.pcez,
-                a.periode_bill, 
-                a.jumlah,       
-                a.volume,
+                a.id, a.nomen, p.nama, p.pcez,
+                a.periode_bill, a.jumlah, a.volume,
                 r.petugas as nama_petugas
             FROM ardebt a
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
             LEFT JOIN rute_petugas r ON (p.pcez = r.pcez)
+            WHERE 1=1
+            
+            -- Filter: Sembunyikan jika sudah dilaporkan HARI INI
+            AND NOT EXISTS (
+                SELECT 1 FROM kunjungan_petugas k 
+                WHERE k.nomen = a.nomen 
+                AND date(k.created_at, '+7 hours') = '{today_str}'
+            )
         """
         
         params = []
         if petugas_filter and petugas_filter != 'all':
-            query += " WHERE r.petugas = ?"
+            query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        query += " ORDER BY a.nomen ASC, a.periode_bill DESC"
+        # Prioritas tunggakan terlama (ASC) dan limit 10 data
+        query += " ORDER BY a.periode_bill ASC, a.nomen ASC LIMIT 10"
 
         cursor.execute(query, params)
         data = [dict(row) for row in cursor.fetchall()]
