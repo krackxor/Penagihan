@@ -47,6 +47,13 @@
                 <span class="fw-medium text-dark-emphasis">Monitoring Janji Bayar</span>
             </a>
 
+            <a href="/galeri" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3">
+                    <i class="fas fa-images"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Galeri Kunjungan</span>
+            </a>
+
             <div class="my-3 border-top opacity-25 mx-2"></div>
             <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Analisis & Performa</small>
 
@@ -94,58 +101,6 @@
         <button class="btn btn-dark w-100 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center border-0" style="background: #1e293b;">
             <i class="fas fa-sign-out-alt me-2" style="font-size: 0.9rem;"></i> KELUAR SISTEM
         </button>
-        <p class="text-center text-muted mt-3 mb-0" style="font-size: 0.65rem; font-weight: 500;">Versi Operasional 2.4.1</p>
+        <p class="text-center text-muted mt-3 mb-0" style="font-size: 0.65rem; font-weight: 500;">Versi Operasional 2.4.2</p>
     </div>
 </div>
-
-<style>
-    /* CSS Navigasi Profesional */
-    .nav-link-custom {
-        transition: all 0.2s ease-in-out;
-        color: #475569 !important;
-        font-size: 0.9rem;
-        position: relative;
-    }
-    
-    .nav-link-custom:hover {
-        background-color: #f1f5f9 !important;
-        color: #0f172a !important;
-    }
-
-    /* Penanda menu aktif */
-    .nav-link-custom.active-nav {
-        background-color: #eff6ff !important; /* Biru sangat muda */
-        color: #1e40af !important; /* Biru gelap formal */
-        font-weight: 600 !important;
-        border-left: 4px solid #3b82f6 !important;
-        padding-left: 12px !important; /* Kompensasi border kiri */
-    }
-
-    .icon-box-formal {
-        width: 34px;
-        height: 34px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        font-size: 1rem;
-        color: #64748b;
-        transition: all 0.2s ease;
-    }
-
-    .active-nav .icon-box-formal {
-        color: #3b82f6;
-    }
-</style>
-
-<script>
-    // Logic otomatis untuk menandai halaman aktif
-    document.addEventListener("DOMContentLoaded", function() {
-        const currentPath = window.location.pathname;
-        document.querySelectorAll('.nav-link-custom').forEach(link => {
-            if (link.getAttribute('href') === currentPath) {
-                link.classList.add('active-nav');
-            }
-        });
-    });
-</script>
