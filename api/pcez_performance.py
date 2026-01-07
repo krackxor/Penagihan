@@ -1,3 +1,4 @@
+
 from flask import jsonify, request
 from datetime import datetime, timedelta
 
@@ -9,7 +10,7 @@ def register_pcez_routes(app, get_db):
             db = get_db()
             today = datetime.now()
             
-            # --- 1. PERIODE REALISASI (Bulan Berjalan / N) ---
+            # --- 1. PERIODE REALISASI ---
             req_periode = request.args.get('periode') 
             if req_periode:
                 try:
@@ -40,13 +41,11 @@ def register_pcez_routes(app, get_db):
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
                 COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nominal_mc,
                 
-                -- MB/ARDEB (Data N-1): Pembayaran sistem pusat periode target
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
-                -- COLLECTION (Data N): Hanya hitung yang ada di tabel collection_harian
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c 
@@ -65,12 +64,12 @@ def register_pcez_routes(app, get_db):
                 ), 0) as count_current
             """
             
-            # 4. Query Ranking Petugas (Peningkatan Logika Nama Petugas)
+            # 4. Query Ranking Petugas (Normalisasi format PCEZ agar nama muncul)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
-                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
                     k.petugas_name,
                     'Petugas Umum'
@@ -100,7 +99,7 @@ def register_pcez_routes(app, get_db):
                 date(k.created_at, '+7 hours') as tanggal,
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
-                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
                     k.petugas_name,
                     'Petugas Umum'
@@ -133,7 +132,7 @@ def register_pcez_routes(app, get_db):
                 k.keterangan,
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
-                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                     JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
                     k.petugas_name,
                     'Petugas Umum'
@@ -176,58 +175,6 @@ def register_pcez_routes(app, get_db):
             print(f"Error Performance API: {str(e)}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
-    @app.route('/api/performance/stats-global', methods=['GET'])
-    def get_stats_global():
-        try:
-            db = get_db()
-            req_periode = request.args.get('periode')
-            target_dt = datetime.strptime(req_periode, '%m-%Y') if req_periode else datetime.now()
-            curr_p = target_dt.strftime('%m-%Y')
-            
-            last_mc = db.execute("SELECT periode FROM master_pelanggan ORDER BY substr(periode,4,4) DESC, substr(periode,1,2) DESC LIMIT 1").fetchone()
-            last_p = last_mc[0] if last_mc else curr_p
-
-            query = f"""
-            SELECT 
-                COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{last_p}'), 0) as total_pelanggan,
-                COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
-                 WHERE m.tipe = 'MC' AND m.periode = '{last_p}' AND (
-                    EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{last_p}') OR 
-                    EXISTS (SELECT 1 FROM collection_harian c 
-                             WHERE c.notag = m.notagihan AND c.periode = '{curr_p}')
-                 )), 0) as bayar_bulan_ini
-            """
-            return jsonify(dict(db.execute(query).fetchone()))
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    @app.route('/api/performance/leaderboard', methods=['GET'])
-    def get_leaderboard():
-        try:
-            db = get_db()
-            req_periode = request.args.get('periode')
-            target_period = req_periode if req_periode else datetime.now().strftime('%m-%Y')
-            query = f"""
-            SELECT 
-                COALESCE(
-                    (SELECT rp.petugas FROM rute_petugas rp 
-                     JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
-                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name,
-                    'Petugas Umum'
-                ) as petugas,
-                COUNT(*) as total_dikunjungi,
-                ROUND(CAST(SUM(CASE WHEN (keterangan LIKE '%Sudah Bayar%' OR keterangan LIKE '%Bayar%') 
-                                      AND keterangan NOT LIKE '%Janji%' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 100, 1) as performa
-            FROM kunjungan_petugas k
-            WHERE k.periode = '{target_period}'
-            GROUP BY petugas
-            ORDER BY performa DESC
-            """
-            return jsonify([dict(row) for row in db.execute(query).fetchall()])
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
     @app.route('/api/performance/reminders', methods=['GET'])
     def get_reminders():
         try:
@@ -238,7 +185,7 @@ def register_pcez_routes(app, get_db):
                        COALESCE(m.nama, 'Pelanggan') as nama, 
                        COALESCE(
                             (SELECT rp.petugas FROM rute_petugas rp 
-                             JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                             JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
                              WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
                             k.petugas_name,
                             'Petugas Umum'
