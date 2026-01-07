@@ -149,7 +149,6 @@
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
 
         try {
-            // URL ini memanggil endpoint yang sudah diperbarui hanya untuk Current
             const url = `/api/belum-bayar?petugas=${encodeURIComponent(petugas)}&periode=${periode}`;
             const res = await fetch(url);
             rawData = await res.json();
