@@ -5,7 +5,7 @@
     <div class="pt-4 mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h4 class="fw-bold mb-0 text-dark">Laporan Sunter ⚡</h4>
+                <h4 class="fw-bold mb-0 text-dark">Dashboard Sunter ⚡</h4>
                 <p class="text-muted small mb-0" id="display-date"></p>
             </div>
             <div class="d-flex gap-2">
@@ -24,13 +24,13 @@
     <div class="row g-2 mb-3">
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">JUMLAH TAGIHAN (MC)</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">TARGET NOMEN (MC)</small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-primary border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">TOTAL TARGET UANG</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">TARGET RUPIAH (MC)</small>
                 <h6 class="fw-bold mb-0 text-primary" id="g-nom-mc">Rp 0</h6>
             </div>
         </div>
@@ -38,7 +38,7 @@
 
     <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%);">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1px; font-size: 0.6rem;">HASIL PENAGIHAN MC SAAT INI</small>
+            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1px; font-size: 0.6rem;">REALISASI PENAGIHAN MC</small>
             <h1 class="fw-bold mb-0" id="stat-percent" style="font-size: 3.5rem;">0%</h1>
             <div class="progress my-3 bg-white bg-opacity-10" style="height: 8px; border-radius: 20px;">
                 <div id="prog-bar" class="progress-bar bg-white progress-bar-striped progress-bar-animated" style="width: 0%;"></div>
@@ -48,14 +48,14 @@
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS PUSAT (UNDUE)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS PUSAT (MB)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.8rem;">0 NOMEN</span>
                         <span class="small opacity-90" id="nom-undue" style="font-size: 0.65rem;">Rp 0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS LAPANGAN (CURRENT)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS LAPANGAN (COLL)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.8rem;">0 NOMEN</span>
                         <span class="small opacity-90" id="nom-current" style="font-size: 0.65rem;">Rp 0</span>
                     </div>
@@ -67,7 +67,7 @@
     <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white text-center">
         <div class="row g-0 text-start">
             <div class="col-7 border-end ps-2">
-                <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">BELUM DITAGIH MC (UANG)</small>
+                <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">SISA PIUTANG MC (RP)</small>
                 <h5 class="fw-bold mb-0 text-danger" id="stat-sisa-nom">Rp 0</h5>
             </div>
             <div class="col-5 ps-3">
@@ -79,21 +79,20 @@
 
     <div class="card border-0 shadow-sm mb-4 rounded-4">
         <div class="card-header bg-white py-3 border-0">
-            <h6 class="fw-bold mb-0">Lokasi Dikunjungi Tim (MC + Ardebt)</h6>
+            <h6 class="fw-bold mb-0"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Kunjungan Tim (MC + Ardebt)</h6>
         </div>
         <div class="card-body pt-0">
             <canvas id="performaChart" style="height: 180px;"></canvas>
         </div>
     </div>
 
-    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-trophy text-warning me-2"></i>Peringkat Petugas Periode Ini</h6>
+    <div id="health-check-area" class="mb-4"></div>
+
+    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-trophy text-warning me-2"></i>Peringkat Petugas (Bulan Ini)</h6>
     <div id="leaderboard-section" class="mb-4"></div>
 
-    <h6 class="fw-bold mb-3 px-1"><i class="fas fa-users me-2"></i>Laporan Harian Tim</h6>
-    <div id="history-tim-section" class="mb-4"></div>
-
     <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
-        <h6 class="fw-bold mb-0"><i class="fas fa-clock text-primary me-2"></i>Log Aktivitas</h6>
+        <h6 class="fw-bold mb-0"><i class="fas fa-bolt text-warning me-2"></i>Aktivitas Lapangan</h6>
         <div class="d-flex align-items-center bg-white shadow-sm rounded-pill px-3 py-1 border">
             <span class="realtime-dot me-2"></span>
             <small class="fw-bold text-dark" style="font-size: 0.65rem;">LIVE</small>
@@ -132,14 +131,20 @@
         const periode = `${parts[1]}-${parts[0]}`; 
 
         try {
+            // Data Performance Stats
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const data = await res.json();
             
+            // Health Check Data
+            const resHealth = await fetch('/api/data-status');
+            const health = await resHealth.json();
+            renderHealthCheck(health);
+
             if(data.status === 'error') throw new Error(data.message);
 
             const g = data.global;
 
-            // 1. Update Statistik Global (MC sebagai target utama)
+            // Update UI Global
             document.getElementById('g-nomen-mc').innerText = g.total_nomen_mc.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc);
             document.getElementById('stat-sisa-nom').innerText = toIDR(g.sisa_nominal);
@@ -155,10 +160,9 @@
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            // 2. Render Grafik Gabungan
             renderChart(data.officers);
             
-            // 3. Render Peringkat (Total Rupiah MC + Ardebt)
+            // Leaderboard
             const lb = document.getElementById('leaderboard-section');
             lb.innerHTML = data.officers.map((o, i) => `
                 <div class="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-white">
@@ -170,31 +174,13 @@
                         <span class="text-success fw-bold">${toIDR(o.total_nominal)}</span>
                     </div>
                     <div class="row g-1 text-center small">
-                        <div class="col-4"><div class="bg-light p-2 rounded-2 text-success"><div style="font-size:0.5rem;">BAYAR</div><b>${o.jml_bayar}</b></div></div>
-                        <div class="col-4"><div class="bg-light p-2 rounded-2 text-warning"><div style="font-size:0.5rem;">JANJI</div><b>${o.jml_janji}</b></div></div>
-                        <div class="col-4"><div class="bg-light p-2 rounded-2 text-danger"><div style="font-size:0.5rem;">KENDALA</div><b>${o.jml_rks}</b></div></div>
-                    </div>
-                    <div class="mt-2 text-center small text-muted">Total Lokasi (MC+Ard): <b>${o.total_dijalan}</b></div>
-                </div>
-            `).join('');
-
-            // 4. Render History Laporan Tim
-            const hts = document.getElementById('history-tim-section');
-            hts.innerHTML = (data.history || []).map(h => `
-                <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-white border-start border-primary border-4">
-                    <div class="d-flex justify-content-between small mb-2"><span class="fw-bold">${h.petugas}</span><span class="text-muted">${h.tanggal}</span></div>
-                    <div class="row g-1 text-center" style="font-size:0.7rem;">
-                        <div class="col-4 text-success border-end">Bayar: ${h.jml_bayar}</div>
-                        <div class="col-4 text-warning border-end">Janji: ${h.jml_janji}</div>
-                        <div class="col-4 text-danger">Kendala: ${h.jml_rks}</div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                        <small class="text-muted">Total Kunjungan: ${h.total_dijalan}</small><small class="fw-bold text-success">${toIDR(h.total_nominal)}</small>
+                        <div class="col-4"><div class="bg-light p-2 rounded-3 text-success"><div style="font-size:0.5rem;">BAYAR</div><b>${o.jml_bayar}</b></div></div>
+                        <div class="col-4"><div class="bg-light p-2 rounded-3 text-warning"><div style="font-size:0.5rem;">JANJI</div><b>${o.jml_janji}</b></div></div>
+                        <div class="col-4"><div class="bg-light p-2 rounded-3 text-danger"><div style="font-size:0.5rem;">KENDALA</div><b>${o.jml_rks}</b></div></div>
                     </div>
                 </div>
             `).join('');
 
-            // 5. Update Activity Feed
             allLogs = data.log_petugas || [];
             currentPage = 1;
             renderLiveLogs();
@@ -206,6 +192,33 @@
         }
     }
 
+    function renderHealthCheck(status) {
+        const area = document.getElementById('health-check-area');
+        const labels = ['MC', 'MB', 'Collection', 'Ardebt'];
+        
+        area.innerHTML = `
+            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                <div class="p-3 bg-light border-bottom d-flex justify-content-between">
+                    <small class="fw-bold text-muted uppercase" style="font-size:0.6rem;">INTEGRITAS DATA</small>
+                    <i class="fas fa-heartbeat text-danger animate__animated animate__pulse animate__infinite"></i>
+                </div>
+                <div class="card-body p-2">
+                    <div class="row g-2">
+                        ${labels.map(l => {
+                            const isOk = status[l] && status[l].exists;
+                            return `
+                            <div class="col-3 text-center">
+                                <div class="p-2 rounded-3 ${isOk ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} border">
+                                    <div class="fw-bold" style="font-size:0.65rem;">${l}</div>
+                                    <i class="fas ${isOk ? 'fa-check-circle' : 'fa-times-circle'}" style="font-size:0.6rem;"></i>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>`;
+    }
+
     function renderChart(officers) {
         const ctx = document.getElementById('performaChart').getContext('2d');
         if (myChart) myChart.destroy();
@@ -213,7 +226,7 @@
             type: 'bar',
             data: {
                 labels: officers.map(o => o.petugas),
-                datasets: [{ label: 'Lokasi Dikunjungi', data: officers.map(o => o.total_dijalan), backgroundColor: '#0d6efd', borderRadius: 8 }]
+                datasets: [{ label: 'Kunjungan', data: officers.map(o => o.total_dijalan), backgroundColor: '#3b82f6', borderRadius: 8 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
         });
@@ -225,30 +238,23 @@
         const currentLogs = allLogs.slice(start, start + logsPerPage);
         
         if (currentLogs.length === 0) {
-            container.innerHTML = '<div class="text-center py-4 text-muted small">Belum ada aktivitas baru</div>';
+            container.innerHTML = '<div class="text-center py-4 text-muted small">Belum ada aktivitas</div>';
             return;
         }
 
-        container.innerHTML = currentLogs.map(log => {
-            let jamWIB = "--:--";
-            if(log.waktu) {
-                const dateObj = new Date(log.waktu.replace(' ', 'T'));
-                jamWIB = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
-            }
-            return `
-                <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span class="fw-bold text-primary">${log.petugas}</span>
-                        <span class="text-dark fw-bold"><i class="far fa-clock me-1 text-muted"></i>${jamWIB} WIB</span>
-                    </div>
-                    <div class="small mb-1">ID: <b>${log.nomen}</b> - ${log.nama || 'Pelanggan'}</div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success' : 'bg-secondary'} rounded-pill" style="font-size:0.6rem; padding: 5px 10px;">${log.keterangan}</span>
-                        <span class="fw-bold" style="font-size:0.75rem;">${toIDR(log.nominal)}</span>
-                    </div>
+        container.innerHTML = currentLogs.map(log => `
+            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span class="fw-bold text-primary">${log.petugas}</span>
+                    <span class="text-dark fw-bold" style="font-size:0.65rem;">${log.waktu.split(' ')[1]} WIB</span>
                 </div>
-            `;
-        }).join('');
+                <div class="small mb-1 text-truncate">ID: <b>${log.nomen}</b> - ${log.nama || 'Pelanggan'}</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success' : 'bg-secondary'} rounded-pill" style="font-size:0.6rem;">${log.keterangan}</span>
+                    <span class="fw-bold text-dark" style="font-size:0.75rem;">${toIDR(log.nominal)}</span>
+                </div>
+            </div>
+        `).join('');
         
         document.getElementById('page-info').innerText = `Hal ${currentPage} / ${Math.ceil(allLogs.length / logsPerPage) || 1}`;
         document.getElementById('btn-prev').disabled = currentPage === 1;
@@ -258,7 +264,6 @@
     function changePage(step) {
         currentPage += step;
         renderLiveLogs();
-        document.getElementById('list-history-petugas').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     document.addEventListener('DOMContentLoaded', () => { 
@@ -270,10 +275,12 @@
 </script>
 
 <style>
-    .realtime-dot { width: 8px; height: 8px; background-color: #ff0000; border-radius: 50%; display: inline-block; animation: pulse-red 1.5s infinite; }
-    @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0); } }
-    .progress-bar { transition: width 0.8s ease; }
+    .realtime-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; display: inline-block; animation: pulse-red 1.5s infinite; }
+    @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    .progress-bar { transition: width 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     .btn-white { background: white; border: none; }
-    .rounded-5 { border-radius: 1.5rem !important; }
+    .rounded-5 { border-radius: 2rem !important; }
+    .bg-success-subtle { background-color: #dcfce7; color: #166534; }
+    .bg-danger-subtle { background-color: #fee2e2; color: #991b1b; }
 </style>
 {% endblock %}
