@@ -3,219 +3,161 @@
 {% block content %}
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 text-center">
-        <h4 class="fw-bold mb-1">Log & Riwayat 📜</h4>
-        <p class="text-muted small">Pantau aktivitas dan laporan tim di lapangan</p>
+        <h4 class="fw-bold mb-1">Analisis Riwayat Bayar 📊</h4>
+        <p class="text-muted small">Tren pembayaran 3 bulan terakhir & radar macet</p>
     </div>
 
     <div class="bg-white p-1 rounded-4 shadow-sm mb-4 border mx-1">
         <ul class="nav nav-pills nav-fill" id="historyTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active rounded-3 fw-bold small py-2" id="kunjungan-tab" data-bs-toggle="tab" data-bs-target="#kunjungan-pane" type="button">
-                    <i class="fas fa-walking me-1"></i> KUNJUNGAN
+            <li class="nav-item">
+                <button class="nav-link active rounded-3 fw-bold small py-2" id="undue-tab" data-bs-toggle="tab" data-bs-target="#undue-pane" type="button">
+                    <i class="fas fa-history me-1"></i> UNDUE
                 </button>
             </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link rounded-3 fw-bold small py-2" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button">
-                    <i class="fas fa-cloud-upload-alt me-1"></i> UPLOAD
+            <li class="nav-item">
+                <button class="nav-link rounded-3 fw-bold small py-2" id="current-tab" data-bs-toggle="tab" data-bs-target="#current-pane" type="button">
+                    <i class="fas fa-bolt me-1"></i> CURRENT
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link rounded-3 fw-bold small py-2 text-danger" id="macet-tab" data-bs-toggle="tab" data-bs-target="#macet-pane" type="button">
+                    <i class="fas fa-exclamation-triangle me-1"></i> MACET
                 </button>
             </li>
         </ul>
     </div>
 
     <div class="tab-content" id="historyTabContent">
-        <div class="tab-pane fade show active" id="kunjungan-pane" role="tabpanel">
-            <div id="list-kunjungan">
+        <div class="tab-pane fade show active" id="undue-pane" role="tabpanel">
+            <div id="list-undue">
                 <div class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="text-muted small mt-2">Sinkronisasi data...</p>
+                    <p class="text-muted small mt-2">Menganalisis data MB...</p>
                 </div>
             </div>
         </div>
 
-        <div class="tab-pane fade" id="upload-pane" role="tabpanel">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mx-1">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0" style="font-size: 0.85rem;">
-                        <thead class="bg-light text-muted">
-                            <tr>
-                                <th class="ps-3 border-0">FILE & PERIODE</th>
-                                <th class="text-center border-0">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody id="list-upload" class="border-top-0">
-                            </tbody>
-                    </table>
+        <div class="tab-pane fade" id="current-pane" role="tabpanel">
+            <div id="list-current">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">Menganalisis data Collection...</p>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered p-3">
-        <div class="modal-content bg-transparent border-0">
-            <div class="modal-body p-0 position-relative">
-                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3 shadow-lg" data-bs-dismiss="modal" style="z-index: 1051;"></button>
-                <img src="" id="img-preview" class="img-fluid rounded-4 shadow-2xl border border-2 border-white">
-                <div id="photo-caption" class="bg-dark bg-opacity-75 text-white p-3 rounded-bottom-4 mt-n2 small fw-bold text-center"></div>
+        <div class="tab-pane fade" id="macet-pane" role="tabpanel">
+            <div class="alert alert-danger mx-1 rounded-4 border-0 shadow-sm mb-3">
+                <small class="fw-bold"><i class="fas fa-info-circle me-1"></i> RADAR MACET</small><br>
+                <small style="font-size: 0.7rem;">Nomen di MC periode terbaru yang terdeteksi memiliki riwayat tunggakan di Ardebt.</small>
             </div>
+            <div id="list-macet"></div>
         </div>
     </div>
 </div>
 
 <script>
-    // Utility for Currency
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    // 1. Ambil Riwayat Kunjungan dengan Animasi
-    async function loadKunjungan() {
-        const container = document.getElementById('list-kunjungan');
+    // Fungsi utama load data
+    async function loadAnalisis() {
         try {
-            const res = await fetch('/api/history/kunjungan');
+            const res = await fetch('/api/history/analisis-bayar');
+            const data = await res.json();
+            
+            // Filter data Undue vs Current
+            const undueData = data.filter(d => d.tipe_pembayaran === 'Undue');
+            const currentData = data.filter(d => d.tipe_pembayaran === 'Current');
+
+            renderHistory(undueData, 'list-undue', 'bg-info');
+            renderHistory(currentData, 'list-current', 'bg-success');
+        } catch (e) {
+            console.error("Gagal memuat history:", e);
+        }
+    }
+
+    function renderHistory(data, elementId, accentClass) {
+        const container = document.getElementById(elementId);
+        if (data.length === 0) {
+            container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada riwayat pembayaran 3 bulan terakhir.</div>';
+            return;
+        }
+
+        container.innerHTML = data.map(item => `
+            <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 border-start border-4 ${accentClass.replace('bg-', 'border-')}">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${item.nomen}</h6>
+                            <small class="text-muted" style="font-size: 0.7rem;">Periode Billing: ${item.periode}</small>
+                        </div>
+                        <span class="badge ${accentClass} rounded-pill" style="font-size: 0.6rem;">${item.kelompok_tanggal}</span>
+                    </div>
+                    <div class="mt-2 d-flex justify-content-between align-items-center">
+                        <small class="text-muted"><i class="far fa-calendar-check me-1"></i>Lunas: ${item.tgl_bayar}</small>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function loadNomenMacet() {
+        const container = document.getElementById('list-macet');
+        try {
+            const res = await fetch('/api/history/nomen-macet');
             const data = await res.json();
 
             if (data.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-5">
-                        <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" style="width: 80px; opacity: 0.3;">
-                        <p class="text-muted small mt-3">Belum ada aktivitas hari ini.</p>
-                    </div>`;
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada Nomen macet terdeteksi.</div>';
                 return;
             }
 
-            container.innerHTML = data.map((item, index) => `
-                <div class="card border-0 shadow-sm rounded-4 mb-3 mx-1 animate__animated animate__fadeInUp" style="animation-delay: ${index * 0.05}s">
+            container.innerHTML = data.map(item => `
+                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 bg-white">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px;">
-                                    <i class="fas fa-user text-primary small"></i>
-                                </div>
-                                <div>
-                                    <h6 class="mb-0 fw-bold text-dark" style="font-size: 0.9rem;">${item.nama || 'Pelanggan'}</h6>
-                                    <small class="text-muted" style="font-size: 0.75rem;">Oleh: ${item.petugas_name}</small>
-                                </div>
-                            </div>
-                            <span class="badge ${item.keterangan === 'Sudah Bayar' ? 'bg-success' : 'bg-warning'} rounded-pill px-2 py-1" style="font-size: 0.65rem;">
-                                ${item.keterangan.toUpperCase()}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-danger-subtle text-danger rounded-pill px-2" style="font-size: 0.65rem;">
+                                ${item.jumlah_bulan_macet} BULAN BEREKOR
                             </span>
+                            <small class="fw-bold text-dark">${item.nomen}</small>
                         </div>
-                        
-                        <div class="bg-light rounded-3 p-2 mb-3 d-flex justify-content-between align-items-center">
-                            <div class="small">
-                                <span class="text-muted d-block" style="font-size: 0.65rem;">ID PELANGGAN</span>
-                                <span class="fw-bold">${item.nomen}</span>
+                        <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">${item.nama}</h6>
+                        <div class="row g-0 mt-2 pt-2 border-top">
+                            <div class="col-6">
+                                <small class="text-muted d-block" style="font-size: 0.6rem;">TAGIHAN MC</small>
+                                <b class="small">${toIDR(item.nominal_tagihan)}</b>
                             </div>
-                            <div class="text-end small">
-                                <span class="text-muted d-block" style="font-size: 0.65rem;">WAKTU</span>
-                                <span class="fw-semibold">${item.created_at.split(' ')[1]} WIB</span>
-                            </div>
-                        </div>
-
-                        <div class="row g-2">
-                            <div class="col-8">
-                                <button class="btn btn-primary w-100 rounded-3 btn-sm fw-bold py-2 shadow-sm" onclick="previewFoto('${item.foto_path}', '${item.nama}')">
-                                    <i class="fas fa-camera me-1"></i> LIHAT BUKTI
-                                </button>
-                            </div>
-                            <div class="col-4">
-                                <a href="https://www.google.com/maps?q=${item.latitude},${item.longitude}" target="_blank" class="btn btn-outline-secondary w-100 rounded-3 btn-sm py-2">
-                                    <i class="fas fa-map-marked-alt"></i>
-                                </a>
+                            <div class="col-6 text-end">
+                                <small class="text-danger d-block" style="font-size: 0.6rem;">TOTAL TUNGGAKAN</small>
+                                <b class="small text-danger">${toIDR(item.total_tunggakan_ardebt)}</b>
                             </div>
                         </div>
                     </div>
                 </div>
             `).join('');
         } catch (e) {
-            container.innerHTML = `<div class="alert alert-danger rounded-4 m-2 small">Error: ${e.message}</div>`;
+            container.innerHTML = '<div class="text-center py-5 text-danger small">Gagal menganalisis data macet.</div>';
         }
     }
 
-    // 2. Ambil Riwayat Upload (Table View for Data Richness)
-    async function loadUpload() {
-        const tbody = document.getElementById('list-upload');
-        tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
-        
-        try {
-            const res = await fetch('/api/history/list');
-            const data = await res.json();
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-muted">Belum ada file diunggah.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(u => `
-                <tr class="align-middle">
-                    <td class="ps-3 py-3">
-                        <div class="fw-bold text-dark mb-1" style="font-size: 0.85rem;">${u.file_type}</div>
-                        <div class="text-muted" style="font-size: 0.7rem;">
-                            <i class="far fa-file-excel me-1 text-success"></i> ${u.filename}<br>
-                            <i class="far fa-calendar-alt me-1"></i> Periode: ${u.periode}
-                        </div>
-                    </td>
-                    <td class="text-center pe-3">
-                        <button class="btn btn-light text-danger btn-sm rounded-circle p-2 shadow-sm" onclick="deleteHistory(${u.id})">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        } catch (e) {
-            tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3 text-danger">Gagal memuat.</td></tr>';
-        }
-    }
-
-    // 3. SweetAlert2 Delete Confirmation
-    async function deleteHistory(id) {
-        const result = await Swal.fire({
-            title: 'Hapus Log?',
-            text: "Data yang dihapus tidak dapat dikembalikan!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ya, Hapus!',
-            cancelButtonText: 'Batal',
-            border: '0',
-            borderRadius: '15'
-        });
-
-        if (result.isConfirmed) {
-            const res = await fetch(`/api/history/delete-upload/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.status === 'success') {
-                Swal.fire('Terhapus!', 'Log riwayat telah dihapus.', 'success');
-                loadUpload();
-            }
-        }
-    }
-
-    // 4. Enhanced Photo Preview
-    function previewFoto(path, name) {
-        if (!path || path === 'None' || path === 'null') {
-            Swal.fire({
-                icon: 'info',
-                title: 'Tidak Ada Foto',
-                text: 'Petugas tidak melampirkan foto bukti.',
-                showConfirmButton: false,
-                timer: 1500
-            });
-            return;
-        }
-        const img = document.getElementById('img-preview');
-        const caption = document.getElementById('photo-caption');
-        
-        img.src = `/uploads/kunjungan/${path}`;
-        caption.innerText = `Bukti Kunjungan: ${name}`;
-        
-        new bootstrap.Modal(document.getElementById('modalFoto')).show();
-    }
-
-    // Init
     document.addEventListener('DOMContentLoaded', () => {
-        loadKunjungan();
-        document.getElementById('upload-tab').addEventListener('shown.bs.tab', loadUpload);
+        loadAnalisis();
+        document.getElementById('macet-tab').addEventListener('shown.bs.tab', loadNomenMacet);
     });
 </script>
+
+<style>
+    .nav-pills .nav-link.active {
+        background-color: #0d6efd;
+        color: white !important;
+    }
+    .nav-pills .nav-link {
+        color: #6c757d;
+    }
+    #macet-tab.active {
+        background-color: #dc3545 !important;
+    }
+    .bg-danger-subtle { background-color: #f8d7da; }
+    .text-danger { color: #842029 !important; }
+</style>
+{% endblock %}
