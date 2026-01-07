@@ -40,13 +40,11 @@ def register_pcez_routes(app, get_db):
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
                 COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nominal_mc,
                 
-                -- MB/ARDEB (Data N-1): Pembayaran sistem pusat periode target
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
-                -- COLLECTION (Data N): Hanya hitung yang benar-benar bayar (NOT LIKE Janji)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c 
@@ -59,7 +57,6 @@ def register_pcez_routes(app, get_db):
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as count_undue,
                 
-                -- Hanya hitung jumlah lunas harian yang bukan janji
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c 
@@ -78,13 +75,10 @@ def register_pcez_routes(app, get_db):
                     k.petugas_name
                 ) as petugas,
                 COUNT(*) as total_dijalan,
-                -- Perbaikan: Hitung Bayar jika tidak ada kata Janji
                 SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
                               AND k.keterangan NOT LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_bayar,
-                -- Kategori Janji
                 SUM(CASE WHEN k.keterangan LIKE '%Janji Bayar%' OR k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
                 SUM(CASE WHEN k.keterangan LIKE '%Rumah Kosong%' OR k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
-                -- Nominal hanya bertambah jika benar-benar Bayar
                 SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
                               AND k.keterangan NOT LIKE '%Janji%' THEN 
                     COALESCE(
@@ -190,7 +184,6 @@ def register_pcez_routes(app, get_db):
             last_mc = db.execute("SELECT periode FROM master_pelanggan ORDER BY substr(periode,4,4) DESC, substr(periode,1,2) DESC LIMIT 1").fetchone()
             last_p = last_mc[0] if last_mc else curr_p
 
-            # Pastikan perhitungan statistik global juga mengabaikan Janji sebagai pelunasan
             query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{last_p}'), 0) as total_pelanggan,
@@ -229,5 +222,31 @@ def register_pcez_routes(app, get_db):
             ORDER BY performa DESC
             """
             return jsonify([dict(row) for row in db.execute(query).fetchall()])
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/performance/reminders', methods=['GET'])
+    def get_reminders():
+        """Fitur Notifikasi: Mengambil daftar janji bayar untuk hari ini"""
+        try:
+            db = get_db()
+            # Tanggal hari ini dalam format YYYY-MM-DD
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            
+            # Query pelanggan yang memiliki janji bayar hari ini
+            query = f"""
+                SELECT k.nomen, 
+                       COALESCE(m.nama, 'Pelanggan') as nama, 
+                       k.petugas_name, 
+                       k.catatan,
+                       COALESCE(m.nominal, (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen)) as nominal
+                FROM kunjungan_petugas k
+                LEFT JOIN master_pelanggan m ON k.nomen = m.nomen
+                WHERE date(k.janji_bayar_dt) = '{today_str}'
+                AND k.keterangan LIKE '%Janji%'
+                GROUP BY k.nomen
+            """
+            rows = db.execute(query).fetchall()
+            return jsonify([dict(row) for row in rows])
         except Exception as e:
             return jsonify({"error": str(e)}), 500
