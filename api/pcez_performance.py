@@ -34,22 +34,23 @@ def register_pcez_routes(app, get_db):
             else:
                 target_period = (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
 
-            # 3. Query Global: Memisahkan Realisasi Bayar dengan Janji
+            # 3. Query Global: Perbaikan Error 500 (Menghapus c.keterangan yang tidak ada di DB)
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
                 COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nominal_mc,
                 
+                -- MB/ARDEB (Data N-1): Pembayaran sistem pusat periode target
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
+                -- COLLECTION (Data N): Hanya hitung yang ada di tabel collection_harian
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c 
-                             WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}'
-                             AND c.keterangan NOT LIKE '%Janji%')
+                             WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as nom_current,
 
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
@@ -60,19 +61,19 @@ def register_pcez_routes(app, get_db):
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
                  AND EXISTS (SELECT 1 FROM collection_harian c 
-                             WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}'
-                             AND c.keterangan NOT LIKE '%Janji%')
+                             WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as count_current
             """
             
-            # 4. Query Ranking Petugas (Pemisahan Tegas Janji vs Bayar)
+            # 4. Query Ranking Petugas (Peningkatan Logika Nama Petugas)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name
+                    k.petugas_name,
+                    'Petugas Umum'
                 ) as petugas,
                 COUNT(*) as total_dijalan,
                 SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
@@ -93,7 +94,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY total_nominal DESC
             """
 
-            # 5. Query Laporan Harian Tim (Pemisahan Tegas Janji vs Bayar)
+            # 5. Query Laporan Harian Tim
             history_tim_query = f"""
             SELECT 
                 date(k.created_at, '+7 hours') as tanggal,
@@ -101,7 +102,8 @@ def register_pcez_routes(app, get_db):
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name
+                    k.petugas_name,
+                    'Petugas Umum'
                 ) as petugas,
                 COUNT(*) as total_dijalan,
                 SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
@@ -133,7 +135,8 @@ def register_pcez_routes(app, get_db):
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name
+                    k.petugas_name,
+                    'Petugas Umum'
                 ) as petugas,
                 COALESCE(
                     (SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1),
@@ -191,8 +194,7 @@ def register_pcez_routes(app, get_db):
                  WHERE m.tipe = 'MC' AND m.periode = '{last_p}' AND (
                     EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{last_p}') OR 
                     EXISTS (SELECT 1 FROM collection_harian c 
-                             WHERE c.notag = m.notagihan AND c.periode = '{curr_p}'
-                             AND c.keterangan NOT LIKE '%Janji%')
+                             WHERE c.notag = m.notagihan AND c.periode = '{curr_p}')
                  )), 0) as bayar_bulan_ini
             """
             return jsonify(dict(db.execute(query).fetchone()))
@@ -211,7 +213,8 @@ def register_pcez_routes(app, get_db):
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name
+                    k.petugas_name,
+                    'Petugas Umum'
                 ) as petugas,
                 COUNT(*) as total_dikunjungi,
                 ROUND(CAST(SUM(CASE WHEN (keterangan LIKE '%Sudah Bayar%' OR keterangan LIKE '%Bayar%') 
@@ -227,17 +230,19 @@ def register_pcez_routes(app, get_db):
 
     @app.route('/api/performance/reminders', methods=['GET'])
     def get_reminders():
-        """Fitur Notifikasi: Mengambil daftar janji bayar untuk hari ini"""
         try:
             db = get_db()
-            # Tanggal hari ini dalam format YYYY-MM-DD
             today_str = datetime.now().strftime('%Y-%m-%d')
-            
-            # Query pelanggan yang memiliki janji bayar hari ini
             query = f"""
                 SELECT k.nomen, 
                        COALESCE(m.nama, 'Pelanggan') as nama, 
-                       k.petugas_name, 
+                       COALESCE(
+                            (SELECT rp.petugas FROM rute_petugas rp 
+                             JOIN master_pelanggan mp ON rp.pcez = mp.pcez 
+                             WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
+                            k.petugas_name,
+                            'Petugas Umum'
+                       ) as petugas_name, 
                        k.catatan,
                        COALESCE(m.nominal, (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen)) as nominal
                 FROM kunjungan_petugas k
