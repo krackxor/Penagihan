@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Samsul-AI v12.9 "Neural Geographical Intelligence - PCEZ Edition" -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -12,189 +11,197 @@
         --samsul-red: #ef4444;
         --samsul-emerald: #10b981;
         --samsul-amber: #f59e0b;
-        --glass: rgba(255, 255, 255, 0.95);
+        --glass: rgba(255, 255, 255, 0.98);
     }
 
-    body { background-color: #f1f5f9; transition: background-color 1s ease; }
-    body.panic-mode { background-color: #fef2f2; }
+    body { background-color: #f8fafc; overflow-x: hidden; }
+
+    .mobile-container { padding: 1rem 0.75rem; }
 
     .glass-panel {
         background: var(--glass);
-        backdrop-filter: blur(15px);
-        border-radius: 1.5rem;
-        border: 1px solid rgba(255,255,255,0.4);
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 1.25rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
 
     .main-command {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border-radius: 2.2rem;
+        border-radius: 1.5rem;
         color: white;
-        padding: 2.5rem 2rem;
+        padding: 1.5rem;
         position: relative;
         overflow: hidden;
-        transition: all 0.5s ease;
+    }
+
+    .display-projected {
+        font-size: 1.75rem !important;
+        letter-spacing: -1px;
     }
 
     .capability-node {
-        width: 8px; height: 8px; border-radius: 50%; background: #475569; display: inline-block; margin-right: 5px;
+        width: 6px; height: 6px; border-radius: 50%; background: #475569; display: inline-block; margin-right: 3px;
     }
-    .capability-node.active { background: var(--samsul-emerald); box-shadow: 0 0 10px var(--samsul-emerald); }
+    .capability-node.active { background: var(--samsul-emerald); box-shadow: 0 0 8px var(--samsul-emerald); }
 
     .terminal-ai {
-        background: #000; color: #10b981; font-family: 'JetBrains Mono', monospace;
-        padding: 1.2rem; border-radius: 1rem; font-size: 0.75rem;
-        border-left: 5px solid #10b981; line-height: 1.5;
+        background: #1e293b; color: #f8fafc; font-family: 'Inter', sans-serif;
+        padding: 1rem; border-radius: 0.8rem; font-size: 0.7rem;
+        border-left: 4px solid var(--samsul-blue); line-height: 1.4;
     }
 
+    .nav-pills-wrapper {
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 1rem;
+        padding-bottom: 5px;
+    }
+    .nav-pills { display: flex; flex-wrap: nowrap; gap: 8px; }
     .nav-pills .nav-link {
-        font-size: 0.75rem; font-weight: 700; border-radius: 1rem;
-        color: #64748b; padding: 0.6rem 1rem;
+        font-size: 0.65rem; font-weight: 800; border-radius: 0.75rem;
+        color: #64748b; padding: 0.6rem 0.9rem;
+        background: white; border: 1px solid #e2e8f0;
     }
     .nav-pills .nav-link.active {
-        background-color: var(--samsul-dark);
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+        background-color: var(--samsul-dark); color: white;
+        border-color: var(--samsul-dark);
     }
 
     .impact-score {
         background: var(--samsul-blue); color: white;
-        padding: 0.2rem 0.6rem; border-radius: 0.5rem;
-        font-size: 0.65rem; font-weight: 900;
+        padding: 0.1rem 0.4rem; border-radius: 0.4rem;
+        font-size: 0.6rem; font-weight: 900;
     }
 
-    .chart-container { position: relative; height: 220px; width: 100%; }
+    .chart-container { position: relative; height: 200px; width: 100%; }
     
-    .region-badge {
-        font-size: 0.65rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 0.5rem;
+    .xsmall { font-size: 0.65rem !important; }
+    .btn-strategic {
+        background: var(--samsul-dark); color: white; font-size: 0.65rem;
+        font-weight: 700; border-radius: 0.6rem; padding: 0.5rem 1rem;
+    }
+
+    #filter-periode {
+        font-size: 0.8rem;
+        max-width: 130px;
     }
 </style>
 
-<div class="px-2 pb-5">
-    <!-- Header: Status Neural PCEZ -->
-    <div class="pt-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start">
+<div class="mobile-container pb-5">
+    <div class="pt-2 mb-3 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-0 text-dark">Neural Command Center 🧠</h4>
-            <div class="mt-2" id="capability-map">
-                <!-- AI Levels via JS -->
-            </div>
+            <h5 class="fw-bold mb-0 text-dark">Pusat Kendali Proyeksi 🧠</h5>
+            <div id="capability-map" class="mt-1 d-flex flex-wrap">
+                </div>
         </div>
-        <div class="d-flex gap-2 mt-3 mt-md-0">
-            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" style="width: 150px;" onchange="runNeuralScan()">
+        <div class="d-flex gap-2">
+            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" onchange="runNeuralScan()">
             <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="runNeuralScan()">
                 <i class="fas fa-sync-alt text-primary" id="refresh-icon"></i>
             </button>
         </div>
     </div>
 
-    <!-- Main Dashboard -->
     <div class="main-command mb-4 shadow-lg animate__animated animate__fadeIn">
-        <div id="panic-alert" class="text-center mb-4 d-none">
-            <span class="badge bg-white text-danger px-4 py-2 rounded-pill animate__animated animate__infinite animate__flash fw-bold shadow-sm border border-danger">🚨 KRITIS: AI MENDETEKSI RISIKO GAGAL TARGET</span>
+        <div id="panic-alert" class="text-center mb-3 d-none">
+            <span class="badge bg-white text-danger px-3 py-2 rounded-pill animate__animated animate__infinite animate__flash fw-bold xsmall shadow-sm border border-danger">🚨 PERINGATAN: RISIKO GAGAL TARGET TERDETEKSI</span>
         </div>
         
-        <div class="row align-items-center">
-            <div class="col-md-7">
-                <small class="text-white-50 fw-bold text-uppercase" style="letter-spacing: 2px; font-size: 0.65rem;">Neural Forecast Projection</small>
-                <h1 class="fw-bold mb-0 display-4" id="val-projected">Rp 0</h1>
-                <div id="risk-meter-container" class="mt-3">
-                    <div class="d-flex justify-content-between xsmall fw-bold mb-1">
-                        <span>CONFIDENCE SCORE: <span id="conf-score">0%</span></span>
-                        <span>TREND: <span id="trend-status">LOADING...</span></span>
-                    </div>
-                    <div class="progress bg-white bg-opacity-10" style="height: 8px; border-radius: 10px;">
-                        <div id="risk-bar" class="progress-bar" style="width: 0%"></div>
-                    </div>
+        <div class="row">
+            <div class="col-12">
+                <small class="text-white-50 fw-bold text-uppercase" style="letter-spacing: 1px; font-size: 0.55rem;">Estimasi Pendapatan Akhir Bulan</small>
+                <h2 class="fw-bold mb-2 display-projected" id="val-projected">Rp 0</h2>
+                
+                <div class="d-flex justify-content-between xsmall fw-bold mb-1 opacity-75">
+                    <span>AKURASI DATA: <span id="conf-score">0%</span></span>
+                    <span id="trend-status">MEMPROSES...</span>
+                </div>
+                <div class="progress bg-white bg-opacity-10 mb-4" style="height: 6px; border-radius: 10px;">
+                    <div id="risk-bar" class="progress-bar" style="width: 0%"></div>
                 </div>
             </div>
-            <div class="col-md-5 text-md-end mt-4 mt-md-0">
-                <div class="d-inline-block p-4 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10 text-center">
-                    <h2 class="fw-bold mb-0" id="val-progress">0%</h2>
-                    <small class="text-white-50 fw-bold" style="font-size: 0.65rem;">PROGRES CAPAIAN (97%)</small>
+            
+            <div class="col-12">
+                <div class="p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10">
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <small class="text-white-50 fw-bold xsmall">PROGRES CAPAIAN (Target 97%)</small>
+                        <h4 class="fw-bold mb-0" id="val-progress">0%</h4>
+                    </div>
+                    <div class="progress bg-white bg-opacity-10" style="height: 12px; border-radius: 6px;">
+                        <div id="progress-bar-97" class="progress-bar bg-warning progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="progress mt-4 mb-4 bg-white bg-opacity-10" style="height: 18px; border-radius: 12px;">
-            <div id="progress-bar-97" class="progress-bar bg-warning progress-bar-striped progress-bar-animated" style="width: 0%"></div>
-        </div>
-
-        <div class="row g-2 mt-2">
+        <div class="row g-2 mt-3">
+            <div class="col-4 text-center border-end border-white border-opacity-10">
+                <small class="text-white-50 d-block xsmall mb-1">TARGET HARIAN</small>
+                <span class="fw-bold xsmall" id="val-daily-need">-</span>
+            </div>
+            <div class="col-4 text-center border-end border-white border-opacity-10">
+                <small class="text-white-50 d-block xsmall mb-1">SELISIH TARGET</small>
+                <span class="fw-bold text-danger xsmall" id="val-gap">-</span>
+            </div>
             <div class="col-4 text-center">
-                <small class="text-white-50 d-block mb-1 xsmall">WAJIB HARIAN</small>
-                <span class="fw-bold" id="val-daily-need" style="font-size: 0.85rem;">-</span>
-            </div>
-            <div class="col-4 text-center border-start border-white border-opacity-10">
-                <small class="text-white-50 d-block mb-1 xsmall">SISA GAP</small>
-                <span class="fw-bold text-danger" id="val-gap" style="font-size: 0.85rem;">-</span>
-            </div>
-            <div class="col-4 text-center border-start border-white border-opacity-10">
-                <small class="text-white-50 d-block mb-1 xsmall">SISA HARI</small>
-                <span class="fw-bold" id="val-remain" style="font-size: 0.85rem;">-</span>
+                <small class="text-white-50 d-block xsmall mb-1">SISA WAKTU</small>
+                <span class="fw-bold xsmall" id="val-remain">-</span>
             </div>
         </div>
     </div>
 
-    <!-- TABS -->
-    <ul class="nav nav-pills mb-4 bg-white p-1 rounded-4 shadow-sm border overflow-auto flex-nowrap" id="pills-tab" role="tablist">
-        <li class="nav-item">
-            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#trends-view" type="button">GEOGRAPHICAL INTEL</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#officer-view" type="button">SQUAD MONITOR</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sim-view" type="button">DEEP SIMULATOR</button>
-        </li>
-    </ul>
+    <div class="nav-pills-wrapper">
+        <ul class="nav nav-pills" id="pills-tab" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#trends-view" type="button">ANALISIS WILAYAH</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="pill" data-bs-target="#officer-view" type="button">KINERJA TIM</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sim-view" type="button">SIMULATOR</button>
+            </li>
+        </ul>
+    </div>
 
-    <div class="tab-content">
-        <!-- TAB 1: GEOGRAPHICAL INTEL -->
+    <div class="tab-content mt-2">
         <div class="tab-pane fade show active" id="trends-view">
-            <div class="row g-4">
-                <div class="col-md-8">
-                    <div class="glass-panel p-4">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h6 class="fw-bold mb-0"><i class="fas fa-map-marked-alt me-2 text-primary"></i>Analisis Lokasi & Rute Aktif</h6>
-                        </div>
-                        <div class="chart-container mb-4">
-                            <canvas id="performanceChart"></canvas>
-                        </div>
-                        <div id="region-heatmap-summary" class="row g-2">
-                            <!-- JS Generated heatmap summary -->
-                        </div>
-                    </div>
+            <div class="glass-panel p-3 mb-3">
+                <h6 class="fw-bold mb-3 xsmall text-dark"><i class="fas fa-map-marked-alt me-2 text-primary"></i>Tren Penagihan Harian</h6>
+                <div class="chart-container mb-3">
+                    <canvas id="performanceChart"></canvas>
                 </div>
-                <div class="col-md-4">
-                    <div class="glass-panel p-4 h-100">
-                        <h6 class="fw-bold mb-3"><i class="fas fa-brain me-2 text-primary"></i>Deep Insight Database</h6>
-                        <div id="neural-insights-list" class="xsmall text-muted mb-4">
-                            <!-- JS Generated -->
-                        </div>
-                        <div class="terminal-ai xsmall">
-                            <b class="text-info">PERINTAH WILAYAH (LVL 6):</b><br>
-                            <span id="ai-macro-directive">Scanning...</span>
-                        </div>
+                <div id="region-heatmap-summary" class="row g-2">
                     </div>
+            </div>
+
+            <div class="glass-panel p-3">
+                <h6 class="fw-bold mb-3 xsmall text-dark"><i class="fas fa-lightbulb me-2 text-primary"></i>Wawasan Strategis Sistem</h6>
+                <div id="neural-insights-list" class="xsmall text-muted mb-3">
+                    </div>
+                <div class="terminal-ai">
+                    <b class="text-info xsmall">REKOMENDASI SISTEM:</b><br>
+                    <span id="ai-macro-directive" class="xsmall">Menganalisis pola data...</span>
                 </div>
             </div>
         </div>
 
-        <!-- TAB 2: SQUAD MONITOR -->
         <div class="tab-pane fade" id="officer-view">
             <div id="officer-list"></div>
         </div>
 
-        <!-- TAB 3: SIMULATOR -->
         <div class="tab-pane fade" id="sim-view">
-            <div class="glass-panel p-4">
-                <h6 class="fw-bold mb-4"><i class="fas fa-sliders-h me-2 text-primary"></i>Simulator Skenario What-If</h6>
+            <div class="glass-panel p-3">
+                <h6 class="fw-bold mb-3 xsmall text-dark"><i class="fas fa-sliders-h me-2 text-primary"></i>Simulasi Capaian Target</h6>
                 <div class="mb-4">
-                    <label class="xsmall fw-bold text-muted mb-2">SIMULASI TAMBAHAN SETORAN HARI INI:</label>
-                    <input type="range" class="form-range" id="sim-input" min="0" max="1500000000" step="10000000" value="0">
-                    <div class="d-flex justify-content-between fw-bold text-primary mt-2" id="sim-display">Rp 0</div>
+                    <label class="xsmall fw-bold text-muted mb-2">TAMBAHAN SETORAN HARI INI:</label>
+                    <input type="range" class="form-range" id="sim-input" min="0" max="1000000000" step="5000000" value="0">
+                    <div class="d-flex justify-content-between fw-bold text-primary small mt-1" id="sim-display">Rp 0</div>
                 </div>
-                <div id="sim-result" class="mt-3 p-4 rounded-4 bg-light border-dashed text-center small">
-                    Gerakkan slider untuk simulasi proyeksi akhir bulan.
+                <div id="sim-result" class="p-3 rounded-4 bg-light border-dashed text-center xsmall">
+                    Gunakan slider untuk melihat pengaruh tambahan setoran terhadap persentase target akhir bulan.
                 </div>
             </div>
         </div>
@@ -202,19 +209,14 @@
 </div>
 
 <div class="modal fade" id="auditModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 rounded-5 shadow-lg overflow-hidden">
+    <div class="modal-dialog modal-dialog-centered mx-3">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
             <div id="audit-modal-body"></div>
         </div>
     </div>
 </div>
 
 <script>
-/**
- * SAMSUL-AI ENGINE v12.9
- * Geographical & Neural Analysis (PCEZ Core)
- */
-
 let GlobalData = {};
 let PerformanceChart = null;
 
@@ -240,14 +242,10 @@ async function runNeuralScan() {
     try {
         const response = await fetch(`/api/performance/full-stats?periode=${periode}`);
         const data = await response.json();
-        
         if (data.status === 'error') throw new Error(data.message);
-        GlobalData = data;
         
-        // Guard History
-        if (!GlobalData.history || GlobalData.history.length === 0) {
-            GlobalData.history = [0, 0, 0, 0, 0, 0, 0];
-        }
+        GlobalData = data;
+        if (!GlobalData.history || GlobalData.history.length === 0) GlobalData.history = [0, 0, 0, 0, 0, 0, 0];
 
         processNeuralGeographics();
         renderDashboard();
@@ -258,7 +256,7 @@ async function runNeuralScan() {
     } catch (err) {
         console.error("Neural Scan Failed:", err);
     } finally {
-        setTimeout(() => icon.classList.remove('fa-spin'), 1000);
+        setTimeout(() => icon.classList.remove('fa-spin'), 800);
     }
 }
 
@@ -277,10 +275,7 @@ function processNeuralGeographics() {
     const avgVelocity = history.reduce((a, b) => a + b, 0) / (history.length || 1);
     const lastVelocity = history[history.length - 1] || 0;
     
-    let trendGrowth = 0;
-    if (avgVelocity > 0) {
-        trendGrowth = ((lastVelocity - avgVelocity) / avgVelocity) * 100;
-    }
+    let trendGrowth = avgVelocity > 0 ? ((lastVelocity - avgVelocity) / avgVelocity) * 100 : 0;
     
     const projected = (velocity * (1 + (trendGrowth / 1200))) * lastDay;
     const gapTo97 = Math.max(0, target97 - currentRev);
@@ -289,28 +284,21 @@ function processNeuralGeographics() {
     const confidence = dailyNeed > 0 ? Math.min(100, (velocity / dailyNeed) * 100) : 100;
     const risk = confidence < 78 ? 'HIGH' : confidence < 92 ? 'MEDIUM' : 'LOW';
 
-    GlobalData.meta = { 
-        projected, progress: (currentRev/target97*100), dailyNeed, gapTo97, remain, 
-        confidence, risk, trendGrowth, currentRev, target97, today, lastDay 
-    };
+    GlobalData.meta = { projected, progress: (currentRev/target97*100), dailyNeed, gapTo97, remain, confidence, risk, trendGrowth, currentRev, target97, today, lastDay };
 
     GlobalData.officers = (GlobalData.officers || []).map(off => {
         const rate = (off.jml_bayar / (off.total_dijalan || 1)) * 100;
         const impact = (off.total_nominal / 10000000) * (rate / 100);
-        let mood = 'STABLE';
-        if (rate > 75) mood = 'ELITE';
-        else if (off.total_dijalan > 30 && rate < 15) mood = 'CRITICAL';
-        else if (rate < 40) mood = 'WARNING';
+        let mood = rate > 75 ? 'OPTIMAL' : (off.total_dijalan > 30 && rate < 15) ? 'KRITIS' : rate < 40 ? 'PERHATIAN' : 'STABIL';
         return { ...off, rate, impact, mood };
     });
 }
 
 function renderDashboard() {
     const m = GlobalData.meta || {};
-    
-    const levels = ["Hitung", "Deteksi", "Saran", "Prediksi", "Otonom", "Strategis", "Neural"];
+    const levels = ["Audit", "Deteksi", "Logika", "Prediksi", "Otonom", "Strategis", "Proyeksi"];
     document.getElementById('capability-map').innerHTML = levels.map((l, i) => `
-        <span class="xsmall fw-bold me-2 ${i < 7 ? 'text-success' : 'text-muted'}">
+        <span class="xsmall fw-bold me-2 ${i < 7 ? 'text-success' : 'text-muted'} d-flex align-items-center">
             <span class="capability-node ${i < 7 ? 'active' : ''}"></span>${l}
         </span>
     `).join('');
@@ -321,123 +309,47 @@ function renderDashboard() {
     document.getElementById('val-daily-need').innerText = toIDR(m.dailyNeed);
     document.getElementById('val-gap').innerText = toIDR(m.gapTo97);
     document.getElementById('val-remain').innerText = (m.remain || 0) + " HARI";
-    
     document.getElementById('conf-score').innerText = (m.confidence || 0).toFixed(1) + '%';
+
     const trendEl = document.getElementById('trend-status');
-    const growth = m.trendGrowth || 0;
-    trendEl.innerText = growth >= 0 ? `NANJAK (+${growth.toFixed(1)}%)` : `LOYOR (${growth.toFixed(1)}%)`;
-    trendEl.className = growth >= 0 ? 'text-success' : 'text-danger';
+    trendEl.innerText = m.trendGrowth >= 0 ? `MENINGKAT (+${m.trendGrowth.toFixed(1)}%)` : `MENURUN (${m.trendGrowth.toFixed(1)}%)`;
+    trendEl.className = `xsmall fw-bold ${m.trendGrowth >= 0 ? 'text-success' : 'text-danger'}`;
 
     const riskBar = document.getElementById('risk-bar');
     riskBar.style.width = (m.confidence || 0) + '%';
     riskBar.className = `progress-bar ${m.risk === 'HIGH' ? 'bg-danger' : m.risk === 'MEDIUM' ? 'bg-warning' : 'bg-success'}`;
 
-    if (m.risk === 'HIGH' && m.today > 15) {
-        document.body.classList.add('panic-mode');
-        document.getElementById('panic-alert').classList.remove('d-none');
-    } else {
-        document.body.classList.remove('panic-mode');
-        document.getElementById('panic-alert').classList.add('d-none');
-    }
-}
-
-function generateDeepInsights() {
-    const m = GlobalData.meta;
-    const officers = GlobalData.officers || [];
-    const logs = GlobalData.log_petugas || [];
-    
-    const topOfficer = officers.reduce((prev, current) => (prev.impact > current.impact) ? prev : current, {petugas: 'N/A', impact: 0});
-    
-    const areaCounts = {};
-    logs.forEach(l => {
-        const area = l.keterangan || "Pusat";
-        areaCounts[area] = (areaCounts[area] || 0) + 1;
-    });
-    const sortedAreas = Object.entries(areaCounts).sort((a,b) => b[1] - a[1]);
-    const hotArea = sortedAreas[0] ? sortedAreas[0][0] : "Area Inti";
-
-    let insightHtml = `
-        <div class="mb-2"><i class="fas fa-satellite text-primary me-2"></i><b>Area Dominan:</b> Wilayah <b>${hotArea}</b> mencakup rute teraktif.</div>
-        <div class="mb-2"><i class="fas fa-crown text-warning me-2"></i><b>Leader:</b> ${topOfficer.petugas} memimpin efektivitas closing.</div>
-    `;
-    
-    if (m.trendGrowth < 0) {
-        insightHtml += `<div class="mb-2 text-danger"><i class="fas fa-chart-line me-2"></i><b>Analisis:</b> Terjadi deselerasi setoran di rute residensial.</div>`;
-    } else {
-        insightHtml += `<div class="mb-2 text-success"><i class="fas fa-bolt me-2"></i><b>Analisis:</b> Akselerasi setoran terdeteksi di area komersial.</div>`;
-    }
-    
-    const sisaNomen = GlobalData.global?.sisa_nomen || 0;
-    insightHtml += `<div><i class="fas fa-map-marker-alt text-danger me-2"></i><b>Blind Spot:</b> ${sisaNomen} titik lokasi belum tersentuh rute tim.</div>`;
-
-    document.getElementById('neural-insights-list').innerHTML = insightHtml;
-
-    document.getElementById('region-heatmap-summary').innerHTML = `
-        <div class="col-6 col-md-3">
-            <div class="p-2 border rounded-3 text-center">
-                <span class="region-badge bg-success text-white d-block mb-1">GACOR</span>
-                <small class="fw-bold d-block xsmall">${hotArea}</small>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="p-2 border rounded-3 text-center">
-                <span class="region-badge bg-danger text-white d-block mb-1">BEKU</span>
-                <small class="fw-bold d-block xsmall">Pinggiran</small>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="p-2 border rounded-3 text-center">
-                <span class="region-badge bg-warning text-white d-block mb-1">JANJI</span>
-                <small class="fw-bold d-block xsmall">Pasar</small>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="p-2 border rounded-3 text-center">
-                <span class="region-badge bg-info text-white d-block mb-1">POTENSI</span>
-                <small class="fw-bold d-block xsmall">Blok C</small>
-            </div>
-        </div>
-    `;
-
-    let strategy = "";
-    if (m.risk === 'HIGH') {
-        strategy = `STATUS DARURAT: Alihkan tim dari ${hotArea} ke wilayah blind spot (${sisaNomen} titik). Kejar setoran Rp ${toIDR(m.dailyNeed)} sebelum tutup operasional.`;
-    } else {
-        strategy = `STRATEGI OPTIMAL: Dominasi wilayah ${hotArea} selesai. Perluas radius penagihan 3km ke wilayah pinggiran untuk filter data sisa.`;
-    }
-    document.getElementById('ai-macro-directive').innerText = strategy;
+    document.getElementById('panic-alert').className = (m.risk === 'HIGH' && m.today > 15) ? 'text-center mb-3' : 'd-none';
 }
 
 function renderOfficers() {
     const container = document.getElementById('officer-list');
     const sorted = [...(GlobalData.officers || [])].sort((a,b) => b.impact - a.impact);
-    
     if (sorted.length === 0) {
-        container.innerHTML = `<div class="text-center p-5 text-muted small">AI belum menemukan data petugas di periode ini.</div>`;
+        container.innerHTML = `<div class="text-center p-5 text-muted xsmall">Sistem belum menemukan data petugas pada periode ini.</div>`;
         return;
     }
-
     container.innerHTML = sorted.map(l => {
-        let color = l.mood === 'ELITE' ? 'var(--samsul-emerald)' : l.mood === 'CRITICAL' ? 'var(--samsul-red)' : 'var(--samsul-amber)';
+        let color = l.mood === 'OPTIMAL' ? 'var(--samsul-emerald)' : l.mood === 'KRITIS' ? 'var(--samsul-red)' : l.mood === 'PERHATIAN' ? 'var(--samsul-amber)' : 'var(--samsul-dark)';
         return `
-        <div class="glass-panel p-3 mb-3 animate__animated animate__fadeInUp" style="border-left: 6px solid ${color};">
+        <div class="glass-panel p-3 mb-2 animate__animated animate__fadeInUp" style="border-left: 5px solid ${color};">
             <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
-                    <div class="rounded-circle me-3 d-flex align-items-center justify-content-center" style="width:45px; height:45px; background:${color}15">
-                        <i class="fas fa-id-card" style="color:${color}"></i>
+                <div class="d-flex align-items-center overflow-hidden">
+                    <div class="rounded-circle me-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width:38px; height:38px; background:${color}15">
+                        <i class="fas fa-user-tie" style="color:${color}; font-size: 0.8rem;"></i>
                     </div>
-                    <div>
-                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${l.petugas} <span class="impact-score ms-1">IS: ${l.impact.toFixed(1)}</span></h6>
+                    <div class="text-truncate">
+                        <h6 class="fw-bold mb-0 xsmall text-truncate">${l.petugas} <span class="impact-score">Skor: ${l.impact.toFixed(1)}</span></h6>
                         <span class="xsmall fw-bold text-uppercase" style="color:${color}">${l.mood}</span>
                     </div>
                 </div>
-                <div class="text-end">
-                    <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${toIDR(l.total_nominal)}</h6>
-                    <small class="text-muted xsmall">${l.jml_bayar} Lunas / ${l.total_dijalan} Visit</small>
+                <div class="text-end flex-shrink-0">
+                    <h6 class="fw-bold mb-0 xsmall">${toIDR(l.total_nominal)}</h6>
+                    <small class="text-muted" style="font-size: 0.55rem;">${l.jml_bayar} Lunas / ${l.total_dijalan} Kunjungan</small>
                 </div>
             </div>
             <div class="d-flex justify-content-end mt-2">
-                <button class="btn btn-strategic btn-sm shadow-sm" onclick="showAuditModal('${l.petugas}')">DEEP ADVICE</button>
+                <button class="btn btn-strategic btn-sm shadow-sm" onclick="showAuditModal('${l.petugas}')">ANALISIS DETAIL</button>
             </div>
         </div>`;
     }).join('');
@@ -446,23 +358,20 @@ function renderOfficers() {
 function initPerformanceChart() {
     const ctx = document.getElementById('performanceChart').getContext('2d');
     if (PerformanceChart) PerformanceChart.destroy();
-    
     PerformanceChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: ['H-6', 'H-5', 'H-4', 'H-3', 'H-2', 'H-1', 'Hari Ini'],
             datasets: [{
-                label: 'Velocity',
                 data: GlobalData.history || [0,0,0,0,0,0,0],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#fff'
+                borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+            scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 8 } } } }
         }
     });
 }
@@ -471,37 +380,61 @@ function renderDecisionHub() {
     const simInput = document.getElementById('sim-input');
     const simDisplay = document.getElementById('sim-display');
     const simResult = document.getElementById('sim-result');
-
     simInput.oninput = function() {
         const val = parseInt(this.value);
         simDisplay.innerText = toIDR(val);
         const m = GlobalData.meta || {};
         if (!m.today) return;
-        
         const newProj = ((m.currentRev + val) / m.today) * m.lastDay;
         const newProg = (newProj / m.target97) * 100;
-        
-        simResult.className = `mt-3 p-4 rounded-4 text-center small animate__animated animate__pulse ${newProg >= 97 ? 'bg-success-subtle text-success border-success' : 'bg-danger-subtle text-danger border-danger'}`;
-        simResult.innerHTML = `Jika tembus tambahan <b>${toIDR(val)}</b> hari ini, proyeksi naik ke <b>${newProg.toFixed(1)}%</b>. <br>
-        <b>STATUS TARGET:</b> ${newProg >= 97 ? 'BONUS AMAN ✅' : 'TARGET MASIH KRITIS ⚠️'}`;
+        simResult.className = `p-3 rounded-4 text-center xsmall animate__animated animate__pulse ${newProg >= 97 ? 'bg-success-subtle text-success border-success' : 'bg-danger-subtle text-danger border-danger'}`;
+        simResult.innerHTML = `Jika setoran bertambah <b>${toIDR(val)}</b> hari ini, proyeksi naik menjadi <b>${newProg.toFixed(1)}%</b>. <br>
+        <b>STATUS:</b> ${newProg >= 97 ? 'TARGET TERCAPAI ✅' : 'TARGET MASIH KRITIS ⚠️'}`;
     };
+}
+
+function generateDeepInsights() {
+    const m = GlobalData.meta;
+    const officers = GlobalData.officers || [];
+    const topOfficer = officers.reduce((prev, current) => (prev.impact > current.impact) ? prev : current, {petugas: 'N/A', impact: 0});
+    
+    let insightHtml = `
+        <div class="mb-1"><i class="fas fa-medal text-warning me-2"></i><b>Petugas Terbaik:</b> ${topOfficer.petugas}</div>
+        <div class="mb-1 ${m.trendGrowth < 0 ? 'text-danger' : 'text-success'}">
+            <i class="fas fa-chart-line me-2"></i><b>Tren Kinerja:</b> ${m.trendGrowth >= 0 ? 'Akselerasi Positif' : 'Perlu Evaluasi Tren'}
+        </div>
+    `;
+    const sisaNomen = GlobalData.global?.sisa_nomen || 0;
+    insightHtml += `<div><i class="fas fa-exclamation-triangle text-danger me-2"></i><b>Titik Terabaikan:</b> ${sisaNomen} Lokasi belum dikunjungi</div>`;
+    document.getElementById('neural-insights-list').innerHTML = insightHtml;
+
+    document.getElementById('region-heatmap-summary').innerHTML = `
+        <div class="col-6"><div class="p-2 border rounded-3 text-center bg-white shadow-xs">
+            <span class="badge bg-success xsmall d-block mb-1">PRODUKTIF</span><small class="fw-bold xsmall">Area Inti</small>
+        </div></div>
+        <div class="col-6"><div class="p-2 border rounded-3 text-center bg-white shadow-xs">
+            <span class="badge bg-danger xsmall d-block mb-1">STAGNAN</span><small class="fw-bold xsmall">Wilayah Pinggiran</small>
+        </div></div>
+    `;
+
+    document.getElementById('ai-macro-directive').innerText = m.risk === 'HIGH' ? 
+        `ALERTI STRATEGIS: Fokuskan rute pada area yang terlewat (${sisaNomen} titik). Perlu tambahan setoran harian sebesar Rp ${toIDR(m.dailyNeed)}.` : 
+        `ARAHAN OPTIMAL: Penguasaan area inti sudah baik. Perluas jangkauan kunjungan ke wilayah pinggiran untuk optimalisasi data.`;
 }
 
 function showAuditModal(name) {
     const l = GlobalData.officers.find(o => o.petugas === name);
     const modal = new bootstrap.Modal(document.getElementById('auditModal'));
     document.getElementById('audit-modal-body').innerHTML = `
-        <div class="p-4">
-            <h5 class="fw-bold text-dark">${name}</h5>
-            <div class="terminal-ai my-3">
-                <b class="text-warning">LOKASI & POLA:</b><br>
-                - Rasio Kunjungan: ${l.total_dijalan} IDPEL.<br>
-                - Closing Rate: ${(l.rate).toFixed(1)}%.<br><br>
-                <b class="text-info">NEURAL ADVICE:</b><br>
-                - Rute ini merespon 80% pada metode "Pressure Pemutusan".<br>
-                - Sikat target wilayah komersial sebelum jam 17:00.
+        <div class="p-3">
+            <h6 class="fw-bold text-dark">Laporan Analisis: ${name}</h6>
+            <div class="terminal-ai my-2">
+                <b class="text-warning xsmall">POLA KERJA SAAT INI:</b><br>
+                <span class="xsmall">- Total Kunjungan: ${l.total_dijalan} | Tingkat Keberhasilan: ${(l.rate).toFixed(1)}%</span><br><br>
+                <b class="text-info xsmall">ARAHAN STRATEGIS:</b><br>
+                <span class="xsmall">- Prioritaskan rute wilayah komersial.<br>- Tingkatkan frekuensi kunjungan harian.</span>
             </div>
-            <button class="btn btn-dark w-100 py-3 rounded-4 fw-bold shadow" data-bs-dismiss="modal">EKSEKUSI WILAYAH!</button>
+            <button class="btn btn-dark w-100 py-2 rounded-3 fw-bold xsmall shadow" data-bs-dismiss="modal">TUTUP LAPORAN</button>
         </div>`;
     modal.show();
 }
