@@ -34,7 +34,7 @@ def register_pcez_routes(app, get_db):
             else:
                 target_period = (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
 
-            # 3. Query Global: Struktur Target N-1 vs Realisasi N
+            # 3. Query Global: Perbaikan kolom c.notagihan menjadi c.notag
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
@@ -46,10 +46,10 @@ def register_pcez_routes(app, get_db):
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as nom_undue,
                 
-                -- COLLECTION/MAINBILL (Data N): Hasil kerja harian periode berjalan
+                -- COLLECTION (Data N): Hasil kerja harian periode berjalan (PERBAIKAN KOLOM NOTAG)
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
-                 AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
+                 AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as nom_current,
 
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
@@ -57,13 +57,14 @@ def register_pcez_routes(app, get_db):
                  AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
                 ), 0) as count_undue,
                 
+                -- PERBAIKAN KOLOM NOTAG
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
-                 AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_period_str}')
+                 AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}')
                 ), 0) as count_current
             """
             
-            # 4. Query Ranking Petugas (INTEGRASI ARDEBT: Prioritas MC, Fallback ke SUM Ardebt)
+            # 4. Query Ranking Petugas (INTEGRASI ARDEBT)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
@@ -116,7 +117,7 @@ def register_pcez_routes(app, get_db):
             ORDER BY tanggal DESC LIMIT 20
             """
 
-            # 6. Query Live Feed (INTEGRASI ARDEBT)
+            # 6. Query Live Feed (PERBAIKAN LOGIKA HARGA MC vs ARDEBT)
             log_petugas_query = f"""
             SELECT 
                 datetime(k.created_at, '+7 hours') as waktu,
@@ -169,6 +170,7 @@ def register_pcez_routes(app, get_db):
 
     @app.route('/api/performance/stats-global', methods=['GET'])
     def get_stats_global():
+        """Perbaikan kolom notagihan -> notag untuk stats global"""
         try:
             db = get_db()
             req_periode = request.args.get('periode')
@@ -184,7 +186,7 @@ def register_pcez_routes(app, get_db):
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{last_p}' AND (
                     EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{last_p}') OR 
-                    EXISTS (SELECT 1 FROM collection_harian c WHERE c.notagihan = m.notagihan AND c.periode = '{curr_p}')
+                    EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = m.notagihan AND c.periode = '{curr_p}')
                  )), 0) as bayar_bulan_ini
             """
             return jsonify(dict(db.execute(query).fetchone()))
@@ -193,6 +195,7 @@ def register_pcez_routes(app, get_db):
 
     @app.route('/api/performance/leaderboard', methods=['GET'])
     def get_leaderboard():
+        # Tetap sama karena tidak merujuk ke collection_harian secara langsung
         try:
             db = get_db()
             req_periode = request.args.get('periode')
