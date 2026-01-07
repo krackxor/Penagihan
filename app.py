@@ -63,15 +63,10 @@ def create_app():
             db.close()
 
     # --- REGISTRASI BLUEPRINT API ---
-    # Perbaikan URL Prefix untuk konsistensi akses frontend
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
-    
-    # Registrasi Blueprint Belum Bayar (Menyediakan endpoint /api/belum-bayar/petugas-tabs)
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
-    
-    # Registrasi Blueprint Ardebt
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     
     # --- REGISTRASI RUTE DINAMIS PERFORMANCE ---
@@ -89,6 +84,11 @@ def create_app():
     @app.route('/tunggakan-berekor')
     def tunggakan_berekor_page():
         return render_template('tagihan_berekor.html')
+
+    @app.route('/janji-bayar')
+    def janji_bayar_page():
+        """Halaman khusus monitoring komitmen janji bayar pelanggan"""
+        return render_template('janji_bayar.html')
 
     @app.route('/history-bayar')
     def history_bayar_page():
