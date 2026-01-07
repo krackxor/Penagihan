@@ -49,10 +49,11 @@ def add_watermark(image_path, info):
 def get_belum_bayar():
     """
     Mengambil daftar pelanggan yang belum bayar (Target CURRENT).
-    Logika: 
+    Logika Pintu Ganda: 
     - Sumber: MC (master_pelanggan)
-    - Pengecekan: master_bayar (Notagihan IS NULL), collection_harian (Notagihan IS NULL)
-    - Pengecekan: ardebt (Nomen IS NULL)
+    - Pengecekan: master_bayar (notagihan match)
+    - Pengecekan: collection_harian (notag match)
+    - Pengecekan: ardebt (nomen match)
     """
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
@@ -66,14 +67,13 @@ def get_belum_bayar():
     else:
         target_dt = today
 
-    # Periode berjalan untuk pengecekan data MC dan Collection
     curr_period_str = target_dt.strftime('%m-%Y')
 
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # QUERY DIPERBARUI: Notagihan di MB & Collection harus NULL, Nomen di Ardebt harus NULL
+        # QUERY DIPERBARUI: Cocokkan p.notagihan dengan c.notag (Collection)
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
@@ -81,19 +81,19 @@ def get_belum_bayar():
             WHERE p.tipe = 'MC' 
             AND p.periode = ?
             
-            -- Filter MB: Notagihan tidak boleh ada di master_bayar
+            -- Filter 1: Cek di Master Bayar (MB)
             AND NOT EXISTS (
                 SELECT 1 FROM master_bayar mb 
                 WHERE mb.notagihan = p.notagihan
             )
             
-            -- Filter Collection: Notagihan tidak boleh ada di collection_harian
+            -- Filter 2: Cek di Collection Harian (Field notag)
             AND NOT EXISTS (
                 SELECT 1 FROM collection_harian c 
-                WHERE c.notagihan = p.notagihan
+                WHERE c.notag = p.notagihan
             )
 
-            -- Filter Ardebt: Nomen tidak boleh ada di daftar tunggakan berekor
+            -- Filter 3: Cek di Ardebt (Berekor)
             AND NOT EXISTS (
                 SELECT 1 FROM ardebt a 
                 WHERE a.nomen = p.nomen
@@ -108,7 +108,7 @@ def get_belum_bayar():
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        query += " ORDER BY p.nominal DESC LIMIT 10"
+        query += " ORDER BY p.nominal DESC LIMIT 50"
         
         cursor.execute(query, params)
         data = [dict(row) for row in cursor.fetchall()]
@@ -201,45 +201,42 @@ def lapor_kunjungan():
     finally:
         conn.close()
 
-# --- ENDPOINT: TUNGGAKAN BEREKOR (ARDEBT) ---
+# --- ENDPOINT: TUNGGAKAN BEREKOR (ARDEBT - RAW DATA) ---
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
     """
-    Mengambil daftar tagihan berekor (Ardebt).
-    Logika:
-    - Sumber: ardebt
-    - Link: master_pelanggan (MC) Nomen NOT NULL
+    Mengambil rincian tagihan berekor (Ardebt).
+    LOGIKA: Tampil APA ADANYA (Tanpa SUM/COUNT).
     """
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Query: Ardebt link ke MC (Inner Join memastikan nomen ada di MC)
+        # Query RAW DATA: Menampilkan rincian per periode_bill, jumlah, dan volume
         query = """
             SELECT 
+                a.id,
                 a.nomen, 
-                SUM(a.jumlah) as total_tunggakan, 
-                COUNT(a.periode_bill) as jumlah_ekor,
                 p.nama,
                 p.pcez,
+                a.periode_bill, 
+                a.jumlah,       
+                a.volume,
                 r.petugas as nama_petugas
             FROM ardebt a
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
             LEFT JOIN rute_petugas r ON (p.pcez = r.pcez)
-            GROUP BY a.nomen
-            HAVING total_tunggakan > 0
         """
         
         params = []
         if petugas_filter and petugas_filter != 'all':
-            final_query = f"SELECT * FROM ({query}) AS sub WHERE sub.nama_petugas = ?"
+            query += " WHERE r.petugas = ?"
             params.append(petugas_filter)
-            cursor.execute(final_query, params)
-        else:
-            final_query = query + " ORDER BY jumlah_ekor DESC, total_tunggakan DESC"
-            cursor.execute(final_query)
+            
+        query += " ORDER BY a.nomen ASC, a.periode_bill DESC"
 
+        cursor.execute(query, params)
         data = [dict(row) for row in cursor.fetchall()]
         return jsonify(data)
     except Exception as e:
