@@ -1,3 +1,11 @@
+"""
+Flask Application - Sunter Dashboard Pro
+Mobile-first water billing dashboard with file processing
+
+Author: Sunter Team
+Updated: 2026-01-07
+"""
+
 import os
 import sqlite3
 from flask import Flask, render_template, g, send_from_directory, current_app
@@ -12,7 +20,6 @@ from core.database import init_db
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
-# Blueprint Ardebt (File baru yang dibuat sebelumnya)
 from api.ardebt import ardebt_bp 
 from api.belum_bayar import belum_bayar_bp 
 from api.pcez_performance import register_pcez_routes
@@ -20,18 +27,18 @@ from api.pcez_performance import register_pcez_routes
 def get_db():
     """
     Koneksi database terpusat dengan optimasi WAL Mode.
-    Sangat penting agar aplikasi tidak 'Locked' saat banyak petugas akses.
+    Mencegah error 'Database is locked' saat akses bersamaan.
     """
     if 'db' not in g:
         db_path = current_app.config.get('DATABASE')
         if not db_path:
+            # Fallback path jika config tidak terbaca
             db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'penagihan.db')
             
-        # Timeout 30 detik untuk menangani antrian penulisan data
         g.db = sqlite3.connect(db_path, timeout=30)
         g.db.row_factory = sqlite3.Row
         
-        # Optimasi SQLite untuk kecepatan tinggi (High Speed)
+        # Optimasi Write-Ahead Logging untuk performa tinggi
         g.db.execute('PRAGMA journal_mode=WAL;')
         g.db.execute('PRAGMA synchronous=NORMAL;')
     return g.db
@@ -40,88 +47,82 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Inisialisasi Database & Folder Upload (Kunjungan Petugas)
+    # Inisialisasi Database & Pastikan Folder Upload Ada
     with app.app_context():
         Config.init_app(app)
         init_db(app)
+        
+        # Buat folder kunjungan jika belum ada untuk mencegah error lapor foto
+        upload_path = app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan')
+        if not os.path.exists(upload_path):
+            os.makedirs(upload_path, exist_ok=True)
+            print(f"📁 Created upload folder: {upload_path}")
 
     @app.teardown_appcontext
     def close_connection(exception):
-        """Menutup koneksi database secara otomatis di akhir request"""
         db = g.pop('db', None)
         if db is not None:
             db.close()
 
     # --- REGISTRASI BLUEPRINT API ---
-    # Prefix /api memisahkan logika data dengan tampilan
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(history_bp, url_prefix='/api')
     app.register_blueprint(rute_bp, url_prefix='/api')
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
-    
-    # Registrasi API Ardebt (Tagihan Berekor)
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     
     # --- REGISTRASI RUTE DINAMIS ---
     register_pcez_routes(app, get_db)
 
-    # --- RUTE NAVIGASI FRONTEND (Tampilan) ---
+    # --- RUTE NAVIGASI FRONTEND ---
 
     @app.route('/')
     def index():
-        """Halaman Dashboard Utama / Ringkasan Penagihan"""
         return render_template('index.html')
 
     @app.route('/belum-bayar')
     def belum_bayar_page():
-        """Halaman Daftar Kerja Petugas (Target MC - Current Only)"""
         return render_template('belum_bayar.html')
 
     @app.route('/tunggakan-berekor')
     def tunggakan_berekor_page():
-        """Halaman khusus untuk menangani tunggakan lama (Ardebt)"""
         return render_template('tagihan_berekor.html')
 
     @app.route('/history-bayar')
     def history_bayar_page():
-        """Halaman Analisis Riwayat & Tren Pembayaran 3 Bulan Terakhir"""
         return render_template('history_bayar.html')
 
     @app.route('/performa')
     def performa_page():
-        """Halaman Grafik & Leaderboard Petugas"""
         return render_template('performa.html')
 
     @app.route('/setting-rute')
     def setting_rute_page():
-        """Halaman Mapping Petugas ke PCEZ secara Manual/Upload"""
         return render_template('setting_rute.html')
 
     @app.route('/upload')
     def upload_page():
-        """Halaman Panel Upload Excel (MC/MB/Col/Ardebt/Rute)"""
         return render_template('upload.html')
 
     @app.route('/wa-blast')
     def wa_blast_page():
-        """Halaman Pengiriman Pesan Massal (WA Blast)"""
         return render_template('wa_blast.html')
 
     @app.route('/history')
     def history_page():
-        """Halaman Riwayat Log Kunjungan & Upload"""
         return render_template('history.html')
 
-    # --- SERVING FILES (FOTO) ---
+    # --- SERVING FILES (FOTO BUKTI KUNJUNGAN) ---
     @app.route('/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
-        """Menyajikan foto bukti kunjungan agar muncul di browser/WA"""
         return send_from_directory(app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan'), filename)
 
     return app
 
-# Main Entry Point
+# --- SISTEM DIAGRAM ARSITEKTUR ---
+# 
+
 if __name__ == '__main__':
     app = create_app()
-    # Host '0.0.0.0' agar bisa diakses lewat IP LAN oleh HP petugas lapangan
+    # Server running on 0.0.0.0 agar bisa diakses device lain dalam jaringan yang sama
     app.run(host='0.0.0.0', port=5000, debug=True)
