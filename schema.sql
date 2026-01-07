@@ -1,5 +1,4 @@
 -- 1. Tabel Master Pelanggan (Data Utama dari file MC)
--- Ditambahkan nomet (Nomor Meter) dan notagihan untuk validasi pintu ganda
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT,                  -- ID Pelanggan
@@ -11,7 +10,7 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     block TEXT,                  -- Kode Blok
     nominal REAL,                -- Nominal Tagihan
     tipe TEXT DEFAULT 'MC',      -- Kategori (MC)
-    periode TEXT,                -- PERIODE DATA (Pintu Ganda 2 - Contoh: '11-2025')
+    periode TEXT,                -- PERIODE DATA (Pintu Ganda 2 - Contoh: '01-2026')
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -26,10 +25,10 @@ CREATE TABLE IF NOT EXISTS rute_petugas (
 CREATE TABLE IF NOT EXISTS master_bayar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT,
-    notagihan TEXT,              -- Nomor Tagihan (Pintu Ganda 1)
+    notagihan TEXT,              -- Nomor Tagihan (Link ke MC.notagihan)
     nominal REAL,
     tgl_bayar TEXT,
-    periode TEXT,                -- PERIODE DATA (Pintu Ganda 2 - Diambil dari BULAN_REK)
+    periode TEXT,                -- PERIODE DATA
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -37,20 +36,20 @@ CREATE TABLE IF NOT EXISTS master_bayar (
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT,
-    notagihan TEXT,              -- Nomor Tagihan (Pintu Ganda 1 - Di file adalah NOTAG)
+    notag TEXT,                  -- PERBAIKAN: Field menggunakan 'notag' sesuai instruksi
     nominal REAL,
     pay_dt TEXT,                 
-    periode TEXT,                -- PERIODE DATA (Pintu Ganda 2 - Diambil dari PAY_DT)
+    periode TEXT,                
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 5. Tabel Ardebt (Data Tunggakan Berekor)
 CREATE TABLE IF NOT EXISTS ardebt (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT,                  -- Link ke master_pelanggan
-    jumlah REAL,                 -- Nominal per lembar tunggakan
-    volume REAL,                 -- Pemakaian air
-    periode_bill TEXT,           -- Bulan tunggakan (Contoh: '10-2025')
+    nomen TEXT,                  -- Link ke master_pelanggan.nomen
+    jumlah REAL,                 -- Total biaya tunggakan (Raw)
+    volume REAL,                 -- Total pemakaian air (Raw)
+    periode_bill TEXT,           -- Total tunggakan (Periode Raw)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -71,7 +70,6 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
 );
 
 -- 7. Indeks untuk Performa Kecepatan Tinggi (Indexing)
--- Dioptimalkan untuk query filter antar tabel (MC vs MB vs Coll vs Ardebt)
 
 -- Indeks pada NOMEN (ID Pelanggan)
 CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
@@ -80,10 +78,10 @@ CREATE INDEX IF NOT EXISTS idx_nomen_coll ON collection_harian(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_ardebt ON ardebt(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
 
--- Indeks pada NOTAGIHAN (Nomor Tagihan)
+-- Indeks pada NOTAGIHAN / NOTAG (Validasi Pintu Ganda)
 CREATE INDEX IF NOT EXISTS idx_notag_pelanggan ON master_pelanggan(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_mb ON master_bayar(notagihan);
-CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notagihan);
+CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notag); -- Diperbarui ke 'notag'
 
 -- Indeks Tambahan untuk Pencarian & Filter Periode
 CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
