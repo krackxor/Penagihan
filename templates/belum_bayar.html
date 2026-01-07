@@ -69,13 +69,18 @@
                     
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Hasil Kunjungan</label>
-                        <select id="modal-hasil" class="form-select rounded-3 bg-light border-0" required>
+                        <select id="modal-hasil" class="form-select rounded-3 bg-light border-0" required onchange="toggleJanjiInput()">
                             <option value="">-- Pilih Hasil --</option>
                             <option value="Sudah Bayar">Sudah Bayar</option>
                             <option value="Janji Bayar">Janji Bayar</option>
                             <option value="Rumah Kosong">Rumah Kosong</option>
                             <option value="Lainnya">Lainnya</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3 d-none" id="group-janji">
+                        <label class="form-label small fw-bold text-danger">Tanggal Janji Bayar</label>
+                        <input type="date" id="modal-janji-dt" class="form-control rounded-3 bg-light border-0">
                     </div>
 
                     <div class="mb-3">
@@ -118,6 +123,19 @@
             await simpanLaporan();
         });
     });
+
+    // Menampilkan/Sembunyikan input tanggal janji bayar
+    function toggleJanjiInput() {
+        const hasil = document.getElementById('modal-hasil').value;
+        const groupJanji = document.getElementById('group-janji');
+        if (hasil === 'Janji Bayar') {
+            groupJanji.classList.remove('d-none');
+            document.getElementById('modal-janji-dt').required = true;
+        } else {
+            groupJanji.classList.add('d-none');
+            document.getElementById('modal-janji-dt').required = false;
+        }
+    }
 
     function initCalendar() {
         const now = new Date();
@@ -166,12 +184,18 @@
             return;
         }
 
-        container.innerHTML = data.map(item => `
+        container.innerHTML = data.map((item, index) => `
             <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card animate__animated animate__fadeInUp" 
                  data-search="${item.nama} ${item.nomen} ${item.nomet || ''} ${item.notagihan || ''} ${item.pcez}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge bg-primary-subtle text-primary rounded-pill px-2" style="font-size: 10px;">IDPEL: ${item.nomen}</span>
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                 style="width: 24px; height: 24px; font-size: 12px; font-weight: bold;">
+                                ${index + 1}
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary rounded-pill px-2" style="font-size: 10px;">IDPEL: ${item.nomen}</span>
+                        </div>
                         <span class="badge bg-dark text-white rounded-pill px-2" style="font-size: 10px;">
                             <i class="fas fa-tachometer-alt text-warning me-1"></i> NOMET: ${item.nomet || '-'}
                         </span>
@@ -223,6 +247,7 @@
         document.getElementById('modal-nominal-val').value = nominal;
         document.getElementById('modal-info-tambahan').innerText = `NOMET: ${nomet} | Tag: ${notagihan}`;
         document.getElementById('formKunjungan').reset();
+        toggleJanjiInput(); // Reset visibility input tanggal
         modalKunjungan.show();
     }
 
@@ -230,11 +255,11 @@
         Swal.fire({ title: 'Menyimpan & Watermarking...', didOpen: () => { Swal.showLoading(); } });
         
         const idpel = document.getElementById('modal-idpel').value;
-        const nomet = document.getElementById('modal-nomet').value;
         const notagihan = document.getElementById('modal-notagihan').value;
         const nama = document.getElementById('modal-nama').innerText;
         const nominalStr = document.getElementById('modal-nominal-val').value;
         const hasil = document.getElementById('modal-hasil').value;
+        const janjiDt = document.getElementById('modal-janji-dt').value;
         const no_hp = document.getElementById('modal-no-hp').value;
         const catatan = document.getElementById('modal-keterangan').value;
 
@@ -243,6 +268,7 @@
         formData.append('nama_pelanggan', nama);
         formData.append('nominal_display', nominalStr);
         formData.append('hasil', hasil);
+        formData.append('janji_bayar_dt', janjiDt); // Kirim tanggal janji bayar
         formData.append('no_hp', no_hp);
         formData.append('keterangan', catatan);
         
@@ -257,10 +283,15 @@
                 const domain = window.location.origin;
                 const urlFoto = dataRes.filename ? `${domain}/static/uploads/kunjungan/${dataRes.filename}` : '-';
 
-                const textWA = `*⚡ LAPORAN RL (CURRENT) ⚡*%0A` +
+                let textWA = `*⚡ LAPORAN RL (CURRENT) ⚡*%0A` +
                                `-------------------------------------------%0A` +
-                               `📌 *STATUS:* _${hasil.toUpperCase()}_%0A` +
-                               `📋 *Data Pelanggan:*%0A` +
+                               `📌 *STATUS:* _${hasil.toUpperCase()}_%0A`;
+                
+                if (hasil === 'Janji Bayar') {
+                    textWA += `📅 *Janji Bayar:* _${janjiDt}_%0A`;
+                }
+
+                textWA += `📋 *Data Pelanggan:*%0A` +
                                `• NOMEN : ${idpel}%0A` +
                                `• Nama  : ${nama}%0A` +
                                `• Tagihan: *${nominalStr}*%0A` +                            
