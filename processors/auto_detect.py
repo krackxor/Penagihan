@@ -18,9 +18,9 @@ def identify_file_type(df):
     if 'PAY_DT' in cols or 'AMT_COLLECT' in cols:
         return 'collection'
     
-    # 4. Deteksi Ardebt (Tunggakan Berekor)
-    # File Ardebt biasanya memiliki kolom NOMEN, PERIODE_BILL, JUMLAH, dan VOLUME
-    if 'PERIODE_BILL' in cols and 'JUMLAH' in cols and 'NOMEN' in cols:
+    # 4. Deteksi Ardebt (Tunggakan Berekor) - BERDASARKAN INSTRUKSI TERBARU
+    # Menggunakan kolom kunci: PERIODE_BILL dan JUMLAH
+    if 'PERIODE_BILL' in cols and 'JUMLAH' in cols:
         return 'ardebt'
     
     # 5. Deteksi Rute (Mapping Petugas)
@@ -113,10 +113,9 @@ def parse_flexible_date(date_str):
             continue
             
     # Kasus khusus format bulan dengan teks (Contoh: MEI/2025 atau JAN-2025)
-    # Kita coba konversi manual ke format yang bisa dibaca datetime
     try:
         clean_date = date_str.replace('/', '-').upper()
-        # Mapping bulan singkat Indonesia ke Inggris jika diperlukan
+        # Mapping bulan singkat Indonesia ke Inggris
         month_map = {
             'MEI': 'MAY', 'AGU': 'AUG', 'DES': 'DEC'
         }
