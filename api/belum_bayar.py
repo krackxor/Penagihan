@@ -17,7 +17,7 @@ def add_watermark(image_path, info):
         font_size = int(width * 0.04)
         
         try:
-            # Path font untuk sistem Linux/Ubuntu
+            # Path font standar sistem Linux/Ubuntu
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except:
             font = ImageFont.load_default()
@@ -47,7 +47,7 @@ def add_watermark(image_path, info):
 
 @belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
 def get_petugas_tabs():
-    """Mengambil daftar petugas unik untuk dropdown filter."""
+    """Mengambil daftar petugas unik untuk dropdown filter di UI."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -61,7 +61,7 @@ def get_petugas_tabs():
 
 @belum_bayar_bp.route('/galeri', methods=['GET'])
 def get_galeri_kunjungan():
-    """Mengambil daftar foto kunjungan (Current & Ardebt) secara dinamis."""
+    """Mengambil daftar foto kunjungan secara dinamis (mendukung Current & Ardebt)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -69,15 +69,16 @@ def get_galeri_kunjungan():
             SELECT 
                 k.foto_path, 
                 k.nomen, 
-                COALESCE(m.nama, 'Pelanggan Ardebt/Luar Master') as nama,
+                COALESCE(m.nama, a.nomen, 'Pelanggan Ardebt') as nama,
                 k.petugas_name,
                 datetime(k.created_at, '+7 hours') as waktu,
                 k.keterangan as hasil
             FROM kunjungan_petugas k
             LEFT JOIN master_pelanggan m ON k.nomen = m.nomen
+            LEFT JOIN ardebt a ON k.nomen = a.nomen
             WHERE k.foto_path IS NOT NULL 
-            AND k.foto_path != '' 
-            AND k.foto_path != 'None'
+            AND k.foto_path NOT IN ('', 'None', 'null')
+            GROUP BY k.id
             ORDER BY k.created_at DESC
             LIMIT 60
         """
@@ -91,7 +92,7 @@ def get_galeri_kunjungan():
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """Mengambil daftar pelanggan TAGIHAN CURRENT (Bulan Berjalan)."""
+    """Mengambil daftar pelanggan TAGIHAN CURRENT (Bulan Berjalan) dengan filter Rp 10.000."""
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
     
@@ -107,6 +108,8 @@ def get_belum_bayar():
     cursor = conn.cursor()
     
     try:
+        # Perbaikan: REPLACE r.pcez agar nama petugas muncul otomatis
+        # Perbaikan: p.nominal >= 10000 agar tagihan kecil ikut tertagih
         query = """
             SELECT p.*, r.petugas as nama_petugas 
             FROM master_pelanggan p
@@ -115,14 +118,14 @@ def get_belum_bayar():
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan)
             AND NOT EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = p.notagihan)
             AND NOT EXISTS (SELECT 1 FROM ardebt a WHERE a.nomen = p.nomen)
-            AND p.nominal >= 100000
+            AND p.nominal >= 10000
         """
         params = [curr_period_str]
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        query += " ORDER BY p.nominal DESC LIMIT 50"
+        query += " ORDER BY p.nominal DESC LIMIT 100"
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
     except Exception as e:
@@ -132,7 +135,7 @@ def get_belum_bayar():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Menyimpan laporan hasil kunjungan petugas lapangan."""
+    """Menyimpan laporan hasil kunjungan lapangan dengan watermark foto."""
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
@@ -146,7 +149,7 @@ def lapor_kunjungan():
     foto = request.files.get('foto')
     
     if not nomen or not hasil:
-        return jsonify({"error": "Data tidak lengkap"}), 400
+        return jsonify({"error": "Data laporan tidak lengkap"}), 400
     
     filename = None
     if foto:
@@ -158,9 +161,10 @@ def lapor_kunjungan():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
 
+        # Menambahkan informasi ke watermark foto
         info_watermark = {
             'waktu': datetime.now().strftime('%d/%m/%Y %H:%M WIB'),
-            'petugas': petugas_name or "Petugas",
+            'petugas': petugas_name or "Petugas Lapangan",
             'nomen': nomen,
             'nama': nama_pelanggan or "-",
             'nominal': nominal_display or "0"
@@ -176,7 +180,7 @@ def lapor_kunjungan():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (nomen, petugas_name, hasil, no_hp, catatan, janji_dt, filename, lat, lng, visit_period))
         conn.commit()
-        return jsonify({"status": "success", "filename": filename})
+        return jsonify({"status": "success", "message": "Laporan berhasil disimpan", "filename": filename})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -184,13 +188,14 @@ def lapor_kunjungan():
 
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
-    """Mengambil daftar TAGIHAN BEREKOR (Ardebt)."""
+    """Mengambil daftar TAGIHAN BEREKOR (Ardebt) yang belum dikunjungi hari ini."""
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     cursor = conn.cursor()
     today_str = datetime.now().strftime('%Y-%m-%d')
     
     try:
+        # Perbaikan: Normalisasi pcez agar nama petugas muncul
         query = f"""
             SELECT a.id, a.nomen, p.nama, p.pcez, a.periode_bill, a.jumlah, a.volume, r.petugas as nama_petugas
             FROM ardebt a
@@ -206,7 +211,7 @@ def get_tagihan_berekor():
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        query += " ORDER BY a.periode_bill ASC LIMIT 10"
+        query += " ORDER BY a.periode_bill ASC LIMIT 15"
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
     except Exception as e:
