@@ -50,7 +50,7 @@ def create_app():
         Config.init_app(app)
         init_db(app)
         
-        # Buat folder kunjungan jika belum ada
+        # Buat folder kunjungan jika belum ada agar fitur 'LAPOR' tidak error
         upload_path = app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan')
         if not os.path.exists(upload_path):
             os.makedirs(upload_path, exist_ok=True)
@@ -66,10 +66,14 @@ def create_app():
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
+    
+    # Registrasi Blueprint Belum Bayar (Menyediakan endpoint /api/belum-bayar/petugas-tabs)
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
+    
+    # Registrasi Blueprint Ardebt (Tunggakan Berekor)
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     
-    # --- REGISTRASI RUTE DINAMIS PERFORMANCE ---
+    # --- REGISTRASI RUTE DINAMIS PERFORMANCE (Dashboard & Janji Bayar) ---
     register_pcez_routes(app, get_db)
 
     # --- RUTE NAVIGASI FRONTEND ---
@@ -87,7 +91,7 @@ def create_app():
 
     @app.route('/janji-bayar')
     def janji_bayar_page():
-        """Halaman khusus monitoring komitmen janji bayar pelanggan"""
+        """Halaman khusus monitoring komitmen janji bayar pelanggan (Arsip per bulan)"""
         return render_template('janji_bayar.html')
 
     @app.route('/history-bayar')
@@ -112,9 +116,10 @@ def create_app():
 
     @app.route('/history')
     def history_page():
+        """Log aktivitas sistem dan laporan petugas secara umum"""
         return render_template('history.html')
 
-    # --- SERVING FILES (FOTO KUNJUNGAN) ---
+    # --- SERVING FILES (FOTO KUNJUNGAN UNTUK WATERMARK & BUKTI) ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         return send_from_directory(app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan'), filename)
@@ -123,5 +128,5 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    # Menjalankan di host 0.0.0.0 agar bisa diakses dari IP VPS
+    # Host 0.0.0.0 agar aplikasi bisa diakses melalui IP Public / VPS
     app.run(host='0.0.0.0', port=5000, debug=True)
