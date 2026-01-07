@@ -3,7 +3,7 @@ Flask Application - Sunter Dashboard Pro
 Mobile-first water billing dashboard with file processing
 
 Author: Sunter Team
-Updated: 2026-01-07
+Updated: 2026-01-08
 """
 
 import os
@@ -67,7 +67,7 @@ def create_app():
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
     
-    # Registrasi Blueprint Belum Bayar (Menyediakan endpoint /api/belum-bayar/petugas-tabs)
+    # Registrasi Blueprint Belum Bayar (Termasuk endpoint Galeri & Petugas Tabs)
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
     
     # Registrasi Blueprint Ardebt (Tunggakan Berekor)
@@ -93,6 +93,11 @@ def create_app():
     def janji_bayar_page():
         """Halaman khusus monitoring komitmen janji bayar pelanggan (Arsip per bulan)"""
         return render_template('janji_bayar.html')
+
+    @app.route('/galeri')
+    def galeri_page():
+        """Halaman galeri dokumentasi foto kunjungan petugas secara dinamis"""
+        return render_template('galeri.html')
 
     @app.route('/history-bayar')
     def history_bayar_page():
