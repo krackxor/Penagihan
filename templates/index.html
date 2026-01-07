@@ -119,6 +119,40 @@
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
+    // FITUR REVISI: Cek Pengingat Janji Bayar Hari Ini
+    async function checkReminders() {
+        try {
+            const res = await fetch('/api/performance/reminders');
+            const data = await res.json();
+            
+            if (data.length > 0) {
+                let listHtml = '<ul class="list-group list-group-flush text-start small">';
+                data.forEach(item => {
+                    listHtml += `
+                        <li class="list-group-item px-0">
+                            <b>${item.nomen}</b> - ${item.nama}<br>
+                            <span class="text-muted">Petugas: ${item.petugas_name}</span><br>
+                            <span class="text-danger fw-bold">${toIDR(item.nominal)}</span>
+                        </li>`;
+                });
+                listHtml += '</ul>';
+
+                Swal.fire({
+                    title: '🔔 Janji Bayar Hari Ini!',
+                    html: `<p class="small text-muted mb-3">Terdapat <b>${data.length}</b> pelanggan yang menjanjikan pembayaran hari ini.</p>` + listHtml,
+                    icon: 'info',
+                    confirmButtonText: 'Tutup',
+                    confirmButtonColor: '#3b82f6',
+                    customClass: {
+                        popup: 'rounded-4 shadow-lg'
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Reminder Error:", e);
+        }
+    }
+
     async function refreshDashboard() {
         const btn = document.getElementById('btn-refresh');
         const rawPeriode = document.getElementById('filter-periode').value; 
@@ -234,6 +268,9 @@
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         initCalendar(); 
         refreshDashboard(); 
+        
+        // Jalankan pengingat janji bayar setelah dashboard dimuat
+        setTimeout(checkReminders, 1500);
     });
 </script>
 
