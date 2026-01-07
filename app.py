@@ -12,7 +12,8 @@ from core.database import init_db
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
-# Perbaikan: Import blueprint, bukan fungsi register
+# Blueprint Ardebt (File baru yang dibuat sebelumnya)
+from api.ardebt import ardebt_bp 
 from api.belum_bayar import belum_bayar_bp 
 from api.pcez_performance import register_pcez_routes
 
@@ -56,12 +57,12 @@ def create_app():
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(history_bp, url_prefix='/api')
     app.register_blueprint(rute_bp, url_prefix='/api')
-    
-    # Perbaikan: Registrasi belum_bayar menggunakan Blueprint
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
     
+    # Registrasi API Ardebt (Tagihan Berekor)
+    app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
+    
     # --- REGISTRASI RUTE DINAMIS ---
-    # PCEZ tetap menggunakan fungsi register jika belum diubah ke Blueprint
     register_pcez_routes(app, get_db)
 
     # --- RUTE NAVIGASI FRONTEND (Tampilan) ---
@@ -73,13 +74,18 @@ def create_app():
 
     @app.route('/belum-bayar')
     def belum_bayar_page():
-        """Halaman Daftar Kerja Petugas (Target MC)"""
+        """Halaman Daftar Kerja Petugas (Target MC - Current Only)"""
         return render_template('belum_bayar.html')
 
-    @app.route('/tagihan-berekor')
-    def tagihan_berekor_page():
+    @app.route('/tunggakan-berekor')
+    def tunggakan_berekor_page():
         """Halaman khusus untuk menangani tunggakan lama (Ardebt)"""
         return render_template('tagihan_berekor.html')
+
+    @app.route('/history-bayar')
+    def history_bayar_page():
+        """Halaman Analisis Riwayat & Tren Pembayaran 3 Bulan Terakhir"""
+        return render_template('history_bayar.html')
 
     @app.route('/performa')
     def performa_page():
@@ -110,7 +116,6 @@ def create_app():
     @app.route('/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         """Menyajikan foto bukti kunjungan agar muncul di browser/WA"""
-        # Pastikan KUNJUNGAN_FOLDER didefinisikan di config.py
         return send_from_directory(app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan'), filename)
 
     return app
