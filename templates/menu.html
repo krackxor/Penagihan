@@ -1,5 +1,5 @@
 <div class="offcanvas offcanvas-start border-0 shadow-lg" tabindex="-1" id="offcanvasMenu" style="width: 290px; border-radius: 0 30px 30px 0;">
-    <div class="offcanvas-header py-4 px-4 text-white" style="background: var(--primary-gradient);">
+    <div class="offcanvas-header py-4 px-4 text-white" style="background: var(--primary-gradient, linear-gradient(135deg, #1e293b 0%, #0f172a 100%));">
         <div>
             <div class="d-flex align-items-center mb-2">
                 <div class="bg-white rounded-circle text-primary d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
@@ -24,13 +24,18 @@
                 <span class="fw-semibold">Penagihan Current</span>
             </a>
 
-            <a href="/tagihan-berekor" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+            <a href="/tunggakan-berekor" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
                 <i class="fas fa-dragon me-3 text-danger p-2 bg-danger-subtle rounded-3"></i>
                 <span class="fw-semibold">Penagihan Berekor</span>
             </a>
 
+            <a href="/history-bayar" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
+                <i class="fas fa-chart-line me-3 text-info p-2 bg-info-subtle rounded-3"></i>
+                <span class="fw-semibold">Analisis Riwayat</span>
+            </a>
+
             <a href="/performa" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
-                <i class="fas fa-chart-pie me-3 text-success p-2 bg-success-subtle rounded-3"></i>
+                <i class="fas fa-trophy me-3 text-success p-2 bg-success-subtle rounded-3"></i>
                 <span class="fw-semibold">Performa Tim</span>
             </a>
 
@@ -49,10 +54,11 @@
 
             <a href="/history" class="list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 d-flex align-items-center">
                 <i class="fas fa-history me-3 text-secondary p-2 bg-secondary-subtle rounded-3"></i>
-                <span class="fw-semibold">Riwayat Laporan</span>
+                <span class="fw-semibold">Log System</span>
             </a>
         </div>
     </div>
+    
     <div class="offcanvas-footer p-4 border-top">
         <button class="btn btn-outline-danger w-100 rounded-3 fw-bold btn-sm">
             <i class="fas fa-sign-out-alt me-1"></i> LOGOUT
