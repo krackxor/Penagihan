@@ -4,6 +4,8 @@ from flask import Blueprint, request, jsonify, current_app
 from core.database import get_db_connection
 from processors.auto_detect import identify_file_type, detect_file_period
 
+# Blueprint didefinisikan dengan nama 'upload'
+# Pastikan di app.py didaftarkan dengan: app.register_blueprint(upload_bp, url_prefix='/api/upload')
 upload_bp = Blueprint('upload', __name__)
 
 def clean_pcez(val):
@@ -32,6 +34,7 @@ def clean_pcez(val):
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
+    """Endpoint untuk memproses unggahan file Excel (MC, MB, Collection, Ardebt, Rute)"""
     if 'file' not in request.files:
         return jsonify({"error": "Pilih file Excel"}), 400
     
@@ -39,18 +42,19 @@ def handle_upload():
     db = get_db_connection()
     
     try:
-        # Load data sebagai string untuk menjaga keaslian ID
+        # Load data sebagai string untuk menjaga keaslian ID (Nomen/Notag)
         df = pd.read_excel(file, dtype=str)
         file_type = identify_file_type(df)
         
         if not file_type:
             return jsonify({"error": "Format kolom file tidak dikenali"}), 400
 
-        # detect_file_period otomatis melakukan +1 bulan untuk MC, MB, dan Ardebt
+        # detect_file_period otomatis melakukan +1 bulan untuk MC, MB, dan Ardebt (Logika Bisnis)
         bulan, tahun = detect_file_period(df, file_type)
         periode_str = f"{str(bulan).zfill(2)}-{tahun}" if bulan else None
         periode_info = f" ({periode_str})" if periode_str else ""
 
+        # Standarisasi Nama Kolom
         df.columns = [str(c).upper().strip() for c in df.columns]
 
         if file_type == 'rute':
@@ -65,7 +69,6 @@ def handle_upload():
                     count += 1
 
         elif file_type == 'mc':
-            count_mc = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 nomet = str(row.get('NOMET', '')).split('.')[0].strip()
@@ -84,10 +87,8 @@ def handle_upload():
                     nomet if nomet != 'NAN' else None,
                     row.get('NAMA_PEL'), pcez_val, row.get('NOMINAL'), periode_str
                 ))
-                count_mc += 1
 
         elif file_type == 'mb':
-            count_mb = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 notag = str(row.get('NOTAGIHAN', '')).split('.')[0].strip()
@@ -96,13 +97,11 @@ def handle_upload():
                         INSERT INTO master_bayar (nomen, notagihan, nominal, periode) 
                         VALUES (?, ?, ?, ?)
                     """, (nomen, notag if notag != 'NAN' else None, row.get('NOMINAL'), periode_str))
-                    count_mb += 1
 
         elif file_type == 'collection':
-            count_coll = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
-                # PERBAIKAN: Menggunakan field 'notag' sesuai skema DB terbaru
+                # Menggunakan kolom NOTAG dari excel (Logika skema baru)
                 notag = str(row.get('NOTAG', '')).split('.')[0].strip() 
                 
                 if nomen and nomen != 'NAN':
@@ -110,12 +109,10 @@ def handle_upload():
                         INSERT INTO collection_harian (nomen, notag, nominal, periode) 
                         VALUES (?, ?, ?, ?)
                     """, (nomen, notag if notag != 'NAN' else None, row.get('NOMINAL'), periode_str))
-                    count_coll += 1
 
         elif file_type == 'ardebt':
-            # Kosongkan tabel ardebt lama agar data selalu aktual
+            # Kosongkan tabel ardebt lama agar data tidak tumpang tindih (Logika Raw Data)
             db.execute("DELETE FROM ardebt")
-            count_ard = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 jumlah = row.get('JUMLAH')
@@ -127,7 +124,6 @@ def handle_upload():
                         INSERT INTO ardebt (nomen, jumlah, volume, periode_bill) 
                         VALUES (?, ?, ?, ?)
                     """, (nomen, jumlah, volume, per_bill))
-                    count_ard += 1
 
         db.commit()
         return jsonify({
@@ -144,7 +140,7 @@ def handle_upload():
 
 @upload_bp.route('/data-status', methods=['GET'])
 def get_data_status():
-    """Endpoint untuk dashboard Health Check: mengecek ketersediaan data."""
+    """Endpoint untuk Health Check dinamis pada halaman upload"""
     db = get_db_connection()
     status = {}
     tables = {
@@ -156,11 +152,12 @@ def get_data_status():
     
     try:
         for label, table in tables.items():
-            # Menggunakan updated_at untuk Ardebt dan periode untuk lainnya
+            # Untuk Ardebt cek berdasarkan keberadaan data fisik
+            # Untuk lainnya cek berdasarkan kolom periode
             if label == 'Ardebt':
-                res = db.execute(f"SELECT updated_at FROM {table} LIMIT 1").fetchone()
+                res = db.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone()
             else:
-                res = db.execute(f"SELECT periode FROM {table} LIMIT 1").fetchone()
+                res = db.execute(f"SELECT 1 FROM {table} WHERE periode IS NOT NULL LIMIT 1").fetchone()
             
             status[label] = {"exists": True if res else False}
             
