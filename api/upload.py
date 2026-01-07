@@ -46,6 +46,7 @@ def handle_upload():
         if not file_type:
             return jsonify({"error": "Format kolom file tidak dikenali"}), 400
 
+        # detect_file_period sekarang otomatis melakukan +1 bulan untuk MC, MB, dan Ardebt
         bulan, tahun = detect_file_period(df, file_type)
         periode_str = f"{str(bulan).zfill(2)}-{tahun}" if bulan else None
         periode_info = f" ({periode_str})" if periode_str else ""
@@ -101,7 +102,8 @@ def handle_upload():
             count_coll = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
-                notag = str(row.get('NOTAG', '')).split('.')[0].strip() # Field NOTAG dari Excel
+                # Menggunakan kolom NOTAG dari excel untuk masuk ke field 'notag' di DB
+                notag = str(row.get('NOTAG', '')).split('.')[0].strip() 
                 
                 if nomen and nomen != 'NAN':
                     db.execute("""
@@ -111,13 +113,14 @@ def handle_upload():
                     count_coll += 1
 
         elif file_type == 'ardebt':
-            # Kosongkan tabel ardebt lama agar sinkronisasi Health Check akurat
+            # Kosongkan tabel ardebt lama agar sinkronisasi dan data harian akurat
             db.execute("DELETE FROM ardebt")
             count_ard = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 jumlah = row.get('JUMLAH')
                 volume = row.get('VOLUME')
+                # Mengambil informasi periode bill asli dari file
                 per_bill = str(row.get('PERIODE_BILL', '')).strip()
                 
                 if nomen and nomen != 'NAN':
@@ -139,3 +142,31 @@ def handle_upload():
         return jsonify({"error": str(e)}), 500
     finally:
         if db: db.close()
+
+@upload_bp.route('/data-status', methods=['GET'])
+def get_data_status():
+    """Endpoint untuk dashboard Health Check: mengecek ketersediaan data tiap jenis file."""
+    db = get_db_connection()
+    status = {}
+    tables = {
+        'MC': 'master_pelanggan',
+        'MB': 'master_bayar',
+        'Collection': 'collection_harian',
+        'Ardebt': 'ardebt'
+    }
+    
+    try:
+        for label, table in tables.items():
+            # Cek row terakhir berdasarkan created_at/updated_at
+            if label == 'Ardebt':
+                res = db.execute(f"SELECT updated_at FROM {table} LIMIT 1").fetchone()
+            else:
+                res = db.execute(f"SELECT periode FROM {table} LIMIT 1").fetchone()
+            
+            status[label] = {"exists": True if res else False}
+            
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
