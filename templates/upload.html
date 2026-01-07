@@ -100,7 +100,7 @@
                 <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-info border-4">
                     <h6 class="fw-bold small text-info mb-2">FILE RUTE</h6>
                     <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
-                        <li><i class="fas fa-check-circle me-1 text-info"></i> PCEZ (Format: 000/00)</li>
+                        <li><i class="fas fa-check-circle me-1 text-info"></i> PCEZ</li>
                         <li><i class="fas fa-check-circle me-1 text-info"></i> PETUGAS</li>
                     </ul>
                 </div>
@@ -213,7 +213,7 @@
         });
 
         try {
-            // Menggunakan endpoint /api/upload/upload sesuai api/upload.py
+            // Pemanggilan endpoint sesuai dengan Blueprint 'upload' di app.py
             const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
             const result = await res.json();
 
@@ -224,7 +224,6 @@
                     text: result.message,
                     confirmButtonColor: '#0f172a'
                 }).then(() => {
-                    // Update status data secara dinamis setelah upload berhasil
                     checkDataIntegrity();
                     resetUpload();
                 });
