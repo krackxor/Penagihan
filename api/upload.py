@@ -11,24 +11,21 @@ def clean_pcez(val):
     if pd.isna(val) or str(val).strip().upper() == 'NAN' or str(val).strip() == '':
         return None
     
-    # Bersihkan dari karakter non-digit kecuali slash
     val_str = str(val).strip().replace(" ", "")
     
     if '/' in val_str:
         parts = val_str.split('/')
         if len(parts) == 2:
-            # Pastikan format 096/02 (3 digit depan, 2 digit belakang)
             p1 = ''.join(filter(str.isdigit, parts[0])).zfill(3)
             p2 = ''.join(filter(str.isdigit, parts[1])).zfill(2)
             return f"{p1}/{p2}"
     
-    # Jika hanya angka (Contoh: 09602 atau 9602)
     s = ''.join(filter(str.isdigit, val_str))
     if len(s) == 4:
         return f"0{s[:2]}/{s[2:]}"
     if len(s) == 5:
         return f"{s[:3]}/{s[3:]}"
-    if len(s) >= 7: # Kasus ZONA_NOVAK langsung (350960217)
+    if len(s) >= 7: 
         return f"{s[2:5]}/{s[5:7]}"
             
     return val_str
@@ -104,24 +101,24 @@ def handle_upload():
             count_coll = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
-                notag = str(row.get('NOTAG', '')).split('.')[0].strip()
+                notag = str(row.get('NOTAG', '')).split('.')[0].strip() # Field NOTAG dari Excel
+                
                 if nomen and nomen != 'NAN':
                     db.execute("""
-                        INSERT INTO collection_harian (nomen, notagihan, nominal, periode) 
+                        INSERT INTO collection_harian (nomen, notag, nominal, periode) 
                         VALUES (?, ?, ?, ?)
                     """, (nomen, notag if notag != 'NAN' else None, row.get('NOMINAL'), periode_str))
                     count_coll += 1
 
-        # --- LOGIKA BARU: PROSES FILE ARDEBT ---
         elif file_type == 'ardebt':
-            # Kosongkan tabel ardebt lama sebelum mengisi yang baru agar data tetap aktual
+            # Kosongkan tabel ardebt lama agar sinkronisasi Health Check akurat
             db.execute("DELETE FROM ardebt")
             count_ard = 0
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 jumlah = row.get('JUMLAH')
                 volume = row.get('VOLUME')
-                per_bill = row.get('PERIODE_BILL')
+                per_bill = str(row.get('PERIODE_BILL', '')).strip()
                 
                 if nomen and nomen != 'NAN':
                     db.execute("""
@@ -131,7 +128,11 @@ def handle_upload():
                     count_ard += 1
 
         db.commit()
-        return jsonify({"status": "success", "message": f"Data {file_type.upper()} Berhasil Diperbarui{periode_info}"})
+        return jsonify({
+            "status": "success", 
+            "message": f"Data {file_type.upper()} Berhasil Diperbarui{periode_info}",
+            "type": file_type
+        })
 
     except Exception as e:
         if db: db.rollback()
