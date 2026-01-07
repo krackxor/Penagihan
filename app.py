@@ -20,19 +20,17 @@ from core.database import init_db
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
-from api.ardebt import ardebt_bp 
-from api.belum_bayar import belum_bayar_bp 
+from api.ardebt import ardebt_bp
+from api.belum_bayar import belum_bayar_bp
 from api.pcez_performance import register_pcez_routes
 
 def get_db():
     """
     Koneksi database terpusat dengan optimasi WAL Mode.
-    Mencegah error 'Database is locked' saat akses bersamaan.
     """
     if 'db' not in g:
         db_path = current_app.config.get('DATABASE')
         if not db_path:
-            # Fallback path jika config tidak terbaca
             db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'penagihan.db')
             
         g.db = sqlite3.connect(db_path, timeout=30)
@@ -52,7 +50,7 @@ def create_app():
         Config.init_app(app)
         init_db(app)
         
-        # Buat folder kunjungan jika belum ada untuk mencegah error lapor foto
+        # Buat folder kunjungan jika belum ada
         upload_path = app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan')
         if not os.path.exists(upload_path):
             os.makedirs(upload_path, exist_ok=True)
@@ -65,7 +63,9 @@ def create_app():
             db.close()
 
     # --- REGISTRASI BLUEPRINT API ---
-    app.register_blueprint(upload_bp, url_prefix='/api')
+    # Perbaikan: url_prefix disesuaikan agar menjadi /api/upload/upload dan /api/upload/data-status
+    app.register_blueprint(upload_bp, url_prefix='/api/upload')
+    
     app.register_blueprint(history_bp, url_prefix='/api')
     app.register_blueprint(rute_bp, url_prefix='/api')
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
@@ -75,7 +75,6 @@ def create_app():
     register_pcez_routes(app, get_db)
 
     # --- RUTE NAVIGASI FRONTEND ---
-
     @app.route('/')
     def index():
         return render_template('index.html')
@@ -112,17 +111,13 @@ def create_app():
     def history_page():
         return render_template('history.html')
 
-    # --- SERVING FILES (FOTO BUKTI KUNJUNGAN) ---
+    # --- SERVING FILES ---
     @app.route('/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         return send_from_directory(app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan'), filename)
 
     return app
 
-# --- SISTEM DIAGRAM ARSITEKTUR ---
-# 
-
 if __name__ == '__main__':
     app = create_app()
-    # Server running on 0.0.0.0 agar bisa diakses device lain dalam jaringan yang sama
     app.run(host='0.0.0.0', port=5000, debug=True)
