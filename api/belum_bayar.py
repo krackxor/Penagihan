@@ -17,7 +17,6 @@ def add_watermark(image_path, info):
         font_size = int(width * 0.04)
         
         try:
-            # Path font standar sistem Linux/Ubuntu
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except:
             font = ImageFont.load_default()
@@ -47,106 +46,80 @@ def add_watermark(image_path, info):
 
 @belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
 def get_petugas_tabs():
-    """Mengambil daftar petugas unik untuk dropdown filter di UI."""
+    """Mengambil daftar petugas unik dari tabel rute."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != '' ORDER BY petugas ASC")
-        petugas_list = [row[0] for row in cursor.fetchall()]
-        return jsonify(petugas_list)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify([row[0] for row in cursor.fetchall()])
     finally:
         conn.close()
 
 @belum_bayar_bp.route('/galeri', methods=['GET'])
 def get_galeri_kunjungan():
-    """Mengambil daftar foto kunjungan secara dinamis (mendukung Current & Ardebt)."""
+    """Mengambil foto kunjungan menyeluruh (Current & Ardebt)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         query = """
-            SELECT 
-                k.foto_path, 
-                k.nomen, 
-                COALESCE(m.nama, a.nomen, 'Pelanggan Ardebt') as nama,
-                k.petugas_name,
-                datetime(k.created_at, '+7 hours') as waktu,
-                k.keterangan as hasil
+            SELECT k.foto_path, k.nomen, COALESCE(m.nama, a.nomen, 'Pelanggan Ardebt') as nama,
+                   k.petugas_name, datetime(k.created_at, '+7 hours') as waktu, k.keterangan as hasil
             FROM kunjungan_petugas k
             LEFT JOIN master_pelanggan m ON k.nomen = m.nomen
             LEFT JOIN ardebt a ON k.nomen = a.nomen
-            WHERE k.foto_path IS NOT NULL 
-            AND k.foto_path NOT IN ('', 'None', 'null')
-            GROUP BY k.id
-            ORDER BY k.created_at DESC
-            LIMIT 60
+            WHERE k.foto_path IS NOT NULL AND k.foto_path NOT IN ('', 'None', 'null')
+            GROUP BY k.id ORDER BY k.created_at DESC LIMIT 60
         """
         cursor.execute(query)
-        data = [dict(row) for row in cursor.fetchall()]
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify([dict(row) for row in cursor.fetchall()])
     finally:
         conn.close()
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """Mengambil daftar pelanggan TAGIHAN CURRENT (Bulan Berjalan) dengan filter Rp 10.000."""
+    """LOGIKA SMART: Mengambil tagihan aktif (gabungan MC lama & baru) >= Rp 10.000."""
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
     
-    today = datetime.now()
-    target_dt = today
-    if req_periode:
-        try:
-            target_dt = datetime.strptime(req_periode, '%m-%Y')
-        except: pass
+    # Normalisasi Periode Otomatis
+    bulan_map = {'Januari':'01','Februari':'02','Maret':'03','April':'04','Mei':'05','Juni':'06',
+                 'Juli':'07','Agustus':'08','September':'09','Oktober':'10','November':'11','Desember':'12'}
+    try:
+        part = req_periode.split(' ')
+        curr_period = f"{bulan_map[part[0]]}-{part[1]}"
+    except:
+        curr_period = datetime.now().strftime('%m-%Y')
 
-    curr_period_str = target_dt.strftime('%m-%Y')
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     try:
-        # Perbaikan: REPLACE r.pcez agar nama petugas muncul otomatis
-        # Perbaikan: p.nominal >= 10000 agar tagihan kecil ikut tertagih
+        # Menjumlahkan sisa MC bulan lalu dengan Mainbill/MC bulan ini
         query = """
-            SELECT p.*, r.petugas as nama_petugas 
+            SELECT p.nomen, p.nama, p.pcez, p.notagihan, r.petugas as nama_petugas,
+            SUM(p.nominal) as total_ditagih
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON REPLACE(r.pcez, '/', '') = p.pcez
-            WHERE p.tipe = 'MC' AND p.periode = ?
+            WHERE (p.periode = ? OR (p.periode < ? AND p.tipe = 'MC'))
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan)
             AND NOT EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = p.notagihan)
             AND NOT EXISTS (SELECT 1 FROM ardebt a WHERE a.nomen = p.nomen)
-            AND p.nominal >= 10000
         """
-        params = [curr_period_str]
+        params = [curr_period, curr_period]
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        query += " ORDER BY p.nominal DESC LIMIT 100"
+        query += " GROUP BY p.nomen HAVING total_ditagih >= 10000 ORDER BY total_ditagih DESC LIMIT 100"
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Menyimpan laporan hasil kunjungan lapangan dengan watermark foto."""
-    nomen = request.form.get('idpel')
-    petugas_name = request.form.get('petugas_name')
-    hasil = request.form.get('hasil')
-    no_hp = request.form.get('no_hp')
-    catatan = request.form.get('keterangan')
-    nama_pelanggan = request.form.get('nama_pelanggan') 
-    nominal_display = request.form.get('nominal_display') 
-    janji_dt = request.form.get('janji_bayar_dt')
-    lat = request.form.get('latitude')
-    lng = request.form.get('longitude')
-    foto = request.files.get('foto')
+    """Menyimpan laporan hasil kunjungan lapangan dengan watermark."""
+    nomen = request.form.get('idpel'); petugas_name = request.form.get('petugas_name')
+    hasil = request.form.get('hasil'); foto = request.files.get('foto')
     
     if not nomen or not hasil:
         return jsonify({"error": "Data laporan tidak lengkap"}), 400
@@ -155,66 +128,49 @@ def lapor_kunjungan():
     if foto:
         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
         os.makedirs(upload_folder, exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        ext = os.path.splitext(foto.filename)[1].lower()
-        filename = secure_filename(f"LOG_{nomen}_{timestamp}{ext}")
+        filename = secure_filename(f"LOG_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}{os.path.splitext(foto.filename)[1].lower()}")
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
-
-        # Menambahkan informasi ke watermark foto
-        info_watermark = {
+        add_watermark(foto_path, {
             'waktu': datetime.now().strftime('%d/%m/%Y %H:%M WIB'),
-            'petugas': petugas_name or "Petugas Lapangan",
-            'nomen': nomen,
-            'nama': nama_pelanggan or "-",
-            'nominal': nominal_display or "0"
-        }
-        add_watermark(foto_path, info_watermark)
+            'petugas': petugas_name or "Petugas Lapangan", 'nomen': nomen,
+            'nama': request.form.get('nama_pelanggan') or "-",
+            'nominal': request.form.get('nominal_display') or "0"
+        })
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        visit_period = datetime.now().strftime('%m-%Y')
+        conn = get_db_connection(); cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, no_hp, catatan, janji_bayar_dt, foto_path, latitude, longitude, periode)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nomen, petugas_name, hasil, no_hp, catatan, janji_dt, filename, lat, lng, visit_period))
+        """, (nomen, petugas_name, hasil, request.form.get('no_hp'), request.form.get('keterangan'), 
+              request.form.get('janji_bayar_dt'), filename, request.form.get('latitude'), request.form.get('longitude'), datetime.now().strftime('%m-%Y')))
         conn.commit()
-        return jsonify({"status": "success", "message": "Laporan berhasil disimpan", "filename": filename})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"status": "success", "filename": filename})
     finally:
         conn.close()
 
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
-    """Mengambil daftar TAGIHAN BEREKOR (Ardebt) yang belum dikunjungi hari ini."""
+    """LOGIKA ARDEBT MANDIRI: Mendeteksi sisa tagihan > 2 bulan dari database internal."""
     petugas_filter = request.args.get('petugas')
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    
+    conn = get_db_connection(); cursor = conn.cursor()
     try:
-        # Perbaikan: Normalisasi pcez agar nama petugas muncul
-        query = f"""
-            SELECT a.id, a.nomen, p.nama, p.pcez, a.periode_bill, a.jumlah, a.volume, r.petugas as nama_petugas
-            FROM ardebt a
-            INNER JOIN master_pelanggan p ON a.nomen = p.nomen
+        query = """
+            SELECT p.nomen, p.nama, p.pcez, r.petugas as nama_petugas,
+            COUNT(p.id) as jumlah_bulan_tunggak, SUM(p.nominal) as total_tunggakan
+            FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON REPLACE(r.pcez, '/', '') = p.pcez
-            WHERE NOT EXISTS (
-                SELECT 1 FROM kunjungan_petugas k 
-                WHERE k.nomen = a.nomen AND date(k.created_at, '+7 hours') = '{today_str}'
-            )
+            WHERE NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan)
+            AND NOT EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = p.notagihan)
+            AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND date(k.created_at, '+7 hours') = date('now', 'localtime'))
         """
         params = []
         if petugas_filter and petugas_filter != 'all':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
+            query += " AND r.petugas = ?"; params.append(petugas_filter)
             
-        query += " ORDER BY a.periode_bill ASC LIMIT 15"
+        query += " GROUP BY p.nomen HAVING jumlah_bulan_tunggak >= 2 ORDER BY total_tunggakan DESC LIMIT 15"
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
