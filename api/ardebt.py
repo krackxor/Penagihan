@@ -1,9 +1,10 @@
 """
 Ardebt (Tagihan Berekor) API Endpoints
-Logic: Menampilkan data tunggakan berekor yang terhubung dengan Master Pelanggan (MC)
+Logic: Menampilkan data tunggakan berekor APA ADANYA (Tanpa SUM/COUNT)
+Linked dengan Master Pelanggan (MC) melalui INNER JOIN.
 
 Author: Sunter Team
-Updated: 2025-01-03
+Updated: 2026-01-07
 """
 
 from flask import Blueprint, request, jsonify
@@ -16,10 +17,10 @@ ardebt_bp = Blueprint('ardebt', __name__)
 def get_tunggakan_berekor():
     """
     Endpoint untuk mengambil daftar tunggakan berekor (Ardebt).
-    - Data Utama: Tabel ardebt
+    - Data Utama: Tabel ardebt (Raw Data per baris)
     - Join: master_pelanggan (untuk Nama & PCEZ/Rute)
-    - Join: rute_petugas (untuk Nama Petugas)
     - Filter: Hanya nomen yang ada di MC (Inner Join)
+    - Agregasi: DINONAKTIFKAN (No SUM, No COUNT, No GROUP BY)
     """
     petugas_filter = request.args.get('petugas')
     
@@ -27,33 +28,32 @@ def get_tunggakan_berekor():
     cursor = conn.cursor()
     
     try:
-        # Query sesuai instruksi: INNER JOIN ke MC dan GROUP BY nomen
+        # Query DIPERBARUI: Menampilkan rincian asli per periode_bill, jumlah, dan volume
         query = """
             SELECT 
+                a.id,
                 a.nomen, 
-                MAX(p.nama) as nama,
-                MAX(p.pcez) as pcez,
-                SUM(a.jumlah) as total_tunggakan, 
-                COUNT(a.periode_bill) as jumlah_ekor,
+                p.nama,
+                p.pcez,
+                a.periode_bill, 
+                a.jumlah,       
+                a.volume,
                 r.petugas as nama_petugas
             FROM ardebt a
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            GROUP BY a.nomen
-            HAVING total_tunggakan > 0
         """
         
         params = []
-        # Logika filter jika memilih petugas tertentu
         if petugas_filter and petugas_filter != 'all':
-            final_query = f"SELECT * FROM ({query}) AS sub WHERE sub.nama_petugas = ?"
+            query += " WHERE r.petugas = ?"
             params.append(petugas_filter)
-            cursor.execute(final_query, params)
-        else:
-            # Default sorting: Tunggakan terlama (ekor terbanyak) di atas
-            final_query = query + " ORDER BY jumlah_ekor DESC, total_tunggakan DESC"
-            cursor.execute(final_query)
-
+            
+        # Sorting berdasarkan Nomen agar tagihan per pelanggan tetap berkumpul, 
+        # lalu diurutkan berdasarkan periode penagihan.
+        query += " ORDER BY a.nomen ASC, a.periode_bill DESC"
+        
+        cursor.execute(query, params)
         data = [dict(row) for row in cursor.fetchall()]
         return APIResponse.success(data=data)
 
@@ -69,8 +69,10 @@ def get_ardebt_summary():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # Summary tetap menghitung total keseluruhan untuk statistik dashboard
         cursor.execute("""
             SELECT 
+                COUNT(a.id) as total_lembar_tagihan,
                 COUNT(DISTINCT a.nomen) as total_nomen,
                 SUM(a.jumlah) as total_rupiah
             FROM ardebt a
