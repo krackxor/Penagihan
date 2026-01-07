@@ -63,15 +63,18 @@ def create_app():
             db.close()
 
     # --- REGISTRASI BLUEPRINT API ---
-    # Perbaikan: url_prefix disesuaikan agar menjadi /api/upload/upload dan /api/upload/data-status
+    # Perbaikan URL Prefix untuk konsistensi akses frontend
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
+    app.register_blueprint(history_bp, url_prefix='/api/history')
+    app.register_blueprint(rute_bp, url_prefix='/api/rute')
     
-    app.register_blueprint(history_bp, url_prefix='/api')
-    app.register_blueprint(rute_bp, url_prefix='/api')
+    # Registrasi Blueprint Belum Bayar (Menyediakan endpoint /api/belum-bayar/petugas-tabs)
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
+    
+    # Registrasi Blueprint Ardebt
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     
-    # --- REGISTRASI RUTE DINAMIS ---
+    # --- REGISTRASI RUTE DINAMIS PERFORMANCE ---
     register_pcez_routes(app, get_db)
 
     # --- RUTE NAVIGASI FRONTEND ---
@@ -111,8 +114,8 @@ def create_app():
     def history_page():
         return render_template('history.html')
 
-    # --- SERVING FILES ---
-    @app.route('/uploads/kunjungan/<filename>')
+    # --- SERVING FILES (FOTO KUNJUNGAN) ---
+    @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         return send_from_directory(app.config.get('KUNJUNGAN_FOLDER', 'static/uploads/kunjungan'), filename)
 
@@ -120,4 +123,5 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
+    # Menjalankan di host 0.0.0.0 agar bisa diakses dari IP VPS
     app.run(host='0.0.0.0', port=5000, debug=True)
