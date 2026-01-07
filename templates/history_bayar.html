@@ -1,1 +1,163 @@
+{% extends "base.html" %}
 
+{% block content %}
+<div class="px-2 pb-5 animate__animated animate__fadeIn">
+    <div class="pt-4 mb-4 text-center">
+        <h4 class="fw-bold mb-1">Analisis Riwayat Bayar 📊</h4>
+        <p class="text-muted small">Tren pembayaran 3 bulan terakhir & radar macet</p>
+    </div>
+
+    <div class="bg-white p-1 rounded-4 shadow-sm mb-4 border mx-1">
+        <ul class="nav nav-pills nav-fill" id="historyTab" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active rounded-3 fw-bold small py-2" id="undue-tab" data-bs-toggle="tab" data-bs-target="#undue-pane" type="button">
+                    <i class="fas fa-history me-1"></i> UNDUE
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link rounded-3 fw-bold small py-2" id="current-tab" data-bs-toggle="tab" data-bs-target="#current-pane" type="button">
+                    <i class="fas fa-bolt me-1"></i> CURRENT
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link rounded-3 fw-bold small py-2 text-danger" id="macet-tab" data-bs-toggle="tab" data-bs-target="#macet-pane" type="button">
+                    <i class="fas fa-exclamation-triangle me-1"></i> MACET
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <div class="tab-content" id="historyTabContent">
+        <div class="tab-pane fade show active" id="undue-pane" role="tabpanel">
+            <div id="list-undue">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">Menganalisis data MB...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="current-pane" role="tabpanel">
+            <div id="list-current">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">Menganalisis data Collection...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="macet-pane" role="tabpanel">
+            <div class="alert alert-danger mx-1 rounded-4 border-0 shadow-sm mb-3">
+                <small class="fw-bold"><i class="fas fa-info-circle me-1"></i> RADAR MACET</small><br>
+                <small style="font-size: 0.7rem;">Nomen di MC periode terbaru yang terdeteksi memiliki riwayat tunggakan di Ardebt.</small>
+            </div>
+            <div id="list-macet"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+
+    // Fungsi utama load data
+    async function loadAnalisis() {
+        try {
+            const res = await fetch('/api/history/analisis-bayar');
+            const data = await res.json();
+            
+            // Filter data Undue vs Current
+            const undueData = data.filter(d => d.tipe_pembayaran === 'Undue');
+            const currentData = data.filter(d => d.tipe_pembayaran === 'Current');
+
+            renderHistory(undueData, 'list-undue', 'bg-info');
+            renderHistory(currentData, 'list-current', 'bg-success');
+        } catch (e) {
+            console.error("Gagal memuat history:", e);
+        }
+    }
+
+    function renderHistory(data, elementId, accentClass) {
+        const container = document.getElementById(elementId);
+        if (data.length === 0) {
+            container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada riwayat pembayaran 3 bulan terakhir.</div>';
+            return;
+        }
+
+        container.innerHTML = data.map(item => `
+            <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 border-start border-4 ${accentClass.replace('bg-', 'border-')}">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${item.nomen}</h6>
+                            <small class="text-muted" style="font-size: 0.7rem;">Periode Billing: ${item.periode}</small>
+                        </div>
+                        <span class="badge ${accentClass} rounded-pill" style="font-size: 0.6rem;">${item.kelompok_tanggal}</span>
+                    </div>
+                    <div class="mt-2 d-flex justify-content-between align-items-center">
+                        <small class="text-muted"><i class="far fa-calendar-check me-1"></i>Lunas: ${item.tgl_bayar}</small>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function loadNomenMacet() {
+        const container = document.getElementById('list-macet');
+        try {
+            const res = await fetch('/api/history/nomen-macet');
+            const data = await res.json();
+
+            if (data.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada Nomen macet terdeteksi.</div>';
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 bg-white">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-danger-subtle text-danger rounded-pill px-2" style="font-size: 0.65rem;">
+                                ${item.jumlah_bulan_macet} BULAN BEREKOR
+                            </span>
+                            <small class="fw-bold text-dark">${item.nomen}</small>
+                        </div>
+                        <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">${item.nama}</h6>
+                        <div class="row g-0 mt-2 pt-2 border-top">
+                            <div class="col-6">
+                                <small class="text-muted d-block" style="font-size: 0.6rem;">TAGIHAN MC</small>
+                                <b class="small">${toIDR(item.nominal_tagihan)}</b>
+                            </div>
+                            <div class="col-6 text-end">
+                                <small class="text-danger d-block" style="font-size: 0.6rem;">TOTAL TUNGGAKAN</small>
+                                <b class="small text-danger">${toIDR(item.total_tunggakan_ardebt)}</b>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = '<div class="text-center py-5 text-danger small">Gagal menganalisis data macet.</div>';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAnalisis();
+        document.getElementById('macet-tab').addEventListener('shown.bs.tab', loadNomenMacet);
+    });
+</script>
+
+<style>
+    .nav-pills .nav-link.active {
+        background-color: #0d6efd;
+        color: white !important;
+    }
+    .nav-pills .nav-link {
+        color: #6c757d;
+    }
+    #macet-tab.active {
+        background-color: #dc3545 !important;
+    }
+    .bg-danger-subtle { background-color: #f8d7da; }
+    .text-danger { color: #842029 !important; }
+</style>
+{% endblock %}
