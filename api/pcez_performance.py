@@ -1,11 +1,10 @@
-
 from flask import jsonify, request
 from datetime import datetime, timedelta
 
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Statistik Strategis: Target (N-1) vs Realisasi (N) + Integrasi Ardebt Dinamis"""
+        """Statistik Strategis: Target (N-1) vs Realisasi (N)"""
         try:
             db = get_db()
             today = datetime.now()
@@ -30,12 +29,9 @@ def register_pcez_routes(app, get_db):
                 LIMIT 1
             """).fetchone()
             
-            if last_mc_query:
-                target_period = last_mc_query[0]
-            else:
-                target_period = (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
+            target_period = last_mc_query[0] if last_mc_query else (target_dt.replace(day=1) - timedelta(days=1)).strftime('%m-%Y')
 
-            # 3. Query Global: Perbaikan Error 500 (Menghapus c.keterangan yang tidak ada di DB)
+            # 3. Query Global Dashboard
             global_query = f"""
             SELECT 
                 COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = '{target_period}'), 0) as total_nomen_mc,
@@ -43,160 +39,124 @@ def register_pcez_routes(app, get_db):
                 
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
-                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
+                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan)
                 ), 0) as nom_undue,
                 
                 COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
-                 AND EXISTS (SELECT 1 FROM collection_harian c 
-                             WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}')
+                 AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = m.notagihan)
                 ), 0) as nom_current,
 
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
-                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan AND mb.periode = '{target_period}')
+                 AND EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan)
                 ), 0) as count_undue,
                 
                 COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
                  WHERE m.tipe = 'MC' AND m.periode = '{target_period}'
-                 AND EXISTS (SELECT 1 FROM collection_harian c 
-                             WHERE c.notag = m.notagihan AND c.periode = '{curr_period_str}')
+                 AND EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = m.notagihan)
                 ), 0) as count_current
             """
             
-            # 4. Query Ranking Petugas (Normalisasi format PCEZ agar nama muncul)
+            # 4. Query Ranking Petugas (Normalisasi PCEZ)
             officer_ranking_query = f"""
             SELECT 
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name,
-                    'Petugas Umum'
+                    k.petugas_name, 'Petugas Umum'
                 ) as petugas,
                 COUNT(*) as total_dijalan,
-                SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
-                              AND k.keterangan NOT LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_bayar,
-                SUM(CASE WHEN k.keterangan LIKE '%Janji Bayar%' OR k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE '%Rumah Kosong%' OR k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
-                SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
-                              AND k.keterangan NOT LIKE '%Janji%' THEN 
+                SUM(CASE WHEN k.keterangan LIKE '%Bayar%' AND k.keterangan NOT LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_bayar,
+                SUM(CASE WHEN k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
+                SUM(CASE WHEN k.keterangan LIKE '%Kosong%' OR k.keterangan LIKE '%RKS%' THEN 1 ELSE 0 END) as jml_rks,
+                SUM(CASE WHEN k.keterangan LIKE '%Bayar%' AND k.keterangan NOT LIKE '%Janji%' THEN 
                     COALESCE(
                         (SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1), 
-                        (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen),
-                        0
-                    ) 
-                    ELSE 0 END) as total_nominal
+                        (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen), 0
+                    ) ELSE 0 END) as total_nominal
             FROM kunjungan_petugas k
             WHERE k.periode = '{curr_period_str}'
-            GROUP BY petugas
-            ORDER BY total_nominal DESC
+            GROUP BY petugas ORDER BY total_nominal DESC
             """
 
-            # 5. Query Laporan Harian Tim
-            history_tim_query = f"""
-            SELECT 
-                date(k.created_at, '+7 hours') as tanggal,
-                COALESCE(
-                    (SELECT rp.petugas FROM rute_petugas rp 
-                     JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
-                     WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name,
-                    'Petugas Umum'
-                ) as petugas,
-                COUNT(*) as total_dijalan,
-                SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
-                              AND k.keterangan NOT LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_bayar,
-                SUM(CASE WHEN k.keterangan LIKE '%Janji Bayar%' OR k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
-                SUM(CASE WHEN k.keterangan LIKE '%Rumah Kosong%' OR k.keterangan LIKE '%RKS%' OR k.keterangan LIKE '%Kosong%' THEN 1 ELSE 0 END) as jml_rks,
-                SUM(CASE WHEN (k.keterangan LIKE '%Sudah Bayar%' OR k.keterangan LIKE '%Bayar%') 
-                              AND k.keterangan NOT LIKE '%Janji%' THEN 
-                    COALESCE(
-                        (SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1),
-                        (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen),
-                        0
-                    ) 
-                    ELSE 0 END) as total_nominal
-            FROM kunjungan_petugas k
-            WHERE k.periode = '{curr_period_str}'
-            GROUP BY tanggal, petugas
-            ORDER BY tanggal DESC LIMIT 20
-            """
-
-            # 6. Query Live Feed
+            # 5. Query Live Feed
             log_petugas_query = f"""
             SELECT 
                 datetime(k.created_at, '+7 hours') as waktu,
-                k.nomen,
-                COALESCE(m_nama.nama, 'Pelanggan') as nama,
-                k.keterangan,
+                k.nomen, COALESCE(m_nama.nama, 'Pelanggan') as nama, k.keterangan,
                 COALESCE(
                     (SELECT rp.petugas FROM rute_petugas rp 
                      JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
                      WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                    k.petugas_name,
-                    'Petugas Umum'
+                    k.petugas_name, 'Petugas Umum'
                 ) as petugas,
                 COALESCE(
                     (SELECT nominal FROM master_pelanggan WHERE nomen = k.nomen ORDER BY id DESC LIMIT 1),
-                    (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen),
-                    0
+                    (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen), 0
                 ) as nominal
             FROM kunjungan_petugas k
             LEFT JOIN master_pelanggan m_nama ON k.nomen = m_nama.nomen 
             WHERE k.periode = '{curr_period_str}'
-            GROUP BY k.id
-            ORDER BY k.created_at DESC LIMIT 100
+            GROUP BY k.id ORDER BY k.created_at DESC LIMIT 100
             """
 
             g_stat = db.execute(global_query).fetchone()
             o_rank = db.execute(officer_ranking_query).fetchall()
-            h_tim = db.execute(history_tim_query).fetchall()
             l_petugas = db.execute(log_petugas_query).fetchall()
             
-            res_global = dict(g_stat) if g_stat else {
-                "total_nomen_mc": 1, "total_nominal_mc": 1, "count_undue": 0, "count_current": 0,
-                "nom_undue": 0, "nom_current": 0
-            }
-            
+            res_global = dict(g_stat) if g_stat else {"total_nomen_mc": 0, "total_nominal_mc": 0}
             res_global['total_lunas_mc'] = res_global.get('count_undue', 0) + res_global.get('count_current', 0)
-            res_global['sisa_nomen'] = res_global['total_nomen_mc'] - res_global['total_lunas_mc']
-            res_global['sisa_nominal'] = res_global['total_nominal_mc'] - (res_global.get('nom_undue', 0) + res_global.get('nom_current', 0))
+            res_global['sisa_nomen'] = res_global.get('total_nomen_mc', 0) - res_global.get('total_lunas_mc', 0)
+            res_global['sisa_nominal'] = res_global.get('total_nominal_mc', 0) - (res_global.get('nom_undue', 0) + res_global.get('nom_current', 0))
 
             return jsonify({
                 "global": res_global,
                 "officers": [dict(row) for row in o_rank],
-                "history": [dict(row) for row in h_tim], 
                 "log_petugas": [dict(row) for row in l_petugas],
-                "active_period": curr_period_str,
-                "target_mc_period": target_period
+                "active_period": curr_period_str
             })
         except Exception as e:
-            print(f"Error Performance API: {str(e)}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
     @app.route('/api/performance/reminders', methods=['GET'])
     def get_reminders():
+        """Endpoint Monitoring Janji Bayar dengan Filter Periode & Status Bayar"""
         try:
             db = get_db()
-            today_str = datetime.now().strftime('%Y-%m-%d')
+            req_periode = request.args.get('periode') # MM-YYYY
+            
+            if req_periode:
+                month, year = req_periode.split('-')
+                date_filter = f"strftime('%m-%Y', k.janji_bayar_dt) = '{month}-{year}'"
+            else:
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                date_filter = f"date(k.janji_bayar_dt) = '{today_str}'"
+
             query = f"""
-                SELECT k.nomen, 
-                       COALESCE(m.nama, 'Pelanggan') as nama, 
-                       COALESCE(
-                            (SELECT rp.petugas FROM rute_petugas rp 
-                             JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
-                             WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
-                            k.petugas_name,
-                            'Petugas Umum'
-                       ) as petugas_name, 
-                       k.catatan,
-                       COALESCE(m.nominal, (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen)) as nominal
+                SELECT 
+                    date(k.created_at, '+7 hours') as tanggal_jalan,
+                    COALESCE(
+                        (SELECT rp.petugas FROM rute_petugas rp 
+                         JOIN master_pelanggan mp ON REPLACE(rp.pcez, '/', '') = mp.pcez 
+                         WHERE mp.nomen = k.nomen ORDER BY mp.id DESC LIMIT 1),
+                        k.petugas_name, 'Petugas Umum'
+                    ) as petugas_name,
+                    k.nomen, k.no_hp, k.janji_bayar_dt as tanggal_janji,
+                    COALESCE(m.nama, 'Pelanggan') as nama,
+                    COALESCE(m.nominal, (SELECT SUM(jumlah) FROM ardebt WHERE nomen = k.nomen)) as nominal,
+                    k.catatan,
+                    CASE 
+                        WHEN EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan) OR 
+                             EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = m.notagihan)
+                        THEN 'LUNAS' ELSE 'BELUM BAYAR'
+                    END as status_bayar
                 FROM kunjungan_petugas k
                 LEFT JOIN master_pelanggan m ON k.nomen = m.nomen
-                WHERE date(k.janji_bayar_dt) = '{today_str}'
-                AND k.keterangan LIKE '%Janji%'
-                GROUP BY k.nomen
+                WHERE {date_filter}
+                AND (k.keterangan LIKE '%Janji%' OR k.catatan LIKE '%Janji%')
+                GROUP BY k.id ORDER BY k.janji_bayar_dt ASC
             """
             rows = db.execute(query).fetchall()
             return jsonify([dict(row) for row in rows])
