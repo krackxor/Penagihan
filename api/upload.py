@@ -32,12 +32,13 @@ def clean_pcez(val):
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
-    """Endpoint untuk memproses unggahan file Excel dengan penanganan data kosong yang robust."""
+    """Endpoint unggahan file dengan penanganan data kosong dan pencatatan riwayat."""
     if 'file' not in request.files:
         return jsonify({"error": "Pilih file Excel"}), 400
     
     file = request.files['file']
     db = get_db_connection()
+    row_count = 0
     
     try:
         # Load data sebagai string dan bersihkan nilai NaN agar tidak kosong saat diproses
@@ -54,6 +55,7 @@ def handle_upload():
 
         # Standarisasi Nama Kolom
         df.columns = [str(c).upper().strip() for c in df.columns]
+        row_count = len(df)
 
         # 1. PROSES RUTE PETUGAS
         if file_type == 'rute':
@@ -64,18 +66,17 @@ def handle_upload():
                     db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
                                (pcez, petugas))
 
-        # 2. PROSES MASTER CATAT (MC) - Mengambil Nomet, Nominal, & Volume (KUBIK)
+        # 2. PROSES MASTER CATAT (MC) - Penanganan Nomet, Nominal, & Volume (KUBIK)
         elif file_type == 'mc':
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 if not nomen or nomen in ('NAN', ''): continue
                 
-                # Sesuai file Contoh MC.xlsx: Mengambil NOMET, NOTAGIHAN, NOMINAL, dan KUBIK
-                nomet = str(row.get('NOMET', '')).split('.')[0].strip()
                 notag = str(row.get('NOTAGIHAN', '')).split('.')[0].strip()
+                nomet = str(row.get('NOMET', '')).split('.')[0].strip()
                 zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "").strip()
                 
-                # Konversi angka secara aman untuk nominal dan volume
+                # Konversi angka secara aman: hapus koma pemisah ribuan jika ada
                 nominal = float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0
                 volume = float(str(row.get('KUBIK', 0)).replace(',', '')) if row.get('KUBIK') != '' else 0.0
                 
@@ -84,14 +85,8 @@ def handle_upload():
                     (nomen, notagihan, nomet, nama, pcez, nominal, volume, tipe, periode) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, 'MC', ?)
                 """, (
-                    nomen, 
-                    notag if notag != 'NAN' else None,
-                    nomet if nomet != 'NAN' else None,
-                    row.get('NAMA_PEL'), 
-                    clean_pcez(zona), 
-                    nominal, 
-                    volume,
-                    periode_str
+                    nomen, notag, nomet, row.get('NAMA_PEL'), 
+                    clean_pcez(zona), nominal, volume, periode_str
                 ))
 
         # 3. PROSES MASTER BAYAR (MB)
@@ -100,15 +95,11 @@ def handle_upload():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 if not nomen or nomen in ('NAN', ''): continue
                 
+                nominal = float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0
                 db.execute("""
                     INSERT OR REPLACE INTO master_bayar (nomen, notagihan, nominal, periode) 
                     VALUES (?, ?, ?, ?)
-                """, (
-                    nomen, 
-                    str(row.get('NOTAGIHAN', '')).split('.')[0].strip(), 
-                    float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0, 
-                    periode_str
-                ))
+                """, (nomen, str(row.get('NOTAGIHAN', '')).split('.')[0].strip(), nominal, periode_str))
 
         # 4. PROSES COLLECTION HARIAN
         elif file_type == 'collection':
@@ -116,39 +107,39 @@ def handle_upload():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 if not nomen or nomen in ('NAN', ''): continue
                 
+                nominal = float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0
                 db.execute("""
                     INSERT OR REPLACE INTO collection_harian (nomen, notag, nominal, periode) 
                     VALUES (?, ?, ?, ?)
-                """, (
-                    nomen, 
-                    str(row.get('NOTAG', '')).split('.')[0].strip(), 
-                    float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0, 
-                    periode_str
-                ))
+                """, (nomen, str(row.get('NOTAG', '')).split('.')[0].strip(), nominal, periode_str))
 
         # 5. PROSES ARDEBT (TUNGGAKAN BEREKOR)
         elif file_type == 'ardebt':
-            # Snapshot harian, hapus data lama agar tidak tumpang tindih
             db.execute("DELETE FROM ardebt")
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 if not nomen or nomen in ('NAN', ''): continue
                 
+                jumlah = float(str(row.get('JUMLAH', 0)).replace(',', '')) if row.get('JUMLAH') != '' else 0.0
+                volume = float(str(row.get('VOLUME', 0)).replace(',', '')) if row.get('VOLUME') != '' else 0.0
+                
                 db.execute("""
                     INSERT INTO ardebt (nomen, jumlah, volume, periode_bill) 
                     VALUES (?, ?, ?, ?)
-                """, (
-                    nomen, 
-                    float(str(row.get('JUMLAH', 0)).replace(',', '')) if row.get('JUMLAH') != '' else 0.0, 
-                    float(str(row.get('VOLUME', 0)).replace(',', '')) if row.get('VOLUME') != '' else 0.0, 
-                    str(row.get('PERIODE_BILL', '')).strip()
-                ))
+                """, (nomen, jumlah, volume, str(row.get('PERIODE_BILL', '')).strip()))
+
+        # Catat Riwayat Unggahan
+        db.execute("""
+            INSERT INTO upload_history (file_name, file_type, periode, row_count, status)
+            VALUES (?, ?, ?, ?, ?)
+        """, (file.filename, file_type.upper(), periode_str, row_count, 'SUCCESS'))
 
         db.commit()
         return jsonify({
             "status": "success", 
             "message": f"Data {file_type.upper()} berhasil diproses{periode_info}",
-            "type": file_type
+            "type": file_type,
+            "rows": row_count
         })
 
     except Exception as e:
