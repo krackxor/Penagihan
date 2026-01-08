@@ -47,14 +47,14 @@
 
             <div class="row g-2">
                 <div class="col-6">
-                    <div class="bg-white bg-opacity-10 p-2 rounded-4">
+                    <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
                         <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS PUSAT (MB)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.8rem;">0 NOMEN</span>
                         <span class="small opacity-90" id="nom-undue" style="font-size: 0.65rem;">Rp 0</span>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="bg-white bg-opacity-10 p-2 rounded-4">
+                    <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
                         <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS LAPANGAN (COLL)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.8rem;">0 NOMEN</span>
                         <span class="small opacity-90" id="nom-current" style="font-size: 0.65rem;">Rp 0</span>
@@ -64,8 +64,8 @@
         </div>
     </div>
 
-    <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white text-center">
-        <div class="row g-0 text-start">
+    <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white">
+        <div class="row g-0">
             <div class="col-7 border-end ps-2">
                 <small class="text-muted d-block fw-bold" style="font-size: 0.6rem;">SISA PIUTANG MC (RP)</small>
                 <h5 class="fw-bold mb-0 text-danger" id="stat-sisa-nom">Rp 0</h5>
@@ -79,7 +79,7 @@
 
     <div class="card border-0 shadow-sm mb-4 rounded-4">
         <div class="card-header bg-white py-3 border-0">
-            <h6 class="fw-bold mb-0"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Kunjungan Tim (MC + Ardebt)</h6>
+            <h6 class="fw-bold mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Kunjungan Tim (MC + Ardebt)</h6>
         </div>
         <div class="card-body pt-0">
             <canvas id="performaChart" style="height: 180px;"></canvas>
@@ -119,83 +119,50 @@
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
-    // FITUR REVISI: Cek Pengingat Janji Bayar Hari Ini
-    async function checkReminders() {
-        try {
-            const res = await fetch('/api/performance/reminders');
-            const data = await res.json();
-            
-            if (data.length > 0) {
-                let listHtml = '<ul class="list-group list-group-flush text-start small">';
-                data.forEach(item => {
-                    listHtml += `
-                        <li class="list-group-item px-0">
-                            <b>${item.nomen}</b> - ${item.nama}<br>
-                            <span class="text-muted">Petugas: ${item.petugas_name}</span><br>
-                            <span class="text-danger fw-bold">${toIDR(item.nominal)}</span>
-                        </li>`;
-                });
-                listHtml += '</ul>';
-
-                Swal.fire({
-                    title: '🔔 Janji Bayar Hari Ini!',
-                    html: `<p class="small text-muted mb-3">Terdapat <b>${data.length}</b> pelanggan yang menjanjikan pembayaran hari ini.</p>` + listHtml,
-                    icon: 'info',
-                    confirmButtonText: 'Tutup',
-                    confirmButtonColor: '#3b82f6',
-                    customClass: {
-                        popup: 'rounded-4 shadow-lg'
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Reminder Error:", e);
-        }
-    }
-
     async function refreshDashboard() {
         const btn = document.getElementById('btn-refresh');
+        const icon = btn.querySelector('i');
         const rawPeriode = document.getElementById('filter-periode').value; 
         if (!rawPeriode) return;
         
-        btn.classList.add('fa-spin');
-        const parts = rawPeriode.split('-');
-        const periode = `${parts[1]}-${parts[0]}`; 
+        icon.classList.add('fa-spin');
+        const [year, month] = rawPeriode.split('-');
+        const periode = `${month}-${year}`; 
 
         try {
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
-            const data = await res.json();
+            const result = await res.json();
             
-            if(data.status === 'error') throw new Error(data.message);
+            if(!res.ok) throw new Error(result.message || 'Gagal sinkronisasi');
 
-            const g = data.global;
+            const g = result.global;
 
-            document.getElementById('g-nomen-mc').innerText = g.total_nomen_mc.toLocaleString();
-            document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc);
-            document.getElementById('stat-sisa-nom').innerText = toIDR(g.sisa_nominal);
-            document.getElementById('stat-sisa-nomen').innerText = g.sisa_nomen.toLocaleString();
-            document.getElementById('stat-realisasi').innerText = `${g.total_lunas_mc.toLocaleString()} Selesai / ${g.total_nomen_mc.toLocaleString()} Total`;
+            document.getElementById('g-nomen-mc').innerText = (g.total_nomen_mc || 0).toLocaleString();
+            document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc || 0);
+            document.getElementById('stat-sisa-nom').innerText = toIDR(g.sisa_nominal || 0);
+            document.getElementById('stat-sisa-nomen').innerText = (g.sisa_nomen || 0).toLocaleString();
+            document.getElementById('stat-realisasi').innerText = `${(g.total_lunas_mc || 0).toLocaleString()} Selesai / ${(g.total_nomen_mc || 0).toLocaleString()} Total`;
             
-            document.getElementById('val-undue').innerText = `${g.count_undue} NOMEN`;
-            document.getElementById('nom-undue').innerText = toIDR(g.nom_undue);
-            document.getElementById('val-current').innerText = `${g.count_current} NOMEN`;
-            document.getElementById('nom-current').innerText = toIDR(g.nom_current);
+            document.getElementById('val-undue').innerText = `${g.count_undue || 0} NOMEN`;
+            document.getElementById('nom-undue').innerText = toIDR(g.nom_undue || 0);
+            document.getElementById('val-current').innerText = `${g.count_current || 0} NOMEN`;
+            document.getElementById('nom-current').innerText = toIDR(g.nom_current || 0);
 
             const pct = g.total_nomen_mc > 0 ? Math.round((g.total_lunas_mc / g.total_nomen_mc) * 100) : 0;
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            renderChart(data.officers);
+            renderChart(result.officers || []);
             
             const lb = document.getElementById('leaderboard-section');
-            lb.innerHTML = data.officers.map((o, i) => `
-                <div class="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-white">
+            lb.innerHTML = (result.officers || []).map((o, i) => `
+                <div class="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-white animate__animated animate__fadeInUp">
                     <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
                         <div class="d-flex align-items-center">
                             <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2 fw-bold" style="width:28px; height:28px; font-size:0.7rem;">${i+1}</div>
-                            <h6 class="fw-bold mb-0">${o.petugas}</h6>
+                            <h6 class="fw-bold mb-0 text-dark">${o.petugas}</h6>
                         </div>
-                        <span class="text-success fw-bold">${toIDR(o.total_nominal)}</span>
+                        <span class="text-success fw-bold" style="font-size: 0.8rem;">${toIDR(o.total_nominal)}</span>
                     </div>
                     <div class="row g-1 text-center small">
                         <div class="col-4"><div class="bg-light p-2 rounded-3 text-success"><div style="font-size:0.5rem;">BAYAR</div><b>${o.jml_bayar}</b></div></div>
@@ -205,14 +172,14 @@
                 </div>
             `).join('');
 
-            allLogs = data.log_petugas || [];
+            allLogs = result.log_petugas || [];
             currentPage = 1;
             renderLiveLogs();
 
         } catch (e) { 
-            console.error("Dashboard Error:", e); 
+            console.error("Dashboard Error:", e);
         } finally { 
-            btn.classList.remove('fa-spin'); 
+            icon.classList.remove('fa-spin'); 
         }
     }
 
@@ -222,10 +189,17 @@
         myChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: officers.map(o => o.petugas),
+                labels: officers.map(o => o.petugas.split(' ')[0]),
                 datasets: [{ label: 'Kunjungan', data: officers.map(o => o.total_dijalan), backgroundColor: '#3b82f6', borderRadius: 8 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
+            options: { 
+                responsive: true, maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    y: { beginAtZero: true, display: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 } } }, 
+                    x: { grid: { display: false }, ticks: { font: { size: 9 } } } 
+                } 
+            }
         });
     }
 
@@ -235,27 +209,28 @@
         const currentLogs = allLogs.slice(start, start + logsPerPage);
         
         if (currentLogs.length === 0) {
-            container.innerHTML = '<div class="text-center py-4 text-muted small">Belum ada aktivitas</div>';
+            container.innerHTML = '<div class="text-center py-4 text-muted small bg-white rounded-4 shadow-sm">Belum ada aktivitas</div>';
             return;
         }
 
         container.innerHTML = currentLogs.map(log => `
-            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
+            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white">
                 <div class="d-flex justify-content-between small mb-1">
                     <span class="fw-bold text-primary">${log.petugas}</span>
-                    <span class="text-dark fw-bold" style="font-size:0.65rem;">${log.waktu.split(' ')[1]} WIB</span>
+                    <span class="text-muted fw-bold" style="font-size:0.65rem;"><i class="far fa-clock me-1"></i>${log.waktu.split(' ')[1]}</span>
                 </div>
-                <div class="small mb-1 text-truncate">ID: <b>${log.nomen}</b> - ${log.nama || 'Pelanggan'}</div>
+                <div class="small mb-1 text-dark text-truncate">ID: <b>${log.nomen}</b> - ${log.nama || 'Pelanggan'}</div>
                 <div class="d-flex justify-content-between align-items-center">
-                    <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success' : 'bg-secondary'} rounded-pill" style="font-size:0.6rem;">${log.keterangan}</span>
+                    <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success-subtle text-success' : 'bg-light text-muted'} rounded-pill" style="font-size:0.6rem;">${log.keterangan}</span>
                     <span class="fw-bold text-dark" style="font-size:0.75rem;">${toIDR(log.nominal)}</span>
                 </div>
             </div>
         `).join('');
         
-        document.getElementById('page-info').innerText = `Hal ${currentPage} / ${Math.ceil(allLogs.length / logsPerPage) || 1}`;
+        const totalPages = Math.ceil(allLogs.length / logsPerPage) || 1;
+        document.getElementById('page-info').innerText = `Hal ${currentPage} / ${totalPages}`;
         document.getElementById('btn-prev').disabled = currentPage === 1;
-        document.getElementById('btn-next').disabled = start + logsPerPage >= allLogs.length;
+        document.getElementById('btn-next').disabled = currentPage === totalPages;
     }
 
     function changePage(step) {
@@ -268,9 +243,6 @@
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         initCalendar(); 
         refreshDashboard(); 
-        
-        // Jalankan pengingat janji bayar setelah dashboard dimuat
-        setTimeout(checkReminders, 1500);
     });
 </script>
 
@@ -280,7 +252,7 @@
     .progress-bar { transition: width 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     .btn-white { background: white; border: none; }
     .rounded-5 { border-radius: 2rem !important; }
-    .bg-success-subtle { background-color: #dcfce7; color: #166534; }
-    .bg-danger-subtle { background-color: #fee2e2; color: #991b1b; }
+    .bg-success-subtle { background-color: #dcfce7 !important; color: #166534 !important; }
+    .bg-light { background-color: #f1f5f9 !important; }
 </style>
 {% endblock %}
