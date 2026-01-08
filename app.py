@@ -22,7 +22,7 @@ from api.history import history_bp
 from api.rute import rute_bp
 from api.ardebt import ardebt_bp
 from api.belum_bayar import belum_bayar_bp
-from api.collection import collection_bp  # Blueprint Baru: Monitoring Collection
+from api.collection import collection_bp  # Blueprint: Monitoring Collection
 from api.pcez_performance import register_pcez_routes
 
 def get_db():
@@ -35,7 +35,7 @@ def get_db():
         g.db = sqlite3.connect(db_path, timeout=30)
         g.db.row_factory = sqlite3.Row
         
-        # Optimasi performa untuk akses simultan banyak petugas
+        # Optimasi performa untuk akses simultan banyak petugas (WAL Mode)
         g.db.execute('PRAGMA journal_mode=WAL;')
         g.db.execute('PRAGMA synchronous=NORMAL;')
     return g.db
@@ -47,7 +47,7 @@ def create_app():
     # Inisialisasi Database & Pastikan Struktur Folder Unggahan Tersedia
     with app.app_context():
         Config.init_app(app)
-        init_db(app) # Menjalankan migrasi otomatis kolom volume, rayon, dll.
+        init_db(app) # Menjalankan migrasi otomatis kolom volume, rayon, pay_dt, dll.
         
         # Penanganan folder secara absolut agar robust saat deployment di VPS/Server
         folders = [
@@ -68,6 +68,7 @@ def create_app():
             db.close()
 
     # --- REGISTRASI BLUEPRINT API ---
+    # Menggunakan url_prefix yang konsisten untuk pemanggilan Fetch API di Frontend
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
@@ -126,5 +127,6 @@ def create_app():
     return app
 
 if __name__ == '__main__':
+    # Mode debug=True digunakan untuk pengembangan, matikan saat Production (VPS)
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
