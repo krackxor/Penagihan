@@ -71,11 +71,32 @@
                         <th class="border-start">Rp Harian</th><th>Kumulatif</th><th>% TOTAL</th>
                     </tr>
                 </thead>
-                <tbody id="table-body">
-                    </tbody>
-                <tfoot class="bg-light fw-bold" id="table-footer">
-                    </tfoot>
+                <tbody id="table-body"></tbody>
+                <tfoot class="bg-light fw-bold" id="table-footer"></tfoot>
             </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 bg-light p-3">
+                <h6 class="modal-title fw-bold" id="detailTitle">Rincian Pembayaran</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-sm small mb-0">
+                    <thead class="bg-white sticky-top shadow-sm">
+                        <tr class="text-muted" style="font-size: 0.65rem;">
+                            <th class="ps-3 py-2">NOMEN</th>
+                            <th class="py-2">NAMA PELANGGAN</th>
+                            <th class="text-end pe-3 py-2">NOMINAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-body"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -97,7 +118,7 @@
             
             if (result.status === 'success') {
                 updateUI(result);
-                renderTable(result.data, result.undue_base);
+                renderTable(result.data, periode); // Kirim periode untuk detail link
                 renderChart(result.data);
             }
         } catch (e) {
@@ -107,25 +128,25 @@
 
     function updateUI(res) {
         const s = res.summary;
-        document.getElementById('sum-pct').innerText = s.pct.toFixed(2) + '%';
-        document.getElementById('sum-info').innerText = `${toIDR(s.realisasi)} / ${toIDR(s.target)}`;
+        document.getElementById('sum-pct').innerText = (s.pct || 0).toFixed(2) + '%';
+        document.getElementById('sum-info').innerText = `${toIDR(s.realisasi || 0)} / ${toIDR(s.target || 0)}`;
         
         const lastRow = res.data[res.data.length - 1];
         if (lastRow) {
-            document.getElementById('sum-r34').innerText = lastRow.r34.pct.toFixed(2) + '%';
-            document.getElementById('sum-r35').innerText = lastRow.r35.pct.toFixed(2) + '%';
+            document.getElementById('sum-r34').innerText = (lastRow.r34.pct || 0).toFixed(2) + '%';
+            document.getElementById('sum-r35').innerText = (lastRow.r35.pct || 0).toFixed(2) + '%';
         }
 
         const varArea = document.getElementById('variance-area');
-        const isUp = s.variance >= 0;
+        const isUp = (s.variance || 0) >= 0;
         varArea.innerHTML = `
             <span class="badge bg-white ${isUp ? 'text-success' : 'text-danger'} shadow-sm px-2 py-1" style="font-size: 0.7rem;">
-                <i class="fas fa-caret-${isUp ? 'up' : 'down'} me-1"></i> ${isUp ? '+' : ''}${s.variance.toFixed(2)}%
+                <i class="fas fa-caret-${isUp ? 'up' : 'down'} me-1"></i> ${isUp ? '+' : ''}${(s.variance || 0).toFixed(2)}%
             </span>
         `;
     }
 
-    function renderTable(data, undue) {
+    function renderTable(data, periode) {
         const body = document.getElementById('table-body');
         const footer = document.getElementById('table-footer');
         
@@ -135,52 +156,74 @@
             return;
         }
 
-        // 1. Render Baris Data
         body.innerHTML = data.map(row => {
-            const tgl = row.tgl.split('-')[2];
+            const tglFull = row.tgl;
+            const tglDay = tglFull.split('-')[2];
             return `
-            <tr>
-                <td class="bg-light fw-bold">${tgl}</td>
-                <td class="text-end border-start">Rp ${row.r34.rp.toLocaleString()}</td>
-                <td class="fw-bold text-primary">${row.r34.pct.toFixed(2)}%</td>
-                <td class="text-end border-start">Rp ${row.r35.rp.toLocaleString()}</td>
-                <td class="fw-bold text-info">${row.r35.pct.toFixed(2)}%</td>
-                <td class="text-end border-start bg-light">Rp ${row.total.rp.toLocaleString()}</td>
-                <td class="text-end bg-light" style="font-size: 0.65rem;">Rp ${row.total.cum_all.toLocaleString()}</td>
-                <td class="bg-primary text-white fw-bold">${row.total.pct.toFixed(2)}%</td>
+            <tr onclick="showDetail('${tglFull}', '${periode}')" style="cursor: pointer;" class="clickable-row">
+                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-search-plus opacity-25 ms-1" style="font-size: 0.5rem;"></i></td>
+                <td class="text-end border-start">Rp ${(row.r34.rp || 0).toLocaleString()}</td>
+                <td class="fw-bold text-primary">${(row.r34.pct || 0).toFixed(2)}%</td>
+                <td class="text-end border-start">Rp ${(row.r35.rp || 0).toLocaleString()}</td>
+                <td class="fw-bold text-info">${(row.r35.pct || 0).toFixed(2)}%</td>
+                <td class="text-end border-start bg-light">Rp ${(row.total.rp || 0).toLocaleString()}</td>
+                <td class="text-end bg-light" style="font-size: 0.65rem;">Rp ${(row.total.cum_all || 0).toLocaleString()}</td>
+                <td class="bg-primary text-white fw-bold">${(row.total.pct || 0).toFixed(2)}%</td>
             </tr>
             `;
         }).join('');
 
-        // 2. Render Baris Total (Mirip baris 38 di Excel)
         const last = data[data.length - 1];
-        const totalRp34 = data.reduce((a, b) => a + b.r34.rp, 0);
-        const totalRp35 = data.reduce((a, b) => a + b.r35.rp, 0);
+        const totalRp34 = data.reduce((a, b) => a + (b.r34.rp || 0), 0);
+        const totalRp35 = data.reduce((a, b) => a + (b.r35.rp || 0), 0);
         
         footer.innerHTML = `
             <tr class="table-dark">
                 <td class="py-2">TOTAL</td>
                 <td class="text-end border-start">Rp ${totalRp34.toLocaleString()}</td>
-                <td class="text-primary">${last.r34.pct.toFixed(2)}%</td>
+                <td class="text-primary">${(last.r34.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start">Rp ${totalRp35.toLocaleString()}</td>
-                <td class="text-info">${last.r35.pct.toFixed(2)}%</td>
+                <td class="text-info">${(last.r35.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start bg-dark">Rp ${(totalRp34 + totalRp35).toLocaleString()}</td>
-                <td class="text-end bg-dark">Rp ${last.total.cum_all.toLocaleString()}</td>
-                <td class="bg-white text-dark">${last.total.pct.toFixed(2)}%</td>
+                <td class="text-end bg-dark">Rp ${(last.total.cum_all || 0).toLocaleString()}</td>
+                <td class="bg-white text-dark">${(last.total.pct || 0).toFixed(2)}%</td>
             </tr>
         `;
+    }
+
+    async function showDetail(tgl, periode) {
+        const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
+        const body = document.getElementById('detail-body');
+        document.getElementById('detailTitle').innerText = `Rincian NOMEN: ${tgl}`;
+        
+        body.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
+        modal.show();
+
+        try {
+            const res = await fetch(`/api/collection/daily-detail?tgl=${tgl}&periode=${periode}`);
+            const result = await res.json();
+            
+            body.innerHTML = result.data.map(d => `
+                <tr class="border-bottom">
+                    <td class="ps-3 py-2 fw-bold text-dark">${d.nomen} <small class="badge bg-light text-muted border" style="font-size: 0.5rem;">R${d.rayon}</small></td>
+                    <td class="py-2"><div class="text-truncate" style="max-width: 140px;">${d.nama || 'Tanpa Nama'}</div></td>
+                    <td class="text-end pe-3 py-2 fw-bold text-success">${(d.nominal || 0).toLocaleString()}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted">Tidak ada data detail.</td></tr>';
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">Gagal memuat rincian.</td></tr>';
+        }
     }
 
     function renderChart(data) {
         const ctx = document.getElementById('collectionChart').getContext('2d');
         if (myChart) myChart.destroy();
-        
         myChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: data.map(d => d.tgl.split('-')[2]),
                 datasets: [{
-                    label: 'Progres Gabungan (%)',
+                    label: 'Progres (%)',
                     data: data.map(d => d.total.pct),
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -206,11 +249,10 @@
 </script>
 
 <style>
+    .clickable-row:hover { background-color: #f8fafc !important; }
     .table-bordered td, .table-bordered th { border: 1px solid #dee2e6 !important; }
     .sticky-top { position: sticky; top: 0; z-index: 1020; }
-    .btn-white { background: white; border: none; }
-    #table-body td { font-size: 0.7rem; font-family: 'Inter', sans-serif; }
-    .progress-bar { transition: width 1s ease-in-out; }
+    #table-body td { font-size: 0.7rem; }
     .bg-primary { background-color: #0d6efd !important; }
 </style>
 {% endblock %}
