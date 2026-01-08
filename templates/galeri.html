@@ -1,14 +1,28 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
-    <div class="pt-4 mb-4">
-        <h4 class="fw-bold mb-1 text-dark">Galeri Lapangan 📸</h4>
-        <p class="text-muted small">Dokumentasi hasil kunjungan petugas</p>
+    <div class="pt-4 mb-4 d-flex justify-content-between align-items-end">
+        <div>
+            <h4 class="fw-bold mb-1 text-dark">Galeri Lapangan 📸</h4>
+            <p class="text-muted small mb-0">Dokumentasi hasil kunjungan petugas</p>
+        </div>
+        <button class="btn btn-sm btn-light rounded-pill shadow-sm px-3" onclick="loadGaleri()">
+            <i class="fas fa-sync-alt text-primary"></i>
+        </button>
+    </div>
+
+    <div class="mb-3 px-1">
+        <div class="input-group bg-white rounded-4 shadow-sm border-0">
+            <span class="input-group-text border-0 bg-transparent ps-3"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="searchGaleri" class="form-control border-0 py-2 shadow-none" 
+                   placeholder="Cari Nama atau Petugas..." onkeyup="filterGaleri()">
+        </div>
     </div>
 
     <div id="galeri-container" class="row g-2">
         <div class="text-center py-5">
-            <div class="spinner-border text-primary"></div>
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted small">Memuat dokumentasi...</p>
         </div>
     </div>
 </div>
@@ -16,8 +30,11 @@
 <div class="modal fade" id="modalZoom" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content bg-transparent border-0">
-            <div class="modal-body p-0 text-center">
+            <div class="modal-body p-0 text-center position-relative">
                 <img src="" id="img-zoom" class="img-fluid rounded-4 shadow-lg">
+                <div id="zoom-caption" class="position-absolute bottom-0 start-0 end-0 p-3 text-white rounded-bottom-4" 
+                     style="background: linear-gradient(transparent, rgba(0,0,0,0.8));">
+                </div>
                 <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
             </div>
         </div>
@@ -25,42 +42,80 @@
 </div>
 
 <script>
+    let galeriData = [];
+
     async function loadGaleri() {
         const container = document.getElementById('galeri-container');
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+        
         try {
-            const res = await fetch('/api/belum-bayar/galeri');
-            const data = await res.json();
+            // Mengambil data dari endpoint riwayat kunjungan
+            const res = await fetch('/api/history/kunjungan');
+            const result = await res.json();
             
-            if (data.length === 0) {
-                container.innerHTML = '<div class="text-center mt-5 text-muted">Belum ada dokumentasi foto.</div>';
+            // Filter hanya data yang memiliki foto
+            galeriData = (result.data || []).filter(item => item.foto_path && item.foto_path !== '-');
+            
+            if (galeriData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center mt-5 py-5">
+                        <i class="fas fa-image fa-3x text-light mb-3"></i>
+                        <p class="text-muted">Belum ada foto dokumentasi tersedia.</p>
+                    </div>`;
                 return;
             }
 
-            container.innerHTML = data.map(item => `
-                <div class="col-6 col-md-4 mb-2">
-                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
-                         onclick="zoomImage('/static/uploads/kunjungan/${item.foto_path}')">
-                        <img src="/static/uploads/kunjungan/${item.foto_path}" 
-                             class="card-img-top" 
-                             style="height: 150px; object-fit: cover;"
-                             onerror="this.src='https://placehold.co/400x400?text=Foto+Tidak+Ada'">
-                        <div class="card-body p-2">
-                            <h6 class="fw-bold mb-0 text-truncate" style="font-size: 0.75rem;">${item.nama}</h6>
-                            <div class="d-flex justify-content-between align-items-center mt-1">
-                                <small class="text-primary fw-bold" style="font-size: 0.65rem;">${item.petugas_name}</small>
-                                <small class="text-muted" style="font-size: 0.6rem;">${item.waktu.split(' ')[0]}</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            renderGaleri(galeriData);
         } catch (e) {
-            container.innerHTML = '<p class="text-danger">Gagal memuat galeri.</p>';
+            container.innerHTML = '<div class="alert alert-danger mx-2">Gagal memuat galeri. Periksa koneksi internet.</div>';
         }
     }
 
-    function zoomImage(src) {
+    function renderGaleri(data) {
+        const container = document.getElementById('galeri-container');
+        container.innerHTML = data.map(item => `
+            <div class="col-6 col-md-4 mb-2 galeri-item" data-search="${item.nama} ${item.petugas_name}">
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
+                     onclick="zoomImage('/static/uploads/kunjungan/${item.foto_path}', '${item.nama}')">
+                    <div class="position-relative">
+                        <img src="/static/uploads/kunjungan/${item.foto_path}" 
+                             class="card-img-top lazy-img" 
+                             style="height: 160px; object-fit: cover;"
+                             loading="lazy"
+                             onerror="this.src='https://placehold.co/400x600?text=Foto+Bermasalah'">
+                        <div class="position-absolute top-0 end-0 m-2">
+                             <span class="badge bg-dark bg-opacity-50 rounded-pill" style="font-size: 0.6rem;">
+                                <i class="fas fa-expand"></i>
+                             </span>
+                        </div>
+                    </div>
+                    <div class="card-body p-2">
+                        <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.75rem;">${item.nama}</h6>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <small class="text-primary fw-bold" style="font-size: 0.65rem;">
+                                <i class="fas fa-user-badge me-1"></i>${item.petugas_name.split(' ')[0]}
+                            </small>
+                            <small class="text-muted" style="font-size: 0.6rem;">
+                                ${new Date(item.created_at).toLocaleDateString('id-ID')}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function filterGaleri() {
+        const query = document.getElementById('searchGaleri').value.toLowerCase();
+        document.querySelectorAll('.galeri-item').forEach(item => {
+            const text = item.getAttribute('data-search').toLowerCase();
+            item.style.display = text.includes(query) ? 'block' : 'none';
+        });
+    }
+
+    function zoomImage(src, nama) {
         document.getElementById('img-zoom').src = src;
+        document.getElementById('zoom-caption').innerText = nama;
         new bootstrap.Modal(document.getElementById('modalZoom')).show();
     }
 
@@ -68,8 +123,28 @@
 </script>
 
 <style>
-    .card-img-top { transition: transform 0.3s ease; }
-    .card:active .card-img-top { transform: scale(1.05); }
-    #img-zoom { max-height: 85vh; border: 3px solid white; }
+    .card { transition: all 0.2s ease-in-out; cursor: pointer; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
+    .card:active { transform: scale(0.98); }
+    
+    #img-zoom { 
+        max-height: 80vh; 
+        border: 4px solid white; 
+        background-color: #f8f9fa;
+    }
+    
+    .lazy-img {
+        transition: opacity 0.3s;
+    }
+    
+    /* Animasi masuk untuk item galeri */
+    .galeri-item {
+        animation: fadeIn 0.5s ease backwards;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 </style>
 {% endblock %}
