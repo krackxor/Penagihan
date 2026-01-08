@@ -46,7 +46,7 @@ def init_db(app):
 
             cursor = db.cursor()
             
-            # 2. Pastikan Tabel upload_history Tersedia (Untuk konsistensi API History)
+            # 2. Pastikan Tabel upload_history Tersedia
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS upload_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,8 +59,9 @@ def init_db(app):
                 )
             """)
 
-            # 3. LOGIKA AUTO-MIGRASI KOLOM (Mencegah error 'no column named')
-            # Migrasi master_pelanggan
+            # 3. LOGIKA AUTO-MIGRASI KOLOM (Mencegah OperationalError: no such column)
+            
+            # --- Migrasi Tabel master_pelanggan ---
             cursor.execute("PRAGMA table_info(master_pelanggan)")
             cols_pelanggan = [row['name'] for row in cursor.fetchall()]
             
@@ -71,8 +72,20 @@ def init_db(app):
             if 'periode' not in cols_pelanggan:
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN periode TEXT")
                 print("➕ Kolom 'periode' ditambahkan ke master_pelanggan.")
+                
+            # FIX UNTUK ERROR 500: Menambahkan kolom volume secara otomatis jika belum ada
+            if 'volume' not in cols_pelanggan:
+                cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN volume REAL DEFAULT 0")
+                print("➕ Kolom 'volume' ditambahkan ke master_pelanggan.")
 
-            # Migrasi tabel transaksi lainnya
+            # --- Migrasi Tabel ardebt ---
+            cursor.execute("PRAGMA table_info(ardebt)")
+            cols_ardebt = [row['name'] for row in cursor.fetchall()]
+            if 'volume' not in cols_ardebt:
+                cursor.execute("ALTER TABLE ardebt ADD COLUMN volume REAL DEFAULT 0")
+                print("➕ Kolom 'volume' ditambahkan ke ardebt.")
+
+            # --- Migrasi tabel transaksi lainnya ---
             tables_to_check = ['master_bayar', 'collection_harian', 'kunjungan_petugas']
             for table in tables_to_check:
                 cursor.execute(f"PRAGMA table_info({table})")
