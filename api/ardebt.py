@@ -6,10 +6,10 @@ Logic:
 3. Linked dengan Master Pelanggan (MC) melalui INNER JOIN.
 
 Author: Sunter Team
-Updated: 2026-01-07
+Updated: 2026-01-08
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from core.database import get_db_connection
 from core.helpers import APIResponse
 from datetime import datetime
@@ -22,19 +22,19 @@ def get_tunggakan_berekor():
     Endpoint untuk mengambil daftar tunggakan berekor (Ardebt).
     - Limit: 10 Data per hari.
     - Filter: Sembunyikan jika sudah dikunjungi hari ini.
-    - Sorting: Prioritas data terlama (Periode Bill ASC) agar tetap muncul jika belum dikunjungi.
+    - Sorting: Prioritas data terlama (Periode Bill ASC).
     """
     petugas_filter = request.args.get('petugas')
     
-    # Ambil tanggal hari ini untuk filter pengecekan laporan
+    # Ambil tanggal hari ini untuk filter pengecekan laporan (lokal Jakarta +7 jam)
     today_str = datetime.now().strftime('%Y-%m-%d')
     
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
     try:
-        # Query dengan penambahan filter NOT EXISTS pada tabel kunjungan_petugas
-        query = f"""
+        cursor = conn.cursor()
+        # FIX: Join PCEZ langsung (p.pcez = r.pcez) agar konsisten dengan upload.py
+        # Menggunakan parameterized queries (?) untuk keamanan
+        query = """
             SELECT 
                 a.id,
                 a.nomen, 
@@ -49,20 +49,20 @@ def get_tunggakan_berekor():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE 1=1
             
-            -- REVISI: Sembunyikan pelanggan yang sudah dilaporkan HARI INI
+            -- Sembunyikan pelanggan yang sudah dilaporkan HARI INI
             AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = a.nomen 
-                AND date(k.created_at, '+7 hours') = '{today_str}'
+                AND date(k.created_at, '+7 hours') = ?
             )
         """
         
-        params = []
+        params = [today_str]
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        # REVISI: Urutkan berdasarkan periode bill terlama dan batasi 10 baris saja
+        # Prioritas tagihan terlama agar segera diselesaikan
         query += " ORDER BY a.periode_bill ASC, a.nomen ASC LIMIT 10"
         
         cursor.execute(query, params)
@@ -81,6 +81,7 @@ def get_ardebt_summary():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # Menampilkan statistik akumulasi piutang berekor
         cursor.execute("""
             SELECT 
                 COUNT(a.id) as total_lembar_tagihan,
@@ -89,7 +90,9 @@ def get_ardebt_summary():
             FROM ardebt a
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
         """)
-        return APIResponse.success(data=dict(cursor.fetchone()))
+        row = cursor.fetchone()
+        data = dict(row) if row else {"total_lembar_tagihan": 0, "total_nomen": 0, "total_rupiah": 0}
+        return APIResponse.success(data=data)
     except Exception as e:
         return APIResponse.error(str(e), code=500)
     finally:
