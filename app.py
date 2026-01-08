@@ -22,6 +22,7 @@ from api.history import history_bp
 from api.rute import rute_bp
 from api.ardebt import ardebt_bp
 from api.belum_bayar import belum_bayar_bp
+from api.collection import collection_bp  # Blueprint Baru: Monitoring Collection
 from api.pcez_performance import register_pcez_routes
 
 def get_db():
@@ -46,7 +47,7 @@ def create_app():
     # Inisialisasi Database & Pastikan Struktur Folder Unggahan Tersedia
     with app.app_context():
         Config.init_app(app)
-        init_db(app) # Menjalankan migrasi otomatis kolom volume, dll.
+        init_db(app) # Menjalankan migrasi otomatis kolom volume, rayon, dll.
         
         # Penanganan folder secara absolut agar robust saat deployment di VPS/Server
         folders = [
@@ -66,13 +67,13 @@ def create_app():
         if db is not None:
             db.close()
 
-    # --- REGISTRASI BLUEPRINT API (Sinkronisasi dengan Log Error 404) ---
-    # Pastikan url_prefix menggunakan tanda hubung '-' agar sesuai dengan pemanggilan fetch di frontend
+    # --- REGISTRASI BLUEPRINT API ---
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
+    app.register_blueprint(collection_bp, url_prefix='/api/collection') # API Monitoring Collection
     
     # Registrasi rute performa (Full Stats & Reminders)
     register_pcez_routes(app, get_db)
@@ -80,6 +81,9 @@ def create_app():
     # --- RUTE NAVIGASI FRONTEND ---
     @app.route('/')
     def index(): return render_template('index.html')
+
+    @app.route('/monitoring-collection')
+    def monitoring_collection_page(): return render_template('monitoring_collection.html')
 
     @app.route('/belum-bayar')
     def belum_bayar_page(): return render_template('belum_bayar.html')
@@ -115,15 +119,12 @@ def create_app():
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
-        # Pastikan file benar-benar ada sebelum dikirim untuk mencegah error 404 statis
         if not os.path.isfile(os.path.join(folder, filename)):
-            # Jika file tidak ada, kirim placeholder atau return 404 standar
             return "File not found", 404
         return send_from_directory(folder, filename)
 
     return app
 
 if __name__ == '__main__':
-    # Mode debug dimatikan jika dalam produksi untuk keamanan
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
