@@ -20,35 +20,35 @@
     <div class="row g-2 mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm rounded-4 text-white position-relative overflow-hidden" 
-                 style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%);">
+                 style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
                 <div class="card-body p-4 text-center">
-                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1px; font-size: 0.65rem;">REALISASI TOTAL (U+C)</small>
+                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI TOTAL GABUNGAN (U+C)</small>
                     <div class="d-flex justify-content-center align-items-end gap-2 mt-1">
-                        <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3rem;">0%</h1>
+                        <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
                         <div id="variance-area" class="mb-2"></div>
                     </div>
-                    <p class="small mb-0 opacity-75" id="sum-info">Memuat data...</p>
+                    <p class="small mb-0 opacity-75" id="sum-info">Sinkronisasi data...</p>
                 </div>
             </div>
         </div>
         
         <div class="col-6">
-            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-start border-primary border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">REALISASI R34</small>
+            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-start border-primary border-4 bg-white">
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">PROGRES RAYON 34</small>
                 <h5 class="fw-bold mb-0 text-primary" id="sum-r34">0%</h5>
             </div>
         </div>
         <div class="col-6">
-            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-start border-info border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.6rem;">REALISASI R35</small>
+            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-start border-info border-4 bg-white">
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">PROGRES RAYON 35</small>
                 <h5 class="fw-bold mb-0 text-info" id="sum-r35">0%</h5>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
         <div class="card-header bg-white py-3 border-0">
-            <h6 class="fw-bold mb-0 small"><i class="fas fa-chart-line me-2 text-primary"></i>Tren Progres Kumulatif (%)</h6>
+            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-chart-line me-2 text-primary"></i>Tren Akumulasi Harian</h6>
         </div>
         <div class="card-body pt-0">
             <canvas id="collectionChart" style="height: 180px;"></canvas>
@@ -60,10 +60,10 @@
             <table class="table table-sm table-bordered small mb-0 text-center align-middle">
                 <thead class="bg-dark text-white sticky-top">
                     <tr>
-                        <th rowspan="2" class="align-middle">TGL</th>
+                        <th rowspan="2" class="align-middle px-3">TGL</th>
                         <th colspan="2" class="border-start">RAYON 34</th>
                         <th colspan="2" class="border-start bg-secondary">RAYON 35</th>
-                        <th colspan="3" class="border-start bg-primary">GABUNGAN</th>
+                        <th colspan="3" class="border-start bg-primary">TOTAL (AB SUNTER)</th>
                     </tr>
                     <tr style="font-size: 0.55rem;">
                         <th class="border-start">Rp Harian</th><th>% COLL</th>
@@ -73,6 +73,8 @@
                 </thead>
                 <tbody id="table-body">
                     </tbody>
+                <tfoot class="bg-light fw-bold" id="table-footer">
+                    </tfoot>
             </table>
         </div>
     </div>
@@ -81,13 +83,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     let myChart = null;
-
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
     async function loadMonitor() {
         const picker = document.getElementById('filter-periode').value;
         if (!picker) return;
-        
         const [year, month] = picker.split('-');
         const periode = `${month}-${year}`;
 
@@ -97,11 +97,11 @@
             
             if (result.status === 'success') {
                 updateUI(result);
-                renderTable(result.data);
+                renderTable(result.data, result.undue_base);
                 renderChart(result.data);
             }
         } catch (e) {
-            console.error("Gagal memuat data collection:", e);
+            console.error("Gagal sinkronisasi dashboard:", e);
         }
     }
 
@@ -110,14 +110,12 @@
         document.getElementById('sum-pct').innerText = s.pct.toFixed(2) + '%';
         document.getElementById('sum-info').innerText = `${toIDR(s.realisasi)} / ${toIDR(s.target)}`;
         
-        // Update detail rayon
         const lastRow = res.data[res.data.length - 1];
         if (lastRow) {
             document.getElementById('sum-r34').innerText = lastRow.r34.pct.toFixed(2) + '%';
             document.getElementById('sum-r35').innerText = lastRow.r35.pct.toFixed(2) + '%';
         }
 
-        // Variance Logic (Compare to Prev Month)
         const varArea = document.getElementById('variance-area');
         const isUp = s.variance >= 0;
         varArea.innerHTML = `
@@ -127,13 +125,17 @@
         `;
     }
 
-    function renderTable(data) {
+    function renderTable(data, undue) {
         const body = document.getElementById('table-body');
+        const footer = document.getElementById('table-footer');
+        
         if (data.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" class="py-4 text-muted">Belum ada data transaksi harian.</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted">Belum ada data transaksi harian bulan ini.</td></tr>';
+            footer.innerHTML = '';
             return;
         }
 
+        // 1. Render Baris Data
         body.innerHTML = data.map(row => {
             const tgl = row.tgl.split('-')[2];
             return `
@@ -149,6 +151,24 @@
             </tr>
             `;
         }).join('');
+
+        // 2. Render Baris Total (Mirip baris 38 di Excel)
+        const last = data[data.length - 1];
+        const totalRp34 = data.reduce((a, b) => a + b.r34.rp, 0);
+        const totalRp35 = data.reduce((a, b) => a + b.r35.rp, 0);
+        
+        footer.innerHTML = `
+            <tr class="table-dark">
+                <td class="py-2">TOTAL</td>
+                <td class="text-end border-start">Rp ${totalRp34.toLocaleString()}</td>
+                <td class="text-primary">${last.r34.pct.toFixed(2)}%</td>
+                <td class="text-end border-start">Rp ${totalRp35.toLocaleString()}</td>
+                <td class="text-info">${last.r35.pct.toFixed(2)}%</td>
+                <td class="text-end border-start bg-dark">Rp ${(totalRp34 + totalRp35).toLocaleString()}</td>
+                <td class="text-end bg-dark">Rp ${last.total.cum_all.toLocaleString()}</td>
+                <td class="bg-white text-dark">${last.total.pct.toFixed(2)}%</td>
+            </tr>
+        `;
     }
 
     function renderChart(data) {
@@ -160,18 +180,15 @@
             data: {
                 labels: data.map(d => d.tgl.split('-')[2]),
                 datasets: [{
-                    label: 'Progres Gabungan',
+                    label: 'Progres Gabungan (%)',
                     data: data.map(d => d.total.pct),
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true, tension: 0.4, pointRadius: 2
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
                     y: { beginAtZero: false, ticks: { font: { size: 9 }, callback: (v) => v + '%' } },
@@ -190,8 +207,10 @@
 
 <style>
     .table-bordered td, .table-bordered th { border: 1px solid #dee2e6 !important; }
-    .sticky-top { position: sticky; top: 0; z-index: 10; }
+    .sticky-top { position: sticky; top: 0; z-index: 1020; }
     .btn-white { background: white; border: none; }
-    #table-body td { font-size: 0.7rem; }
+    #table-body td { font-size: 0.7rem; font-family: 'Inter', sans-serif; }
+    .progress-bar { transition: width 1s ease-in-out; }
+    .bg-primary { background-color: #0d6efd !important; }
 </style>
 {% endblock %}
