@@ -47,33 +47,12 @@ def add_watermark(image_path, info):
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """
-    LOGIKA OPERASIONAL ROBUST:
-    1. Mengambil data tagihan belum lunas (Current & Tunggakan MC lama).
-    2. Data yang belum dikunjungi hari kemarin tetap ada (tidak dihapus).
-    3. Menyembunyikan data yang sudah dilaporkan HARI INI agar daftar tetap bersih.
-    4. Kuota 20 DATA PER PETUGAS diurutkan berdasarkan prioritas Rute (PCEZ).
-    """
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
-    today_str = datetime.now().strftime('%Y-%m-%d')
     
-    # Normalisasi Periode (MM-YYYY)
-    bulan_map = {'Januari':'01','Februari':'02','Maret':'03','April':'04','Mei':'05','Juni':'06',
-                 'Juli':'07','Agustus':'08','September':'09','Oktober':'10','November':'11','Desember':'12'}
-    try:
-        if req_periode and ' ' in req_periode:
-            part = req_periode.split(' ')
-            curr_period = f"{bulan_map[part[0]]}-{part[1]}"
-        else:
-            curr_period = req_periode or datetime.now().strftime('%m-%Y')
-    except:
-        curr_period = datetime.now().strftime('%m-%Y')
-
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Query mengambil field lengkap sesuai kebutuhan (Nomet, Nominal, Volume/Kubik)
         query = """
             SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, p.volume,
                    r.petugas as nama_petugas
@@ -81,34 +60,33 @@ def get_belum_bayar():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE (p.periode = ? OR (p.periode < ? AND p.tipe = 'MC'))
             
-            -- Filter 1: Belum lunas di MB atau Collection (Pintu Ganda)
+            -- Filter 1: Belum lunas (Pintu Ganda)
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan)
             AND NOT EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = p.notagihan)
             
-            -- Filter 2: Sembunyikan dari daftar jika SUDAH DIJALANKAN (LAPOR) HARI INI
+            -- LOGIKA 30 HARI: Sembunyikan jika pernah dikunjungi dalam 30 hari terakhir
             AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = p.nomen 
-                AND date(k.created_at, '+7 hours') = ?
+                AND k.created_at >= datetime('now', '-30 days')
             )
             
-            -- Filter 3: Sembunyikan jika nomen ini ada di tabel Ardebt (Berekor)
             AND NOT EXISTS (SELECT 1 FROM ardebt a WHERE a.nomen = p.nomen)
         """
-        params = [curr_period, curr_period, today_str]
+        # Kita tidak lagi butuh today_str sebagai parameter karena menggunakan fungsi SQLite datetime('now')
+        params = [req_periode, req_periode]
         
         if petugas_filter and petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        # Urutan berdasarkan Rute (PCEZ) terkecil, batasi 20 data per petugas per hari
+        # Tetap gunakan kuota 20 data per petugas
         query += " ORDER BY p.pcez ASC, p.nomen ASC LIMIT 20"
         
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
     finally:
         conn.close()
-
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
     """Menyimpan laporan dengan fitur revisi otomatis (Update jika nomen sudah lapor hari ini)."""
