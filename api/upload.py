@@ -64,20 +64,20 @@ def handle_upload():
                     db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
                                (pcez, petugas))
 
-        # 2. PROSES MASTER CATAT (MC) - Penanganan Nomet, Nominal, & Volume (KUBIK)
+        # 2. PROSES MASTER CATAT (MC) - Mengambil Nomet, Nominal, & Volume (KUBIK)
         elif file_type == 'mc':
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 if not nomen or nomen in ('NAN', ''): continue
                 
-                # Pastikan Nomet dan Nominal diambil dengan benar dan tidak kosong
+                # Sesuai file Contoh MC.xlsx: Mengambil NOMET, NOTAGIHAN, NOMINAL, dan KUBIK
                 nomet = str(row.get('NOMET', '')).split('.')[0].strip()
                 notag = str(row.get('NOTAGIHAN', '')).split('.')[0].strip()
                 zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "").strip()
                 
-                # Konversi angka secara aman
-                nominal = float(row.get('NOMINAL', 0)) if row.get('NOMINAL') != '' else 0.0
-                volume = float(row.get('KUBIK', 0)) if row.get('KUBIK') != '' else 0.0
+                # Konversi angka secara aman untuk nominal dan volume
+                nominal = float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0
+                volume = float(str(row.get('KUBIK', 0)).replace(',', '')) if row.get('KUBIK') != '' else 0.0
                 
                 db.execute("""
                     INSERT OR REPLACE INTO master_pelanggan 
@@ -106,7 +106,7 @@ def handle_upload():
                 """, (
                     nomen, 
                     str(row.get('NOTAGIHAN', '')).split('.')[0].strip(), 
-                    float(row.get('NOMINAL', 0)) if row.get('NOMINAL') != '' else 0.0, 
+                    float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0, 
                     periode_str
                 ))
 
@@ -122,12 +122,13 @@ def handle_upload():
                 """, (
                     nomen, 
                     str(row.get('NOTAG', '')).split('.')[0].strip(), 
-                    float(row.get('NOMINAL', 0)) if row.get('NOMINAL') != '' else 0.0, 
+                    float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0, 
                     periode_str
                 ))
 
         # 5. PROSES ARDEBT (TUNGGAKAN BEREKOR)
         elif file_type == 'ardebt':
+            # Snapshot harian, hapus data lama agar tidak tumpang tindih
             db.execute("DELETE FROM ardebt")
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
@@ -138,8 +139,8 @@ def handle_upload():
                     VALUES (?, ?, ?, ?)
                 """, (
                     nomen, 
-                    float(row.get('JUMLAH', 0)) if row.get('JUMLAH') != '' else 0.0, 
-                    float(row.get('VOLUME', 0)) if row.get('VOLUME') != '' else 0.0, 
+                    float(str(row.get('JUMLAH', 0)).replace(',', '')) if row.get('JUMLAH') != '' else 0.0, 
+                    float(str(row.get('VOLUME', 0)).replace(',', '')) if row.get('VOLUME') != '' else 0.0, 
                     str(row.get('PERIODE_BILL', '')).strip()
                 ))
 
