@@ -3,40 +3,43 @@
 {% block content %}
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4">
-        <h4 class="fw-bold mb-1">Import Data Master 📂</h4>
-        <p class="text-muted small">Kelola database MC, MB, Ardebt, atau Rute Petugas melalui file Excel</p>
+        <h4 class="fw-bold mb-1 text-dark">Sinkronisasi Data 📂</h4>
+        <p class="text-muted small">Update database MC, MB, Collection Harian, dan Ardebt</p>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 bg-white mb-4 overflow-hidden">
         <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold text-muted mb-0" style="font-size:0.7rem;">STATUS INTEGRITAS DATA</h6>
-            <i class="fas fa-database text-primary animate__animated animate__pulse animate__infinite"></i>
+            <h6 class="fw-bold text-muted mb-0" style="font-size:0.7rem; letter-spacing: 1px;">STATUS INTEGRITAS DATABASE</h6>
+            <span id="sync-timer" class="badge bg-white text-dark border small fw-normal" style="font-size: 0.6rem;">Real-time</span>
         </div>
         <div class="card-body p-3">
             <div class="row g-2" id="health-check-container">
+                <div class="col-12 text-center py-2">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                 </div>
+            </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 border">
         <div class="card-body p-4 text-center transition-all" id="drop-area" 
              style="border: 3px dashed #e2e8f0; border-radius: 1.5rem; background: #f8fafc; transition: 0.3s;">
             
             <div id="upload-icon-container">
-                <i class="fas fa-file-excel text-primary mb-3 animate__animated animate__pulse animate__infinite" style="font-size: 4rem; opacity: 0.8;"></i>
+                <i class="fas fa-file-excel text-primary mb-3 animate__animated animate__pulse animate__infinite" style="font-size: 3.5rem; opacity: 0.8;"></i>
             </div>
             
-            <h6 class="fw-bold text-dark">Klik atau Seret File ke Sini</h6>
-            <p class="text-muted small mb-4">Mendukung format .xlsx, .xls, dan .csv</p>
+            <h6 class="fw-bold text-dark">Klik atau Seret File Excel</h6>
+            <p class="text-muted small mb-4">Mendukung .xlsx dari laporan Pintu Ganda</p>
             
-            <input type="file" id="fileInput" class="d-none" accept=".xlsx, .xls, .csv">
+            <input type="file" id="fileInput" class="d-none" accept=".xlsx, .xls">
             <button onclick="document.getElementById('fileInput').click()" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm">
                 <i class="fas fa-search me-2"></i> PILIH FILE
             </button>
             
             <div id="file-details" class="mt-4 d-none">
-                <div class="p-3 bg-white rounded-4 border d-flex align-items-center justify-content-center shadow-sm mx-auto" style="max-width: 300px;">
-                    <i class="fas fa-file-invoice text-success me-2 fa-lg"></i>
+                <div class="p-3 bg-white rounded-4 border d-flex align-items-center justify-content-center shadow-sm mx-auto" style="max-width: 320px;">
+                    <i class="fas fa-file-invoice text-success me-3 fa-lg"></i>
                     <div class="text-start overflow-hidden">
                         <div id="file-name-preview" class="small fw-bold text-dark text-truncate" style="max-width: 180px;"></div>
                         <small id="file-size-preview" class="text-muted d-block" style="font-size: 0.7rem;"></small>
@@ -49,67 +52,28 @@
 
     <div id="process-container" class="animate__animated d-none">
         <button id="btn-proses" onclick="handleUpload()" class="btn btn-dark w-100 rounded-4 py-3 fw-bold shadow-lg border-0 mb-4" 
-                style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
-            MULAI PROSES IMPORT <i class="fas fa-cloud-upload-alt ms-2"></i>
+                style="background: linear-gradient(135deg, #0f172a 0%, #334155 100%);">
+            MULAI PROSES SYNC <i class="fas fa-sync-alt ms-2"></i>
         </button>
     </div>
 
     <div class="mt-2 px-1">
         <div class="d-flex align-items-center mb-3">
-            <div class="bg-warning-subtle text-warning rounded-pill px-3 py-1 small fw-bold">PANDUAN KOLOM WAJIB</div>
+            <div class="bg-warning-subtle text-warning rounded-pill px-3 py-1 small fw-bold" style="font-size: 0.65rem;">STRUKTUR KOLOM WAJIB</div>
         </div>
         
-        <div class="row g-3">
+        <div class="row g-2">
             <div class="col-6">
                 <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-primary border-4">
-                    <h6 class="fw-bold small text-primary mb-2">FILE MC / MB</h6>
-                    <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
-                        <li><i class="fas fa-check-circle me-1 text-primary"></i> NOMEN / IDPEL</li>
-                        <li><i class="fas fa-check-circle me-1 text-primary"></i> <b>NOTAGIHAN</b></li>
-                        <li><i class="fas fa-check-circle me-1 text-primary"></i> NOMET / NAMA_PEL</li>
-                        <li><i class="fas fa-check-circle me-1 text-primary"></i> NOMINAL</li>
-                    </ul>
+                    <h6 class="fw-bold mb-1 text-primary" style="font-size: 0.7rem;">FILE MC / MB</h6>
+                    <small class="text-muted" style="font-size: 0.6rem;">NOTAGIHAN, NOMEN, NOMINAL, ZONA_NOVAK (PCEZ)</small>
                 </div>
             </div>
-
-            <div class="col-6">
-                <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-danger border-4">
-                    <h6 class="fw-bold small text-danger mb-2">FILE ARDEBT</h6>
-                    <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
-                        <li><i class="fas fa-check-circle me-1 text-danger"></i> NOMEN</li>
-                        <li><i class="fas fa-check-circle me-1 text-danger"></i> <b>JUMLAH</b></li>
-                        <li><i class="fas fa-check-circle me-1 text-danger"></i> VOLUME</li>
-                        <li><i class="fas fa-check-circle me-1 text-danger"></i> PERIODE_BILL</li>
-                    </ul>
-                </div>
-            </div>
-
             <div class="col-6">
                 <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-success border-4">
-                    <h6 class="fw-bold small text-success mb-2">FILE COLLECTION</h6>
-                    <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
-                        <li><i class="fas fa-check-circle me-1 text-success"></i> NOMEN / IDPEL</li>
-                        <li><i class="fas fa-check-circle me-1 text-success"></i> <b>NOTAG</b></li>
-                        <li><i class="fas fa-check-circle me-1 text-success"></i> PAY_DT</li>
-                        <li><i class="fas fa-check-circle me-1 text-success"></i> NOMINAL</li>
-                    </ul>
+                    <h6 class="fw-bold mb-1 text-success" style="font-size: 0.7rem;">COLLECTION</h6>
+                    <small class="text-muted" style="font-size: 0.6rem;">NOTAG, NOMEN, NOMINAL, PAY_DT (Tanggal Bayar)</small>
                 </div>
-            </div>
-
-            <div class="col-6">
-                <div class="card border-0 shadow-sm rounded-4 h-100 p-3 border-start border-info border-4">
-                    <h6 class="fw-bold small text-info mb-2">FILE RUTE</h6>
-                    <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.6;">
-                        <li><i class="fas fa-check-circle me-1 text-info"></i> PCEZ</li>
-                        <li><i class="fas fa-check-circle me-1 text-info"></i> PETUGAS</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="col-12 text-center mt-3">
-                <p class="text-muted" style="font-size: 0.65rem;">
-                    <i class="fas fa-info-circle me-1"></i> Sistem mendeteksi tipe file secara otomatis berdasarkan nama kolom.
-                </p>
             </div>
         </div>
     </div>
@@ -123,81 +87,38 @@
     const fileSizePreview = document.getElementById('file-size-preview');
     const processContainer = document.getElementById('process-container');
 
-    // FUNGSI CEK STATUS DATA DINAMIS
+    // 1. FIX ERROR 404: Panggil endpoint status yang benar sesuai blueprint
     async function checkDataIntegrity() {
         const container = document.getElementById('health-check-container');
         try {
             const res = await fetch('/api/upload/data-status');
+            if (!res.ok) throw new Error('Endpoint 404');
             const status = await res.json();
             
-            const labels = ['MC', 'MB', 'Collection', 'Ardebt'];
+            const labels = [
+                { id: 'MC', name: 'Master MC' },
+                { id: 'MB', name: 'Master MB' },
+                { id: 'Collection', name: 'Harian' },
+                { id: 'Ardebt', name: 'Ardebt' }
+            ];
+
             container.innerHTML = labels.map(l => {
-                const isOk = status[l] && status[l].exists;
+                const isOk = status[l.id] && status[l.id].exists;
                 return `
                     <div class="col-6 col-md-3">
-                        <div class="p-2 rounded-4 border ${isOk ? 'bg-success-subtle border-success text-success' : 'bg-danger-subtle border-danger text-danger'} text-center shadow-sm">
-                            <div class="fw-bold" style="font-size:0.7rem;">${l}</div>
-                            <i class="fas ${isOk ? 'fa-check-circle' : 'fa-times-circle'} my-1"></i>
-                            <div style="font-size:0.55rem;" class="opacity-75">${isOk ? 'Siap' : 'Kosong'}</div>
+                        <div class="p-2 rounded-4 border ${isOk ? 'bg-success-subtle border-success' : 'bg-light border-secondary'} text-center shadow-sm">
+                            <div class="fw-bold" style="font-size:0.65rem;">${l.name}</div>
+                            <i class="fas ${isOk ? 'fa-check-circle text-success' : 'fa-clock text-muted'} my-1"></i>
+                            <div style="font-size:0.55rem;" class="fw-bold text-dark">${status[l.id].count.toLocaleString()} Data</div>
                         </div>
                     </div>`;
             }).join('');
         } catch (e) {
-            console.error("Gagal memuat status data", e);
+            container.innerHTML = `<div class="col-12 text-danger small text-center"><i class="fas fa-exclamation-triangle"></i> Gagal memuat status integrasi data.</div>`;
         }
     }
 
-    // Jalankan saat halaman dimuat
-    document.addEventListener('DOMContentLoaded', checkDataIntegrity);
-
-    // Drag and Drop Logic
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropArea.addEventListener(eventName, () => dropArea.style.borderColor = '#0d6efd', false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, () => dropArea.style.borderColor = '#e2e8f0', false);
-    });
-
-    dropArea.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        fileInput.files = dt.files;
-        handleFiles(dt.files);
-    });
-
-    fileInput.addEventListener('change', function() {
-        handleFiles(this.files);
-    });
-
-    function handleFiles(files) {
-        if (files.length > 0) {
-            const file = files[0];
-            fileNamePreview.innerText = file.name;
-            fileSizePreview.innerText = (file.size / 1024).toFixed(1) + ' KB';
-            
-            fileDetails.classList.remove('d-none');
-            processContainer.classList.remove('d-none');
-            processContainer.classList.add('animate__backInUp');
-            
-            dropArea.style.background = '#eff6ff';
-            document.getElementById('upload-icon-container').innerHTML = '<i class="fas fa-check-circle text-success mb-3 animate__animated animate__bounceIn" style="font-size: 4rem;"></i>';
-        }
-    }
-
-    function resetUpload() {
-        fileInput.value = '';
-        fileDetails.classList.add('d-none');
-        processContainer.classList.add('d-none');
-        dropArea.style.background = '#f8fafc';
-        document.getElementById('upload-icon-container').innerHTML = '<i class="fas fa-file-excel text-primary mb-3" style="font-size: 4rem; opacity: 0.8;"></i>';
-    }
-
+    // 2. LOGIKA UPLOAD
     async function handleUpload() {
         const file = fileInput.files[0];
         if (!file) return;
@@ -206,42 +127,61 @@
         formData.append('file', file);
 
         Swal.fire({
-            title: 'Menganalisis File',
-            html: `Membaca struktur data <b>${file.name}</b>...`,
+            title: 'Sinkronisasi Data',
+            html: 'Sedang memproses dan memetakan Rayon...',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
 
         try {
-            // Pemanggilan endpoint sesuai dengan Blueprint 'upload' di app.py
             const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
             const result = await res.json();
 
-            if (result.status === 'success') {
+            if (res.ok) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Import Berhasil!',
-                    text: result.message,
+                    title: 'Sync Berhasil!',
+                    text: `Data ${result.type.toUpperCase()} (${result.rows} baris) telah masuk ke sistem.`,
                     confirmButtonColor: '#0f172a'
                 }).then(() => {
                     checkDataIntegrity();
                     resetUpload();
                 });
             } else {
-                Swal.fire({ icon: 'error', title: 'Gagal Import', text: result.error });
+                Swal.fire({ icon: 'error', title: 'Gagal Sync', text: result.error });
             }
         } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Kesalahan Jaringan', text: 'Gagal terhubung ke server.' });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Koneksi ke server terputus.' });
         }
+    }
+
+    // Drag & Drop & Helpers
+    document.addEventListener('DOMContentLoaded', checkDataIntegrity);
+    fileInput.onchange = function() { handleFiles(this.files); };
+    
+    function handleFiles(files) {
+        if (files.length > 0) {
+            const file = files[0];
+            fileNamePreview.innerText = file.name;
+            fileSizePreview.innerText = (file.size / 1024).toFixed(1) + ' KB';
+            fileDetails.classList.remove('d-none');
+            processContainer.classList.remove('d-none');
+            document.getElementById('upload-icon-container').innerHTML = '<i class="fas fa-check-double text-success mb-3 animate__animated animate__bounceIn" style="font-size: 3.5rem;"></i>';
+        }
+    }
+
+    function resetUpload() {
+        fileInput.value = '';
+        fileDetails.classList.add('d-none');
+        processContainer.classList.add('d-none');
+        document.getElementById('upload-icon-container').innerHTML = '<i class="fas fa-file-excel text-primary mb-3" style="font-size: 3.5rem; opacity: 0.8;"></i>';
     }
 </script>
 
 <style>
-    .transition-all { transition: all 0.3s ease-in-out; }
-    .bg-warning-subtle { background-color: #fff8e6; }
-    .text-warning { color: #f59e0b !important; }
-    #drop-area:hover { cursor: pointer; border-color: #0d6efd !important; background: #f1f5f9 !important; }
-    .bg-success-subtle { background-color: #dcfce7 !important; color: #166534 !important; }
-    .bg-danger-subtle { background-color: #fee2e2 !important; color: #991b1b !important; }
+    .bg-warning-subtle { background-color: #fffbeb; }
+    .bg-success-subtle { background-color: #f0fdf4; }
+    #drop-area:hover { border-color: #0d6efd !important; cursor: pointer; }
+    .spinner-border-sm { width: 1rem; height: 1rem; }
 </style>
 {% endblock %}
