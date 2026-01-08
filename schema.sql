@@ -1,5 +1,5 @@
 -- Sunter Dashboard Pro - Database Schema
--- Updated: 2026-01-08 (Fix: Added Volume Column & Optimized Indexing)
+-- Updated: 2026-01-08 (Optimization for Daily Collection Monitoring)
 
 -- 1. Tabel Master Pelanggan (Data Utama dari file MC)
 CREATE TABLE IF NOT EXISTS master_pelanggan (
@@ -9,10 +9,10 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     notagihan TEXT,               -- Nomor Tagihan (Pintu Ganda 1)
     nama TEXT,                    -- Nama Pelanggan
     pcez TEXT,                    -- Kode Rute (Standard: XXX/XX)
-    rayon TEXT,                   -- Kode Rayon
+    rayon TEXT,                   -- Kode Rayon (PENTING: '34' atau '35' untuk Monitoring)
     block TEXT,                   -- Kode Blok
     nominal REAL DEFAULT 0,       -- Nominal Tagihan
-    volume REAL DEFAULT 0,        -- Volume Air / Kubik (PENTING: Menghindari error sqlite)
+    volume REAL DEFAULT 0,        -- Volume Air / Kubik
     tipe TEXT DEFAULT 'MC',       -- Kategori (MC)
     periode TEXT,                 -- PERIODE DATA (Contoh: '01-2026')
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -42,10 +42,10 @@ CREATE TABLE IF NOT EXISTS master_bayar (
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    notag TEXT,                   -- Menggunakan 'notag' sesuai instruksi upload.py
+    notag TEXT,                   -- Link ke master_pelanggan.notagihan
     nominal REAL DEFAULT 0,
-    pay_dt TEXT,                  -- Tanggal pembayaran harian
-    periode TEXT,                 
+    pay_dt TEXT,                  -- Tanggal pembayaran (YYYY-MM-DD)
+    periode TEXT,                 -- Format MM-YYYY
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, notag, periode)
 );
@@ -89,21 +89,22 @@ CREATE TABLE IF NOT EXISTS upload_history (
 
 -- 8. Indeks untuk Performa Kecepatan Tinggi (Indexing)
 
--- Indeks pada NOMEN untuk Join antar tabel
+-- Indeks pada NOMEN untuk Join antar tabel yang cepat
 CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_mb ON master_bayar(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_coll ON collection_harian(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_ardebt ON ardebt(nomen);
-CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
+
+-- Indeks pada RAYON & PERIODE (Krusial untuk Monitoring Collection)
+CREATE INDEX IF NOT EXISTS idx_rayon_pelanggan ON master_pelanggan(rayon);
+CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
+CREATE INDEX IF NOT EXISTS idx_paydt_coll ON collection_harian(pay_dt);
 
 -- Indeks pada NOTAGIHAN / NOTAG (Validasi Pintu Ganda)
 CREATE INDEX IF NOT EXISTS idx_notag_pelanggan ON master_pelanggan(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_mb ON master_bayar(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notag);
 
--- Indeks Tambahan untuk Pencarian & Filter Dashboard
+-- Indeks Tambahan untuk Filter Dashboard & Kunjungan
 CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
-CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
-CREATE INDEX IF NOT EXISTS idx_periode_bill_ardebt ON ardebt(periode_bill);
 CREATE INDEX IF NOT EXISTS idx_kunjungan_periode ON kunjungan_petugas(periode);
-CREATE INDEX IF NOT EXISTS idx_kunjungan_tanggal ON kunjungan_petugas(created_at);
