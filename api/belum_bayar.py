@@ -87,6 +87,7 @@ def get_belum_bayar():
         return jsonify([dict(row) for row in cursor.fetchall()])
     finally:
         conn.close()
+        
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
     """Menyimpan laporan dengan fitur revisi otomatis (Update jika nomen sudah lapor hari ini)."""
