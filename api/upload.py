@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from flask import Blueprint, request, jsonify, current_app
 from core.database import get_db_connection
+from core.helpers import APIResponse
 from processors.auto_detect import identify_file_type, detect_file_period
 
 upload_bp = Blueprint('upload', __name__)
@@ -13,26 +14,31 @@ def clean_pcez(val):
     
     val_str = str(val).strip().replace(" ", "")
     
+    # Deteksi Rayon dari awal string sebelum dibersihkan lebih lanjut
+    # Biasanya Rayon adalah 2 angka pertama (34 atau 35)
+    rayon_hint = val_str[:2] if val_str[:2] in ('34', '35') else None
+    
     if '/' in val_str:
         parts = val_str.split('/')
         if len(parts) == 2:
             p1 = ''.join(filter(str.isdigit, parts[0])).zfill(3)
             p2 = ''.join(filter(str.isdigit, parts[1])).zfill(2)
-            return f"{p1}/{p2}"
+            return f"{p1}/{p2}", rayon_hint
     
     s = ''.join(filter(str.isdigit, val_str))
+    formatted_pcez = val_str
     if len(s) == 4:
-        return f"0{s[:2]}/{s[2:]}"
-    if len(s) == 5:
-        return f"{s[:3]}/{s[3:]}"
-    if len(s) >= 7: 
-        return f"{s[2:5]}/{s[5:7]}"
+        formatted_pcez = f"0{s[:2]}/{s[2:]}"
+    elif len(s) == 5:
+        formatted_pcez = f"{s[:3]}/{s[3:]}"
+    elif len(s) >= 7: 
+        formatted_pcez = f"{s[2:5]}/{s[5:7]}"
             
-    return val_str
+    return formatted_pcez, rayon_hint
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
-    """Endpoint unggahan file dengan penanganan data kosong dan pencatatan riwayat."""
+    """Endpoint unggahan file dengan fitur Auto-Rayon Mapping."""
     if 'file' not in request.files:
         return jsonify({"error": "Pilih file Excel"}), 400
     
@@ -41,32 +47,30 @@ def handle_upload():
     row_count = 0
     
     try:
-        # Load data sebagai string dan bersihkan nilai NaN agar tidak kosong saat diproses
+        # Load data sebagai string untuk mencegah hilangnya angka nol di depan (IDPEL)
         df = pd.read_excel(file, dtype=str)
         df = df.fillna('') 
         
         file_type = identify_file_type(df)
         if not file_type:
-            return jsonify({"error": "Format kolom file tidak dikenali. Pastikan kolom sesuai template."}), 400
+            return jsonify({"error": "Format kolom file tidak dikenali. Gunakan template resmi."}), 400
 
         bulan, tahun = detect_file_period(df, file_type)
         periode_str = f"{str(bulan).zfill(2)}-{tahun}" if bulan else None
-        periode_info = f" ({periode_str})" if periode_str else ""
-
-        # Standarisasi Nama Kolom
+        
         df.columns = [str(c).upper().strip() for c in df.columns]
         row_count = len(df)
 
         # 1. PROSES RUTE PETUGAS
         if file_type == 'rute':
             for _, row in df.iterrows():
-                pcez = clean_pcez(row.get('PCEZ'))
+                pcez, _ = clean_pcez(row.get('PCEZ'))
                 petugas = str(row.get('PETUGAS', '')).strip().upper()
                 if pcez and petugas not in ('', 'NAN', 'NULL'):
                     db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", 
                                (pcez, petugas))
 
-        # 2. PROSES MASTER CATAT (MC) - Penanganan Nomet, Nominal, & Volume (KUBIK)
+        # 2. PROSES MASTER CATAT (MC) - Includes Auto-Rayon Logic
         elif file_type == 'mc':
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
@@ -74,19 +78,21 @@ def handle_upload():
                 
                 notag = str(row.get('NOTAGIHAN', '')).split('.')[0].strip()
                 nomet = str(row.get('NOMET', '')).split('.')[0].strip()
-                zona = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "").strip()
+                zona_raw = str(row.get('ZONA_NOVAK', '')).split('.')[0].replace("'", "").strip()
                 
-                # Konversi angka secara aman: hapus koma pemisah ribuan jika ada
+                # Standarisasi PCEZ dan ambil kode Rayon
+                pcez_fixed, rayon = clean_pcez(zona_raw)
+                
                 nominal = float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0
                 volume = float(str(row.get('KUBIK', 0)).replace(',', '')) if row.get('KUBIK') != '' else 0.0
                 
                 db.execute("""
                     INSERT OR REPLACE INTO master_pelanggan 
-                    (nomen, notagihan, nomet, nama, pcez, nominal, volume, tipe, periode) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'MC', ?)
+                    (nomen, notagihan, nomet, nama, pcez, rayon, nominal, volume, tipe, periode) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'MC', ?)
                 """, (
                     nomen, notag, nomet, row.get('NAMA_PEL'), 
-                    clean_pcez(zona), nominal, volume, periode_str
+                    pcez_fixed, rayon, nominal, volume, periode_str
                 ))
 
         # 3. PROSES MASTER BAYAR (MB)
@@ -101,21 +107,24 @@ def handle_upload():
                     VALUES (?, ?, ?, ?)
                 """, (nomen, str(row.get('NOTAGIHAN', '')).split('.')[0].strip(), nominal, periode_str))
 
-        # 4. PROSES COLLECTION HARIAN
+        # 4. PROSES COLLECTION HARIAN (Untuk Monitoring Harian)
         elif file_type == 'collection':
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 if not nomen or nomen in ('NAN', ''): continue
                 
+                # Ambil tanggal bayar jika ada di file, jika tidak pakai tanggal hari ini
+                pay_dt = row.get('PAY_DT') or datetime.now().strftime('%Y-%m-%d')
+                
                 nominal = float(str(row.get('NOMINAL', 0)).replace(',', '')) if row.get('NOMINAL') != '' else 0.0
                 db.execute("""
-                    INSERT OR REPLACE INTO collection_harian (nomen, notag, nominal, periode) 
-                    VALUES (?, ?, ?, ?)
-                """, (nomen, str(row.get('NOTAG', '')).split('.')[0].strip(), nominal, periode_str))
+                    INSERT OR REPLACE INTO collection_harian (nomen, notag, nominal, pay_dt, periode) 
+                    VALUES (?, ?, ?, ?, ?)
+                """, (nomen, str(row.get('NOTAG', '')).split('.')[0].strip(), nominal, pay_dt, periode_str))
 
         # 5. PROSES ARDEBT (TUNGGAKAN BEREKOR)
         elif file_type == 'ardebt':
-            db.execute("DELETE FROM ardebt")
+            db.execute("DELETE FROM ardebt") # Refresh data ardebt terbaru
             for _, row in df.iterrows():
                 nomen = str(row.get('NOMEN', '')).split('.')[0].strip()
                 if not nomen or nomen in ('NAN', ''): continue
@@ -128,7 +137,7 @@ def handle_upload():
                     VALUES (?, ?, ?, ?)
                 """, (nomen, jumlah, volume, str(row.get('PERIODE_BILL', '')).strip()))
 
-        # Catat Riwayat Unggahan
+        # Catat Riwayat ke Database
         db.execute("""
             INSERT INTO upload_history (file_name, file_type, periode, row_count, status)
             VALUES (?, ?, ?, ?, ?)
@@ -137,7 +146,7 @@ def handle_upload():
         db.commit()
         return jsonify({
             "status": "success", 
-            "message": f"Data {file_type.upper()} berhasil diproses{periode_info}",
+            "message": f"Data {file_type.upper()} berhasil disinkronisasi",
             "type": file_type,
             "rows": row_count
         })
@@ -147,19 +156,3 @@ def handle_upload():
         return jsonify({"error": f"Gagal memproses file: {str(e)}"}), 500
     finally:
         if db: db.close()
-
-@upload_bp.route('/data-status', methods=['GET'])
-def get_data_status():
-    """Endpoint Health Check dengan rincian jumlah data."""
-    db = get_db_connection()
-    status = {}
-    tables = {'MC': 'master_pelanggan', 'MB': 'master_bayar', 'Collection': 'collection_harian', 'Ardebt': 'ardebt'}
-    try:
-        for label, table in tables.items():
-            res = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
-            status[label] = {"exists": True if res[0] > 0 else False, "count": res[0]}
-        return jsonify(status)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db.close()
