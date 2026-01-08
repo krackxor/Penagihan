@@ -8,7 +8,8 @@ collection_bp = Blueprint('collection', __name__)
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    periode_req = request.args.get('periode') # MM-YYYY
+    """Fungsi monitoring harian dengan logika Pintu Ganda (Match by Notag)."""
+    periode_req = request.args.get('periode') # Format: MM-YYYY
     if not periode_req:
         return jsonify({"status": "error", "message": "Periode harus diisi"}), 400
 
@@ -16,7 +17,7 @@ def daily_monitor():
     try:
         cursor = conn.cursor()
         
-        # 1. HITUNG TARGET MC (Penyebut Tetap)
+        # 1. AMBIL TARGET MC (Penyebut)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -26,8 +27,7 @@ def daily_monitor():
         """, (periode_req,))
         target = dict(cursor.fetchone())
 
-        # 2. HITUNG SALDO AWAL MB (Match by NOTAGIHAN)
-        # Logika: Hanya hitung MB yang nomor tagihannya terdaftar di MC bulan ini
+        # 2. AMBIL SALDO AWAL MB / UNDUE (Match by NOTAGIHAN)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
@@ -39,8 +39,7 @@ def daily_monitor():
         """, (periode_req, periode_req))
         undue = dict(cursor.fetchone())
 
-        # 3. HITUNG REALISASI HARIAN (Match by NOTAG)
-        # KRUSIAL: Gunakan INNER JOIN pada NOTAG agar Ardebt tidak ikut terhitung di sini
+        # 3. AMBIL REALISASI HARIAN (Match by NOTAG)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -55,20 +54,15 @@ def daily_monitor():
         """, (periode_req, periode_req))
         rows = cursor.fetchall()
 
-        # 4. ITERASI KUMULATIF (Running Total)
+        # 4. ITERASI KUMULATIF
         results = []
-        cum_34 = 0
-        cum_35 = 0
-        
-        base_34 = undue['undue_34']
-        base_35 = undue['undue_35']
-        base_total = undue['undue_total']
+        cum_34 = 0; cum_35 = 0
+        base_34 = undue['undue_34']; base_35 = undue['undue_35']; base_total = undue['undue_total']
 
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
             
-            # % COLL = (Kumulatif + MB Undue) / Target MC
             p_34 = ((cum_34 + base_34) / target['target_34'] * 100) if target['target_34'] > 0 else 0
             p_35 = ((cum_35 + base_35) / target['target_35'] * 100) if target['target_35'] > 0 else 0
             p_total = ((cum_34 + cum_35 + base_total) / target['target_total'] * 100) if target['target_total'] > 0 else 0
@@ -84,6 +78,53 @@ def daily_monitor():
                 }
             })
 
-        return jsonify({"status": "success", "data": results, "summary": {"pct": results[-1]['total']['pct'] if results else 0}})
+        # Final Realisasi & Summary
+        last_cum = results[-1]['total']['cum_all'] if results else base_total
+        last_pct = results[-1]['total']['pct'] if results else (base_total / target['target_total'] * 100 if target['target_total'] > 0 else 0)
+
+        return jsonify({
+            "status": "success", 
+            "data": results, 
+            "undue_base": undue,
+            "summary": {
+                "target": target['target_total'],
+                "realisasi": last_cum,
+                "pct": round(last_pct, 2),
+                "variance": 0 # Placeholder untuk perbandingan bulan lalu
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@collection_bp.route('/daily-detail', methods=['GET'])
+def daily_detail():
+    """Mengambil rincian NOMEN yang bayar pada tanggal tertentu (Click to Detail)."""
+    tgl = request.args.get('tgl') # YYYY-MM-DD
+    periode = request.args.get('periode') # MM-YYYY
+    
+    if not tgl or not periode:
+        return jsonify({"status": "error", "message": "Parameter tidak lengkap"}), 400
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                c.nomen, 
+                p.nama, 
+                p.rayon, 
+                c.nominal
+            FROM collection_harian c
+            INNER JOIN master_pelanggan p ON c.notag = p.notagihan
+            WHERE c.pay_dt = ? AND p.periode = ? AND c.periode = ?
+            ORDER BY p.rayon ASC, c.nominal DESC
+        """, (tgl, periode, periode))
+        
+        details = [dict(row) for row in cursor.fetchall()]
+        return jsonify({"status": "success", "data": details})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
