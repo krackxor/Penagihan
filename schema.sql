@@ -1,5 +1,5 @@
 -- Sunter Dashboard Pro - Database Schema
--- Updated: 2026-01-08 (Optimization for Daily Collection Monitoring)
+-- Updated: 2026-01-08 (Full Synergy for Collection Monitoring & Field Activity)
 
 -- 1. Tabel Master Pelanggan (Data Utama dari file MC)
 CREATE TABLE IF NOT EXISTS master_pelanggan (
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS ardebt (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Tabel Kunjungan Petugas (Log Laporan Lapangan)
+-- 6. Tabel Kunjungan Petugas (Log Laporan Lapangan & Janji Bayar)
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     keterangan TEXT,              -- Status (Sudah Bayar, Janji Bayar, RKS, dll)
     no_hp TEXT,
     catatan TEXT,
-    janji_bayar_dt TEXT,
+    janji_bayar_dt TEXT,          -- Tanggal yang dijanjikan pelanggan untuk membayar
     foto_path TEXT,
     latitude TEXT,
     longitude TEXT,
@@ -94,8 +94,9 @@ CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_mb ON master_bayar(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_coll ON collection_harian(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_ardebt ON ardebt(nomen);
+CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
 
--- Indeks pada RAYON & PERIODE (Krusial untuk Monitoring Collection)
+-- Indeks pada RAYON & PERIODE (Krusial untuk Monitoring Collection Harian)
 CREATE INDEX IF NOT EXISTS idx_rayon_pelanggan ON master_pelanggan(rayon);
 CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
 CREATE INDEX IF NOT EXISTS idx_paydt_coll ON collection_harian(pay_dt);
@@ -105,6 +106,10 @@ CREATE INDEX IF NOT EXISTS idx_notag_pelanggan ON master_pelanggan(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_mb ON master_bayar(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notag);
 
+-- Indeks untuk Fitur Pengingat Janji Bayar
+CREATE INDEX IF NOT EXISTS idx_janji_bayar_dt ON kunjungan_petugas(janji_bayar_dt);
+
 -- Indeks Tambahan untuk Filter Dashboard & Kunjungan
 CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
 CREATE INDEX IF NOT EXISTS idx_kunjungan_periode ON kunjungan_petugas(periode);
+CREATE INDEX IF NOT EXISTS idx_kunjungan_tanggal ON kunjungan_petugas(created_at);
