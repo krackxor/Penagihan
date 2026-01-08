@@ -45,30 +45,20 @@ def add_watermark(image_path, info):
         print(f"❌ Gagal membuat watermark: {e}")
         return False
 
-@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
-def get_petugas_tabs():
-    """Mengambil daftar petugas unik dari tabel rute."""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != '' ORDER BY petugas ASC")
-        return jsonify([row[0] for row in cursor.fetchall()])
-    finally:
-        conn.close()
-
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     """
-    LOGIKA OPERASIONAL:
-    1. Mengambil data dengan field lengkap (Nomet, Nominal, Volume).
-    2. Menghilangkan data yang sudah dikunjungi HARI INI agar daftar tetap bersih.
-    3. Membatasi kuota 20 DATA PER PETUGAS sesuai urutan rute (PCEZ).
+    LOGIKA OPERASIONAL ROBUST:
+    1. Mengambil data tagihan belum lunas (Current & Tunggakan MC lama).
+    2. Data yang belum dikunjungi hari kemarin tetap ada (tidak dihapus).
+    3. Menyembunyikan data yang sudah dilaporkan HARI INI agar daftar tetap bersih.
+    4. Kuota 20 DATA PER PETUGAS diurutkan berdasarkan prioritas Rute (PCEZ).
     """
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
     today_str = datetime.now().strftime('%Y-%m-%d')
     
-    # Normalisasi Periode
+    # Normalisasi Periode (MM-YYYY)
     bulan_map = {'Januari':'01','Februari':'02','Maret':'03','April':'04','Mei':'05','Juni':'06',
                  'Juli':'07','Agustus':'08','September':'09','Oktober':'10','November':'11','Desember':'12'}
     try:
@@ -83,7 +73,7 @@ def get_belum_bayar():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Query dengan field lengkap dan filter kunjungan harian
+        # Query mengambil field lengkap sesuai kebutuhan (Nomet, Nominal, Volume/Kubik)
         query = """
             SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, p.volume,
                    r.petugas as nama_petugas
@@ -91,18 +81,18 @@ def get_belum_bayar():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE (p.periode = ? OR (p.periode < ? AND p.tipe = 'MC'))
             
-            -- Filter Pelunasan (Pintu Ganda)
+            -- Filter 1: Belum lunas di MB atau Collection (Pintu Ganda)
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan)
             AND NOT EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = p.notagihan)
             
-            -- DATA HILANG JIKA SUDAH DIJALANKAN (LAPOR) HARI INI
+            -- Filter 2: Sembunyikan dari daftar jika SUDAH DIJALANKAN (LAPOR) HARI INI
             AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = p.nomen 
                 AND date(k.created_at, '+7 hours') = ?
             )
             
-            -- Sembunyikan jika ada di Ardebt
+            -- Filter 3: Sembunyikan jika nomen ini ada di tabel Ardebt (Berekor)
             AND NOT EXISTS (SELECT 1 FROM ardebt a WHERE a.nomen = p.nomen)
         """
         params = [curr_period, curr_period, today_str]
@@ -111,7 +101,7 @@ def get_belum_bayar():
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
             
-        # URUTAN RUTE & KUOTA 20 DATA
+        # Urutan berdasarkan Rute (PCEZ) terkecil, batasi 20 data per petugas per hari
         query += " ORDER BY p.pcez ASC, p.nomen ASC LIMIT 20"
         
         cursor.execute(query, params)
@@ -121,7 +111,7 @@ def get_belum_bayar():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Menyimpan laporan dengan penanganan revisi otomatis jika nomen sudah ada hari ini."""
+    """Menyimpan laporan dengan fitur revisi otomatis (Update jika nomen sudah lapor hari ini)."""
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
@@ -152,7 +142,7 @@ def lapor_kunjungan():
     try:
         cursor = conn.cursor()
         
-        # CEK UNTUK REVISI: Jika sudah lapor hari ini, update datanya (Revisi)
+        # LOGIKA REVISI: Cek apakah petugas sudah mengirim laporan untuk nomen ini hari ini
         cursor.execute("""
             SELECT id FROM kunjungan_petugas 
             WHERE nomen = ? AND date(created_at, '+7 hours') = date('now', 'localtime')
@@ -160,7 +150,7 @@ def lapor_kunjungan():
         existing = cursor.fetchone()
         
         if existing:
-            # Update Laporan (Revisi)
+            # REVISI: Update data yang sudah dilaporkan hari ini
             cursor.execute("""
                 UPDATE kunjungan_petugas 
                 SET keterangan = ?, catatan = ?, no_hp = ?, janji_bayar_dt = ?, 
@@ -169,7 +159,7 @@ def lapor_kunjungan():
             """, (hasil, request.form.get('keterangan'), request.form.get('no_hp'), 
                   request.form.get('janji_bayar_dt'), filename, existing['id']))
         else:
-            # Simpan Laporan Baru
+            # BARU: Simpan laporan kunjungan pertama kali hari ini
             cursor.execute("""
                 INSERT INTO kunjungan_petugas (
                     nomen, petugas_name, keterangan, no_hp, catatan, 
@@ -181,7 +171,7 @@ def lapor_kunjungan():
                   datetime.now().strftime('%m-%Y')))
         
         conn.commit()
-        return APIResponse.success(data={"status": "success", "revisi": True if existing else False})
+        return APIResponse.success(data={"revisi": True if existing else False})
     except Exception as e:
         return APIResponse.error(str(e), code=500)
     finally:
@@ -189,7 +179,7 @@ def lapor_kunjungan():
 
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
-    """Mengambil rincian tunggakan lama (Ardebt) dengan kuota 20 data."""
+    """Mengambil rincian Ardebt dengan kuota 20 data per hari."""
     petugas_filter = request.args.get('petugas')
     conn = get_db_connection()
     try:
