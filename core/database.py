@@ -59,12 +59,17 @@ def init_db(app):
                 )
             """)
 
-            # 3. LOGIKA AUTO-MIGRASI KOLOM (Mencegah OperationalError: no such column)
+            # 3. LOGIKA AUTO-MIGRASI KOLOM (Mencegah OperationalError)
             
             # --- Migrasi Tabel master_pelanggan ---
             cursor.execute("PRAGMA table_info(master_pelanggan)")
             cols_pelanggan = [row['name'] for row in cursor.fetchall()]
             
+            # Kolom untuk identifikasi Rayon (34/35) - KRUSIAL UNTUK MONITORING
+            if 'rayon' not in cols_pelanggan:
+                cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN rayon TEXT")
+                print("➕ Kolom 'rayon' ditambahkan ke master_pelanggan.")
+
             if 'nomet' not in cols_pelanggan:
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN nomet TEXT")
                 print("➕ Kolom 'nomet' ditambahkan ke master_pelanggan.")
@@ -73,10 +78,18 @@ def init_db(app):
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN periode TEXT")
                 print("➕ Kolom 'periode' ditambahkan ke master_pelanggan.")
                 
-            # FIX UNTUK ERROR 500: Menambahkan kolom volume secara otomatis jika belum ada
             if 'volume' not in cols_pelanggan:
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN volume REAL DEFAULT 0")
                 print("➕ Kolom 'volume' ditambahkan ke master_pelanggan.")
+
+            # --- Migrasi Tabel collection_harian ---
+            cursor.execute("PRAGMA table_info(collection_harian)")
+            cols_coll = [row['name'] for row in cursor.fetchall()]
+            
+            # Kolom pay_dt untuk monitoring per tanggal
+            if 'pay_dt' not in cols_coll:
+                cursor.execute("ALTER TABLE collection_harian ADD COLUMN pay_dt TEXT")
+                print("➕ Kolom 'pay_dt' ditambahkan ke collection_harian.")
 
             # --- Migrasi Tabel ardebt ---
             cursor.execute("PRAGMA table_info(ardebt)")
@@ -85,7 +98,7 @@ def init_db(app):
                 cursor.execute("ALTER TABLE ardebt ADD COLUMN volume REAL DEFAULT 0")
                 print("➕ Kolom 'volume' ditambahkan ke ardebt.")
 
-            # --- Migrasi tabel transaksi lainnya ---
+            # --- Migrasi tabel transaksi lainnya untuk kolom periode ---
             tables_to_check = ['master_bayar', 'collection_harian', 'kunjungan_petugas']
             for table in tables_to_check:
                 cursor.execute(f"PRAGMA table_info({table})")
