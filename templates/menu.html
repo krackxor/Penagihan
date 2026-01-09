@@ -7,11 +7,11 @@
             <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div>
-            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px;">SUNTER PRO</h5>
+            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px; font-family: 'Plus Jakarta Sans', sans-serif;">SUNTER PRO</h5>
             <div class="d-flex align-items-center mt-1">
                 <span class="badge bg-success rounded-pill me-2" style="width: 8px; height: 8px; padding: 0; animation: pulse 2s infinite;"> </span>
                 <small class="text-white-50 fw-medium">
-                    {{ session['role']|upper }} | {{ session['username'] }}
+                    {{ session['role']|upper }} Account | {{ session['username'] }}
                 </small>
             </div>
         </div>
@@ -20,13 +20,23 @@
     <div class="offcanvas-body p-0 bg-white">
         <div class="list-group list-group-flush mt-3 px-3">
             
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Ringkasan Utama</small>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Ringkasan & Analisis</small>
             
             <a href="/" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-primary-subtle text-primary">
                     <i class="fas fa-th-large"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Dashboard Realisasi</span>
+            </a>
+
+            <a href="/history" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/history' %}active-menu{% endif %}">
+                <div class="icon-box-formal me-3 bg-info-subtle text-info">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <span class="fw-medium text-dark-emphasis d-block">Riwayat & Radar</span>
+                    <small class="text-muted" style="font-size: 0.6rem;">Tren 3 Bln & Radar Macet</small>
+                </div>
             </a>
 
             {% if session['role'] == 'admin' %}
@@ -47,7 +57,7 @@
             
             <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-warning-subtle text-warning">
-                    <i class="fas fa-money-bill-wave"></i>
+                    <i class="fas fa-file-invoice-dollar"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Penagihan Current</span>
             </a>
@@ -67,6 +77,13 @@
                     <i class="fas fa-calendar-alt"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Janji Bayar</span>
+            </a>
+
+            <a href="/galeri" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/galeri' %}active-menu{% endif %}">
+                <div class="icon-box-formal me-3 bg-secondary-subtle text-secondary">
+                    <i class="fas fa-camera-retro"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">Galeri Dokumentasi</span>
             </a>
 
             {% if session['role'] == 'admin' %}
@@ -114,7 +131,7 @@
 </div>
 
 <style>
-    /* Styling Aktif */
+    /* Sinergi: Styling Menu Aktif */
     .active-menu {
         background-color: #f1f5f9 !important;
         border-left: 4px solid #3b82f6 !important;
@@ -123,9 +140,10 @@
     .active-menu .icon-box-formal {
         background-color: #3b82f6 !important;
         color: white !important;
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
     }
 
-    /* Styling Icon Box */
+    /* Styling Icon Box Modern */
     .icon-box-formal {
         width: 38px;
         height: 38px;
@@ -134,16 +152,21 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        transition: all 0.2s ease;
+        transition: all 0.2s ease-in-out;
     }
 
     .nav-link-custom:hover .icon-box-formal {
-        transform: scale(1.1);
+        transform: scale(1.1) rotate(5deg);
     }
 
+    /* Animasi Indikator Online */
     @keyframes pulse {
         0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
         70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
         100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+    }
+
+    .nav-link-custom {
+        transition: background 0.2s;
     }
 </style>
