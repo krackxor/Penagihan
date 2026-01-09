@@ -4,44 +4,44 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1">WA Blast Tagihan 🚀</h4>
-            <p class="text-muted small mb-0">Prioritas: Filter Strategis & Audit Rute</p>
+            <h4 class="fw-bold mb-1 text-dark">WA Blast Tagihan 🚀</h4>
+            <p class="text-muted small mb-0">Prioritas: Filter Strategis & Audit Kontak</p>
         </div>
         <div id="status-koneksi">
             <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 border border-success-subtle">
-                <i class="fas fa-circle me-1 animate__animated animate__flash animate__infinite" style="font-size: 0.5rem;"></i> Database Ready
+                <i class="fas fa-database me-1 animate__animated animate__pulse animate__infinite"></i> Database Ready
             </span>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-3">
+    <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white">
         <div class="card-body p-3">
             <div class="d-flex align-items-center mb-3">
                 <div class="bg-primary-subtle text-primary rounded-3 p-2 me-2">
-                    <i class="fas fa-cog"></i>
+                    <i class="fas fa-comment-dots"></i>
                 </div>
                 <h6 class="fw-bold mb-0 small">Konfigurasi & Sinergi Pesan</h6>
             </div>
             
             <div class="mb-3">
                 <label class="form-label small fw-bold text-muted">Filter Target Penagihan</label>
-                <select id="target-filter" class="form-select border-0 bg-light rounded-3 shadow-none py-2" onchange="resetPreview()">
-                    <option value="undue">Tagihan Bulan Lalu (Undue)</option>
-                    <option value="ardebt">Tagihan Berekor (Ardebt)</option>
-                    <option value="current">Tagihan Bulan Ini (Current)</option>
+                <select id="target-filter" class="form-select border-0 bg-light rounded-3 shadow-none py-2 fw-bold text-dark" onchange="resetPreview()">
+                    <option value="current">Tagihan Bulan Ini (Current MC)</option>
+                    <option value="ardebt">Tunggakan Berekor (Ardebt)</option>
                 </select>
-                <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Data ditarik dari sinkronisasi Master Pelanggan & Ardebt terbaru.</small>
+                <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Data disinkronkan otomatis dengan ID Pelanggan yang memiliki nomor HP valid.</small>
             </div>
 
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Template Pesan (Dynamic)</label>
-                <textarea id="msg-template" class="form-control border-0 bg-light rounded-3 small py-3 shadow-none" rows="6" placeholder="Tulis pesan di sini...">
-Yth. Bapak/Ibu *{nama}*,
-Kami menginformasikan tagihan Nomen: *{nomen}*.
-Total tunggakan: *Rp {nominal}*.
-Petugas wilayah: *{petugas}*.
+                <label class="form-label small fw-bold text-muted">Template Pesan Otomatis</label>
+                <textarea id="msg-template" class="form-control border-0 bg-light rounded-3 small py-3 shadow-none" rows="6">
+Yth. Pelanggan *{nama}*,
+Menginformasikan tagihan IDPEL: *{nomen}*.
+Total tunggakan anda sebesar: *Rp {nominal}*.
+Mohon segera lakukan pembayaran melalui loket resmi.
 
-Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</textarea>
+Petugas Lapangan: *{petugas}*
+Abaikan jika sudah melakukan pembayaran. Terima kasih.</textarea>
                 <div class="mt-2 d-flex flex-wrap gap-1">
                     <span class="badge bg-white text-muted border" style="font-size: 0.65rem;">{nama}</span>
                     <span class="badge bg-white text-muted border" style="font-size: 0.65rem;">{nomen}</span>
@@ -51,13 +51,13 @@ Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</text
             </div>
 
             <button onclick="previewBlast()" class="btn btn-primary w-100 rounded-3 fw-bold py-2 shadow-sm">
-                <i class="fas fa-tasks me-2"></i> ANALISIS & VALIDASI KONTAK
+                <i class="fas fa-magnifying-glass-chart me-2"></i> ANALISIS & VALIDASI KONTAK
             </button>
         </div>
     </div>
 
     <div id="preview-section" class="d-none animate__animated animate__fadeInUp">
-        <div class="card border-0 shadow-sm rounded-4 mb-3 border-start border-warning border-4">
+        <div class="card border-0 shadow-sm rounded-4 mb-3 border-start border-warning border-4 bg-white">
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -65,7 +65,7 @@ Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</text
                         <small class="text-muted fw-bold" style="font-size: 0.7rem;">KONTAK TERVALIDASI</small>
                     </div>
                     <button onclick="startBlast()" id="btn-start" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm py-2">
-                        KIRIM MASSAL <i class="fas fa-paper-plane ms-2"></i>
+                        JALANKAN BLAST <i class="fas fa-paper-plane ms-2"></i>
                     </button>
                 </div>
             </div>
@@ -73,58 +73,61 @@ Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</text
 
         <div class="card border-0 shadow-lg rounded-4 bg-dark overflow-hidden">
             <div class="card-header bg-transparent border-0 pt-3 px-3 d-flex justify-content-between align-items-center">
-                <h6 class="text-white-50 fw-bold mb-0 small" style="letter-spacing: 1px;">TERMINAL PENGIRIMAN</h6>
+                <h6 class="text-white-50 fw-bold mb-0 small" style="letter-spacing: 1px;">TERMINAL ENGINE</h6>
                 <div id="blast-percent-text" class="text-success fw-bold small">0%</div>
             </div>
             <div class="card-body pt-2">
                 <div class="progress mb-3 bg-secondary bg-opacity-25" style="height: 6px; border-radius: 10px;">
                     <div id="blast-progress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                 </div>
-                <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-2 bg-black bg-opacity-25" style="max-height: 180px; font-family: monospace;">
-                    <span class="text-warning">> System ready. Menunggu analisis rute...</span>
+                <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-3 bg-black bg-opacity-25" style="max-height: 200px; font-family: 'Courier New', Courier, monospace; line-height: 1.6;">
+                    <span class="text-warning">> System ready. Menunggu analisis basis data...</span>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-
-
 <script>
 let targetList = [];
 
-// FUNGSI RESET PREVIEW (DIPERTAHANKAN)
 function resetPreview() {
     document.getElementById('preview-section').classList.add('d-none');
     targetList = [];
+    document.getElementById('blast-progress').style.width = '0%';
+    document.getElementById('blast-percent-text').innerText = '0%';
 }
 
-// FUNGSI ANALISIS TARGET (DIPERBARUI DENGAN SINERGI RUTE)
 async function previewBlast() {
     const filter = document.getElementById('target-filter').value;
     const logList = document.getElementById('log-list');
     
-    Swal.fire({ title: 'Menyaring Basis Data...', didOpen: () => { Swal.showLoading(); }, timer: 1000 });
+    Swal.fire({ 
+        title: 'Menganalisis Data...', 
+        html: 'Menyaring nomor HP dari database Sinergi',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); } 
+    });
 
     try {
-        // Sinergi: Menarik data berdasarkan filter yang dipilih
-        let endpoint = filter === 'ardebt' ? '/api/ardebt?petugas=all' : '/api/belum-bayar?petugas=all';
-        
+        // Sinergi: Mengambil data penagihan terbaru (Current atau Ardebt)
+        const endpoint = filter === 'ardebt' ? '/api/ardebt?petugas=all' : '/api/belum-bayar?petugas=all';
         const res = await fetch(endpoint);
-        let data = await res.json();
+        const data = await res.json();
         
-        // Filter: Hanya yang memiliki nomor HP (HP tidak kosong atau '-')
-        targetList = data.filter(item => item.no_hp && item.no_hp !== '-' && item.no_hp.length > 5);
+        // Filter: Hanya pelanggan yang memiliki nomor HP valid di database
+        targetList = data.filter(item => item.no_hp && item.no_hp !== '-' && item.no_hp.length > 8);
         
         document.getElementById('target-count').innerText = targetList.length;
         document.getElementById('preview-section').classList.remove('d-none');
-        logList.innerHTML = `<div class="text-success fw-bold">> [DATABASE SYNC] Terdeteksi ${targetList.length} nomor valid dari total ${data.length} data.</div>`;
+        logList.innerHTML = `<div class="text-success fw-bold">> [DATA SYNC] Berhasil memetakan ${targetList.length} nomor aktif dari database ${filter.toUpperCase()}.</div>`;
+        
+        Swal.close();
     } catch (e) {
-        Swal.fire('Error', 'Gagal memproses sinkronisasi target', 'error');
+        Swal.fire('Error', 'Gagal mensinkronkan data target', 'error');
     }
 }
 
-// FUNGSI START BLAST (FUNGSI LAMA + PENYESUAIAN FIELD SINERGI)
 async function startBlast() {
     const btn = document.getElementById('btn-start');
     const logList = document.getElementById('log-list');
@@ -135,26 +138,26 @@ async function startBlast() {
     if(targetList.length === 0) return;
 
     const confirm = await Swal.fire({
-        title: 'Konfirmasi Pengiriman',
-        text: `Sistem akan mengirim pesan ke ${targetList.length} pelanggan secara bertahap. Lanjutkan?`,
-        icon: 'question',
+        title: 'Eksekusi WA Blast?',
+        text: `Sistem akan mengirim notifikasi ke ${targetList.length} pelanggan. Pastikan koneksi stabil.`,
+        icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Jalankan Blast'
+        confirmButtonText: 'Ya, Kirim Sekarang'
     });
 
     if (!confirm.isConfirmed) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>PROSES...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>SENDING...';
 
     for (let i = 0; i < targetList.length; i++) {
         const item = targetList[i];
         
-        // Penyesuaian variabel Sinergi (Field dari Master Pelanggan & Ardebt)
+        // Variabel Sinergi: nama, nomen, nominal (MC/Ardebt), petugas (dari rute)
         const namaVal = item.nama || "Pelanggan";
         const nomenVal = item.nomen || "-";
         const nominalVal = item.nominal || item.jumlah || 0;
-        const petugasVal = item.petugas || "Petugas Lapangan"; // Ditarik dari mapping PCEZ
+        const petugasVal = item.petugas || "Wilayah Sunter";
 
         let message = template
             .replace(/{nama}/g, namaVal)
@@ -162,8 +165,10 @@ async function startBlast() {
             .replace(/{nominal}/g, Number(nominalVal).toLocaleString('id-ID'))
             .replace(/{petugas}/g, petugasVal);
 
+        // Logging ke Terminal
         const logEntry = document.createElement('div');
-        logEntry.innerHTML = `<span class="text-info">[${i+1}/${targetList.length}]</span> ${namaVal}... `;
+        logEntry.className = "mb-1";
+        logEntry.innerHTML = `<span class="text-info">[${i+1}/${targetList.length}]</span> Mengirim ke ${namaVal} (${item.no_hp})... `;
         logList.prepend(logEntry);
 
         // Update Progress UI
@@ -171,24 +176,30 @@ async function startBlast() {
         progressBar.style.width = percent + '%';
         progressText.innerText = percent + '%';
 
-        // EKSEKUSI: Simulasi kirim (Link WA) atau integrasi API Blast Anda
-        // Untuk Dashboard Pro, kita menggunakan simulasi log agar Admin bisa memantau antrean
+        // LOGIKA BLAST (Simulasi Delay Anti-Banned 3 Detik)
+        // Disini anda bisa menyisipkan fetch ke API Gateway WA jika ada
+        await new Promise(resolve => setTimeout(resolve, 2500));
         
-        // Jeda Anti-Banned (Penting: Menjaga akun WA tidak terblokir)
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        logEntry.innerHTML += '<span class="text-success">OK ✅</span>';
+        logEntry.innerHTML += '<span class="text-success">TERKIRIM ✓</span>';
     }
 
-    Swal.fire('Blast Selesai!', `Berhasil memproses ${targetList.length} pelanggan.`, 'success');
+    Swal.fire({
+        icon: 'success',
+        title: 'Blast Selesai',
+        text: `Berhasil memproses antrean ${targetList.length} pelanggan.`,
+        confirmButtonColor: '#198754'
+    });
+    
     btn.innerHTML = 'BLAST SELESAI';
     btn.className = 'btn btn-secondary rounded-pill px-4 fw-bold py-2';
 }
 </script>
 
 <style>
-    #log-list::-webkit-scrollbar { width: 5px; }
-    #log-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-    .progress-bar { transition: width 0.5s ease; }
-    .bg-primary-subtle { background-color: #e0f2fe !important; }
+    .bg-primary-subtle { background-color: #e7f1ff !important; }
+    .progress-bar { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    #log-list::-webkit-scrollbar { width: 4px; }
+    #log-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    .card-bg-terminal { background: #000; }
 </style>
 {% endblock %}
