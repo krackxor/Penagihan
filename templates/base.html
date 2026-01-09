@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sunter Pro - Dashboard</title>
+    <title>Sunter Pro - Dashboard Terpadu</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -25,7 +25,7 @@
             overflow-x: hidden; 
         }
         
-        /* Navbar Styling */
+        /* Navbar Glassmorphism */
         .navbar { 
             background: rgba(255, 255, 255, 0.8) !important; 
             backdrop-filter: blur(15px); 
@@ -38,7 +38,7 @@
             color: var(--sunter-blue) !important; 
         }
 
-        /* Sidebar / Offcanvas Profile */
+        /* Profile Box Modern */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; }
         .user-profile-box { 
             background: var(--primary-gradient); 
@@ -47,12 +47,12 @@
             color: white; 
             margin-bottom: 1.5rem;
             position: relative;
-            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(13, 110, 253, 0.2);
         }
-        .user-profile-box::after {
-            content: ''; position: absolute; top: -20%; right: -10%;
-            width: 100px; height: 100px; background: rgba(255,255,255,0.1);
-            border-radius: 50%;
+        .user-profile-box::before {
+            content: "\f3ed"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+            position: absolute; right: -10px; bottom: -10px; font-size: 4rem;
+            opacity: 0.1; transform: rotate(-15deg);
         }
         .role-badge { 
             font-size: 0.65rem; 
@@ -61,31 +61,31 @@
             border-radius: 6px; 
             text-transform: uppercase; 
             font-weight: 700;
+            letter-spacing: 0.5px;
         }
         
-        .main-content { padding-top: 10px; padding-bottom: 100px; }
+        .main-content { padding-top: 15px; padding-bottom: 100px; }
 
-        /* Floating Nav for Mobile (Sinergi Petugas Lapangan) */
+        /* Floating Nav Sinergi (Hanya Mobile) */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: white; display: flex; justify-content: space-around;
             padding: 12px 0; border-top: 1px solid #e2e8f0;
             box-shadow: 0 -5px 20px rgba(0,0,0,0.05); z-index: 1000;
         }
-        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.6rem; font-weight: 600; }
+        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 600; }
         .nav-item-link.active { color: var(--sunter-blue); }
-        .nav-item-link i { font-size: 1.2rem; display: block; margin-bottom: 3px; }
+        .nav-item-link i { font-size: 1.3rem; display: block; margin-bottom: 4px; }
 
-        /* Custom Scrollbar */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body>
     <nav class="navbar sticky-top">
         <div class="container-fluid px-3">
-            <button class="btn btn-light shadow-sm border-0 rounded-3" style="width: 40px; height: 40px;" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
+            <button class="btn btn-light shadow-sm border-0 rounded-3" style="width: 42px; height: 42px;" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
                 <i class="fas fa-align-left text-primary"></i>
             </button>
             
@@ -95,46 +95,46 @@
             
             {% if session['username'] %}
             <div class="dropdown">
-                <button class="btn btn-white rounded-circle p-0 border shadow-sm" style="width: 38px; height: 38px;" data-bs-toggle="dropdown">
-                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0D6EFD&color=fff" class="rounded-circle w-100">
+                <button class="btn btn-white rounded-circle p-0 border shadow-sm" style="width: 40px; height: 40px;" data-bs-toggle="dropdown">
+                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0D6EFD&color=fff&bold=true" class="rounded-circle w-100">
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-3 rounded-4 animate__animated animate__fadeInUp animate__faster">
                     <li class="px-3 py-3">
-                        <div class="fw-bold text-dark small">ID: {{ session['username'] }}</div>
-                        <div class="text-muted" style="font-size: 0.7rem;">{{ session['role']|upper }} Account</div>
+                        <div class="fw-bold text-dark small">{{ session['username']|upper }}</div>
+                        <div class="text-muted" style="font-size: 0.7rem;">Sesi: {{ session['role'] }}</div>
                     </li>
                     <li><hr class="dropdown-divider opacity-50"></li>
-                    <li><a class="dropdown-item py-2 text-danger fw-bold small" href="/api/auth/logout"><i class="fas fa-power-off me-2"></i> Keluar Sistem</a></li>
+                    <li><a class="dropdown-item py-2 text-danger fw-bold small" href="/api/auth/logout"><i class="fas fa-sign-out-alt me-2"></i> Keluar Sistem</a></li>
                 </ul>
             </div>
             {% else %}
-            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">Login</a>
+            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm">Login</a>
             {% endif %}
         </div>
     </nav>
 
-    <div class="offcanvas offcanvas-start border-0 shadow" tabindex="-1" id="offcanvasMenu" style="width: 290px;">
-        <div class="offcanvas-header border-bottom py-3">
-            <h6 class="offcanvas-title fw-bold text-primary"><i class="fas fa-layer-group me-2"></i>MENU NAVIGASI</h6>
+    <div class="offcanvas offcanvas-start border-0 shadow" tabindex="-1" id="offcanvasMenu" style="width: 300px;">
+        <div class="offcanvas-header border-bottom py-4">
+            <h6 class="offcanvas-title fw-bold text-dark"><i class="fas fa-shield-halved me-2 text-primary"></i>MENU UTAMA</h6>
             <button type="button" class="btn-close shadow-none" data-bs-dismiss="offcanvas"></button>
         </div>
         <div class="offcanvas-body p-3">
             {% if session['username'] %}
             <div class="user-profile-box shadow-sm animate__animated animate__fadeIn">
                 <div class="d-flex align-items-center mb-3">
-                    <div class="bg-white text-primary rounded-4 d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 50px; height: 50px;">
-                        <i class="fas {% if session['role'] == 'admin' %}fa-user-gear{% else %}fa-person-walking-luggage{% endif %} fa-lg"></i>
+                    <div class="bg-white text-primary rounded-4 d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 55px; height: 55px;">
+                        <i class="fas {% if session['role'] == 'admin' %}fa-user-shield{% else %}fa-person-running{% endif %} fa-xl"></i>
                     </div>
                     <div>
                         <h6 class="mb-0 fw-bold">{{ session['username']|upper }}</h6>
                         <span class="role-badge">{{ session['role'] }}</span>
                     </div>
                 </div>
-                {% if session['petugas_id'] and session['petugas_id'] != 'ALL' %}
-                <div class="p-2 rounded-3 bg-white bg-opacity-10" style="font-size: 0.7rem;">
-                    <i class="fas fa-route me-1"></i> Rute Aktif: <strong>{{ session['petugas_id'] }}</strong>
+                
+                <div class="p-2 rounded-3 bg-white bg-opacity-10 d-flex align-items-center" style="font-size: 0.7rem;">
+                    <i class="fas fa-map-location-dot me-2 text-warning"></i> 
+                    <span>Wilayah Kerja: <strong>{{ session['petugas_id'] if session['petugas_id'] else 'Global' }}</strong></span>
                 </div>
-                {% endif %}
             </div>
             {% endif %}
 
@@ -147,18 +147,18 @@
     </div>
 
     {% if session['role'] == 'petugas' %}
-    <div class="bottom-nav d-md-none">
+    <div class="bottom-nav d-md-none animate__animated animate__slideInUp">
         <a href="/" class="nav-item-link {% if request.path == '/' %}active{% endif %}">
-            <i class="fas fa-home"></i> Beranda
+            <i class="fas fa-chart-pie"></i> Progres
         </a>
         <a href="/belum-bayar" class="nav-item-link {% if request.path == '/belum-bayar' %}active{% endif %}">
-            <i class="fas fa-file-invoice-dollar"></i> Tagihan
+            <i class="fas fa-money-bill-transfer"></i> Tagihan
         </a>
         <a href="/janji-bayar" class="nav-item-link {% if request.path == '/janji-bayar' %}active{% endif %}">
-            <i class="fas fa-calendar-alt"></i> Janji
+            <i class="fas fa-handshake-angle"></i> Janji
         </a>
         <a href="/galeri" class="nav-item-link {% if request.path == '/galeri' %}active{% endif %}">
-            <i class="fas fa-camera"></i> Foto
+            <i class="fas fa-images"></i> Galeri
         </a>
     </div>
     {% endif %}
@@ -166,14 +166,25 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        // Sinergi: Tutup menu otomatis setelah klik link (untuk Mobile UX)
-        document.querySelectorAll('.offcanvas-body a').forEach(link => {
-            link.addEventListener('click', () => {
+        // Sinergi: Efek visual saat navigasi diklik
+        document.querySelectorAll('.offcanvas-body a, .bottom-nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                // Untuk menu samping, sembunyikan offcanvas setelah diklik
                 const offcanvasElement = document.getElementById('offcanvasMenu');
                 const bsOffcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
                 if(bsOffcanvas) bsOffcanvas.hide();
             });
         });
+        
+        // Cek status login via session untuk alert logout
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('logout')) {
+            Swal.fire({
+                icon: 'success', title: 'Logout Berhasil', 
+                text: 'Sesi Anda telah diakhiri dengan aman.',
+                timer: 2000, showConfirmButton: false
+            });
+        }
     </script>
 </body>
 </html>
