@@ -1,48 +1,45 @@
 """
 PCEZ Performance API - Sunter Dashboard Pro
 Sinergi:
-1. Level Akses: Petugas dikunci ke statistik pribadi, Admin akses Global & Ranking.
-2. Intelijen Pintu Ganda: Validasi otomatis status 'Sudah Bayar' pada list Janji Bayar.
-3. Geo-Performance: Monitoring efektivitas kunjungan harian per rute.
+1. Level Akses: Petugas dikunci ke statistik pribadi, Admin/Guest akses Global.
+2. Intelijen Pintu Ganda: Validasi pelunasan real-time terhadap tabel Master Bayar.
+3. Sinkronisasi Parameter: Perbaikan jumlah tanda tanya (?) pada query Global Stats.
 """
 
 from flask import jsonify, request, session
-from datetime import datetime, timedelta
+from datetime import datetime
 
 def register_pcez_routes(app, get_db):
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """Dashboard Intelijen: Statistik Target vs Realisasi berdasarkan Role."""
+        """Dashboard Intelijen: Statistik Target vs Realisasi."""
         try:
             db = get_db()
             today = datetime.now()
             
             # Identifikasi Sinergi Login
-            user_role = session.get('role')
+            user_role = str(session.get('role', 'publik')).lower()
             user_petugas_id = session.get('petugas_id') 
             
             # --- 1. SETTING PERIODE ---
-            req_periode = request.args.get('periode') # Format: MM-YYYY
+            req_periode = request.args.get('periode')
             if not req_periode:
                 req_periode = today.strftime('%m-%Y')
 
-            # --- 2. QUERY GLOBAL DASHBOARD (STATISTIK UTAMA) ---
-            # Filter dinamis agar Petugas hanya melihat penyebut target wilayahnya
+            # --- 2. QUERY GLOBAL DASHBOARD (FIXED PARAMETERS) ---
+            # Jika role adalah publik/admin, filter target dikosongkan agar data global muncul
             target_filter = ""
-            
-            # PERBAIKAN: Menyesuaikan jumlah parameter dengan jumlah tanda tanya di query
+            params_global = []
+
             if user_role == 'petugas':
+                # Filter agar petugas hanya melihat target yang dimapping kepadanya
                 target_filter = " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
-                # Terdapat 5 sub-query, masing-masing butuh (req_periode, user_petugas_id)
-                params_global = [
-                    req_periode, user_petugas_id, # untuk total_nomen_mc
-                    req_periode, user_petugas_id, # untuk total_nominal_mc
-                    req_periode, user_petugas_id, # untuk nom_terbayar
-                    req_periode, user_petugas_id, # untuk count_undue
-                    req_periode, user_petugas_id  # untuk count_current
-                ]
+                # Query memiliki 5 sub-query, tiap sub-query butuh 2 parameter: (periode, user_petugas_id)
+                # Total parameter yang dibutuhkan: 10
+                for _ in range(5):
+                    params_global.extend([req_periode, user_petugas_id])
             else:
-                # Untuk Admin, hanya butuh 5 periode
+                # Admin & Publik melihat total keseluruhan (5 tanda tanya = 5 periode)
                 params_global = [req_periode] * 5
 
             global_query = f"""
@@ -64,7 +61,7 @@ def register_pcez_routes(app, get_db):
                     ), 0) as count_current
             """
             
-            # --- 3. QUERY RANKING & AUDIT LAPANGAN ---
+            # --- 3. QUERY RANKING (LIVE PERFORMANCE) ---
             officer_ranking_query = """
                 SELECT 
                     COALESCE(r.petugas, k.petugas_name, 'Petugas Umum') as petugas,
@@ -86,11 +83,11 @@ def register_pcez_routes(app, get_db):
 
             officer_ranking_query += " GROUP BY petugas ORDER BY total_nominal DESC"
 
-            # --- 4. EKSEKUSI DATA ---
+            # --- 4. EKSEKUSI & LOGIKA BISNIS ---
             g_stat = db.execute(global_query, params_global).fetchone()
             o_rank = db.execute(officer_ranking_query, rank_params).fetchall()
             
-            # Ambil 10 Aktivitas Terbaru (Live Feed)
+            # Ambil 10 Aktivitas Terbaru
             log_q = """
                 SELECT strftime('%H:%M', k.created_at, '+7 hours') as waktu, 
                        k.nomen, mp.nama, k.keterangan, 
@@ -108,8 +105,9 @@ def register_pcez_routes(app, get_db):
             
             l_recent = db.execute(log_q + " ORDER BY k.created_at DESC LIMIT 10", log_params).fetchall()
             
-            # --- 5. FORMATTING RESPON ---
+            # Formatting JSON
             res_global = dict(g_stat) if g_stat else {}
+            # Hitung total lunas (Undue + Current)
             res_global['total_lunas_mc'] = res_global.get('count_undue', 0) + res_global.get('count_current', 0)
             res_global['sisa_nomen'] = max(0, res_global.get('total_nomen_mc', 0) - res_global.get('total_lunas_mc', 0))
 
@@ -125,12 +123,12 @@ def register_pcez_routes(app, get_db):
 
     @app.route('/api/performance/reminders', methods=['GET'])
     def get_reminders():
-        """Monitoring Janji Bayar dengan Fitur Auto-Check Pelunasan."""
+        """Janji Bayar dengan Audit Status Lunas Otomatis."""
         try:
             db = get_db()
-            user_role = session.get('role')
+            user_role = str(session.get('role', 'publik')).lower()
             user_petugas_id = session.get('petugas_id')
-            req_periode = request.args.get('periode') # MM-YYYY
+            req_periode = request.args.get('periode')
 
             query = """
                 SELECT 
