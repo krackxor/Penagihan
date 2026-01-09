@@ -79,6 +79,14 @@
             letter-spacing: 1px;
             color: rgba(255, 255, 255, 0.5);
         }
+        /* Sinergi: Link bantuan petugas */
+        .help-link {
+            text-decoration: none;
+            font-size: 0.75rem;
+            color: var(--accent-blue);
+            transition: 0.2s;
+        }
+        .help-link:hover { color: white; }
     </style>
 </head>
 <body>
@@ -104,7 +112,7 @@
                 </div>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-2">
                 <label class="text-white-50 small mb-2 fw-medium">Password</label>
                 <div class="input-group">
                     <span class="input-group-text bg-transparent border-end-0 text-white-50" style="border-color: rgba(255,255,255,0.1)">
@@ -114,6 +122,10 @@
                 </div>
             </div>
 
+            <div class="text-end mb-4">
+                <a href="https://wa.me/628123456789?text=Halo%20Admin,%20saya%20petugas%20lupa%20password%20SunterPro" class="help-link">Lupa Password?</a>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-login w-100 mb-3">
                 MASUK KE SISTEM <i class="fas fa-arrow-right ms-2"></i>
             </button>
@@ -121,6 +133,7 @@
 
         <div class="text-center">
             <p class="text-white-50 small mb-0">V2.5.0 Build 2026</p>
+            <p class="text-white-50 x-small" style="font-size: 0.6rem; opacity: 0.3;">Sinergi Login Level 3 Active</p>
         </div>
     </div>
 </div>
@@ -132,9 +145,10 @@
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        // Tampilkan loading
+        // Tampilkan loading (Fungsi Lama Dipertahankan)
         Swal.fire({
             title: 'Otentikasi...',
+            text: 'Memeriksa kredensial rute petugas',
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading()
         });
@@ -149,23 +163,31 @@
             const result = await response.json();
 
             if (response.ok) {
+                // SINERGI: Pesan sukses dinamis berdasarkan role yang dikirim server
                 Swal.fire({
                     icon: 'success',
                     title: 'Berhasil!',
-                    text: `Selamat datang, ${username}`,
+                    text: `Selamat datang ${result.data.role}, ${username}`,
                     timer: 1500,
                     showConfirmButton: false
                 }).then(() => {
+                    // Redirect sesuai instruksi server (Admin ke Dashboard, Petugas ke Tagihan)
                     window.location.href = result.data.redirect;
                 });
             } else {
-                Swal.fire('Gagal', result.message || 'Username/Password salah', 'error');
+                // FUNGSI LAMA: Handle Error
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Akses Ditolak',
+                    text: result.message || 'Username atau Password salah!',
+                    confirmButtonColor: '#3b82f6'
+                });
             }
         } catch (error) {
-            Swal.fire('Error', 'Gagal menghubungi server', 'error');
+            Swal.fire('Error', 'Gagal menghubungi server pusat', 'error');
         }
     });
 </script>
 
 </body>
-</html>login.html
+</html>
