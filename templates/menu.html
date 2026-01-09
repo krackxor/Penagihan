@@ -10,11 +10,11 @@
         <div style="position: relative; z-index: 2;">
             <h5 class="offcanvas-title fw-bold mb-0">SUNTER PRO</h5>
             <div class="mt-2 d-flex align-items-center">
-                {% if session['role'] %}
+                {% if session.get('role') %}
                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill me-2" style="font-size: 0.6rem;">
                         {{ session['role']|upper }}
                     </span>
-                    <small class="text-white-50 fw-medium">{{ session['username'] }}</small>
+                    <small class="text-white-50 fw-medium">{{ session.get('username') }}</small>
                 {% else %}
                     <span class="badge bg-secondary rounded-pill me-2" style="font-size: 0.6rem;">GUEST</span>
                     <small class="text-white-50">Silakan Login</small>
@@ -37,10 +37,12 @@
                 <i class="fas fa-gauge-high me-3"></i>Monitoring Harian
             </a>
 
+            {% set current_role = session.get('role', 'publik')|lower %}
+
             <div class="my-3 border-top opacity-25"></div>
 
-            {# Perbarui: Penambahan filter |lower agar pengecekan role petugas/admin lebih akurat #}
-            {% if session['role'] and session['role']|lower in ['petugas', 'admin'] %}
+            {# Operasional Lapangan: Muncul untuk Petugas dan Admin #}
+            {% if current_role in ['petugas', 'admin'] %}
             <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.65rem; letter-spacing: 1px;">Operasional Lapangan</small>
             
             <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
@@ -56,8 +58,8 @@
             </a>
             {% endif %}
 
-            {# Perbarui: Penambahan filter |lower untuk keamanan akses menu admin #}
-            {% if session['role'] and session['role']|lower == 'admin' %}
+            {# Pusat Kendali: Khusus Admin #}
+            {% if current_role == 'admin' %}
             <div class="my-3 border-top opacity-25"></div>
             <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.65rem; letter-spacing: 1px;">Pusat Kendali</small>
 
@@ -78,7 +80,7 @@
     </div>
 
     <div class="offcanvas-footer p-4 border-top bg-light">
-        {% if session['username'] %}
+        {% if session.get('username') %}
         <a href="/api/auth/logout" class="btn btn-outline-danger w-100 rounded-pill fw-bold btn-sm py-2">
             <i class="fas fa-power-off me-2"></i>Logout dari Sistem
         </a>
@@ -91,7 +93,6 @@
 </div>
 
 <style>
-    /* Styling Navigasi Sinergi */
     .nav-link-custom {
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         font-weight: 600;
@@ -111,8 +112,6 @@
     .nav-link-custom:hover i {
         transform: scale(1.1);
     }
-    
-    /* Indikator Menu Aktif Modern */
     .active-menu {
         background-color: #eff6ff !important;
         color: #2563eb !important;
@@ -131,8 +130,6 @@
     .active-menu i {
         color: #2563eb;
     }
-    
-    /* Mencegah highlight biru pada mobile tap */
     .list-group-item {
         -webkit-tap-highlight-color: transparent;
     }
