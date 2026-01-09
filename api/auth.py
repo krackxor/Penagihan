@@ -2,8 +2,8 @@
 Authentication API - Sunter Dashboard Pro
 Sinergi:
 1. Handle Login 3 Level (Admin, Petugas, Publik).
-2. CRUD User Management untuk Pusat Kendali Admin.
-3. Session Management untuk mengunci rute petugas secara sinkron.
+2. Normalisasi Role secara global untuk sinkronisasi Menu Navigasi.
+3. CRUD User Management untuk Pusat Kendali Admin.
 """
 
 from flask import Blueprint, request, session, jsonify, redirect, url_for, current_app
@@ -16,7 +16,7 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    """Proses login, inisialisasi session, dan update timestamp last_login."""
+    """Proses login, inisialisasi session, dan normalisasi role untuk Navigasi."""
     data = request.get_json()
     if not data:
         return APIResponse.error("Data tidak valid", code=400)
@@ -30,22 +30,23 @@ def login():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Case-insensitive check agar 'Pian' dan 'pian' dianggap sama
+        # Case-insensitive check agar 'Admin' dan 'admin' dianggap sama
         user = cursor.execute('SELECT * FROM users WHERE LOWER(username) = LOWER(?)', (username,)).fetchone()
 
         if user and check_password_hash(user['password'], password):
-            # Pembersihan session lama
+            # PEROMBAKAN LOGIKA: Pembersihan session lama sebelum inisialisasi baru
             session.clear()
-            session.permanent = True  # Mengikuti PERMANENT_SESSION_LIFETIME di config
+            session.permanent = True  
             
-            # NORMALISASI ROLE: Paksa ke lowercase agar cocok dengan logika di menu.html
+            # NORMALISASI ROLE (KRUSIAL): Paksa ke lowercase agar Menu Navigasi muncul
+            # Jika di DB 'Admin', di session jadi 'admin'. Ini mencegah navigasi blank.
             user_role = user['role'].lower() if user['role'] else 'publik'
             
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user_role
             
-            # SINERGI: petugas_id digunakan sebagai filter data global di API lain
+            # SINERGI: petugas_id sebagai filter data global
             session['petugas_id'] = user['petugas_id'] if user['petugas_id'] else 'ALL'
 
             # Update Last Login untuk audit log
@@ -53,7 +54,7 @@ def login():
                          (datetime.datetime.now(), user['id']))
             conn.commit()
 
-            # Routing cerdas berdasarkan Level Akses (menggunakan role yang sudah dinormalisasi)
+            # Routing cerdas berdasarkan Level Akses yang sudah dinormalisasi
             redirect_to = "/"
             if user_role == 'petugas':
                 redirect_to = "/belum-bayar"
@@ -62,7 +63,7 @@ def login():
 
             return APIResponse.success(data={
                 "username": user['username'],
-                "role": user_role, # Mengirimkan role dalam format lowercase ke frontend
+                "role": user_role,
                 "petugas_id": session['petugas_id'],
                 "redirect": redirect_to
             }, message=f"Login berhasil. Selamat bertugas, {user['username']}")
@@ -75,7 +76,7 @@ def login():
 
 @auth_bp.route('/logout')
 def logout():
-    """Menghapus session dan mengirim sinyal status logout ke frontend."""
+    """Menghapus session secara total."""
     session.clear()
     return redirect(url_for('login_page', logout='success'))
 
@@ -83,8 +84,9 @@ def logout():
 
 @auth_bp.route('/users', methods=['GET'])
 def list_users():
-    """Mengambil daftar semua user untuk manajemen akun di Pusat Kendali."""
-    if session.get('role') != 'admin':
+    """Daftar user untuk manajemen di Pusat Kendali."""
+    # Gunakan .lower() untuk pengecekan role yang aman
+    if str(session.get('role', '')).lower() != 'admin':
         return APIResponse.error("Akses terbatas untuk Administrator", code=403)
         
     conn = get_db_connection()
@@ -100,21 +102,18 @@ def list_users():
 @auth_bp.route('/register', methods=['POST'])
 def register():
     """Pendaftaran user baru melalui Admin Dashboard."""
-    if session.get('role') != 'admin':
-        return APIResponse.error("Hanya Admin yang diizinkan mendaftarkan user baru", code=403)
+    if str(session.get('role', '')).lower() != 'admin':
+        return APIResponse.error("Hanya Admin yang diizinkan mendaftarkan user", code=403)
         
     data = request.get_json()
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
-    role = data.get('role', 'petugas').lower()
+    role = data.get('role', 'petugas').lower() # Simpan selalu dalam lowercase
     petugas_id = data.get('petugas_id', '').strip().upper()
     no_hp = data.get('no_hp', '').strip()
 
     if not username or not password:
         return APIResponse.error("Username dan Password tidak boleh kosong")
-
-    if len(password) < 6:
-        return APIResponse.error("Password minimal 6 karakter")
 
     conn = get_db_connection()
     try:
@@ -135,12 +134,11 @@ def register():
 @auth_bp.route('/delete-user/<username>', methods=['DELETE'])
 def delete_user(username):
     """Menghapus akses user tertentu."""
-    if session.get('role') != 'admin':
+    if str(session.get('role', '')).lower() != 'admin':
         return APIResponse.error("Akses ditolak", code=403)
 
-    # Proteksi Akun Master
     if username.lower() == 'admin_sunter':
-        return APIResponse.error("Akun Master Admin tidak dapat dihapus demi keamanan sistem", code=400)
+        return APIResponse.error("Akun Master Admin tidak dapat dihapus", code=400)
 
     conn = get_db_connection()
     try:
@@ -154,12 +152,12 @@ def delete_user(username):
 
 @auth_bp.route('/check-session', methods=['GET'])
 def check_session():
-    """Endpoint internal untuk memvalidasi status login di frontend."""
+    """Endpoint untuk validasi status navigasi di frontend."""
     if 'username' in session:
         return APIResponse.success(data={
             "is_logged_in": True,
             "username": session['username'],
-            "role": session['role'],
+            "role": session['role'].lower(), # Pastikan lowercase saat dikirim ke frontend
             "petugas_id": session['petugas_id']
         })
     return APIResponse.error("Session expired", code=401)
