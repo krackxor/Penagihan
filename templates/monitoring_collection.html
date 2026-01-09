@@ -10,9 +10,9 @@
         <div class="d-flex gap-2">
             <input type="month" id="filter-periode" 
                    class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" 
-                   style="width: 150px;" onchange="loadMonitor()">
-            <button class="btn btn-sm btn-white shadow-sm rounded-circle" onclick="loadMonitor()">
-                <i class="fas fa-sync-alt text-primary"></i>
+                   style="width: 150px; font-size: 0.75rem;" onchange="loadMonitor()">
+            <button class="btn btn-sm btn-white shadow-sm rounded-circle p-2" onclick="loadMonitor()">
+                <i class="fas fa-sync-alt text-primary" id="sync-icon"></i>
             </button>
         </div>
     </div>
@@ -27,7 +27,7 @@
                         <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
                         <div id="variance-area" class="mb-2"></div>
                     </div>
-                    <p class="small mb-0 opacity-75" id="sum-info">Sinkronisasi data...</p>
+                    <p class="small mb-0 opacity-75" id="sum-info">Menarik data dari database...</p>
                 </div>
             </div>
         </div>
@@ -82,14 +82,17 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header border-0 bg-light p-3">
-                <h6 class="modal-title fw-bold" id="detailTitle">Rincian Pembayaran</h6>
+                <div>
+                    <h6 class="modal-title fw-bold mb-0" id="detailTitle">Rincian Pembayaran</h6>
+                    <small class="text-muted" style="font-size: 0.6rem;">Sinkronisasi Real-time (Collection Harian)</small>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0">
                 <table class="table table-sm small mb-0">
                     <thead class="bg-white sticky-top shadow-sm">
                         <tr class="text-muted" style="font-size: 0.65rem;">
-                            <th class="ps-3 py-2">NOMEN</th>
+                            <th class="ps-3 py-2">IDPEL / RUTE</th>
                             <th class="py-2">NAMA PELANGGAN</th>
                             <th class="text-end pe-3 py-2">NOMINAL</th>
                         </tr>
@@ -101,14 +104,20 @@
     </div>
 </div>
 
+
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     let myChart = null;
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
+    // FUNGSI UTAMA LOAD MONITOR (TETAP SAMA + SYNC ICON ANIMATION)
     async function loadMonitor() {
         const picker = document.getElementById('filter-periode').value;
+        const icon = document.getElementById('sync-icon');
         if (!picker) return;
+        
+        icon.classList.add('fa-spin');
         const [year, month] = picker.split('-');
         const periode = `${month}-${year}`;
 
@@ -118,14 +127,17 @@
             
             if (result.status === 'success') {
                 updateUI(result);
-                renderTable(result.data, periode); // Kirim periode untuk detail link
+                renderTable(result.data, periode);
                 renderChart(result.data);
             }
         } catch (e) {
-            console.error("Gagal sinkronisasi dashboard:", e);
+            console.error("Dashboard Error:", e);
+        } finally {
+            icon.classList.remove('fa-spin');
         }
     }
 
+    // UPDATE UI (FUNGSI LAMA)
     function updateUI(res) {
         const s = res.summary;
         document.getElementById('sum-pct').innerText = (s.pct || 0).toFixed(2) + '%';
@@ -140,34 +152,34 @@
         const varArea = document.getElementById('variance-area');
         const isUp = (s.variance || 0) >= 0;
         varArea.innerHTML = `
-            <span class="badge bg-white ${isUp ? 'text-success' : 'text-danger'} shadow-sm px-2 py-1" style="font-size: 0.7rem;">
+            <span class="badge bg-white ${isUp ? 'text-success' : 'text-danger'} shadow-sm px-2 py-1 animate__animated animate__pulse animate__infinite" style="font-size: 0.7rem;">
                 <i class="fas fa-caret-${isUp ? 'up' : 'down'} me-1"></i> ${isUp ? '+' : ''}${(s.variance || 0).toFixed(2)}%
             </span>
         `;
     }
 
+    // RENDER TABEL (FUNGSI LAMA + PENINGKATAN VISUAL)
     function renderTable(data, periode) {
         const body = document.getElementById('table-body');
         const footer = document.getElementById('table-footer');
         
         if (data.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted">Belum ada data transaksi harian bulan ini.</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data belum tersedia untuk periode ini.</td></tr>';
             footer.innerHTML = '';
             return;
         }
 
         body.innerHTML = data.map(row => {
-            const tglFull = row.tgl;
-            const tglDay = tglFull.split('-')[2];
+            const tglDay = row.tgl.split('-')[2];
             return `
-            <tr onclick="showDetail('${tglFull}', '${periode}')" style="cursor: pointer;" class="clickable-row">
-                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-search-plus opacity-25 ms-1" style="font-size: 0.5rem;"></i></td>
+            <tr onclick="showDetail('${row.tgl}', '${periode}')" style="cursor: pointer;" class="clickable-row">
+                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-search-plus opacity-25" style="font-size: 0.5rem;"></i></td>
                 <td class="text-end border-start">Rp ${(row.r34.rp || 0).toLocaleString()}</td>
                 <td class="fw-bold text-primary">${(row.r34.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start">Rp ${(row.r35.rp || 0).toLocaleString()}</td>
                 <td class="fw-bold text-info">${(row.r35.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start bg-light">Rp ${(row.total.rp || 0).toLocaleString()}</td>
-                <td class="text-end bg-light" style="font-size: 0.65rem;">Rp ${(row.total.cum_all || 0).toLocaleString()}</td>
+                <td class="text-end bg-light" style="font-size: 0.6rem;">${toIDR(row.total.cum_all)}</td>
                 <td class="bg-primary text-white fw-bold">${(row.total.pct || 0).toFixed(2)}%</td>
             </tr>
             `;
@@ -179,22 +191,23 @@
         
         footer.innerHTML = `
             <tr class="table-dark">
-                <td class="py-2">TOTAL</td>
+                <td class="py-2">SUM</td>
                 <td class="text-end border-start">Rp ${totalRp34.toLocaleString()}</td>
                 <td class="text-primary">${(last.r34.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start">Rp ${totalRp35.toLocaleString()}</td>
                 <td class="text-info">${(last.r35.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start bg-dark">Rp ${(totalRp34 + totalRp35).toLocaleString()}</td>
-                <td class="text-end bg-dark">Rp ${(last.total.cum_all || 0).toLocaleString()}</td>
+                <td class="text-end bg-dark">${toIDR(last.total.cum_all)}</td>
                 <td class="bg-white text-dark">${(last.total.pct || 0).toFixed(2)}%</td>
             </tr>
         `;
     }
 
+    // SHOW DETAIL (FUNGSI LAMA + SINERGI ROLE/RUTE)
     async function showDetail(tgl, periode) {
         const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
         const body = document.getElementById('detail-body');
-        document.getElementById('detailTitle').innerText = `Rincian NOMEN: ${tgl}`;
+        document.getElementById('detailTitle').innerText = `Rincian Bayar: ${tgl}`;
         
         body.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
         modal.show();
@@ -203,18 +216,23 @@
             const res = await fetch(`/api/collection/daily-detail?tgl=${tgl}&periode=${periode}`);
             const result = await res.json();
             
+            // Sinergi: Menampilkan NOMEN dan PCEZ (Rute) dalam satu baris
             body.innerHTML = result.data.map(d => `
-                <tr class="border-bottom">
-                    <td class="ps-3 py-2 fw-bold text-dark">${d.nomen} <small class="badge bg-light text-muted border" style="font-size: 0.5rem;">R${d.rayon}</small></td>
-                    <td class="py-2"><div class="text-truncate" style="max-width: 140px;">${d.nama || 'Tanpa Nama'}</div></td>
-                    <td class="text-end pe-3 py-2 fw-bold text-success">${(d.nominal || 0).toLocaleString()}</td>
+                <tr class="border-bottom animate__animated animate__fadeInSmall">
+                    <td class="ps-3 py-2">
+                        <div class="fw-bold text-dark" style="font-size: 0.75rem;">${d.nomen}</div>
+                        <div class="text-muted" style="font-size: 0.6rem;">Rute: ${d.pcez || '-'} | R${d.rayon}</div>
+                    </td>
+                    <td class="py-2"><div class="text-truncate text-uppercase" style="max-width: 140px; font-size: 0.75rem;">${d.nama || 'Pelanggan'}</div></td>
+                    <td class="text-end pe-3 py-2 fw-bold text-success" style="font-size: 0.75rem;">${(d.nominal || 0).toLocaleString()}</td>
                 </tr>
-            `).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted">Tidak ada data detail.</td></tr>';
+            `).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted small">Tidak ada rincian data (Akses terbatas).</td></tr>';
         } catch (e) {
-            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">Gagal memuat rincian.</td></tr>';
+            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4 small">Gagal sinkronisasi rincian.</td></tr>';
         }
     }
 
+    // CHART RENDER (FUNGSI LAMA)
     function renderChart(data) {
         const ctx = document.getElementById('collectionChart').getContext('2d');
         if (myChart) myChart.destroy();
@@ -227,7 +245,7 @@
                     data: data.map(d => d.total.pct),
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true, tension: 0.4, pointRadius: 2
+                    fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2
                 }]
             },
             options: {
@@ -250,9 +268,12 @@
 
 <style>
     .clickable-row:hover { background-color: #f8fafc !important; }
-    .table-bordered td, .table-bordered th { border: 1px solid #dee2e6 !important; }
+    .table-bordered td, .table-bordered th { border: 1px solid #e2e8f0 !important; }
     .sticky-top { position: sticky; top: 0; z-index: 1020; }
-    #table-body td { font-size: 0.7rem; }
+    #table-body td { font-size: 0.65rem; }
     .bg-primary { background-color: #0d6efd !important; }
+    .btn-white { background: #fff; border: 1px solid #e2e8f0; }
+    @keyframes fadeInSmall { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .animate__fadeInSmall { animation: fadeInSmall 0.3s ease forwards; }
 </style>
 {% endblock %}
