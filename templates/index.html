@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f8f9fa; min-height: 100vh;">
+<div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
     <div class="pt-4 mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <div>
@@ -10,7 +10,7 @@
                 </h4>
                 <p class="text-muted small mb-0" id="display-date"></p>
                 {% if session['role'] == 'petugas' %}
-                    <span class="badge bg-primary-subtle text-primary rounded-pill mt-1" style="font-size: 0.6rem;">ID PETUGAS: {{ session['petugas_id'] }}</span>
+                    <span class="badge bg-primary text-white rounded-pill mt-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">WILAYAH: {{ session['petugas_id'] }}</span>
                 {% endif %}
             </div>
             <div class="d-flex gap-2">
@@ -20,7 +20,7 @@
                        onchange="refreshDashboard()">
                 
                 <button class="btn btn-white shadow-sm rounded-circle p-2" onclick="refreshDashboard()" id="btn-refresh">
-                    <i class="fas fa-sync-alt text-primary"></i>
+                    <i class="fas fa-sync-alt text-primary" id="sync-icon"></i>
                 </button>
             </div>
         </div>
@@ -30,14 +30,14 @@
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
                 <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">
-                    TARGET {% if session['role'] == 'petugas' %}RUTE SAYA{% else %}TOTAL (MC){% endif %}
+                    TARGET {% if session['role'] == 'petugas' %}RUTE{% else %}GLOBAL{% endif %}
                 </small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-primary border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">ESTIMASI RUPIAH</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">POTENSI RUPIAH</small>
                 <h6 class="fw-bold mb-0 text-primary" id="g-nom-mc">Rp 0</h6>
             </div>
         </div>
@@ -45,24 +45,24 @@
 
     <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI {% if session['role'] == 'petugas' %}SAYA{% else %}GABUNGAN{% endif %}</small>
-            <h1 class="fw-bold mb-0" id="stat-percent" style="font-size: 3.8rem; letter-spacing: -2px;">0%</h1>
+            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI REAL-TIME</small>
+            <h1 class="fw-bold mb-0" id="stat-percent" style="font-size: 4rem; letter-spacing: -2px;">0%</h1>
             
-            <div class="progress my-3 bg-white bg-opacity-10" style="height: 10px; border-radius: 20px;">
-                <div id="prog-bar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 0%; box-shadow: 0 0 15px rgba(13, 110, 253, 0.5);"></div>
+            <div class="progress my-3 bg-white bg-opacity-10" style="height: 12px; border-radius: 20px;">
+                <div id="prog-bar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 0%; box-shadow: 0 0 20px rgba(13, 110, 253, 0.6);"></div>
             </div>
-            <p class="small mb-4 fw-medium opacity-75" id="stat-realisasi">0 Selesai / 0 Total</p>
+            <p class="small mb-4 fw-medium opacity-75" id="stat-realisasi">Sinkronisasi data...</p>
 
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS (MB)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU MB (LUNAS)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS (COLL)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU COLL (HARIAN)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
@@ -74,23 +74,23 @@
         <div class="row g-0 align-items-center text-center">
             <div class="col-6 border-end">
                 <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.55rem;">Sisa Piutang</small>
-                <h6 class="fw-bold mb-0 text-danger" id="stat-sisa-nom" style="font-size: 0.8rem;">Rp 0</h6>
+                <h6 class="fw-bold mb-0 text-danger" id="stat-sisa-nom" style="font-size: 0.85rem;">Rp 0</h6>
             </div>
             <div class="col-6">
-                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.55rem;">Belum Selesai</small>
+                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.55rem;">Sisa Lembar</small>
                 <h6 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0</h6>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
+    <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden bg-white">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 small"><i class="fas fa-award text-warning me-2"></i>Ranking Performa Petugas</h6>
-            <span class="badge bg-light text-muted fw-normal" style="font-size: 0.6rem;">Bulan Ini</span>
+            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-medal text-warning me-2"></i>Ranking Efektivitas</h6>
+            <span class="badge bg-light text-muted fw-normal" style="font-size: 0.6rem;">Kontribusi Tim</span>
         </div>
         <div class="card-body pt-0">
             {% if session['role'] == 'admin' %}
-            <div style="height: 180px; margin-bottom: 20px;">
+            <div style="height: 180px; margin-bottom: 25px;">
                 <canvas id="performaChart"></canvas>
             </div>
             {% endif %}
@@ -101,17 +101,17 @@
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
-        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-stream text-primary me-2"></i>Aktivitas Terbaru</h6>
+        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-satellite-dish text-primary me-2"></i>Log Aktivitas</h6>
         <div class="d-flex align-items-center bg-white shadow-sm rounded-pill px-3 py-1 border border-danger border-opacity-25">
             <span class="realtime-dot me-2"></span>
-            <small class="fw-bold text-danger" style="font-size: 0.55rem;">LIVE</small>
+            <small class="fw-bold text-danger" style="font-size: 0.55rem;">REAL-TIME</small>
         </div>
     </div>
-    <div id="list-history-petugas" class="mb-3"></div>
+    <div id="list-history-petugas" class="mb-4"></div>
 
     <div class="d-flex justify-content-between align-items-center px-1 mb-5">
         <button class="btn btn-sm btn-white shadow-sm rounded-pill px-3 fw-bold" id="btn-prev" onclick="changePage(-1)" style="font-size: 0.7rem;">Prev</button>
-        <small class="text-muted fw-bold" id="page-info" style="font-size: 0.7rem;">Hal 1</small>
+        <small class="text-muted fw-bold" id="page-info" style="font-size: 0.7rem;">Halaman 1</small>
         <button class="btn btn-sm btn-white shadow-sm rounded-pill px-3 fw-bold" id="btn-next" onclick="changePage(1)" style="font-size: 0.7rem;">Next</button>
     </div>
 </div>
@@ -138,8 +138,7 @@
     });
 
     async function refreshDashboard() {
-        const btn = document.getElementById('btn-refresh');
-        const icon = btn.querySelector('i');
+        const icon = document.getElementById('sync-icon');
         const rawPeriode = document.getElementById('filter-periode').value; 
         if (!rawPeriode) return;
         
@@ -148,7 +147,6 @@
         const periode = `${month}-${year}`; 
 
         try {
-            // Sinergi: API Backend akan otomatis memfilter jika role adalah petugas
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const result = await res.json();
             
@@ -156,33 +154,38 @@
 
             const g = result.global;
 
-            // Update Statistik
+            // Update Statistik Dashboard
             document.getElementById('g-nomen-mc').innerText = (g.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc || 0);
-            document.getElementById('stat-sisa-nom').innerText = toIDR(g.total_nominal_mc - (g.nom_undue + g.nom_current));
+            
+            const totalLunasRp = (g.nom_terbayar || 0);
+            document.getElementById('stat-sisa-nom').innerText = toIDR((g.total_nominal_mc || 0) - totalLunasRp);
             document.getElementById('stat-sisa-nomen').innerText = (g.sisa_nomen || 0).toLocaleString();
-            document.getElementById('stat-realisasi').innerText = `${(g.total_lunas_mc || 0).toLocaleString()} / ${(g.total_nomen_mc || 0).toLocaleString()}`;
+            
+            const totalLunasCount = (g.total_lunas_mc || 0);
+            document.getElementById('stat-realisasi').innerText = `${totalLunasCount.toLocaleString()} Selesai / ${(g.total_nomen_mc || 0).toLocaleString()} Total`;
+            
             document.getElementById('val-undue').innerText = (g.count_undue || 0).toLocaleString();
             document.getElementById('val-current').innerText = (g.count_current || 0).toLocaleString();
 
-            const pct = g.total_nomen_mc > 0 ? Math.round((g.total_lunas_mc / g.total_nomen_mc) * 100) : 0;
+            const pct = g.total_nomen_mc > 0 ? Math.round((totalLunasCount / g.total_nomen_mc) * 100) : 0;
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            // Update Leaderboard (Sinergi untuk semua role)
             renderLeaderboard(result.officers || []);
             
-            // Update Chart (Hanya Admin)
             if (USER_ROLE === 'admin' && document.getElementById('performaChart')) {
                 renderChart(result.officers || []);
             }
 
-            // Update Aktivitas
             allLogs = result.log_petugas || [];
             renderLiveLogs();
 
-        } catch (e) { console.error("Sync Error:", e); } 
-        finally { icon.classList.remove('fa-spin'); }
+        } catch (e) { 
+            console.error("Sinkronisasi Gagal:", e); 
+        } finally { 
+            setTimeout(() => icon.classList.remove('fa-spin'), 1000); 
+        }
     }
 
     function renderLeaderboard(officers) {
@@ -193,6 +196,7 @@
         
         lb.innerHTML = sorted.slice(0, 5).map((o, i) => {
             let medal = (i === 0) ? '🥇' : (i === 1) ? '🥈' : (i === 2) ? '🥉' : (i + 1);
+            // Sinergi: Highlight baris petugas yang sedang login
             let isMe = (o.petugas === MY_PETUGAS_ID) ? 'border-primary bg-primary bg-opacity-10' : 'bg-white';
             
             return `
@@ -201,15 +205,14 @@
                     <div class="d-flex align-items-center">
                         <div class="fw-bold text-center me-3" style="width: 25px;">${medal}</div>
                         <div>
-                            <h6 class="fw-bold mb-0 text-dark small">${o.petugas} ${o.petugas === MY_PETUGAS_ID ? '(SAYA)' : ''}</h6>
+                            <h6 class="fw-bold mb-0 text-dark small text-uppercase">${o.petugas} ${o.petugas === MY_PETUGAS_ID ? '<span class="badge bg-primary ms-1" style="font-size:0.5rem;">SAYA</span>' : ''}</h6>
                             <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Lunas • ${o.jml_janji} Janji</small>
                         </div>
                     </div>
-                    <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 0.65rem;">${toIDR(o.total_nominal)}</span>
+                    <span class="badge bg-success text-white rounded-pill" style="font-size: 0.65rem;">${toIDR(o.total_nominal)}</span>
                 </div>
-            </div>
-            `;
-        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada data performa</div>';
+            </div>`;
+        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada data aktivitas tim</div>';
     }
 
     function renderChart(officers) {
@@ -220,15 +223,15 @@
             data: {
                 labels: officers.map(o => o.petugas.split(' ')[0]),
                 datasets: [{ 
-                    label: 'Pencapaian (Rp)', 
+                    label: 'Capaian (Rp)', 
                     data: officers.map(o => o.total_nominal), 
                     backgroundColor: '#3b82f6', 
-                    borderRadius: 5 
+                    borderRadius: 10,
+                    barThickness: 15
                 }]
             },
             options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
+                responsive: true, maintainAspectRatio: false, 
                 plugins: { legend: { display: false } },
                 scales: { 
                     y: { display: false },
@@ -246,22 +249,21 @@
         container.innerHTML = currentLogs.map(log => {
             let labelClass = log.keterangan.includes('Sudah') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
             return `
-            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white">
+            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
                 <div class="d-flex justify-content-between small mb-1">
-                    <span class="fw-bold text-dark">${log.petugas}</span>
-                    <span class="text-muted" style="font-size:0.6rem;">${log.waktu.split(' ')[1]}</span>
+                    <span class="fw-bold text-dark text-uppercase">${log.petugas}</span>
+                    <span class="text-muted" style="font-size:0.6rem;">${log.waktu}</span>
                 </div>
-                <div class="small text-muted text-truncate mb-2">ID: ${log.nomen} - ${log.nama || 'Pelanggan'}</div>
+                <div class="small text-muted text-truncate mb-2" style="font-size:0.7rem;">ID: ${log.nomen} - ${log.nama}</div>
                 <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                     <span class="badge ${labelClass} rounded-pill" style="font-size:0.55rem;">${log.keterangan}</span>
-                    <span class="fw-bold text-primary" style="font-size:0.75rem;">${toIDR(log.nominal || 0)}</span>
+                    <span class="fw-bold text-primary" style="font-size:0.8rem;">${toIDR(log.nominal || 0)}</span>
                 </div>
-            </div>
-            `;
-        }).join('') || '<div class="text-center py-4 text-muted small">Belum ada aktivitas</div>';
+            </div>`;
+        }).join('') || '<div class="text-center py-4 text-muted small">Belum ada aktivitas lapangan</div>';
         
         const totalPages = Math.ceil(allLogs.length / logsPerPage) || 1;
-        document.getElementById('page-info').innerText = `Hal ${currentPage} / ${totalPages}`;
+        document.getElementById('page-info').innerText = `Halaman ${currentPage} / ${totalPages}`;
         document.getElementById('btn-prev').disabled = currentPage === 1;
         document.getElementById('btn-next').disabled = currentPage === totalPages || allLogs.length === 0;
     }
@@ -273,12 +275,11 @@
 </script>
 
 <style>
-    .realtime-dot { width: 7px; height: 7px; background-color: #ef4444; border-radius: 50%; animation: pulse-red 1.5s infinite; }
+    .realtime-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: pulse-red 1.5s infinite; }
     @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-    .progress-bar { transition: width 1s ease-in-out; }
-    .btn-white { background: white; border: none; }
-    .bg-success-subtle { background-color: #d1fae5 !important; color: #065f46 !important; }
-    .bg-info-subtle { background-color: #e0f2fe !important; color: #075985 !important; }
-    .bg-warning-subtle { background-color: #fef3c7 !important; color: #92400e !important; }
+    .btn-white { background: white; border: 1px solid #e2e8f0; }
+    .bg-success-subtle { background-color: #dcfce7 !important; color: #15803d !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; color: #a16207 !important; }
+    .progress-bar { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
 </style>
 {% endblock %}
