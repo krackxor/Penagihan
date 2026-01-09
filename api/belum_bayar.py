@@ -1,3 +1,8 @@
+"""
+Belum Bayar API - Sunter Dashboard Pro
+Sinergi: Menambahkan data Nomet, Vol, Rayon, dan No Admin pada respon laporan.
+"""
+
 import os
 import sqlite3
 import logging
@@ -14,7 +19,6 @@ def add_watermark(image_path, info):
     """Menambahkan watermark informasi penagihan secara robust."""
     try:
         img = Image.open(image_path)
-        # Handle orientasi otomatis smartphone
         if hasattr(img, '_getexif'): img = Image.open(image_path) 
         
         draw = ImageDraw.Draw(img)
@@ -68,11 +72,7 @@ def get_petugas_tabs():
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """
-    LOGIKA OPERASIONAL ROBUST:
-    - Jika ada search query: Abaikan filter 30 hari (untuk Revisi).
-    - Jika tidak ada search: Terapkan kuota 20 data & filter 30 hari.
-    """
+    """LOGIKA OPERASIONAL ROBUST (Current & Revisi)."""
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
     search_query = request.args.get('search', '').strip()
@@ -81,24 +81,20 @@ def get_belum_bayar():
     try:
         cursor = conn.cursor()
         query = """
-            SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, p.volume,
+            SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, p.volume, p.rayon,
                    r.petugas as nama_petugas
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE (p.periode = ? OR (p.periode < ? AND p.tipe = 'MC'))
-            
-            -- Filter 1: Belum lunas
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan)
             AND NOT EXISTS (SELECT 1 FROM collection_harian c WHERE c.notag = p.notagihan)
         """
         params = [req_periode, req_periode]
         
-        # JIKA SEDANG MENCARI (REVISI): Tampilkan semua meskipun sudah dikunjungi
         if search_query:
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ? OR p.nomet LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"])
         else:
-            # JIKA LIST BIASA: Terapkan Filter 30 Hari & Sembunyikan Nomen Ardebt
             query += """ 
                 AND NOT EXISTS (
                     SELECT 1 FROM kunjungan_petugas k 
@@ -113,7 +109,6 @@ def get_belum_bayar():
             params.append(petugas_filter)
             
         query += " ORDER BY p.pcez ASC, p.nomen ASC LIMIT 20"
-        
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
     finally:
@@ -121,7 +116,7 @@ def get_belum_bayar():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Menyimpan laporan dengan fitur revisi otomatis (Upsert harian)."""
+    """Menyimpan laporan dengan respon WA_DATA untuk laporan internal (Sinergi Total)."""
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
@@ -150,7 +145,19 @@ def lapor_kunjungan():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Cek revisi harian (Jakarta Time +7)
+
+        # AMBIL DATA SINERGI (Ardebt, Rayon, No Admin, Nomet, Vol)
+        cursor.execute("""
+            SELECT 
+                p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc,
+                COALESCE((SELECT jumlah FROM ardebt WHERE nomen = p.nomen LIMIT 1), 0) as ardebt,
+                COALESCE((SELECT no_admin FROM rute_petugas WHERE petugas = ? LIMIT 1), '628123456789') as no_admin
+            FROM master_pelanggan p
+            WHERE p.nomen = ? ORDER BY p.periode DESC LIMIT 1
+        """, (petugas_name, nomen))
+        master = cursor.fetchone()
+
+        # Cek revisi harian
         cursor.execute("""
             SELECT id FROM kunjungan_petugas 
             WHERE nomen = ? AND date(created_at, '+7 hours') = date('now', 'localtime')
@@ -177,7 +184,28 @@ def lapor_kunjungan():
                   datetime.now().strftime('%m-%Y')))
         
         conn.commit()
-        return APIResponse.success(data={"filename": filename, "revisi": bool(existing)})
+
+        # RESPONSE WA_DATA UNTUK FRONTEND (Internal Laporan)
+        return APIResponse.success(data={
+            "filename": filename, 
+            "revisi": bool(existing),
+            "wa_data": {
+                "nomen": nomen,
+                "nama": master['nama'] if master else request.form.get('nama_pelanggan'),
+                "nomet": master['nomet'] if master else "-",
+                "rayon": master['rayon'] if master else "-",
+                "vol": master['vol'] if master else "0",
+                "mc": master['mc'] if master else request.form.get('nominal_display'),
+                "ardebt": master['ardebt'] if master else 0,
+                "total": (master['mc'] + master['ardebt']) if master else request.form.get('nominal_display'),
+                "hp": request.form.get('no_hp'),
+                "status": hasil,
+                "catatan": request.form.get('keterangan') or "-",
+                "petugas": petugas_name,
+                "foto_path": filename,
+                "no_admin": master['no_admin'] if master else "628123456789"
+            }
+        })
     except Exception as e:
         return APIResponse.error(str(e), code=500)
     finally:
@@ -193,7 +221,7 @@ def get_tagihan_berekor():
     try:
         cursor = conn.cursor()
         query = """
-            SELECT a.nomen, p.nama, p.pcez, p.nomet, r.petugas as nama_petugas,
+            SELECT a.nomen, p.nama, p.pcez, p.nomet, p.rayon, r.petugas as nama_petugas,
                    a.periode_bill, a.jumlah, a.volume
             FROM ardebt a
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
