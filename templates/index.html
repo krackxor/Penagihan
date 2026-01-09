@@ -93,8 +93,11 @@
         </div>
     </div>
 
-    <h6 class="fw-bold mb-3 px-1 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-award text-warning me-2"></i>Top Petugas</h6>
-    <div id="leaderboard-section" class="mb-4"></div>
+    <div class="px-1 mb-3">
+        <h6 class="fw-bold small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-medal text-warning me-2"></i>Top Performa Petugas</h6>
+    </div>
+    <div id="leaderboard-section" class="mb-4">
+        </div>
     {% endif %}
 
     <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
@@ -144,7 +147,6 @@
         const periode = `${month}-${year}`; 
 
         try {
-            // Sinergi: API Backend kini otomatis menyaring data berdasarkan session role
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const result = await res.json();
             
@@ -165,7 +167,6 @@
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            // Kondisional Chart & Leaderboard
             if (USER_ROLE === 'admin') {
                 renderChart(result.officers || []);
                 renderLeaderboard(result.officers || []);
@@ -182,20 +183,39 @@
     function renderLeaderboard(officers) {
         const lb = document.getElementById('leaderboard-section');
         if (!lb) return;
-        lb.innerHTML = officers.slice(0, 5).map((o, i) => `
-            <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-white border-start border-4 ${i==0 ? 'border-warning' : 'border-light'}">
+
+        // Urutkan berdasarkan total_nominal (pencapaian rupiah tertinggi)
+        const sorted = [...officers].sort((a, b) => b.total_nominal - a.total_nominal);
+        
+        lb.innerHTML = sorted.slice(0, 5).map((o, i) => {
+            let medal = '';
+            let borderClass = 'border-light';
+            
+            if(i === 0) { medal = '🥇'; borderClass = 'border-warning'; }
+            else if(i === 1) { medal = '🥈'; borderClass = 'border-secondary-subtle'; }
+            else if(i === 2) { medal = '🥉'; borderClass = 'border-danger-subtle'; }
+
+            return `
+            <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-white border-start border-4 ${borderClass} animate__animated animate__fadeInUp" style="animation-delay: ${i * 0.1}s">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
-                        <div class="fw-bold text-muted me-3">#${i+1}</div>
+                        <div class="fw-bold text-center me-3" style="width: 25px; font-size: 1.1rem;">${medal || (i + 1)}</div>
                         <div>
-                            <h6 class="fw-bold mb-0 text-dark small">${o.petugas}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Lunas • ${o.jml_janji} Janji</small>
+                            <h6 class="fw-bold mb-0 text-dark small text-uppercase">${o.petugas}</h6>
+                            <div class="d-flex align-items-center mt-1">
+                                <span class="badge bg-success-subtle text-success me-2" style="font-size: 0.55rem;">${o.jml_bayar} Lunas</span>
+                                <span class="badge bg-info-subtle text-info" style="font-size: 0.55rem;">${o.jml_janji} Janji</span>
+                            </div>
                         </div>
                     </div>
-                    <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 0.6rem;">${toIDR(o.total_nominal)}</span>
+                    <div class="text-end">
+                        <small class="text-muted d-block" style="font-size: 0.55rem;">TOTAL SETORAN</small>
+                        <span class="fw-bold text-primary" style="font-size: 0.85rem;">${toIDR(o.total_nominal)}</span>
+                    </div>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     function renderChart(officers) {
@@ -207,9 +227,23 @@
             type: 'bar',
             data: {
                 labels: officers.map(o => o.petugas.split(' ')[0]),
-                datasets: [{ label: 'Kunjungan', data: officers.map(o => o.total_dijalan), backgroundColor: '#3b82f6', borderRadius: 5 }]
+                datasets: [{ 
+                    label: 'Kunjungan', 
+                    data: officers.map(o => o.total_dijalan), 
+                    backgroundColor: '#3b82f6', 
+                    borderRadius: 8,
+                    barThickness: 20
+                }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, 
+                    x: { grid: { display: false } } 
+                } 
+            }
         });
     }
 
@@ -221,11 +255,11 @@
         container.innerHTML = currentLogs.map(log => `
             <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
                 <div class="d-flex justify-content-between small mb-1">
-                    <span class="fw-bold text-dark">${log.petugas}</span>
-                    <span class="text-muted" style="font-size:0.6rem;">${log.waktu.split(' ')[1]}</span>
+                    <span class="fw-bold text-dark text-uppercase">${log.petugas}</span>
+                    <span class="text-muted" style="font-size:0.6rem;"><i class="far fa-clock me-1"></i>${log.waktu.split(' ')[1]}</span>
                 </div>
-                <div class="small text-muted text-truncate mb-2">ID: ${log.nomen} - ${log.nama || 'Pelanggan'}</div>
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="small text-muted text-truncate mb-2">ID: <b>${log.nomen}</b> - ${log.nama || 'Pelanggan'}</div>
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                     <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'} rounded-pill" style="font-size:0.6rem;">${log.keterangan}</span>
                     <span class="fw-bold text-primary" style="font-size:0.7rem;">${toIDR(log.nominal || 0)}</span>
                 </div>
@@ -249,5 +283,8 @@
     @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     .progress-bar { transition: width 1s ease-in-out; }
     .btn-white { background: white; border: none; }
+    .bg-success-subtle { background-color: #d1fae5 !important; color: #065f46 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; color: #075985 !important; }
+    .bg-warning-subtle { background-color: #fef3c7 !important; color: #92400e !important; }
 </style>
 {% endblock %}
