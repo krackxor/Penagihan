@@ -1,10 +1,10 @@
 """
 Ardebt (Tagihan Berekor) API Endpoints
-Logic: 
-1. Level Akses: Petugas otomatis dikunci ke rutenya, Admin bisa filter semua.
-2. Menampilkan kuota 20 data per petugas per hari berdasarkan urutan rute (PCEZ).
-3. Data yang sudah dilaporkan akan "masuk kotak" selama 30 hari.
-4. Sinergi: Menarik data Rayon dan NoTagihan untuk kelengkapan Laporan WA.
+Sinergi & Logic: 
+1. Level Akses: Petugas dikunci ke rutenya (petugas_id), Admin akses global.
+2. Akumulasi Cerdas: Menggabungkan semua periode berekor per NOMEN agar list tidak panjang.
+3. Kuota Lapangan: Menampilkan 20 titik rute (PCEZ) prioritas.
+4. Auto-Hide: Data hilang dari list selama 30 hari setelah dilaporkan.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -16,22 +16,27 @@ ardebt_bp = Blueprint('ardebt', __name__)
 
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
-    # Ambil data dari session login
+    # 1. Identifikasi Sinergi Login
     user_role = session.get('role')
-    user_petugas_id = session.get('petugas_id') # Nama di Excel (Contoh: PIAN)
+    user_petugas_id = session.get('petugas_id') # Nama Petugas (Contoh: PIAN)
     
-    # Filter dari request (biasanya digunakan oleh Admin)
-    petugas_filter = request.args.get('petugas')
+    # 2. Ambil Parameter Request
+    petugas_filter = request.args.get('petugas') # Digunakan Admin
     search_query = request.args.get('search', '').strip()
     
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Query Sinergi: Menambahkan p.rayon dan p.notagihan
+        
+        # 3. Query Utama dengan Akumulasi (GROUP BY nomen)
+        # Menghitung total lembar berekor dan total rupiah per pelanggan
         query = """
             SELECT 
                 a.id, a.nomen, p.nama, p.pcez, p.nomet, p.rayon, p.notagihan,
-                a.periode_bill, a.jumlah, a.volume,
+                GROUP_CONCAT(a.periode_bill, ', ') as rincian_periode,
+                COUNT(a.id) as lembar_berekor,
+                SUM(a.jumlah) as jumlah, 
+                SUM(a.volume) as volume,
                 r.petugas as nama_petugas
             FROM ardebt a
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
@@ -40,22 +45,22 @@ def get_tunggakan_berekor():
         """
         params = []
 
-        # --- LOGIKA SINERGI 3 LEVEL ---
+        # --- LOGIKA PROTEKSI AKSES 3 LEVEL ---
         if user_role == 'petugas':
-            # Jika login sebagai PETUGAS, paksa filter hanya rutenya sendiri
+            # Paksa filter rute milik petugas yang login
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
         elif user_role == 'admin' and petugas_filter and petugas_filter != 'all':
-            # Jika login sebagai ADMIN, filter hanya aktif jika admin memilih nama tertentu
+            # Admin memilih petugas tertentu dari dropdown
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
 
-        # LOGIKA SEARCH (REVISI): Jika mencari, abaikan filter 30 hari
+        # --- LOGIKA PENCARIAN & FILTER 30 HARI ---
         if search_query:
             query += " AND (a.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
-            # LOGIKA LIST RUTIN: Terapkan filter 30 hari agar daftar bersih
+            # Filter Kotak (Hanya tampilkan yang belum dikunjungi dalam 30 hari terakhir)
             query += """
                 AND NOT EXISTS (
                     SELECT 1 FROM kunjungan_petugas k 
@@ -64,13 +69,17 @@ def get_tunggakan_berekor():
                 )
             """
             
-        # Batasi 20 data per petugas per rute (Optimasi Lapangan)
-        query += " ORDER BY p.pcez ASC, a.periode_bill ASC LIMIT 20"
+        # Finalisasi Query: Kelompokkan per Nomen dan urutkan rute terkecil
+        query += """ 
+            GROUP BY a.nomen 
+            ORDER BY p.pcez ASC, lembar_berekor DESC 
+            LIMIT 20 
+        """
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
         
-        # Sinergi: Mengembalikan sebagai list JSON langsung untuk sinkronisasi fetch frontend
+        # Sinergi Fetch: Mengembalikan list JSON murni untuk performa frontend mobile
         return jsonify([dict(row) for row in rows])
         
     except Exception as e:
@@ -80,26 +89,22 @@ def get_tunggakan_berekor():
 
 @ardebt_bp.route('/summary', methods=['GET'])
 def get_ardebt_summary():
-    """Ringkasan akumulasi piutang berekor untuk dashboard KPI."""
+    """Analisis Dashboard: Menghitung beban piutang berekor global."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # Query optimasi untuk ringkasan cepat
         cursor.execute("""
             SELECT 
-                COUNT(a.id) as total_lembar_tagihan,
-                COUNT(DISTINCT a.nomen) as total_nomen,
-                SUM(a.jumlah) as total_rupiah
-            FROM ardebt a
-            INNER JOIN master_pelanggan p ON a.nomen = p.nomen
+                COUNT(id) as total_lembar,
+                COUNT(DISTINCT nomen) as total_pelanggan,
+                SUM(jumlah) as total_rupiah,
+                SUM(volume) as total_m3
+            FROM ardebt
         """)
         row = cursor.fetchone()
-        data = dict(row) if row else {"total_lembar_tagihan": 0, "total_nomen": 0, "total_rupiah": 0}
-        return APIResponse.success(data=data)
+        return APIResponse.success(data=dict(row) if row else {})
     except Exception as e:
-        return APIResponse.error(str(e), code=500)
+        return APIResponse.error(str(e))
     finally:
         conn.close()
-
-def register_ardebt_routes(app, get_db):
-    """Registrasi blueprint ardebt ke aplikasi utama."""
-    app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
