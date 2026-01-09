@@ -8,7 +8,6 @@ Sinergi:
 
 import os
 import sqlite3
-# Tambahkan jsonify pada import untuk menangani respons API
 from flask import Flask, render_template, g, send_from_directory, current_app, session, redirect, url_for, request, jsonify
 
 # Import Konfigurasi & Core
@@ -48,47 +47,57 @@ def create_app():
         if db is not None:
             db.close()
 
-    # --- MIDDLEWARE: SECURITY LAYER 3 (DIPERBARUI) ---
+    # --- MIDDLEWARE: SECURITY LAYER 3 (PEROMBAKAN TOTAL) ---
     @app.before_request
     def security_layer():
         """
-        Lapis Keamanan Server:
-        Menangani permintaan API secara khusus agar tidak mengembalikan HTML saat session expired.
+        Lapis Keamanan Server Terpadu:
+        1. Menjamin navigasi dasar tetap muncul untuk Guest.
+        2. Menangani permintaan API secara khusus (mengirim JSON 401, bukan redirect HTML).
+        3. Normalisasi Role secara real-time untuk sinkronisasi template.
         """
+        # Daftar rute yang terbuka untuk umum
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 'auth.check_session'
         ]
         
         endpoint = request.endpoint
+        
+        # Izinkan rute publik tanpa pemeriksaan session
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # 1. Cek Status Login
+        # 1. Validasi Login & Sesi
         if 'role' not in session:
-            # Jika permintaan adalah API atau AJAX, kirim JSON 401
+            # Cegah error 'Unexpected token <' pada AJAX dengan mengirimkan JSON
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
                     "status": "error",
-                    "message": "Sesi berakhir. Silakan login kembali."
+                    "message": "Sesi berakhir. Navigasi memerlukan login ulang."
                 }), 401
+            
+            # Akses halaman biasa diarahkan ke login
             return redirect(url_for('login_page'))
         
-        # 2. Proteksi Khusus Level Admin
+        # 2. Proteksi Rute Administratif (Pusat Kendali)
         admin_only_endpoints = [
             'upload_page', 'setting_rute_page', 'wa_blast_page', 
             'admin_dashboard', 'performa_page', 'history_page'
         ]
         
-        user_role = str(session.get('role', '')).lower()
+        # Normalisasi role ke lowercase untuk menjamin kecocokan dengan menu.html
+        user_role = str(session.get('role', 'publik')).lower()
         
         if endpoint in admin_only_endpoints and user_role != 'admin':
-            # Jika permintaan API ditolak karena hak akses, kirim JSON 403
+            # Jika akses API ditolak, kirim JSON 403
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
                     "status": "error",
-                    "message": "Akses ditolak: Memerlukan level Admin."
+                    "message": "Akses ditolak: Memerlukan level Administrator."
                 }), 403
+            
+            # Jika akses halaman ditolak, kembalikan ke Dashboard
             return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
@@ -100,6 +109,7 @@ def create_app():
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     app.register_blueprint(collection_bp, url_prefix='/api/collection') 
     
+    # Registrasi rute performa (Mapping rute lapangan)
     register_pcez_routes(app, get_db_connection)
 
     # --- RUTE NAVIGASI FRONTEND ---
@@ -113,6 +123,7 @@ def create_app():
 
     @app.route('/login')
     def login_page(): 
+        # Jika sudah login, jangan tampilkan halaman login lagi
         if 'role' in session: 
             return redirect(url_for('index'))
         return render_template('login.html')
@@ -159,6 +170,7 @@ def create_app():
 
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
+        """Audit visual foto bukti laporan petugas."""
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
         return send_from_directory(folder, filename)
 
@@ -166,4 +178,5 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
+    # Host 0.0.0.0 agar sistem bisa diakses oleh perangkat petugas di lapangan
     app.run(host='0.0.0.0', port=5000, debug=True)
