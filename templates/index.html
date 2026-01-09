@@ -6,10 +6,16 @@
         <div class="d-flex justify-content-between align-items-center">
             <div>
                 <h4 class="fw-bold mb-0 text-dark">
-                    {% if session['role'] == 'admin' %} Dashboard Sunter ⚡ {% else %} Performa Saya 📈 {% endif %}
+                    {% if session.get('role') == 'admin' %} 
+                        Dashboard Sunter ⚡ 
+                    {% elif session.get('role') == 'petugas' %} 
+                        Performa Saya 📈 
+                    {% else %}
+                        Monitor Realisasi 🌏
+                    {% endif %}
                 </h4>
                 <p class="text-muted small mb-0" id="display-date"></p>
-                {% if session['role'] == 'petugas' %}
+                {% if session.get('petugas_id') and session.get('petugas_id') != 'ALL' %}
                     <span class="badge bg-primary text-white rounded-pill mt-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">WILAYAH: {{ session['petugas_id'] }}</span>
                 {% endif %}
             </div>
@@ -29,9 +35,7 @@
     <div class="row g-2 mb-3">
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">
-                    TARGET {% if session['role'] == 'petugas' %}RUTE{% else %}GLOBAL{% endif %}
-                </small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">TARGET UNIT</small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
@@ -45,24 +49,24 @@
 
     <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI REAL-TIME</small>
+            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI GLOBAL</small>
             <h1 class="fw-bold mb-0" id="stat-percent" style="font-size: 4rem; letter-spacing: -2px;">0%</h1>
             
             <div class="progress my-3 bg-white bg-opacity-10" style="height: 12px; border-radius: 20px;">
-                <div id="prog-bar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 0%; box-shadow: 0 0 20px rgba(13, 110, 253, 0.6);"></div>
+                <div id="prog-bar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 0%;"></div>
             </div>
             <p class="small mb-4 fw-medium opacity-75" id="stat-realisasi">Sinkronisasi data...</p>
 
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU MB (LUNAS)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU LUNAS (MB)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU COLL (HARIAN)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU COLL (APP)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
@@ -86,10 +90,9 @@
     <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden bg-white">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
             <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-medal text-warning me-2"></i>Ranking Efektivitas</h6>
-            <span class="badge bg-light text-muted fw-normal" style="font-size: 0.6rem;">Kontribusi Tim</span>
         </div>
         <div class="card-body pt-0">
-            {% if session['role'] == 'admin' %}
+            {% if session.get('role') == 'admin' %}
             <div style="height: 180px; margin-bottom: 25px;">
                 <canvas id="performaChart"></canvas>
             </div>
@@ -122,8 +125,8 @@
     let allLogs = []; 
     const logsPerPage = 10; 
     let myChart = null;
-    const USER_ROLE = "{{ session['role'] }}";
-    const MY_PETUGAS_ID = "{{ session['petugas_id'] }}";
+    const USER_ROLE = "{{ session.get('role', 'guest')|lower }}";
+    const MY_PETUGAS_ID = "{{ session.get('petugas_id', 'ALL') }}";
 
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     
@@ -148,13 +151,20 @@
 
         try {
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
-            const result = await res.json();
             
+            // SECURITY: Handle session expired
+            if (res.status === 401) {
+                console.warn("Session Expired - Redirect to login");
+                window.location.href = '/login?logout=expired';
+                return;
+            }
+
+            const result = await res.json();
             if(!res.ok) throw new Error(result.message);
 
             const g = result.global;
 
-            // Update Statistik Dashboard
+            // Update UI
             document.getElementById('g-nomen-mc').innerText = (g.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc || 0);
             
@@ -196,11 +206,10 @@
         
         lb.innerHTML = sorted.slice(0, 5).map((o, i) => {
             let medal = (i === 0) ? '🥇' : (i === 1) ? '🥈' : (i === 2) ? '🥉' : (i + 1);
-            // Sinergi: Highlight baris petugas yang sedang login
             let isMe = (o.petugas === MY_PETUGAS_ID) ? 'border-primary bg-primary bg-opacity-10' : 'bg-white';
             
             return `
-            <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 ${isMe} animate__animated animate__fadeInUp" style="animation-delay: ${i * 0.1}s">
+            <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 ${isMe} animate__animated animate__fadeInUp">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
                         <div class="fw-bold text-center me-3" style="width: 25px;">${medal}</div>
@@ -212,7 +221,7 @@
                     <span class="badge bg-success text-white rounded-pill" style="font-size: 0.65rem;">${toIDR(o.total_nominal)}</span>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada data aktivitas tim</div>';
+        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada aktivitas lapangan</div>';
     }
 
     function renderChart(officers) {
