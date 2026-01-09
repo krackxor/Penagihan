@@ -8,7 +8,8 @@ Sinergi:
 
 import os
 import sqlite3
-from flask import Flask, render_template, g, send_from_directory, current_app, session, redirect, url_for, request
+# Tambahkan jsonify pada import
+from flask import Flask, render_template, g, send_from_directory, current_app, session, redirect, url_for, request, jsonify
 
 # Import Konfigurasi & Core
 from config import Config
@@ -30,9 +31,8 @@ def create_app():
 
     # Inisialisasi Environment & Folder Sistem
     with app.app_context():
-        init_db(app) # Inisialisasi Tabel & User Admin Default (admin_sunter)
+        init_db(app) # Inisialisasi Tabel & User Admin Default
         
-        # Pastikan folder penyimpanan tersedia (Sinergi Foto Bukti)
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'temp')
@@ -43,45 +43,50 @@ def create_app():
 
     @app.teardown_appcontext
     def close_connection(exception):
-        """Pembersihan koneksi DB setiap request selesai untuk mencegah 'Database is locked'."""
         db = g.pop('db', None)
         if db is not None:
             db.close()
 
-    # --- MIDDLEWARE: SECURITY LAYER 3 ---
+    # --- MIDDLEWARE: SECURITY LAYER 3 (FIXED FOR AJAX) ---
     @app.before_request
     def security_layer():
         """
-        Lapis Keamanan Server:
-        1. Mencegah akses rute internal tanpa login.
-        2. Filter Level Akses: Admin, Petugas, Publik.
+        Lapis Keamanan Server dengan penanganan khusus AJAX/JSON.
+        Mencegah error 'Unexpected token <' saat session expired.
         """
-        # Daftar rute yang terbuka untuk umum agar navigasi tetap muncul bagi Guest
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 'auth.check_session'
         ]
         
         endpoint = request.endpoint
-        
-        # Jika endpoint tidak ditemukan atau termasuk rute publik, izinkan akses
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # Cek Status Login: Jika mencoba akses rute internal tanpa session
+        # 1. Cek Status Login
         if 'role' not in session:
+            # Jika permintaan berasal dari API/AJAX, kirim JSON Error 401
+            if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    "status": "error", 
+                    "message": "Sesi telah berakhir, silakan login kembali."
+                }), 401
+            # Jika akses halaman biasa, redirect ke login
             return redirect(url_for('login_page'))
         
-        # Proteksi Khusus Level Admin (Pusat Kendali)
+        # 2. Proteksi Admin Only
         admin_only_endpoints = [
             'upload_page', 'setting_rute_page', 'wa_blast_page', 
             'admin_dashboard', 'performa_page', 'history_page'
         ]
         
-        # Gunakan .lower() untuk memastikan pengecekan role sinkron dengan menu.html
         user_role = str(session.get('role', '')).lower()
-        
         if endpoint in admin_only_endpoints and user_role != 'admin':
+            if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    "status": "error", 
+                    "message": "Akses ditolak: Memerlukan level Administrator."
+                }), 403
             return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
@@ -91,14 +96,11 @@ def create_app():
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
-    app.register_blueprint(collection_bp, url_prefix='/api/collection')
+    app.register_blueprint(collection_bp, url_prefix='/api/collection') 
     
-    # Registrasi rute performa PCEZ (Mapping rute lapangan)
     register_pcez_routes(app, get_db_connection)
 
-    # --- RUTE NAVIGASI FRONTEND (SINERGI TEMPLATES) ---
-    
-    # LEVEL 1: AKSES UMUM
+    # --- RUTE NAVIGASI FRONTEND ---
     @app.route('/')
     def index(): 
         return render_template('index.html')
@@ -113,7 +115,6 @@ def create_app():
             return redirect(url_for('index'))
         return render_template('login.html')
 
-    # LEVEL 2: OPERASIONAL PETUGAS
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
         return render_template('belum_bayar.html')
@@ -130,7 +131,6 @@ def create_app():
     def galeri_page(): 
         return render_template('galeri.html')
 
-    # LEVEL 3: PUSAT KENDALI ADMIN
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
         return render_template('admin_dashboard.html')
@@ -155,10 +155,8 @@ def create_app():
     def history_page(): 
         return render_template('history.html')
 
-    # --- FILE SERVING (Audit Visual) ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
-        """Akses aman untuk melihat foto bukti laporan petugas."""
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
         return send_from_directory(folder, filename)
 
@@ -166,5 +164,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    # Host 0.0.0.0 agar dashboard bisa dibuka oleh banyak HP petugas di jaringan yang sama
     app.run(host='0.0.0.0', port=5000, debug=True)
