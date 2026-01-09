@@ -39,7 +39,8 @@
 
             <div class="my-3 border-top opacity-25"></div>
 
-            {% if session['role'] in ['petugas', 'admin'] %}
+            {# Perbarui: Penambahan filter |lower agar pengecekan role petugas/admin lebih akurat #}
+            {% if session['role'] and session['role']|lower in ['petugas', 'admin'] %}
             <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.65rem; letter-spacing: 1px;">Operasional Lapangan</small>
             
             <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
@@ -55,7 +56,8 @@
             </a>
             {% endif %}
 
-            {% if session['role'] == 'admin' %}
+            {# Perbarui: Penambahan filter |lower untuk keamanan akses menu admin #}
+            {% if session['role'] and session['role']|lower == 'admin' %}
             <div class="my-3 border-top opacity-25"></div>
             <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.65rem; letter-spacing: 1px;">Pusat Kendali</small>
 
