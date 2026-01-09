@@ -2,21 +2,26 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - Sunter Pro Dashboard</title>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root {
-            --primary-bg: #0f172a;
+            --primary-dark: #0f172a;
             --accent-blue: #3b82f6;
+            --card-bg: rgba(30, 41, 59, 0.7);
         }
+        
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--primary-bg);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--primary-dark);
+            background-image: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
             height: 100vh;
             display: flex;
             align-items: center;
@@ -24,116 +29,124 @@
             margin: 0;
             overflow: hidden;
         }
+
         .login-card {
             width: 100%;
-            max-width: 400px;
-            padding: 2rem;
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 380px;
+            padding: 2.5rem 2rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
+
         .brand-logo {
-            width: 64px;
-            height: 64px;
+            width: 70px; height: 70px;
             background: white;
             color: var(--accent-blue);
-            border-radius: 16px;
+            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            margin: 0 auto 1.2rem;
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.3);
+            transform: rotate(-5deg);
         }
+
+        .form-label { font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.6); margin-left: 5px; }
+
+        .input-group { 
+            background: rgba(15, 23, 42, 0.6); 
+            border-radius: 14px; 
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            transition: 0.3s;
+        }
+        
+        .input-group:focus-within { border-color: var(--accent-blue); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
+
+        .input-group-text { background: transparent; border: none; color: rgba(255,255,255,0.4); padding-left: 15px; }
+
         .form-control {
-            background: rgba(15, 23, 42, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            border-radius: 12px;
-            padding: 0.75rem 1rem;
-        }
-        .form-control:focus {
-            background: rgba(15, 23, 42, 0.8);
-            border-color: var(--accent-blue);
-            color: white;
-            box-shadow: none;
-        }
-        .btn-login {
-            background: var(--accent-blue);
+            background: transparent;
             border: none;
-            border-radius: 12px;
-            padding: 0.8rem;
+            color: white;
+            padding: 0.8rem 1rem 0.8rem 5px;
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus { background: transparent; color: white; box-shadow: none; }
+        .form-control::placeholder { color: rgba(255,255,255,0.2); }
+
+        .btn-login {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            border-radius: 14px;
+            padding: 0.9rem;
             font-weight: 700;
+            color: white;
             letter-spacing: 0.5px;
-            transition: all 0.3s;
+            transition: 0.3s;
+            margin-top: 1rem;
         }
+
         .btn-login:hover {
-            background: #2563eb;
             transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.4);
         }
-        .role-badge {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-        /* Sinergi: Link bantuan petugas */
+
         .help-link {
             text-decoration: none;
             font-size: 0.75rem;
             color: var(--accent-blue);
-            transition: 0.2s;
+            font-weight: 600;
         }
-        .help-link:hover { color: white; }
+
+        .version-text { font-size: 0.65rem; color: rgba(255,255,255,0.3); margin-top: 1.5rem; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
 <div class="container px-4">
-    <div class="login-card animate__animated animate__fadeIn">
-        <div class="text-center">
+    <div class="login-card animate__animated animate__zoomIn">
+        <div class="text-center mb-4">
             <div class="brand-logo">
-                <i class="fas fa-bolt-lightning fa-2x"></i>
+                <i class="fas fa-bolt-lightning fa-2xl"></i>
             </div>
-            <h4 class="text-white fw-800 mb-1">SUNTER PRO</h4>
-            <p class="role-badge mb-4">Water Billing Management System</p>
+            <h4 class="text-white fw-800 mb-0" style="letter-spacing: -0.5px;">SUNTER PRO</h4>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 mt-1" style="font-size: 0.55rem; letter-spacing: 1px;">DATABASE SINERGI v2.5</span>
         </div>
 
         <form id="loginForm">
             <div class="mb-3">
-                <label class="text-white-50 small mb-2 fw-medium">Username</label>
+                <label class="form-label">USERNAME</label>
                 <div class="input-group">
-                    <span class="input-group-text bg-transparent border-end-0 text-white-50" style="border-color: rgba(255,255,255,0.1)">
-                        <i class="fas fa-user"></i>
-                    </span>
-                    <input type="text" id="username" class="form-control border-start-0" placeholder="Masukkan username" required>
+                    <span class="input-group-text"><i class="fas fa-user-ninja"></i></span>
+                    <input type="text" id="username" class="form-control" placeholder="ID Petugas / Admin" required autocomplete="username">
                 </div>
             </div>
 
             <div class="mb-2">
-                <label class="text-white-50 small mb-2 fw-medium">Password</label>
+                <label class="form-label">PASSWORD</label>
                 <div class="input-group">
-                    <span class="input-group-text bg-transparent border-end-0 text-white-50" style="border-color: rgba(255,255,255,0.1)">
-                        <i class="fas fa-lock"></i>
-                    </span>
-                    <input type="password" id="password" class="form-control border-start-0" placeholder="••••••••" required>
+                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                    <input type="password" id="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
                 </div>
             </div>
 
             <div class="text-end mb-4">
-                <a href="https://wa.me/628123456789?text=Halo%20Admin,%20saya%20petugas%20lupa%20password%20SunterPro" class="help-link">Lupa Password?</a>
+                <a href="https://wa.me/628123456789?text=Halo%20Admin,%20saya%20petugas%20lupa%20password%20SunterPro" target="_blank" class="help-link">Lupa Password?</a>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-login w-100 mb-3">
-                MASUK KE SISTEM <i class="fas fa-arrow-right ms-2"></i>
+            <button type="submit" class="btn btn-primary btn-login w-100 shadow-sm" id="btnSubmit">
+                AUTHENTICATION <i class="fas fa-shield-check ms-2"></i>
             </button>
         </form>
 
-        <div class="text-center">
-            <p class="text-white-50 small mb-0">V2.5.0 Build 2026</p>
-            <p class="text-white-50 x-small" style="font-size: 0.6rem; opacity: 0.3;">Sinergi Login Level 3 Active</p>
+        <div class="text-center version-text">
+            <div class="fw-bold">SINERGI LOGIN LEVEL 3 ACTIVE</div>
+            <div class="opacity-50 mt-1">© 2026 Sunter Pro Development</div>
         </div>
     </div>
 </div>
@@ -142,16 +155,13 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const btn = document.getElementById('btnSubmit');
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        // Tampilkan loading (Fungsi Lama Dipertahankan)
-        Swal.fire({
-            title: 'Otentikasi...',
-            text: 'Memeriksa kredensial rute petugas',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
+        // Feedback Visual Loading
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>MENYINKRONKAN...';
 
         try {
             const response = await fetch('/api/auth/login', {
@@ -163,30 +173,56 @@
             const result = await response.json();
 
             if (response.ok) {
-                // SINERGI: Pesan sukses dinamis berdasarkan role yang dikirim server
+                // Sinergi: Notifikasi Sukses dengan Branding Profesional
                 Swal.fire({
                     icon: 'success',
-                    title: 'Berhasil!',
-                    text: `Selamat datang ${result.data.role}, ${username}`,
+                    title: 'Akses Diberikan',
+                    text: `Selamat datang, ${username.toUpperCase()}`,
                     timer: 1500,
-                    showConfirmButton: false
+                    showConfirmButton: false,
+                    background: '#1e293b',
+                    color: '#fff',
+                    customClass: { popup: 'rounded-4' }
                 }).then(() => {
-                    // Redirect sesuai instruksi server (Admin ke Dashboard, Petugas ke Tagihan)
+                    // Sinergi: Redirect otomatis ke Dashboard sesuai Role dari Server
                     window.location.href = result.data.redirect;
                 });
             } else {
-                // FUNGSI LAMA: Handle Error
+                // Error Handling Sinergi
                 Swal.fire({
                     icon: 'error',
                     title: 'Akses Ditolak',
-                    text: result.message || 'Username atau Password salah!',
-                    confirmButtonColor: '#3b82f6'
+                    text: result.message || 'Kredensial tidak valid!',
+                    confirmButtonColor: '#3b82f6',
+                    background: '#1e293b',
+                    color: '#fff',
+                    customClass: { popup: 'rounded-4' }
                 });
+                btn.disabled = false;
+                btn.innerHTML = 'AUTHENTICATION <i class="fas fa-shield-check ms-2"></i>';
             }
         } catch (error) {
-            Swal.fire('Error', 'Gagal menghubungi server pusat', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'Server Error',
+                text: 'Gagal terhubung ke pusat data Sunter Pro.',
+                confirmButtonColor: '#ef4444'
+            });
+            btn.disabled = false;
+            btn.innerHTML = 'AUTHENTICATION <i class="fas fa-shield-check ms-2"></i>';
         }
     });
+
+    // Sinergi: Deteksi logout dari URL untuk menampilkan pesan sukses
+    window.onload = () => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('logout')) {
+            const Toast = Swal.mixin({
+                toast: true, position: 'top', showConfirmButton: false, timer: 3000, timerProgressBar: true
+            });
+            Toast.fire({ icon: 'info', title: 'Sesi telah berakhir secara aman' });
+        }
+    };
 </script>
 
 </body>
