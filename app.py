@@ -3,7 +3,7 @@ Flask Application - Sunter Dashboard Pro
 Sinergi: 
 1. Sistem Login 3 Level (Publik, Petugas, Admin).
 2. Proteksi Rute: Kunci akses berdasarkan Role & Petugas ID.
-3. Optimasi Database WAL Mode & Session Management.
+3. Admin Control Center: Manajemen User, Mapping Rute, & Sinkronisasi Data.
 """
 
 import os
@@ -22,7 +22,7 @@ from api.ardebt import ardebt_bp
 from api.belum_bayar import belum_bayar_bp
 from api.collection import collection_bp 
 from api.pcez_performance import register_pcez_routes
-from api.auth import auth_bp # Import Blueprint Auth baru
+from api.auth import auth_bp 
 
 def get_db():
     if 'db' not in g:
@@ -61,7 +61,6 @@ def create_app():
     # --- MIDDLEWARE: PROTEKSI RUTE ---
     @app.before_request
     def require_login():
-        # Rute yang bisa diakses tanpa login (Level 1 & Auth)
         public_routes = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo'
@@ -71,13 +70,16 @@ def create_app():
             if 'role' not in session:
                 return redirect(url_for('login_page'))
             
-            # Proteksi khusus Admin (Level 3)
-            admin_only_routes = ['upload_page', 'setting_rute_page', 'wa_blast_page', 'history_page']
+            # PROTEKSI ADMIN (Level 3): Menambahkan admin_dashboard ke daftar proteksi
+            admin_only_routes = [
+                'upload_page', 'setting_rute_page', 'wa_blast_page', 
+                'history_page', 'admin_dashboard'
+            ]
             if request.endpoint in admin_only_routes and session.get('role') != 'admin':
                 return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
-    app.register_blueprint(auth_bp, url_prefix='/api/auth') # Registrasi Auth
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
@@ -118,7 +120,11 @@ def create_app():
     @app.route('/history-bayar')
     def history_bayar_page(): return render_template('history_bayar.html')
 
-    # LEVEL 3: ADMIN ONLY
+    # LEVEL 3: ADMIN CONTROL CENTER (Pusat Kendali)
+    @app.route('/admin/dashboard')
+    def admin_dashboard(): 
+        return render_template('admin_dashboard.html')
+
     @app.route('/performa')
     def performa_page(): return render_template('performa.html')
 
