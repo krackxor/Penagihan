@@ -8,7 +8,7 @@ Sinergi:
 
 import os
 import sqlite3
-# Tambahkan jsonify pada import
+# Tambahkan jsonify pada import untuk menangani respons API
 from flask import Flask, render_template, g, send_from_directory, current_app, session, redirect, url_for, request, jsonify
 
 # Import Konfigurasi & Core
@@ -21,9 +21,9 @@ from api.history import history_bp
 from api.rute import rute_bp
 from api.ardebt import ardebt_bp
 from api.belum_bayar import belum_bayar_bp
-from api.collection import collection_bp 
+from api.collection import collection_bp
 from api.pcez_performance import register_pcez_routes
-from api.auth import auth_bp 
+from api.auth import auth_bp
 
 def create_app():
     app = Flask(__name__)
@@ -43,16 +43,17 @@ def create_app():
 
     @app.teardown_appcontext
     def close_connection(exception):
+        """Pembersihan koneksi DB setiap request selesai."""
         db = g.pop('db', None)
         if db is not None:
             db.close()
 
-    # --- MIDDLEWARE: SECURITY LAYER 3 (FIXED FOR AJAX) ---
+    # --- MIDDLEWARE: SECURITY LAYER 3 (DIPERBARUI) ---
     @app.before_request
     def security_layer():
         """
-        Lapis Keamanan Server dengan penanganan khusus AJAX/JSON.
-        Mencegah error 'Unexpected token <' saat session expired.
+        Lapis Keamanan Server:
+        Menangani permintaan API secara khusus agar tidak mengembalikan HTML saat session expired.
         """
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
@@ -65,27 +66,28 @@ def create_app():
 
         # 1. Cek Status Login
         if 'role' not in session:
-            # Jika permintaan berasal dari API/AJAX, kirim JSON Error 401
+            # Jika permintaan adalah API atau AJAX, kirim JSON 401
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
-                    "status": "error", 
-                    "message": "Sesi telah berakhir, silakan login kembali."
+                    "status": "error",
+                    "message": "Sesi berakhir. Silakan login kembali."
                 }), 401
-            # Jika akses halaman biasa, redirect ke login
             return redirect(url_for('login_page'))
         
-        # 2. Proteksi Admin Only
+        # 2. Proteksi Khusus Level Admin
         admin_only_endpoints = [
             'upload_page', 'setting_rute_page', 'wa_blast_page', 
             'admin_dashboard', 'performa_page', 'history_page'
         ]
         
         user_role = str(session.get('role', '')).lower()
+        
         if endpoint in admin_only_endpoints and user_role != 'admin':
+            # Jika permintaan API ditolak karena hak akses, kirim JSON 403
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
-                    "status": "error", 
-                    "message": "Akses ditolak: Memerlukan level Administrator."
+                    "status": "error",
+                    "message": "Akses ditolak: Memerlukan level Admin."
                 }), 403
             return redirect(url_for('index'))
 
