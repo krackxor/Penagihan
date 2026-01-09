@@ -1,5 +1,5 @@
 -- Sunter Dashboard Pro - Database Schema
--- Updated: 2026-01-08 (Full Synergy for Collection Monitoring & Field Activity)
+-- Updated: 2026-01-09 (Full Synergy: Field Activity & Admin Reporting)
 
 -- 1. Tabel Master Pelanggan (Data Utama dari file MC)
 CREATE TABLE IF NOT EXISTS master_pelanggan (
@@ -19,10 +19,11 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     UNIQUE(nomen, notagihan, periode) 
 );
 
--- 2. Tabel Mapping Rute & Petugas
+-- 2. Tabel Mapping Rute & Petugas (SINERGI: Tambah Laporan Admin)
 CREATE TABLE IF NOT EXISTS rute_petugas (
     pcez TEXT PRIMARY KEY,        -- Kode PCEZ unik sebagai primary key
     petugas TEXT NOT NULL,        -- Nama Petugas Lapangan
+    no_admin TEXT,                -- NOMOR WA ADMIN/SUPERVISOR (Target Laporan Internal)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -66,10 +67,10 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     nomen TEXT NOT NULL,
     petugas_name TEXT,
     keterangan TEXT,              -- Status (Sudah Bayar, Janji Bayar, RKS, dll)
-    no_hp TEXT,
+    no_hp TEXT,                   -- WA Konsumen yang dihubungi
     catatan TEXT,
     janji_bayar_dt TEXT,          -- Tanggal yang dijanjikan pelanggan untuk membayar
-    foto_path TEXT,
+    foto_path TEXT,               -- Nama file foto bukti (Mandatori)
     latitude TEXT,
     longitude TEXT,
     periode TEXT,                 -- Periode bulan berjalan saat kunjungan
@@ -88,28 +89,18 @@ CREATE TABLE IF NOT EXISTS upload_history (
 );
 
 -- 8. Indeks untuk Performa Kecepatan Tinggi (Indexing)
-
--- Indeks pada NOMEN untuk Join antar tabel yang cepat
 CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_mb ON master_bayar(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_coll ON collection_harian(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_ardebt ON ardebt(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_kunjungan ON kunjungan_petugas(nomen);
-
--- Indeks pada RAYON & PERIODE (Krusial untuk Monitoring Collection Harian)
 CREATE INDEX IF NOT EXISTS idx_rayon_pelanggan ON master_pelanggan(rayon);
 CREATE INDEX IF NOT EXISTS idx_periode_pelanggan ON master_pelanggan(periode);
 CREATE INDEX IF NOT EXISTS idx_paydt_coll ON collection_harian(pay_dt);
-
--- Indeks pada NOTAGIHAN / NOTAG (Validasi Pintu Ganda)
 CREATE INDEX IF NOT EXISTS idx_notag_pelanggan ON master_pelanggan(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_mb ON master_bayar(notagihan);
 CREATE INDEX IF NOT EXISTS idx_notag_coll ON collection_harian(notag);
-
--- Indeks untuk Fitur Pengingat Janji Bayar
 CREATE INDEX IF NOT EXISTS idx_janji_bayar_dt ON kunjungan_petugas(janji_bayar_dt);
-
--- Indeks Tambahan untuk Filter Dashboard & Kunjungan
 CREATE INDEX IF NOT EXISTS idx_pcez_pelanggan ON master_pelanggan(pcez);
 CREATE INDEX IF NOT EXISTS idx_kunjungan_periode ON kunjungan_petugas(periode);
 CREATE INDEX IF NOT EXISTS idx_kunjungan_tanggal ON kunjungan_petugas(created_at);
