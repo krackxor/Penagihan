@@ -4,6 +4,7 @@ Sinergi:
 1. Penyatuan Logika Current (MC) dan Ardebt dalam satu respon laporan.
 2. Penanganan field nomen/idpel secara fleksibel.
 3. Fallback System jika data Master belum diunggah.
+4. Database Audit: Menjamin foto dan log tersimpan sebelum Share WA.
 
 Author: Sunter Team
 Updated: 2026-01-09
@@ -103,16 +104,16 @@ def delete_upload_history(id):
         conn.close()
 
 # ==========================================
-# 2. ENDPOINT BARU (SINERGI LAPORAN INTERNAL)
+# 2. ENDPOINT SINERGI (LAPORAN & WA SHARE)
 # ==========================================
 
 @history_bp.route('/simpan-kunjungan', methods=['POST'])
 def simpan_kunjungan():
     """
-    Fungsi penyimpan laporan lapangan & pemicu WA Internal.
-    PENYATUAN LOGIKA: Mendukung data dari mode Belum Bayar dan Ardebt.
+    Fungsi penyimpan laporan lapangan.
+    MENJAMIN: Simpan foto fisik & log DB sebelum memicu Share WA di Frontend.
     """
-    # Menangkap nomen/idpel secara fleksibel agar sinergi di semua halaman
+    # 1. Tangkap input secara fleksibel (Sinergi Field)
     nomen = request.form.get('nomen') or request.form.get('idpel')
     petugas = request.form.get('petugas_name') or request.form.get('petugas')
     no_hp = request.form.get('no_hp')
@@ -127,8 +128,7 @@ def simpan_kunjungan():
 
     conn = get_db_connection()
     try:
-        # --- LOGIKA SINERGI ROBUST ---
-        # 1. Cari data teknis di Master Pelanggan (ambil yang terbaru)
+        # 2. Cari data teknis di Master Pelanggan (ambil yang terbaru)
         data = conn.execute("""
             SELECT p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc, p.pcez
             FROM master_pelanggan p
@@ -136,47 +136,25 @@ def simpan_kunjungan():
             ORDER BY p.periode DESC LIMIT 1
         """, (nomen,)).fetchone()
 
-        # 2. Cari total tunggakan di tabel Ardebt
+        # 3. Cari total tunggakan di tabel Ardebt
         ardebt_info = conn.execute("""
             SELECT SUM(jumlah) as total_ardebt FROM ardebt WHERE nomen = ?
         """, (nomen,)).fetchone()
         val_ardebt = ardebt_info['total_ardebt'] if ardebt_info and ardebt_info['total_ardebt'] else 0
 
-        # 3. Cari Mapping Admin Lapangan
+        # 4. Cari Mapping Admin (Jika ingin kirim ke nomor tertentu)
         admin_info = conn.execute("""
             SELECT no_admin FROM rute_petugas 
             WHERE pcez = ? OR petugas = ? LIMIT 1
         """, (data['pcez'] if data else '', petugas)).fetchone()
         no_admin = admin_info['no_admin'] if admin_info and admin_info['no_admin'] else "628123456789"
 
-        # --- VALIDASI & FALLBACK ---
-        if not data and val_ardebt == 0:
-            return jsonify({"status": "error", "message": f"ID {nomen} tidak ditemukan di Master maupun Ardebt!"}), 404
-
-        # Konstruksi Objek Respon WA (Gabungan Current + Ardebt)
-        res_data = {
-            "nomen": nomen,
-            "nama": data['nama'] if data else "Pelanggan (Data Ardebt)",
-            "nomet": data['nomet'] if data else "-",
-            "rayon": data['rayon'] if data else "-",
-            "vol": data['vol'] if data else 0,
-            "mc": data['mc'] if data else 0,
-            "ardebt": val_ardebt,
-            "total": (data['mc'] if data else 0) + val_ardebt,
-            "hp": no_hp,
-            "status": hasil,
-            "catatan": catatan,
-            "petugas": petugas,
-            "no_admin": no_admin
-        }
-
-        # 4. Simpan File Foto
+        # 5. Simpan FOTO secara FISIK ke Server
         filename = f"KUNJ_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
         upload_path = os.path.join(current_app.root_path, 'static/uploads/kunjungan', filename)
         foto.save(upload_path)
-        res_data["foto_path"] = filename
 
-        # 5. Simpan Log ke Database
+        # 6. Simpan LOG ke DATABASE (Audit Trail)
         conn.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, petugas_name, no_hp, keterangan, catatan, foto_path, periode)
@@ -184,7 +162,26 @@ def simpan_kunjungan():
         """, (nomen, petugas, no_hp, hasil, catatan, filename, datetime.now().strftime('%m-%Y')))
         conn.commit()
 
-        return jsonify({"status": "success", "wa_data": res_data})
+        # 7. Kirim Respon Lengkap untuk WhatsApp Share
+        return jsonify({
+            "status": "success",
+            "wa_data": {
+                "nomen": nomen,
+                "nama": data['nama'] if data else "Konsumen (Data Ardebt)",
+                "nomet": data['nomet'] if data else "-",
+                "rayon": data['rayon'] if data else "-",
+                "vol": data['vol'] if data else 0,
+                "mc": data['mc'] if data else 0,
+                "ardebt": val_ardebt,
+                "total": (data['mc'] if data else 0) + val_ardebt,
+                "hp": no_hp,
+                "status": hasil,
+                "catatan": catatan,
+                "petugas": petugas,
+                "foto_path": filename,
+                "no_admin": no_admin
+            }
+        })
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
