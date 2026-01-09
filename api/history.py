@@ -188,7 +188,7 @@ def simpan_kunjungan():
     finally:
         conn.close()
 
-@history_bp.route('/list-kunjungan', methods=['GET'])
+@history_bp.route('/kunjungan', methods=['GET'])
 def list_kunjungan():
     """Mengambil riwayat kunjungan mendetail untuk tampilan Admin."""
     periode = request.args.get('periode') # MM-YYYY
