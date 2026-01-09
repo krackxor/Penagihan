@@ -2,13 +2,13 @@
 Flask Application - Sunter Dashboard Pro
 Sinergi: 
 1. Sistem Login 3 Level (Publik, Petugas, Admin).
-2. Proteksi Rute: Middleware otomatis untuk keamanan field & administratif.
+2. Global Monitoring: Dashboard & Stats terbuka untuk semua (Universal Data).
 3. Admin Control Center: Manajemen Terpadu (User, Rute, & Sinkronisasi Excel).
 """
 
 import os
-import sqlite3
-from flask import Flask, render_template, g, send_from_directory, current_app, session, redirect, url_for, request, jsonify
+from datetime import timedelta
+from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify
 
 # Import Konfigurasi & Core
 from config import Config
@@ -27,11 +27,13 @@ from api.auth import auth_bp
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    
+    # Durasi Sesi: 12 Jam (Menghindari 401 Unauthorized saat jam kerja)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
 
     # Inisialisasi Environment & Folder Sistem
     with app.app_context():
         init_db(app) 
-        
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'temp')
@@ -42,34 +44,36 @@ def create_app():
 
     @app.teardown_appcontext
     def close_connection(exception):
-        """Pembersihan koneksi DB setiap request selesai."""
         db = g.pop('db', None)
         if db is not None:
             db.close()
 
-    # --- MIDDLEWARE: SECURITY LAYER 3 ---
+    # --- MIDDLEWARE: SECURITY LAYER 4 (UNIVERSAL MONITORING) ---
     @app.before_request
     def security_layer():
         """
-        Lapis Keamanan Server Terpadu:
-        Menangani otorisasi akses berdasarkan role (Admin/Petugas/Publik).
+        Lapis Keamanan Terpadu:
+        - Membuka akses API Statistik agar Dashboard SAMA untuk semua orang.
+        - Memproteksi rute administratif & data operasional nasabah.
         """
+        # Rute Publik + API Dashboard (Agar Guest bisa melihat angka yang sama)
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
-            'login_page', 'static', 'serve_kunjungan_photo', 'auth.check_session'
+            'login_page', 'static', 'serve_kunjungan_photo', 'auth.check_session',
+            'performance.full_stats', 'collection.daily_monitor' # API Statistik Dashboard
         ]
         
         endpoint = request.endpoint
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # 1. Validasi Login
+        # 1. Validasi Login untuk rute non-publik
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({"status": "error", "message": "Sesi berakhir."}), 401
+                return jsonify({"status": "error", "message": "Sesi berakhir. Silakan login kembali."}), 401
             return redirect(url_for('login_page'))
         
-        # 2. Proteksi Pusat Kendali (Admin Only)
+        # 2. Proteksi Pusat Kendali & Fitur Admin
         admin_only_endpoints = [
             'admin_dashboard', 'performa_page', 'wa_blast_page', 'history_page'
         ]
@@ -78,7 +82,7 @@ def create_app():
         
         if endpoint in admin_only_endpoints and user_role != 'admin':
             if request.path.startswith('/api/'):
-                return jsonify({"status": "error", "message": "Akses Admin diperlukan."}), 403
+                return jsonify({"status": "error", "message": "Akses Dibatasi: Level Admin Diperlukan."}), 403
             return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
@@ -94,7 +98,7 @@ def create_app():
 
     # --- RUTE NAVIGASI FRONTEND ---
     
-    # LEVEL 1: PUBLIK
+    # LEVEL 1: INFORMASI PUBLIK (Data Harus SAMA untuk Semua)
     @app.route('/')
     def index(): 
         return render_template('index.html')
@@ -108,7 +112,7 @@ def create_app():
         if 'role' in session: return redirect(url_for('index'))
         return render_template('login.html')
 
-    # LEVEL 2: OPERASIONAL (PETUGAS & ADMIN)
+    # LEVEL 2: OPERASIONAL (Data Nasabah - Hanya Petugas & Admin)
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
         return render_template('belum_bayar.html')
@@ -125,10 +129,9 @@ def create_app():
     def galeri_page(): 
         return render_template('galeri.html')
 
-    # LEVEL 3: PUSAT KENDALI (KHUSUS ADMIN)
+    # LEVEL 3: PUSAT KENDALI (Khusus Admin)
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
-        """Halaman Terpadu: Kelola User, Rute, dan Sinkronisasi Upload Excel."""
         return render_template('admin_dashboard.html')
 
     @app.route('/performa')
@@ -143,11 +146,10 @@ def create_app():
     def history_page(): 
         return render_template('history.html')
 
-    # --- REDIRECTS UNTUK PEMBERSIHAN FILE (LEGACY) ---
+    # --- REDIRECTS LEGACY ---
     @app.route('/upload')
     @app.route('/setting-rute')
     def legacy_redirects():
-        """Mengarahkan URL lama ke Dashboard Admin Terpadu."""
         return redirect(url_for('admin_dashboard'))
 
     # --- FILE SERVING ---
