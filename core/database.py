@@ -14,7 +14,7 @@ def get_db_connection():
         conn = sqlite3.connect(db_path, timeout=30)
         conn.row_factory = sqlite3.Row
         
-        # Optimasi performa
+        # Optimasi performa untuk konkurensi tinggi
         conn.execute('PRAGMA journal_mode=WAL;')
         conn.execute('PRAGMA synchronous=NORMAL;')
         conn.execute('PRAGMA foreign_keys = ON;')
@@ -31,26 +31,17 @@ def init_db(app):
             db = get_db_connection()
             schema_path = os.path.join(app.root_path, 'schema.sql')
             
-            # 1. Jalankan Skema Dasar
+            # 1. Jalankan Skema Dasar dari file SQL
             if os.path.exists(schema_path):
                 with open(schema_path, mode='r') as f:
                     content = f.read()
                     db.cursor().executescript(content)
             else:
-                print(f"⚠️ Warning: {schema_path} tidak ditemukan.")
+                print(f"⚠️ Warning: {schema_path} tidak ditemukan. Menggunakan skema internal.")
 
             cursor = db.cursor()
             
-            # 2. Pastikan Tabel Dasar & Tabel Users (Login 3 Level)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS upload_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    file_name TEXT, file_type TEXT, periode TEXT,
-                    row_count INTEGER, status TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
+            # 2. Pastikan Tabel User (Level 3) & History tersedia
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,11 +49,12 @@ def init_db(app):
                     password TEXT NOT NULL,
                     role TEXT NOT NULL, -- 'admin', 'petugas', 'publik'
                     petugas_id TEXT,    -- Mapping ke nama petugas di rute_petugas
+                    no_hp TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
 
-            # 3. LOGIKA AUTO-MIGRASI KOLOM
+            # 3. LOGIKA AUTO-MIGRASI (Menjaga integritas saat update versi)
             
             # --- Migrasi Tabel master_pelanggan ---
             cursor.execute("PRAGMA table_info(master_pelanggan)")
@@ -78,25 +70,27 @@ def init_db(app):
             if 'no_admin' not in cols_rute:
                 cursor.execute("ALTER TABLE rute_petugas ADD COLUMN no_admin TEXT DEFAULT '628123456789'")
 
-            # --- Migrasi Tabel kunjungan_petugas (Sinergi Laporan WA) ---
+            # --- Migrasi Tabel kunjungan_petugas (Geo-Tagging & Snapshot) ---
             cursor.execute("PRAGMA table_info(kunjungan_petugas)")
             cols_kunjungan = [row['name'] for row in cursor.fetchall()]
-            if 'mc' not in cols_kunjungan: cursor.execute("ALTER TABLE kunjungan_petugas ADD COLUMN mc REAL DEFAULT 0")
-            if 'ardebt' not in cols_kunjungan: cursor.execute("ALTER TABLE kunjungan_petugas ADD COLUMN ardebt REAL DEFAULT 0")
-            if 'no_hp' not in cols_kunjungan: cursor.execute("ALTER TABLE kunjungan_petugas ADD COLUMN no_hp TEXT")
+            migrasi_kunjungan = {
+                'mc': 'REAL DEFAULT 0',
+                'ardebt': 'REAL DEFAULT 0',
+                'no_hp': 'TEXT',
+                'latitude': 'TEXT',
+                'longitude': 'TEXT',
+                'periode': 'TEXT'
+            }
+            for col, val in migrasi_kunjungan.items():
+                if col not in cols_kunjungan:
+                    cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {val}")
 
             # --- Migrasi Tabel ardebt ---
             cursor.execute("PRAGMA table_info(ardebt)")
             cols_ardebt = [row['name'] for row in cursor.fetchall()]
             if 'volume' not in cols_ardebt: cursor.execute("ALTER TABLE ardebt ADD COLUMN volume REAL DEFAULT 0")
 
-            # --- Migrasi Tabel Transaksi (Periode) ---
-            for table in ['master_bayar', 'collection_harian', 'kunjungan_petugas']:
-                cursor.execute(f"PRAGMA table_info({table})")
-                cols = [row['name'] for row in cursor.fetchall()]
-                if 'periode' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
-
-            # 4. SINERGI: Seed Akun Admin Default (admin123)
+            # --- Sinkronisasi Akun Admin Default ---
             seed_default_admin(cursor)
 
             db.commit()
@@ -104,6 +98,7 @@ def init_db(app):
             
         except Exception as e:
             print(f"❌ Error saat inisialisasi database: {e}")
+            if 'db' in locals(): db.rollback()
         finally:
             if 'db' in locals(): db.close()
 
@@ -117,4 +112,4 @@ def seed_default_admin(cursor):
             INSERT INTO users (username, password, role, petugas_id)
             VALUES (?, ?, ?, ?)
         """, (username, hashed_pw, 'admin', 'ALL'))
-        print(f"👤 Akun admin default '{username}' telah dibuat.")
+        print(f"👤 Akun admin default '{username}' telah dibuat (Pass: admin123).")
