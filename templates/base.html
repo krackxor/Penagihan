@@ -12,128 +12,154 @@
     
     <style>
         :root { 
-            --primary-bg: #f4f7fe;
-            --sunter-blue: #0d6efd;
+            --primary-bg: #f8fafc;
+            --sunter-blue: #3b82f6;
             --sunter-dark: #0f172a;
-            --primary-gradient: linear-gradient(135deg, #0d6efd 0%, #003d99 100%); 
+            --accent-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
         }
 
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background-color: var(--primary-bg); 
-            color: #2d3748; 
+            color: #1e293b; 
             overflow-x: hidden; 
+            -webkit-tap-highlight-color: transparent;
         }
         
-        /* Navbar Glassmorphism */
+        /* Glassmorphism Navbar */
         .navbar { 
             background: rgba(255, 255, 255, 0.8) !important; 
-            backdrop-filter: blur(15px); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(226, 232, 240, 0.8);
             z-index: 1030;
+            padding: 0.75rem 0;
         }
         .navbar-brand { 
             font-weight: 800; 
             letter-spacing: -0.5px; 
-            color: var(--sunter-blue) !important; 
+            color: var(--sunter-dark) !important; 
         }
 
         /* Profile Box Modern */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; }
         .user-profile-box { 
-            background: var(--primary-gradient); 
+            background: var(--accent-gradient); 
             border-radius: 20px; 
             padding: 1.25rem; 
             color: white; 
             margin-bottom: 1.5rem;
             position: relative;
-            box-shadow: 0 10px 20px rgba(13, 110, 253, 0.2);
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
         }
-        .user-profile-box::before {
-            content: "\f3ed"; font-family: "Font Awesome 6 Free"; font-weight: 900;
-            position: absolute; right: -10px; bottom: -10px; font-size: 4rem;
-            opacity: 0.1; transform: rotate(-15deg);
+        .user-profile-box::after {
+            content: "\f0e7"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+            position: absolute; right: -5px; bottom: -10px; font-size: 3.5rem;
+            opacity: 0.08; transform: rotate(-10deg);
         }
         .role-badge { 
-            font-size: 0.65rem; 
-            background: rgba(255,255,255,0.25); 
-            padding: 3px 10px; 
-            border-radius: 6px; 
+            font-size: 0.6rem; 
+            background: rgba(255,255,255,0.15); 
+            padding: 4px 10px; 
+            border-radius: 8px; 
             text-transform: uppercase; 
             font-weight: 700;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
+            border: 1px solid rgba(255,255,255,0.2);
         }
         
-        .main-content { padding-top: 15px; padding-bottom: 100px; }
+        .main-content { padding-top: 10px; padding-bottom: 90px; }
 
-        /* Floating Nav Sinergi (Hanya Mobile) */
+        /* Bottom Navigation (Sinergi Mobile) */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
-            background: white; display: flex; justify-content: space-around;
-            padding: 8px 0 12px 0; border-top: 1px solid #e2e8f0;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.05); z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex; justify-content: space-around;
+            padding: 10px 0 calc(env(safe-area-inset-bottom) + 10px) 0;
+            border-top: 1px solid #f1f5f9;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.03); 
+            z-index: 1000;
         }
-        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.6rem; font-weight: 600; transition: 0.3s; }
+        .nav-item-link { 
+            text-decoration: none; 
+            color: #94a3b8; 
+            text-align: center; 
+            font-size: 0.65rem; 
+            font-weight: 700; 
+            transition: all 0.2s ease;
+            position: relative;
+        }
         .nav-item-link.active { color: var(--sunter-blue); }
-        .nav-item-link i { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+        .nav-item-link i { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+        .nav-item-link.active::after {
+            content: ''; position: absolute; top: -10px; left: 50%;
+            transform: translateX(-50%); width: 20px; height: 3px;
+            background: var(--sunter-blue); border-radius: 0 0 5px 5px;
+        }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        /* Utils */
+        .rounded-4 { border-radius: 1.2rem !important; }
+        .btn-light-custom { background: #f1f5f9; border: none; }
+        .btn-light-custom:active { background: #e2e8f0; }
+
+        @media (min-width: 768px) {
+            .bottom-nav { display: none !important; }
+            .main-content { padding-bottom: 40px; }
+        }
     </style>
 </head>
 <body>
     <nav class="navbar sticky-top">
         <div class="container-fluid px-3">
-            <button class="btn btn-light shadow-sm border-0 rounded-3" style="width: 42px; height: 42px;" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
-                <i class="fas fa-align-left text-primary"></i>
+            <button class="btn btn-light-custom shadow-sm rounded-3" style="width: 42px; height: 42px;" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
+                <i class="fas fa-bars-staggered text-dark"></i>
             </button>
             
             <a class="navbar-brand mx-auto animate__animated animate__fadeIn" href="/">
-                <i class="fas fa-bolt-lightning me-1"></i> SUNTER PRO
+                <span class="text-primary"><i class="fas fa-bolt-lightning"></i></span> SUNTER PRO
             </a>
             
             {% if session['username'] %}
             <div class="dropdown">
-                <button class="btn btn-white rounded-circle p-0 border shadow-sm" style="width: 40px; height: 40px;" data-bs-toggle="dropdown">
-                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0D6EFD&color=fff&bold=true" class="rounded-circle w-100" alt="Profile">
+                <button class="btn p-0 border-0" data-bs-toggle="dropdown">
+                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0f172a&color=fff&bold=true" class="rounded-circle shadow-sm" style="width: 38px; height: 38px;" alt="User">
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-3 rounded-4 animate__animated animate__fadeInUp animate__faster">
-                    <li class="px-3 py-3">
+                    <li class="px-3 py-3 text-center">
                         <div class="fw-bold text-dark small">{{ session['username']|upper }}</div>
-                        <div class="text-muted" style="font-size: 0.7rem;">Sesi Akun: {{ session['role']|capitalize }}</div>
+                        <div class="text-muted" style="font-size: 0.65rem;">Level: {{ session['role']|upper }}</div>
                     </li>
                     <li><hr class="dropdown-divider opacity-50"></li>
-                    <li><a class="dropdown-item py-2 text-danger fw-bold small" href="/api/auth/logout"><i class="fas fa-sign-out-alt me-2"></i> Keluar Sistem</a></li>
+                    <li><a class="dropdown-item py-2 text-danger fw-bold small" href="/api/auth/logout"><i class="fas fa-power-off me-2"></i> Keluar</a></li>
                 </ul>
             </div>
             {% else %}
-            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm">Login</a>
-            {% endif %}
+            <div style="width: 42px;"></div> {% endif %}
         </div>
     </nav>
 
-    <div class="offcanvas offcanvas-start border-0 shadow" tabindex="-1" id="offcanvasMenu" style="width: 300px;">
-        <div class="offcanvas-header border-bottom py-4">
-            <h6 class="offcanvas-title fw-bold text-dark"><i class="fas fa-shield-halved me-2 text-primary"></i>MENU UTAMA</h6>
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu">
+        <div class="offcanvas-header border-bottom py-4 px-4">
+            <h6 class="offcanvas-title fw-bold text-dark"><i class="fas fa-compass me-2 text-primary"></i>NAVIGASI UTAMA</h6>
             <button type="button" class="btn-close shadow-none" data-bs-dismiss="offcanvas"></button>
         </div>
-        <div class="offcanvas-body p-3">
+        <div class="offcanvas-body p-4">
             {% if session['username'] %}
-            <div class="user-profile-box shadow-sm animate__animated animate__fadeIn">
+            <div class="user-profile-box animate__animated animate__fadeIn">
                 <div class="d-flex align-items-center mb-3">
-                    <div class="bg-white text-primary rounded-4 d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 55px; height: 55px;">
-                        <i class="fas {% if session['role'] == 'admin' %}fa-user-shield{% else %}fa-person-running{% endif %} fa-xl"></i>
+                    <div class="bg-white text-dark rounded-4 d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 50px; height: 50px;">
+                        <i class="fas {% if session['role'] == 'admin' %}fa-user-tie{% else %}fa-motorcycle{% endif %} fa-lg"></i>
                     </div>
                     <div>
                         <h6 class="mb-0 fw-bold">{{ session['username']|upper }}</h6>
                         <span class="role-badge">{{ session['role'] }}</span>
                     </div>
                 </div>
-                
-                <div class="p-2 rounded-3 bg-white bg-opacity-10 d-flex align-items-center" style="font-size: 0.7rem;">
-                    <i class="fas fa-map-location-dot me-2 text-warning"></i> 
-                    <span>Wilayah Kerja: <strong>{{ session['petugas_id'] if session['petugas_id'] else 'Global' }}</strong></span>
+                <div class="p-2 rounded-3 bg-white bg-opacity-10 d-flex align-items-center" style="font-size: 0.65rem;">
+                    <i class="fas fa-location-crosshairs me-2 text-warning"></i> 
+                    <span>Rute: <strong>{{ session['petugas_id'] if session['petugas_id'] else 'Monitor Global' }}</strong></span>
                 </div>
             </div>
             {% endif %}
@@ -142,25 +168,25 @@
         </div>
     </div>
 
-    <div class="container-fluid main-content">
+    <main class="container-fluid main-content">
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
     {% if session['role'] == 'petugas' %}
-    <div class="bottom-nav d-md-none animate__animated animate__slideInUp">
+    <nav class="bottom-nav animate__animated animate__slideInUp">
         <a href="/" class="nav-item-link {% if request.path == '/' %}active{% endif %}">
-            <i class="fas fa-chart-pie"></i> Progres
+            <i class="fas fa-house-chimney"></i> Home
         </a>
         <a href="/belum-bayar" class="nav-item-link {% if request.path == '/belum-bayar' %}active{% endif %}">
-            <i class="fas fa-money-bill-transfer"></i> Tagihan
+            <i class="fas fa-file-invoice-dollar"></i> Tagihan
         </a>
         <a href="/janji-bayar" class="nav-item-link {% if request.path == '/janji-bayar' %}active{% endif %}">
-            <i class="fas fa-handshake-angle"></i> Janji
+            <i class="fas fa-calendar-check"></i> Janji
         </a>
         <a href="/galeri" class="nav-item-link {% if request.path == '/galeri' %}active{% endif %}">
-            <i class="fas fa-images"></i> Galeri
+            <i class="fas fa-camera-retro"></i> Aktivitas
         </a>
-    </div>
+    </nav>
     {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -168,33 +194,26 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Sinergi: Inisialisasi Offcanvas dengan proteksi null-check
+            // Auto-close Offcanvas saat link diklik (Untuk UX Mobile)
             const offcanvasEl = document.getElementById('offcanvasMenu');
-            let bsOffcanvas = null;
             if (offcanvasEl) {
-                bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
+                const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
+                document.querySelectorAll('.offcanvas-body a').forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth < 992) bsOffcanvas.hide();
+                    });
+                });
             }
 
-            // Auto-close menu saat link diklik (Untuk mobile UX)
-            document.querySelectorAll('.offcanvas-body a').forEach(link => {
-                link.addEventListener('click', () => {
-                    if (window.innerWidth < 992 && bsOffcanvas) {
-                        bsOffcanvas.hide();
-                    }
-                });
-            });
-
-            // Sinkronisasi Notifikasi Logout
+            // Notifikasi Logout Global
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('logout') === 'success') {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Logout Berhasil',
+                    title: 'Berhasil Keluar',
                     text: 'Sesi Anda telah diakhiri dengan aman.',
-                    timer: 2500,
+                    timer: 2000,
                     showConfirmButton: false,
-                    background: '#fff',
-                    color: '#0f172a',
                     customClass: { popup: 'rounded-4' }
                 });
                 window.history.replaceState({}, document.title, window.location.pathname);
