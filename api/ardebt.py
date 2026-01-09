@@ -1,16 +1,13 @@
 """
 Ardebt (Tagihan Berekor) API Endpoints
 Logic: 
-1. Menampilkan kuota 20 data per petugas per hari berdasarkan urutan rute (PCEZ).
-2. Data yang sudah dilaporkan akan "masuk kotak" selama 30 hari.
-3. Sinergi: Menarik data Rayon dan NoTagihan untuk kelengkapan Laporan WA.
-4. Fitur Search: Mendukung pencarian Nomen/Nama tanpa batasan 30 hari (untuk revisi).
-
-Author: Sunter Team
-Updated: 2026-01-09
+1. Level Akses: Petugas otomatis dikunci ke rutenya, Admin bisa filter semua.
+2. Menampilkan kuota 20 data per petugas per hari berdasarkan urutan rute (PCEZ).
+3. Data yang sudah dilaporkan akan "masuk kotak" selama 30 hari.
+4. Sinergi: Menarik data Rayon dan NoTagihan untuk kelengkapan Laporan WA.
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import APIResponse
 from datetime import datetime
@@ -19,6 +16,11 @@ ardebt_bp = Blueprint('ardebt', __name__)
 
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
+    # Ambil data dari session login
+    user_role = session.get('role')
+    user_petugas_id = session.get('petugas_id') # Nama di Excel (Contoh: PIAN)
+    
+    # Filter dari request (biasanya digunakan oleh Admin)
     petugas_filter = request.args.get('petugas')
     search_query = request.args.get('search', '').strip()
     
@@ -38,6 +40,16 @@ def get_tunggakan_berekor():
         """
         params = []
 
+        # --- LOGIKA SINERGI 3 LEVEL ---
+        if user_role == 'petugas':
+            # Jika login sebagai PETUGAS, paksa filter hanya rutenya sendiri
+            query += " AND r.petugas = ?"
+            params.append(user_petugas_id)
+        elif user_role == 'admin' and petugas_filter and petugas_filter != 'all':
+            # Jika login sebagai ADMIN, filter hanya aktif jika admin memilih nama tertentu
+            query += " AND r.petugas = ?"
+            params.append(petugas_filter)
+
         # LOGIKA SEARCH (REVISI): Jika mencari, abaikan filter 30 hari
         if search_query:
             query += " AND (a.nomen LIKE ? OR p.nama LIKE ?)"
@@ -51,12 +63,8 @@ def get_tunggakan_berekor():
                     AND k.created_at >= datetime('now', '-30 days')
                 )
             """
-
-        if petugas_filter and petugas_filter != 'all':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
             
-        # Batasi 20 data per petugas per rute
+        # Batasi 20 data per petugas per rute (Optimasi Lapangan)
         query += " ORDER BY p.pcez ASC, a.periode_bill ASC LIMIT 20"
         
         cursor.execute(query, params)
