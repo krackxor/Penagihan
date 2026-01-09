@@ -29,14 +29,21 @@ def register_pcez_routes(app, get_db):
             # --- 2. QUERY GLOBAL DASHBOARD (STATISTIK UTAMA) ---
             # Filter dinamis agar Petugas hanya melihat penyebut target wilayahnya
             target_filter = ""
-            params_global = [req_periode] * 6
             
+            # PERBAIKAN: Menyesuaikan jumlah parameter dengan jumlah tanda tanya di query
             if user_role == 'petugas':
                 target_filter = " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
-                # Masukkan petugas_id ke dalam urutan parameter query
-                params_global = [req_periode, user_petugas_id, req_periode, user_petugas_id, 
-                                req_periode, user_petugas_id, req_periode, user_petugas_id,
-                                req_periode, user_petugas_id, req_periode, user_petugas_id]
+                # Terdapat 5 sub-query, masing-masing butuh (req_periode, user_petugas_id)
+                params_global = [
+                    req_periode, user_petugas_id, # untuk total_nomen_mc
+                    req_periode, user_petugas_id, # untuk total_nominal_mc
+                    req_periode, user_petugas_id, # untuk nom_terbayar
+                    req_periode, user_petugas_id, # untuk count_undue
+                    req_periode, user_petugas_id  # untuk count_current
+                ]
+            else:
+                # Untuk Admin, hanya butuh 5 periode
+                params_global = [req_periode] * 5
 
             global_query = f"""
                 SELECT 
@@ -58,7 +65,6 @@ def register_pcez_routes(app, get_db):
             """
             
             # --- 3. QUERY RANKING & AUDIT LAPANGAN ---
-            # Menghitung nominal sukses berdasarkan rincian tagihan di master_pelanggan
             officer_ranking_query = """
                 SELECT 
                     COALESCE(r.petugas, k.petugas_name, 'Petugas Umum') as petugas,
@@ -104,7 +110,6 @@ def register_pcez_routes(app, get_db):
             
             # --- 5. FORMATTING RESPON ---
             res_global = dict(g_stat) if g_stat else {}
-            # Hitung total lunas gabungan (Pintu Ganda)
             res_global['total_lunas_mc'] = res_global.get('count_undue', 0) + res_global.get('count_current', 0)
             res_global['sisa_nomen'] = max(0, res_global.get('total_nomen_mc', 0) - res_global.get('total_lunas_mc', 0))
 
@@ -127,7 +132,6 @@ def register_pcez_routes(app, get_db):
             user_petugas_id = session.get('petugas_id')
             req_periode = request.args.get('periode') # MM-YYYY
 
-            # Validasi Pintu Ganda: Jika data lunas muncul di MB/Coll, status Janji otomatis LUNAS
             query = """
                 SELECT 
                     k.nomen, m.nama, k.no_hp, k.janji_bayar_dt as tanggal_janji,
