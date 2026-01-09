@@ -1,9 +1,14 @@
 """
 Flask Application - Sunter Dashboard Pro
-Mobile-first water billing dashboard with file processing
+Mobile-first water billing dashboard with file processing and automated reporting.
+
+Sinergi: 
+1. Mengintegrasikan sistem pelaporan WhatsApp Internal.
+2. Mendukung Pintu Ganda (MC + Ardebt) dalam satu dashboard.
+3. Optimasi Database WAL Mode untuk akses simultan petugas lapangan.
 
 Author: Sunter Team
-Updated: 2026-01-08
+Updated: 2026-01-09
 """
 
 import os
@@ -22,11 +27,11 @@ from api.history import history_bp
 from api.rute import rute_bp
 from api.ardebt import ardebt_bp
 from api.belum_bayar import belum_bayar_bp
-from api.collection import collection_bp  # Blueprint: Monitoring Collection
+from api.collection import collection_bp 
 from api.pcez_performance import register_pcez_routes
 
 def get_db():
-    """Koneksi database terpusat dengan optimasi WAL Mode."""
+    """Koneksi database terpusat dengan optimasi WAL Mode agar tidak locking saat banyak petugas upload foto."""
     if 'db' not in g:
         db_path = current_app.config.get('DATABASE')
         if not db_path:
@@ -35,7 +40,7 @@ def get_db():
         g.db = sqlite3.connect(db_path, timeout=30)
         g.db.row_factory = sqlite3.Row
         
-        # Optimasi performa untuk akses simultan banyak petugas (WAL Mode)
+        # Optimasi performa: WAL Mode sangat penting agar baca/tulis data tidak bergantian (antre)
         g.db.execute('PRAGMA journal_mode=WAL;')
         g.db.execute('PRAGMA synchronous=NORMAL;')
     return g.db
@@ -47,9 +52,9 @@ def create_app():
     # Inisialisasi Database & Pastikan Struktur Folder Unggahan Tersedia
     with app.app_context():
         Config.init_app(app)
-        init_db(app) # Menjalankan migrasi otomatis kolom volume, rayon, pay_dt, dll.
+        init_db(app) # Migrasi otomatis: Menambahkan kolom no_admin, nomet, volume, rayon jika belum ada.
         
-        # Penanganan folder secara absolut agar robust saat deployment di VPS/Server
+        # Penanganan folder secara absolut untuk menyimpan foto kunjungan mandatori
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'temp')
@@ -57,9 +62,9 @@ def create_app():
         for folder in folders:
             if not os.path.exists(folder):
                 os.makedirs(folder, exist_ok=True)
-                # Set permission 755 agar folder bisa dibaca oleh web server (nginx/apache)
+                # Permission 755 agar gambar bisa tampil di dashboard (akses publik terbatas)
                 os.chmod(folder, 0o755)
-                print(f"📁 Folder Created & Secured: {folder}")
+                print(f"📁 Folder Ready: {folder}")
 
     @app.teardown_appcontext
     def close_connection(exception):
@@ -68,18 +73,17 @@ def create_app():
             db.close()
 
     # --- REGISTRASI BLUEPRINT API ---
-    # Menggunakan url_prefix yang konsisten untuk pemanggilan Fetch API di Frontend
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
-    app.register_blueprint(collection_bp, url_prefix='/api/collection') # API Monitoring Collection
+    app.register_blueprint(collection_bp, url_prefix='/api/collection') 
     
     # Registrasi rute performa (Full Stats & Reminders)
     register_pcez_routes(app, get_db)
 
-    # --- RUTE NAVIGASI FRONTEND ---
+    # --- RUTE NAVIGASI FRONTEND (SINERGI DASHBOARD) ---
     @app.route('/')
     def index(): return render_template('index.html')
 
@@ -116,7 +120,7 @@ def create_app():
     @app.route('/history')
     def history_page(): return render_template('history.html')
 
-    # --- SERVING FILES (HANDLING ROBUST FOTO KUNJUNGAN) ---
+    # --- SERVING FILES (MODUL FOTO KUNJUNGAN) ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
@@ -127,6 +131,6 @@ def create_app():
     return app
 
 if __name__ == '__main__':
-    # Mode debug=True digunakan untuk pengembangan, matikan saat Production (VPS)
     app = create_app()
+    # Host 0.0.0.0 agar bisa diakses via HP petugas di jaringan yang sama/internet
     app.run(host='0.0.0.0', port=5000, debug=True)
