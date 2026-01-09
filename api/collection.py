@@ -1,6 +1,14 @@
+"""
+Collection API - Sunter Dashboard Pro
+Logic: 
+1. Daily Monitoring (Level 1 - Publik): Menampilkan grafik realisasi harian global.
+2. Daily Detail (Level 2/3 - Internal): Menampilkan rincian bayar per nama pelanggan.
+3. Sinergi: Optimasi pencocokan Pintu Ganda (MC + Ardebt) via NoTagihan.
+"""
+
 import os
 import sqlite3
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 from core.database import get_db_connection
 from datetime import datetime, timedelta
 
@@ -8,7 +16,7 @@ collection_bp = Blueprint('collection', __name__)
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Fungsi monitoring harian dengan logika Pintu Ganda (Match by Notag)."""
+    """Fungsi monitoring harian (Akses Publik). Menampilkan target vs realisasi."""
     periode_req = request.args.get('periode') # Format: MM-YYYY
     if not periode_req:
         return jsonify({"status": "error", "message": "Periode harus diisi"}), 400
@@ -90,7 +98,7 @@ def daily_monitor():
                 "target": target['target_total'],
                 "realisasi": last_cum,
                 "pct": round(last_pct, 2),
-                "variance": 0 # Placeholder untuk perbandingan bulan lalu
+                "variance": 0 
             }
         })
     except Exception as e:
@@ -100,7 +108,11 @@ def daily_monitor():
 
 @collection_bp.route('/daily-detail', methods=['GET'])
 def daily_detail():
-    """Mengambil rincian NOMEN yang bayar pada tanggal tertentu (Click to Detail)."""
+    """Mengambil rincian NOMEN yang bayar (Hanya Admin & Petugas)."""
+    # KEAMANAN: Cegah publik melihat rincian per nama pelanggan
+    if 'role' not in session:
+        return jsonify({"status": "error", "message": "Akses terbatas"}), 403
+
     tgl = request.args.get('tgl') # YYYY-MM-DD
     periode = request.args.get('periode') # MM-YYYY
     
@@ -114,6 +126,7 @@ def daily_detail():
             SELECT 
                 c.nomen, 
                 p.nama, 
+                p.pcez,
                 p.rayon, 
                 c.nominal
             FROM collection_harian c
