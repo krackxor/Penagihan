@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container py-4">
+<div class="container py-4 animate__animated animate__fadeIn">
     <div class="mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold text-dark mb-0">Pusat Kendali Admin</h3>
+            <h3 class="fw-bold text-dark mb-0">Pusat Kendali Admin ⚡</h3>
             <p class="text-muted small">Sunter Pro v2.5.0 - Sinkronisasi & Manajemen Terpadu</p>
         </div>
         <div id="status-indicator">
-            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
-                <i class="fas fa-database me-1"></i> Database Online
+            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
+                <i class="fas fa-shield-check me-1"></i> Admin Level 3 Active
             </span>
         </div>
     </div>
 
     <ul class="nav nav-pills nav-fill bg-white p-2 shadow-sm rounded-4 mb-4" id="adminTab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active rounded-3" data-bs-toggle="tab" data-bs-target="#tab-sync">
+            <button class="nav-link active rounded-3" data-bs-toggle="tab" data-bs-target="#tab-sync" onclick="checkDataStatus()">
                 <i class="fas fa-sync me-2"></i> Sinkron Data
             </button>
         </li>
@@ -35,26 +35,27 @@
         <div class="tab-pane fade show active" id="tab-sync">
             <div class="row g-4">
                 <div class="col-md-7">
-                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
-                        <h5 class="fw-bold mb-3">Upload Master Rute & Tagihan</h5>
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
+                        <h5 class="fw-bold mb-3">Upload Master & Tagihan</h5>
                         <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light mb-3" id="drop-zone">
                             <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
-                            <p class="mb-3 text-secondary">Tarik file Excel (MC, MB, Rute, atau Ardebt) ke sini</p>
-                            <input type="file" id="excelFile" class="form-control d-none">
-                            <button class="btn btn-outline-success px-4 rounded-pill" onclick="document.getElementById('excelFile').click()">
-                                Pilih File
+                            <p class="mb-3 text-secondary small">Dukung File: MC, MB, Rute RL, atau Ardebt</p>
+                            <input type="file" id="excelFile" class="form-control d-none" accept=".xlsx, .xls">
+                            <button class="btn btn-outline-success px-4 rounded-pill fw-bold" onclick="document.getElementById('excelFile').click()">
+                                <i class="fas fa-search me-1"></i> Pilih File Excel
                             </button>
+                            <div id="file-name-preview" class="mt-2 small fw-bold text-primary"></div>
                         </div>
-                        <button class="btn btn-success w-100 fw-bold rounded-3 py-2" onclick="uploadData()">
-                            <i class="fas fa-cloud-upload-alt me-2"></i> PROSES SINKRONISASI
+                        <button class="btn btn-dark w-100 fw-bold rounded-3 py-3 shadow" onclick="uploadData()">
+                            <i class="fas fa-cloud-upload-alt me-2"></i> PROSES SINKRONISASI SEKARANG
                         </button>
                     </div>
                 </div>
                 <div class="col-md-5">
-                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
-                        <h5 class="fw-bold mb-3">Status Data Saat Ini</h5>
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
+                        <h5 class="fw-bold mb-3">Integritas Database</h5>
                         <div id="data-status-list">
-                            <div class="text-center py-4 text-muted small">Mengecek status database...</div>
+                            <div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm text-primary"></div></div>
                         </div>
                     </div>
                 </div>
@@ -62,21 +63,21 @@
         </div>
 
         <div class="tab-pane fade" id="tab-mapping">
-            <div class="card border-0 shadow-sm rounded-4 p-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="fw-bold mb-0">Mapping Petugas Lapangan</h5>
                     <div class="input-group w-50">
                         <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
-                        <input type="text" class="form-control bg-light border-0" id="searchMapping" placeholder="Cari Kode PCEZ atau Petugas..." onkeyup="filterMapping()">
+                        <input type="text" class="form-control bg-light border-0 small" id="searchMapping" placeholder="Cari PCEZ/Petugas..." onkeyup="filterMapping()">
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 500px;">
                     <table class="table align-middle table-hover">
                         <thead class="sticky-top bg-white">
-                            <tr class="small text-uppercase text-muted">
+                            <tr class="small text-uppercase text-muted border-bottom">
                                 <th>Kode PCEZ</th>
-                                <th>Petugas (Excel)</th>
-                                <th>No Admin (WA)</th>
+                                <th>Petugas Lapangan</th>
+                                <th>Admin WhatsApp</th>
                                 <th class="text-end">Aksi</th>
                             </tr>
                         </thead>
@@ -87,21 +88,24 @@
         </div>
 
         <div class="tab-pane fade" id="tab-users">
-            <div class="card border-0 shadow-sm rounded-4 p-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold mb-0">User Access & Kunci Rute</h5>
-                    <button class="btn btn-primary rounded-pill px-4" onclick="showAddUserModal()">
-                        <i class="fas fa-plus me-2"></i> Tambah User Baru
+                    <div>
+                        <h5 class="fw-bold mb-0">User Access Control</h5>
+                        <p class="text-muted small mb-0">Atur siapa yang bisa lapor rute tertentu</p>
+                    </div>
+                    <button class="btn btn-primary rounded-pill px-4 fw-bold" onclick="showAddUserModal()">
+                        <i class="fas fa-plus me-2"></i> Buat Akun Baru
                     </button>
                 </div>
                 <div class="table-responsive">
-                    <table class="table align-middle">
+                    <table class="table align-middle table-hover">
                         <thead class="bg-light">
                             <tr class="small text-uppercase">
                                 <th>Username</th>
-                                <th>Role</th>
+                                <th>Level Akses</th>
                                 <th>Kunci Rute (petugas_id)</th>
-                                <th>Aksi</th>
+                                <th class="text-end">Tindakan</th>
                             </tr>
                         </thead>
                         <tbody id="userListBody"></tbody>
@@ -115,19 +119,57 @@
 <div class="modal fade" id="editMappingModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4">
-            <div class="modal-body p-4">
-                <h5 class="fw-bold mb-3">Update Mapping PCEZ</h5>
-                <form id="mappingForm">
-                    <input type="hidden" id="edit_pcez">
+            <div class="modal-body p-4 text-center">
+                <div class="mb-3 text-primary"><i class="fas fa-map-location-dot fa-3x"></i></div>
+                <h5 class="fw-bold mb-3">Update Mapping Wilayah</h5>
+                <form id="mappingForm" class="text-start">
                     <div class="mb-3">
-                        <label class="small fw-bold">Petugas Terpilih</label>
-                        <input type="text" id="edit_petugas" class="form-control text-uppercase">
+                        <label class="small fw-bold">Kode PCEZ</label>
+                        <input type="text" id="edit_pcez" class="form-control bg-light" readonly>
                     </div>
                     <div class="mb-3">
-                        <label class="small fw-bold">Nomor WA Supervisor (Admin)</label>
+                        <label class="small fw-bold">Nama Petugas (Sesuai Excel)</label>
+                        <input type="text" id="edit_petugas" class="form-control text-uppercase" placeholder="Contoh: PIAN">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold">Nomor WhatsApp Admin (Sharing)</label>
                         <input type="text" id="edit_no_admin" class="form-control" placeholder="628123xxx">
                     </div>
-                    <button type="button" class="btn btn-dark w-100 py-2 rounded-3" onclick="saveMapping()">SIMPAN MAPPING</button>
+                    <button type="button" class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow-sm" onclick="saveMapping()">SIMPAN PEMBARUAN</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4">
+            <div class="modal-body p-4">
+                <h5 class="fw-bold mb-3" id="userModalTitle">Tambah Akun Sinergi</h5>
+                <form id="userForm">
+                    <input type="hidden" id="user_action" value="add">
+                    <div class="mb-3">
+                        <label class="small fw-bold">Username</label>
+                        <input type="text" id="u_username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold">Password Baru</label>
+                        <input type="password" id="u_password" class="form-control" placeholder="Minimal 6 karakter">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold">Role / Level</label>
+                        <select id="u_role" class="form-select">
+                            <option value="petugas">Petugas Lapangan</option>
+                            <option value="admin">Administrator Pusat</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="kunci-rute-group">
+                        <label class="small fw-bold text-danger">Kunci Petugas ID (Sesuai Excel)</label>
+                        <input type="text" id="u_petugas_id" class="form-control text-uppercase" placeholder="ALL atau Nama Petugas">
+                        <small class="text-muted" style="font-size: 0.65rem;">Sistem hanya menampilkan rute sesuai ID ini saat petugas login.</small>
+                    </div>
+                    <button type="button" class="btn btn-dark w-100 py-3 rounded-3 fw-bold" onclick="saveUser()">DAFTARKAN AKUN</button>
                 </form>
             </div>
         </div>
@@ -136,83 +178,94 @@
 
 <style>
     .nav-pills .nav-link.active { background-color: #0f172a; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
-    .nav-pills .nav-link { color: #64748b; font-weight: 600; padding: 12px; }
-    .border-dashed { border: 2px dashed #cbd5e1; transition: all 0.3s; }
+    .nav-pills .nav-link { color: #64748b; font-weight: 600; padding: 12px; transition: 0.3s; }
+    .border-dashed { border: 2px dashed #cbd5e1; transition: all 0.3s; cursor: pointer; }
     .border-dashed:hover { border-color: #22c55e; background-color: #f0fdf4 !important; }
-    .table thead th { font-weight: 600; font-size: 0.75rem; border-bottom: 2px solid #f1f5f9; }
+    .badge-role-admin { background: #e0f2fe; color: #0369a1; }
+    .badge-role-petugas { background: #fef3c7; color: #92400e; }
 </style>
 
-
-
 <script>
-// --- 1. SINKRON DATA ---
+// --- GLOBAL HANDLER ---
+document.getElementById('excelFile').onchange = function() {
+    document.getElementById('file-name-preview').innerText = "File Terpilih: " + this.files[0].name;
+};
+
+// --- 1. TAB: SINKRON DATA ---
 async function checkDataStatus() {
-    const res = await fetch('/api/upload/data-status');
-    const status = await res.json();
-    let html = '';
-    for (const [key, val] of Object.entries(status)) {
-        html += `
-            <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded-3">
-                <div>
-                    <span class="fw-bold d-block">${key}</span>
-                    <small class="text-muted">${val.count} records</small>
-                </div>
-                <i class="fas fa-check-circle ${val.exists ? 'text-success' : 'text-danger-subtle'}"></i>
-            </div>
-        `;
-    }
-    document.getElementById('data-status-list').innerHTML = html;
+    try {
+        const res = await fetch('/api/upload/data-status');
+        const status = await res.json();
+        let html = '';
+        const labels = { 'MC': 'Master Tagihan', 'MB': 'Master Undue', 'Collection': 'Data Harian', 'Ardebt': 'Tunggakan Ardebt', 'Rute': 'Mapping Wilayah', 'Users': 'Akun Aktif' };
+        
+        for (const [key, val] of Object.entries(status)) {
+            html += `
+                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                    <div>
+                        <span class="fw-bold d-block small">${labels[key] || key}</span>
+                        <small class="text-muted" style="font-size:0.65rem;">${val.count.toLocaleString()} Records</small>
+                    </div>
+                    <i class="fas fa-check-circle ${val.exists ? 'text-success' : 'text-danger-subtle'}"></i>
+                </div>`;
+        }
+        document.getElementById('data-status-list').innerHTML = html;
+    } catch (e) { console.error(e); }
 }
 
 async function uploadData() {
     const fileInput = document.getElementById('excelFile');
-    if (fileInput.files.length === 0) return Swal.fire('Error', 'Pilih file excel dulu', 'warning');
+    if (fileInput.files.length === 0) return Swal.fire('Error', 'Pilih file Excel terlebih dahulu', 'warning');
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
 
-    Swal.fire({ title: 'Memproses Sinkronisasi...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Menjalankan Sync Sinergi...', html: 'Menganalisis kolom & memetakan rute petugas', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
         const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
         const result = await res.json();
-        if (result.status === 'success') {
-            Swal.fire('Berhasil!', `Data ${result.type} berhasil disinkronkan (${result.rows} baris)`, 'success');
+        if (res.ok) {
+            Swal.fire('Sync Berhasil!', `Tipe: ${result.type.toUpperCase()}<br>Data: ${result.rows} Baris`, 'success');
             checkDataStatus();
         } else {
-            Swal.fire('Gagal', result.error, 'error');
+            Swal.fire('Gagal Sync', result.error, 'error');
         }
-    } catch (e) {
-        Swal.fire('Error', 'Koneksi terputus', 'error');
-    }
+    } catch (e) { Swal.fire('Error', 'Server tidak merespon', 'error'); }
 }
 
-// --- 2. MAPPING RUTE ---
+// --- 2. TAB: MAPPING RUTE ---
 async function loadMapping() {
     const res = await fetch('/api/rute/list');
     const data = await res.json();
     let html = '';
     data.forEach(row => {
         html += `
-            <tr>
-                <td class="fw-bold">${row.pcez}</td>
-                <td class="text-uppercase">${row.petugas || '<span class="text-danger">Belum Diatur</span>'}</td>
-                <td>${row.no_admin || '-'}</td>
+            <tr class="mapping-row" data-search="${row.pcez} ${row.petugas}">
+                <td class="fw-bold text-primary">${row.pcez}</td>
+                <td class="text-uppercase small">${row.petugas || '<span class="text-danger">NON-MAPPING</span>'}</td>
+                <td class="small">${row.no_admin || '-'}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-light rounded-circle" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
-                        <i class="fas fa-edit"></i>
+                    <button class="btn btn-sm btn-light shadow-sm" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
+                        <i class="fas fa-pen-to-square"></i>
                     </button>
                 </td>
-            </tr>
-        `;
+            </tr>`;
     });
     document.getElementById('mappingTableBody').innerHTML = html;
 }
 
+function filterMapping() {
+    const q = document.getElementById('searchMapping').value.toLowerCase();
+    document.querySelectorAll('.mapping-row').forEach(row => {
+        row.style.display = row.dataset.search.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
 function editMapping(pcez, petugas, no_admin) {
     document.getElementById('edit_pcez').value = pcez;
-    document.getElementById('edit_petugas').value = petugas === 'null' ? '' : petugas;
-    document.getElementById('edit_no_admin').value = no_admin === 'null' ? '' : no_admin;
+    document.getElementById('edit_petugas').value = (petugas === 'null' || petugas === 'None') ? '' : petugas;
+    document.getElementById('edit_no_admin').value = (no_admin === 'null' || no_admin === 'None') ? '' : no_admin;
     new bootstrap.Modal('#editMappingModal').show();
 }
 
@@ -224,13 +277,77 @@ async function saveMapping() {
 
     const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
     if (res.ok) {
-        Swal.fire('Updated', 'Mapping rute berhasil diperbarui', 'success');
+        Swal.fire('Mapping Updated', 'Rute wilayah telah diperbarui.', 'success');
         bootstrap.Modal.getInstance('#editMappingModal').hide();
         loadMapping();
     }
 }
 
-// Initial Load
+// --- 3. TAB: KELOLA USER (LOGIKA BARU) ---
+async function loadUsers() {
+    const res = await fetch('/api/auth/users'); // Pastikan endpoint ini ada di api/auth.py
+    const users = await res.json();
+    let html = '';
+    users.forEach(u => {
+        html += `
+            <tr>
+                <td class="fw-bold">${u.username}</td>
+                <td><span class="badge ${u.role === 'admin' ? 'badge-role-admin' : 'badge-role-petugas'} rounded-pill">${u.role.toUpperCase()}</span></td>
+                <td class="small fw-bold text-primary">${u.petugas_id || 'OPEN'}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.username}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+    });
+    document.getElementById('userListBody').innerHTML = html || '<tr><td colspan="4" class="text-center p-4">Belum ada akun petugas</td></tr>';
+}
+
+function showAddUserModal() {
+    document.getElementById('userForm').reset();
+    document.getElementById('user_action').value = 'add';
+    document.getElementById('userModalTitle').innerText = "Buat Akun Petugas Sinergi";
+    new bootstrap.Modal('#userModal').show();
+}
+
+async function saveUser() {
+    const data = {
+        username: document.getElementById('u_username').value,
+        password: document.getElementById('u_password').value,
+        role: document.getElementById('u_role').value,
+        petugas_id: document.getElementById('u_petugas_id').value
+    };
+
+    if (!data.username || !data.password) return Swal.fire('Error', 'Username & Password wajib diisi', 'error');
+
+    const res = await fetch('/api/auth/register', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data) 
+    });
+
+    if (res.ok) {
+        Swal.fire('Akun Dibuat', 'User berhasil ditambahkan ke database', 'success');
+        bootstrap.Modal.getInstance('#userModal').hide();
+        loadUsers();
+    } else {
+        const err = await res.json();
+        Swal.fire('Gagal', err.message, 'error');
+    }
+}
+
+async function deleteUser(username) {
+    if (username === 'admin_sunter') return Swal.fire('Ditolak', 'Akun admin utama tidak bisa dihapus', 'error');
+    
+    const confirm = await Swal.fire({ title: 'Hapus Akun?', text: `User ${username} akan kehilangan akses!`, icon: 'warning', showCancelButton: true });
+    if (!confirm.isConfirmed) return;
+
+    const res = await fetch(`/api/auth/delete-user/${username}`, { method: 'DELETE' });
+    if (res.ok) { loadUsers(); Swal.fire('Dihapus', 'Akun telah ditiadakan', 'success'); }
+}
+
+// INITIAL LOAD
 document.addEventListener('DOMContentLoaded', () => {
     checkDataStatus();
 });
