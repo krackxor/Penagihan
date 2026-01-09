@@ -3,47 +3,53 @@
 <div class="container py-4 animate__animated animate__fadeIn">
     <div class="mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1">Pengaturan Mapping Rute 🗺️</h4>
-            <p class="text-muted small mb-0">Hubungkan Kode PCEZ dengan Petugas Lapangan</p>
+            <h4 class="fw-bold mb-1 text-dark">Mapping Wilayah Kerja 🗺️</h4>
+            <p class="text-muted small mb-0">Sinkronisasi Kode PCEZ dengan Akun Petugas</p>
         </div>
-        <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="loadRute()">
-            <i class="fas fa-sync-alt me-1"></i> Refresh
+        <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="loadRute()" id="btn-refresh">
+            <i class="fas fa-sync-alt text-primary"></i>
         </button>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-3 bg-primary text-white d-none" id="mass-toolbar">
+    <div class="card border-0 shadow-lg rounded-4 mb-3 bg-primary text-white d-none animate__animated animate__slideInDown" id="mass-toolbar">
         <div class="card-body p-3 d-flex justify-content-between align-items-center">
-            <span class="small fw-bold"><i class="fas fa-check-double me-2"></i><span id="selected-count">0</span> Rute Terpilih</span>
+            <div class="d-flex align-items-center">
+                <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 32px; height: 32px;">
+                    <i class="fas fa-check-double"></i>
+                </div>
+                <span class="small fw-bold"><span id="selected-count">0</span> Rute terpilih untuk dialihkan</span>
+            </div>
             <div class="d-flex gap-2">
-                <select id="mass-petugas" class="form-select form-select-sm border-0 rounded-3 shadow-none" style="width: 150px;">
+                <select id="mass-petugas" class="form-select form-select-sm border-0 rounded-3 shadow-none fw-bold" style="width: 160px;">
                     <option value="">-- Pilih Petugas --</option>
                 </select>
-                <button class="btn btn-light btn-sm fw-bold px-3 rounded-3" onclick="processMassUpdate()">Update</button>
-                <button class="btn btn-close btn-close-white" onclick="cancelSelection()"></button>
+                <button class="btn btn-light btn-sm fw-bold px-3 rounded-3 shadow-sm" onclick="processMassUpdate()">UPDATE MASAL</button>
+                <button class="btn btn-link text-white p-0 ms-2" onclick="cancelSelection()"><i class="fas fa-times-circle fa-lg"></i></button>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="p-3 bg-white border-bottom">
-            <div class="input-group bg-light rounded-3 px-2">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+        <div class="p-3 border-bottom bg-light bg-opacity-50">
+            <div class="input-group bg-white rounded-pill px-3 border shadow-sm">
                 <span class="input-group-text border-0 bg-transparent text-muted"><i class="fas fa-search"></i></span>
-                <input type="text" id="searchRute" class="form-control border-0 bg-transparent py-2 shadow-none" 
-                       placeholder="Cari Kode PCEZ atau Nama Petugas..." onkeyup="filterRute()">
+                <input type="text" id="searchRute" class="form-control border-0 bg-transparent py-2 shadow-none small" 
+                       placeholder="Cari kode rute atau nama petugas..." onkeyup="filterRute()">
             </div>
         </div>
-        <div class="table-responsive" style="max-height: 70vh;">
+        
+        <div class="table-responsive" style="max-height: 65vh;">
             <table class="table align-middle mb-0 table-hover">
-                <thead class="bg-light sticky-top">
-                    <tr class="small text-uppercase fw-bold text-muted">
-                        <th class="ps-3" style="width: 40px;">
-                            <input type="checkbox" class="form-check-input" id="check-all" onclick="toggleAll()">
+                <thead class="bg-white sticky-top shadow-sm">
+                    <tr class="small text-uppercase fw-bold text-muted" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                        <th class="ps-4" style="width: 50px;">
+                            <input type="checkbox" class="form-check-input border-2" id="check-all" onclick="toggleAll()">
                         </th>
                         <th>Kode PCEZ</th>
-                        <th>Petugas Lapangan</th>
-                        <th>Admin WA</th>
-                        <th class="text-center">Jml Pel</th>
-                        <th class="text-end pe-3">Aksi</th>
+                        <th>Petugas Penagih</th>
+                        <th>WA Admin/SPV</th>
+                        <th class="text-center">Pelanggan</th>
+                        <th class="text-end pe-4">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="ruteTableBody">
@@ -53,30 +59,39 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalEditRute" tabindex="-1">
+<div class="modal fade" id="modalEditRute" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 rounded-4 shadow-lg">
-            <div class="modal-header border-0 bg-light p-3">
-                <h6 class="modal-title fw-bold">Edit Mapping Rute</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div class="modal-header border-0 bg-primary text-white p-3">
+                <h6 class="modal-title fw-bold"><i class="fas fa-map-pin me-2"></i>Edit Wilayah Kerja</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" id="edit-pcez">
-                <div class="mb-3">
-                    <label class="small fw-bold mb-1">Kode PCEZ</label>
-                    <input type="text" id="display-pcez" class="form-control bg-light border-0 fw-bold" readonly>
+                <div class="mb-4 text-center">
+                    <small class="text-muted d-block mb-1">KODE PCEZ TERPILIH</small>
+                    <h3 class="fw-bold text-primary mb-0" id="display-pcez">---</h3>
                 </div>
+                
                 <div class="mb-3">
-                    <label class="small fw-bold mb-1">Petugas Lapangan</label>
-                    <input type="text" id="edit-petugas" class="form-control rounded-3 text-uppercase" placeholder="Nama Petugas di Excel">
+                    <label class="small fw-bold mb-1">Alihkan ke Petugas:</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0"><i class="fas fa-user-pen"></i></span>
+                        <input type="text" id="edit-petugas" class="form-control rounded-end-3 text-uppercase border-light" placeholder="Nama petugas (harus sama dengan Excel)">
+                    </div>
                 </div>
+
                 <div class="mb-4">
-                    <label class="small fw-bold mb-1">Nomor WhatsApp Admin</label>
-                    <input type="tel" id="edit-no-admin" class="form-control rounded-3" placeholder="628123456789">
-                    <small class="text-muted" style="font-size: 0.65rem;">Gunakan format 62 tanpa tanda + atau spasi.</small>
+                    <label class="small fw-bold mb-1">Nomor WhatsApp Admin (Koordinasi):</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0"><i class="fab fa-whatsapp"></i></span>
+                        <input type="tel" id="edit-no-admin" class="form-control rounded-end-3 border-light" placeholder="Contoh: 628123456xxx">
+                    </div>
+                    <small class="text-muted mt-2 d-block" style="font-size: 0.65rem;">Nomor ini akan menerima tembusan laporan kunjungan petugas.</small>
                 </div>
-                <button class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm" onclick="saveSingleRute()">
-                    <i class="fas fa-save me-1"></i> SIMPAN PERUBAHAN
+
+                <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow" onclick="saveSingleRute()">
+                    UPDATE MAPPING WILAYAH
                 </button>
             </div>
         </div>
@@ -89,7 +104,10 @@
 
     async function loadRute() {
         const body = document.getElementById('ruteTableBody');
-        body.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
+        const refreshIcon = document.getElementById('btn-refresh').querySelector('i');
+        
+        refreshIcon.classList.add('fa-spin');
+        body.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary border-width-2"></div><p class="small text-muted mt-2">Menyinkronkan data wilayah...</p></td></tr>';
         
         try {
             const res = await fetch('/api/rute/list');
@@ -97,61 +115,82 @@
             renderRute(ruteData);
             loadOfficerOptions();
         } catch (e) {
-            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-danger">Gagal memuat data rute.</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-danger">⚠️ Koneksi gagal. Periksa server pusat.</td></tr>';
+        } finally {
+            refreshIcon.classList.remove('fa-spin');
         }
     }
 
     function renderRute(data) {
         const body = document.getElementById('ruteTableBody');
-        body.innerHTML = data.map((item, idx) => `
+        if (data.length === 0) {
+            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted small">Belum ada data PCEZ di master pelanggan.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = data.map((item, idx) => {
+            const isUnmapped = !item.petugas || item.petugas === 'None' || item.petugas === 'null';
+            return `
             <tr class="animate__animated animate__fadeInUp" style="animation-delay: ${idx * 0.01}s">
-                <td class="ps-3">
-                    <input type="checkbox" class="form-check-input row-checkbox" value="${item.pcez}" onchange="updateSelection()">
+                <td class="ps-4">
+                    <input type="checkbox" class="form-check-input row-checkbox border-2" value="${item.pcez}" onchange="updateSelection()">
                 </td>
-                <td class="fw-bold text-dark">${item.pcez}</td>
+                <td class="fw-bold text-dark font-monospace">${item.pcez}</td>
                 <td>
-                    <span class="badge ${item.petugas ? 'bg-primary-subtle text-primary' : 'bg-danger-subtle text-danger'} rounded-pill px-3">
-                        ${item.petugas || 'Belum Diatur'}
+                    <span class="badge ${isUnmapped ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary'} rounded-pill px-3 py-1" style="font-size: 0.7rem;">
+                        <i class="fas ${isUnmapped ? 'fa-user-slash' : 'fa-user-check'} me-1"></i>
+                        ${isUnmapped ? 'BELUM DIATUR' : item.petugas.toUpperCase()}
                     </span>
                 </td>
-                <td class="small text-muted">${item.no_admin || '-'}</td>
-                <td class="text-center fw-bold small">${item.jml_pelanggan}</td>
-                <td class="text-end pe-3">
-                    <button class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="openEdit('${item.pcez}', '${item.petugas}', '${item.no_admin}')">
-                        <i class="fas fa-pen text-primary"></i>
+                <td class="small text-muted font-monospace">${item.no_admin || '-'}</td>
+                <td class="text-center fw-bold text-dark" style="font-size: 0.75rem;">${item.jml_pelanggan || 0}</td>
+                <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-primary border-0 rounded-circle" onclick="openEdit('${item.pcez}', '${item.petugas}', '${item.no_admin}')">
+                        <i class="fas fa-pen-to-square"></i>
                     </button>
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
     }
 
     async function loadOfficerOptions() {
-        const res = await fetch('/api/belum-bayar/petugas-tabs');
-        const list = await res.json();
-        const select = document.getElementById('mass-petugas');
-        select.innerHTML = '<option value="">-- Pilih Petugas --</option>' + 
-                          list.map(n => `<option value="${n}">${n}</option>`).join('');
+        try {
+            const res = await fetch('/api/auth/users'); // Mengambil data petugas dari tabel users (Sinergi Login)
+            const list = await res.json();
+            const select = document.getElementById('mass-petugas');
+            // Filter hanya role petugas
+            const petugasList = list.filter(u => u.role === 'petugas').map(u => u.petugas_id);
+            // Unique set
+            const uniquePetugas = [...new Set(petugasList)];
+            
+            select.innerHTML = '<option value="">-- Pilih Petugas --</option>' + 
+                               uniquePetugas.map(n => `<option value="${n}">${n}</option>`).join('');
+        } catch(e) { console.error("Gagal memuat list petugas"); }
     }
 
     function openEdit(pcez, petugas, no_admin) {
         document.getElementById('edit-pcez').value = pcez;
-        document.getElementById('display-pcez').value = pcez;
-        document.getElementById('edit-petugas').value = petugas === 'null' ? '' : petugas;
-        document.getElementById('edit-no-admin').value = no_admin === 'null' ? '' : no_admin;
+        document.getElementById('display-pcez').innerText = pcez;
+        document.getElementById('edit-petugas').value = (petugas === 'null' || petugas === 'None') ? '' : petugas;
+        document.getElementById('edit-no-admin').value = (no_admin === 'null' || no_admin === 'None') ? '' : no_admin;
         editModal.show();
     }
 
     async function saveSingleRute() {
         const formData = new FormData();
         formData.append('pcez', document.getElementById('edit-pcez').value);
-        formData.append('petugas', document.getElementById('edit-petugas').value);
+        formData.append('petugas', document.getElementById('edit-petugas').value.toUpperCase());
         formData.append('no_admin', document.getElementById('edit-no-admin').value);
+
+        Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
         if (res.ok) {
-            Swal.fire({ icon: 'success', title: 'Berhasil', showConfirmButton: false, timer: 1000 });
+            Swal.fire({ icon: 'success', title: 'Berhasil Update', showConfirmButton: false, timer: 1000 });
             editModal.hide();
             loadRute();
+        } else {
+            Swal.fire('Gagal', 'Terjadi kesalahan saat menyimpan rute', 'error');
         }
     }
 
@@ -159,14 +198,31 @@
         const checked = document.querySelectorAll('.row-checkbox:checked');
         const toolbar = document.getElementById('mass-toolbar');
         document.getElementById('selected-count').innerText = checked.length;
-        toolbar.classList.toggle('d-none', checked.length === 0);
+        
+        if (checked.length > 0) {
+            toolbar.classList.remove('d-none');
+        } else {
+            toolbar.classList.add('d-none');
+        }
     }
 
     async function processMassUpdate() {
         const pcez_list = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
         const petugas = document.getElementById('mass-petugas').value;
         
-        if (!petugas) return Swal.fire('Error', 'Pilih petugas tujuan dulu!', 'warning');
+        if (!petugas) return Swal.fire('Opsi Diperlukan', 'Silakan pilih petugas tujuan terlebih dahulu!', 'warning');
+
+        const confirm = await Swal.fire({
+            title: 'Konfirmasi Alokasi',
+            text: `Anda akan memindahkan ${pcez_list.length} rute ke petugas ${petugas}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Alihkan'
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        Swal.fire({ title: 'Memindahkan Wilayah...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         const res = await fetch('/api/rute/mass-update', {
             method: 'POST',
@@ -175,7 +231,7 @@
         });
 
         if (res.ok) {
-            Swal.fire('Updated', `${pcez_list.length} rute berhasil dipindah ke ${petugas}`, 'success');
+            Swal.fire('Wilayah Terupdate!', `${pcez_list.length} rute berhasil dialokasikan ke ${petugas}`, 'success');
             cancelSelection();
             loadRute();
         }
@@ -196,7 +252,9 @@
     function filterRute() {
         const query = document.getElementById('searchRute').value.toLowerCase();
         document.querySelectorAll('#ruteTableBody tr').forEach(tr => {
-            tr.style.display = tr.innerText.toLowerCase().includes(query) ? '' : 'none';
+            const pcez = tr.cells[1].innerText.toLowerCase();
+            const petugas = tr.cells[2].innerText.toLowerCase();
+            tr.style.display = (pcez.includes(query) || petugas.includes(query)) ? '' : 'none';
         });
     }
 
@@ -204,11 +262,13 @@
 </script>
 
 <style>
-    .table thead th { background: #f8fafc; border-bottom: 2px solid #edf2f7; font-size: 0.65rem; }
-    .table tbody td { border-bottom: 1px solid #f1f5f9; font-size: 0.75rem; }
+    .btn-white { background: #fff; border: 1px solid #e2e8f0; }
+    .table thead th { border-bottom: 2px solid #f1f5f9; background: #fff; }
     .bg-primary-subtle { background-color: #e0f2fe !important; }
     .bg-danger-subtle { background-color: #fee2e2 !important; }
-    #mass-toolbar { position: sticky; top: 70px; z-index: 1010; }
+    #mass-toolbar { position: sticky; top: 15px; z-index: 1050; margin: 0 10px; }
     .form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
+    .spinner-border-width-2 { border-width: 0.15em; }
+    .clickable-row:hover { background-color: #f8fafc; }
 </style>
 {% endblock %}
