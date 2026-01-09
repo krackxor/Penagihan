@@ -32,7 +32,7 @@
                                placeholder="Cari Nama/IDPEL untuk revisi..." onkeyup="liveSearch()">
                     </div>
                     <small class="text-muted mt-2 d-block" style="font-size: 10px; line-height: 1.2;">
-                        * Menampilkan 20 data rute terlama. Data yang dilaporkan akan muncul kembali setelah 30 hari.
+                        * Menampilkan 20 data rute terlama. Data yang dilaporkan akan masuk kotak sementara (30 hari).
                     </small>
                 </div>
             </div>
@@ -74,7 +74,7 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">WhatsApp Pelanggan *</label>
+                        <label class="form-label small fw-bold">Kontak Pelanggan (Catatan) *</label>
                         <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 border-danger-subtle" placeholder="0812..." required>
                     </div>
 
@@ -107,7 +107,7 @@
                 </div>
                 <div class="modal-footer border-0">
                     <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-bold shadow">
-                        SIMPAN & KIRIM LAPORAN <i class="fab fa-whatsapp ms-1"></i>
+                        SIMPAN & BAGIKAN <i class="fab fa-whatsapp ms-1"></i>
                     </button>
                 </div>
             </form>
@@ -156,7 +156,7 @@
         try {
             const res = await fetch(`/api/ardebt?petugas=${encodeURIComponent(petugas)}`);
             const responseData = await res.json();
-            rawData = responseData.data || [];
+            rawData = responseData || [];
             renderCards(rawData);
             updateSummary(rawData);
         } catch (err) {
@@ -167,7 +167,7 @@
     function renderCards(data) {
         const container = document.getElementById('list-container');
         if (data.length === 0) {
-            container.innerHTML = '<div class="text-center mt-5"><i class="fas fa-tasks fa-3x text-muted mb-3"></i><p class="fw-bold text-muted">Antrean hari ini sudah bersih!</p></div>';
+            container.innerHTML = '<div class="text-center mt-5"><i class="fas fa-tasks fa-3x text-muted mb-3"></i><p class="fw-bold text-muted">Antrean Ardebt sudah bersih!</p></div>';
             return;
         }
 
@@ -227,7 +227,6 @@
         document.getElementById('modal-sub-info').innerText = `MET: ${nomet || '-'} | BILL: ${periode}`;
         document.getElementById('modal-sub-vol').innerText = `VOL: ${vol} m³`;
         
-        // Data for WhatsApp
         document.getElementById('modal-nama-hidden').value = nama;
         document.getElementById('modal-nomet-hidden').value = nomet || '-';
         document.getElementById('modal-vol-hidden').value = vol;
@@ -246,71 +245,15 @@
         formData.append('nama_pelanggan', document.getElementById('modal-nama').innerText);
 
         try {
+            // Sinergi: Menggunakan API History agar foto tersimpan fisik
             const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
             const result = await res.json();
 
             if (res.ok) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil',
-                    text: 'Membuka WhatsApp...',
-                    timer: 1500,
-                    showConfirmButton: false
-                }).then(() => {
-                    executeDoubleWA(result.wa_data);
+                Swal.fire('Berhasil', 'Menyiapkan Share WA...', 'success').then(() => {
+                    executeShareWA(result.wa_data);
                     modalKunjungan.hide();
                     loadArdebt();
                 });
             } else {
-                Swal.fire('Gagal', result.message || 'Cek kembali data Anda', 'error');
-            }
-        } catch (err) {
-            Swal.fire('Error', 'Gagal menghubungi server.', 'error');
-        }
-    }
-
-    function executeDoubleWA(wa) {
-        const waktu = new Date().toLocaleString('id-ID');
-
-        // 1. TEMPLATE INTERNAL (DETAIL KOMPLIT)
-        const pesanInternal = 
-            `*[LAPORAN INTERNAL PETUGAS]* 📡%0A` +
-            `-------------------------------------------%0A` +
-            `👤 *Petugas:* ${wa.petugas}%0A` +
-            `🏠 *Konsumen:* ${wa.nama}%0A` +
-            `🆔 *NOMEN:* ${wa.nomen}%0A` +
-            `📟 *NOMET:* ${wa.nomet}%0A` +
-            `📍 *Rayon:* ${wa.rayon}%0A%0A` +
-            `*HASIL KUNJUNGAN:*%0A` +
-            `📌 Status: *${wa.status}*%0A` +
-            `📝 Catatan: ${wa.catatan}%0A%0A` +
-            `*RINCIAN PIUTANG:*%0A` +
-            `💵 MC: Rp ${formatIDR(wa.mc)}%0A` +
-            `💸 Ardebt: Rp ${formatIDR(wa.ardebt)}%0A` +
-            `🧾 *TOTAL: Rp ${formatIDR(wa.total)}*%0A` +
-            `💧 *VOL:* ${wa.vol} m³%0A%0A` +
-            `📸 *Bukti Foto:*%0A` +
-            `${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
-            `*Waktu:* ${waktu}%0A` +
-            `-------------------------------------------`;
-
-        // 2. TEMPLATE KONSUMEN (RESIKO)
-        const pesanKonsumen = `*PEMBERITAHUAN TAGIHAN AIR*%0A...`; // Bisa disesuaikan
-
-        // Kirim Ke Konsumen
-        window.open(`https://api.whatsapp.com/send?phone=${wa.hp.replace(/^0/, '62')}&text=${pesanKonsumen}`, '_blank');
-        
-        // Kirim Ke Internal (Berbasis No Admin yang dikirim Backend)
-        setTimeout(() => {
-            window.open(`https://api.whatsapp.com/send?phone=${wa.no_admin}&text=${pesanInternal}`, '_blank');
-        }, 2000);
-    }
-</script>
-
-<style>
-    .customer-card { transition: all 0.3s; border: 1px solid rgba(0,0,0,0.05) !important; }
-    .customer-card:active { transform: scale(0.98); }
-    .bg-danger-subtle { background-color: #fee2e2 !important; }
-    .border-danger-subtle { border-color: #fecaca !important; }
-</style>
-{% endblock %}
+                Swal.fire('Gagal', result.
