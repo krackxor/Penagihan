@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     nominal REAL DEFAULT 0,       -- Nominal Tagihan
     volume REAL DEFAULT 0,        -- Volume Air / Kubik
     tipe TEXT DEFAULT 'MC',       -- Kategori (MC)
+    no_hp TEXT,                   -- Nomor HP Pelanggan (ditarik jika ada di source)
     periode TEXT,                 -- PERIODE DATA (Contoh: '01-2026')
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, notagihan, periode) 
@@ -87,16 +88,17 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
     petugas_name TEXT,            -- Nama petugas pelapor
-    keterangan TEXT,              -- Hasil kunjungan (Sudah Bayar, Janji Bayar, dll)
+    keterangan TEXT,              -- Hasil kunjungan (Sudah Bayar, Janji Bayar, Rumah Kosong, dll)
     no_hp TEXT,                   -- Nomor HP pelanggan yang diupdate saat kunjungan
     catatan TEXT,                 -- Catatan lapangan tambahan
     janji_bayar_dt TEXT,          -- Tanggal janji bayar (jika ada)
-    mc REAL DEFAULT 0,            -- Snapshot Tagihan MC saat dikunjungi (untuk laporan WA)
-    ardebt REAL DEFAULT 0,        -- Snapshot Ardebt saat dikunjungi (untuk laporan WA)
+    mc REAL DEFAULT 0,            -- Snapshot Tagihan MC saat dikunjungi
+    ardebt REAL DEFAULT 0,        -- Snapshot Ardebt saat dikunjungi
     foto_path TEXT,               -- Nama file foto bukti
-    latitude TEXT,                -- GPS Lat
-    longitude TEXT,               -- GPS Lon
-    periode TEXT,                 -- Periode pelaporan
+    latitude TEXT,                -- Koordinat GPS Lintang
+    longitude TEXT,               -- Koordinat GPS Bujur
+    periode TEXT,                 -- Periode pelaporan (MM-YYYY)
+    status_konfirmasi TEXT DEFAULT 'PENDING', -- Untuk verifikasi Admin
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
