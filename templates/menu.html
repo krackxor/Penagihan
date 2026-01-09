@@ -2,16 +2,16 @@
     <div class="offcanvas-header py-4 px-4 text-white d-block" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
         <div class="d-flex justify-content-between align-items-start mb-3">
             <div class="bg-white rounded-3 text-primary d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
-                <i class="fas fa-shield-halved fa-xl text-primary"></i>
+                <i class="fas fa-bolt-lightning fa-xl text-primary"></i>
             </div>
             <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div>
-            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px; font-family: 'Inter', sans-serif;">SUNTER PRO</h5>
+            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px;">SUNTER PRO</h5>
             <div class="d-flex align-items-center mt-1">
                 <span class="badge bg-success rounded-pill me-2" style="width: 8px; height: 8px; padding: 0; animation: pulse 2s infinite;"> </span>
                 <small class="text-white-50 fw-medium">
-                    {% if session['role'] == 'admin' %}Mode Administrator{% else %}Akses Petugas Lapangan{% endif %}
+                    {{ session['role']|upper }} | {{ session['username'] }}
                 </small>
             </div>
         </div>
@@ -24,7 +24,7 @@
             
             <a href="/" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-primary-subtle text-primary">
-                    <i class="fas fa-rectangle-list"></i>
+                    <i class="fas fa-th-large"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Dashboard Realisasi</span>
             </a>
@@ -47,14 +47,14 @@
             
             <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-warning-subtle text-warning">
-                    <i class="fas fa-file-invoice-dollar"></i>
+                    <i class="fas fa-money-bill-wave"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Penagihan Current</span>
             </a>
 
             <a href="/tunggakan-berekor" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/tunggakan-berekor' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-danger-subtle text-danger">
-                    <i class="fas fa-layer-group"></i>
+                    <i class="fas fa-dragon"></i>
                 </div>
                 <div class="flex-grow-1">
                     <span class="fw-medium text-dark-emphasis d-block">Tunggakan Ardebt</span>
@@ -64,40 +64,40 @@
 
             <a href="/janji-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-info-subtle text-info">
-                    <i class="fas fa-user-clock"></i>
+                    <i class="fas fa-calendar-alt"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">Monitoring Janji Bayar</span>
+                <span class="fw-medium text-dark-emphasis">Janji Bayar</span>
             </a>
 
+            {% if session['role'] == 'admin' %}
             <div class="my-3 border-top opacity-25 mx-2"></div>
 
-            {% if session['role'] == 'admin' %}
             <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Pusat Kendali Admin</small>
 
-            <a href="/wa-blast" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+            <a href="/wa-blast" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/wa-blast' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-success-subtle text-success">
                     <i class="fab fa-whatsapp"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">WA Blast Massal</span>
             </a>
 
-            <a href="/performa" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+            <a href="/performa" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/performa' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-warning-subtle text-warning">
                     <i class="fas fa-award"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">Kinerja Tim Petugas</span>
+                <span class="fw-medium text-dark-emphasis">Kinerja Tim</span>
             </a>
 
-            <a href="/admin/dashboard" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+            <a href="/setting-rute" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/setting-rute' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-dark-subtle text-dark">
-                    <i class="fas fa-users-gear"></i>
+                    <i class="fas fa-map-marked-alt"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">Kelola User & Rute</span>
+                <span class="fw-medium text-dark-emphasis">Mapping Rute</span>
             </a>
 
-            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/upload' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 text-secondary border">
-                    <i class="fas fa-database"></i>
+                    <i class="fas fa-cloud-upload-alt"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Sinkronisasi Data</span>
             </a>
@@ -114,12 +114,18 @@
 </div>
 
 <style>
-    /* Sinergi: Tambahan class untuk menu yang sedang aktif */
+    /* Styling Aktif */
     .active-menu {
         background-color: #f1f5f9 !important;
         border-left: 4px solid #3b82f6 !important;
         font-weight: 700 !important;
     }
+    .active-menu .icon-box-formal {
+        background-color: #3b82f6 !important;
+        color: white !important;
+    }
+
+    /* Styling Icon Box */
     .icon-box-formal {
         width: 38px;
         height: 38px;
@@ -128,7 +134,13 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        transition: all 0.2s ease;
     }
+
+    .nav-link-custom:hover .icon-box-formal {
+        transform: scale(1.1);
+    }
+
     @keyframes pulse {
         0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
         70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
