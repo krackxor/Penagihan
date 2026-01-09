@@ -76,7 +76,10 @@ def create_app():
             'admin_dashboard', 'performa_page', 'history_page'
         ]
         
-        if endpoint in admin_only_endpoints and session.get('role') != 'admin':
+        # PERBARUI: Gunakan .lower() untuk memastikan pengecekan role admin aman
+        current_role = str(session.get('role', '')).lower()
+        
+        if endpoint in admin_only_endpoints and current_role != 'admin':
             return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
