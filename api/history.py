@@ -111,10 +111,10 @@ def delete_upload_history(id):
 def simpan_kunjungan():
     """
     Fungsi penyimpan laporan lapangan & pemicu WA Internal.
-    Mandatori: Foto, No HP, Detail Nomet & Vol.
+    FIX: Menggunakan query yang mencari ke seluruh periode master data.
     """
     nomen = request.form.get('nomen')
-    petugas = request.form.get('petugas_name') # Nama dari dropdown filter
+    petugas = request.form.get('petugas_name')
     no_hp = request.form.get('no_hp')
     hasil = request.form.get('hasil') or request.form.get('keterangan')
     catatan = request.form.get('catatan') or request.form.get('keterangan_lapangan')
@@ -130,33 +130,33 @@ def simpan_kunjungan():
 
     conn = get_db_connection()
     try:
-        # Tarik data lengkap untuk respon WA (Nomet, Vol, MC, Ardebt, Admin)
+        # FIX ERROR 404: Cari nomen di master pelanggan tanpa kunci periode kaku
+        # Serta ambil info admin dari rute_petugas
         data = conn.execute("""
             SELECT 
-                p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc,
-                COALESCE(a.jumlah, 0) as ardebt,
-                r.no_admin
+                p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc, p.pcez,
+                COALESCE((SELECT SUM(jumlah) FROM ardebt WHERE nomen = p.nomen), 0) as ardebt,
+                COALESCE((SELECT no_admin FROM rute_petugas WHERE pcez = p.pcez LIMIT 1), '628123456789') as no_admin
             FROM master_pelanggan p
-            LEFT JOIN ardebt a ON p.nomen = a.nomen
-            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.nomen = ?
             ORDER BY p.periode DESC LIMIT 1
         """, (nomen,)).fetchone()
 
         if not data:
-            return jsonify({"status": "error", "message": "Pelanggan tidak terdaftar di Master Data"}), 404
-
-        # Simpan ke Log Kunjungan
-        conn.execute("""
-            INSERT INTO kunjungan_petugas 
-            (nomen, petugas_name, no_hp, keterangan, catatan, foto_path, periode)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (nomen, petugas, no_hp, hasil, catatan, filename, datetime.now().strftime('%m-%Y')))
-        conn.commit()
-
-        return jsonify({
-            "status": "success",
-            "wa_data": {
+            # Fallback jika benar-benar tidak ada di master_pelanggan, cari di ardebt saja
+            fallback = conn.execute("SELECT SUM(jumlah) as jml FROM ardebt WHERE nomen = ?", (nomen,)).fetchone()
+            if fallback and fallback['jml']:
+                # Buat data minimal jika hanya ada di ardebt
+                res_data = {
+                    "nomen": nomen, "nama": "Konsumen Ardebt", "nomet": "-", "rayon": "-",
+                    "vol": 0, "mc": 0, "ardebt": fallback['jml'], "total": fallback['jml'],
+                    "hp": no_hp, "status": hasil, "catatan": catatan, "petugas": petugas,
+                    "foto_path": filename, "no_admin": "628123456789"
+                }
+            else:
+                return jsonify({"status": "error", "message": f"NOMEN {nomen} tidak terdaftar di sistem!"}), 404
+        else:
+            res_data = {
                 "nomen": nomen,
                 "nama": data['nama'],
                 "nomet": data['nomet'],
@@ -170,8 +170,20 @@ def simpan_kunjungan():
                 "catatan": catatan,
                 "petugas": petugas,
                 "foto_path": filename,
-                "no_admin": data['no_admin'] if data['no_admin'] else "628123456789"
+                "no_admin": data['no_admin']
             }
+
+        # Simpan ke Log Kunjungan
+        conn.execute("""
+            INSERT INTO kunjungan_petugas 
+            (nomen, petugas_name, no_hp, keterangan, catatan, foto_path, periode)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (nomen, petugas, no_hp, hasil, catatan, filename, datetime.now().strftime('%m-%Y')))
+        conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "wa_data": res_data
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -190,9 +202,10 @@ def list_kunjungan():
                 p.nama, p.nomet, p.rayon, p.volume as vol, k.no_hp, k.keterangan, k.catatan, k.foto_path,
                 p.nominal as mc, COALESCE(a.jumlah, 0) as ardebt
             FROM kunjungan_petugas k
-            JOIN master_pelanggan p ON k.nomen = p.nomen
+            LEFT JOIN master_pelanggan p ON k.nomen = p.nomen
             LEFT JOIN ardebt a ON k.nomen = a.nomen
-            WHERE k.periode = ? OR p.periode = ?
+            WHERE k.periode = ? OR strftime('%m-%Y', k.created_at) = ?
+            GROUP BY k.id
             ORDER BY k.created_at DESC
         """
         rows = conn.execute(query, (periode, periode)).fetchall()
