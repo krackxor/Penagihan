@@ -1,8 +1,6 @@
 -- Sunter Dashboard Pro - Database Schema
 -- Updated: 2026-01-09 (Full Synergy: Field Activity, Admin Control Center & 3-Level Login)
 
--- 
-
 -- ==========================================
 -- 1. SISTEM AKSES & LOGIN (PENGATURAN ADMIN)
 -- ==========================================
@@ -14,12 +12,14 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,             -- Hashed Password
     role TEXT NOT NULL,                 -- 'admin', 'petugas', 'publik'
     petugas_id TEXT,                    -- SINERGI: Kunci Nama yang harus SAMA dengan rute_petugas.petugas
+    no_hp TEXT,                         -- Kontak petugas untuk koordinasi internal
+    email TEXT,                         -- Opsional: Recovery account
     last_login TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==========================================
--- 2. DATA MASTER & OPERASIONAL (EXISTING)
+-- 2. DATA MASTER & OPERASIONAL
 -- ==========================================
 
 -- Tabel Master Pelanggan (Data Utama dari file MC)
@@ -86,15 +86,17 @@ CREATE TABLE IF NOT EXISTS ardebt (
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    petugas_name TEXT,            -- Nama petugas yang melakukan kunjungan
-    keterangan TEXT,
-    no_hp TEXT,
-    catatan TEXT,
-    janji_bayar_dt TEXT,
-    foto_path TEXT,
-    latitude TEXT,
-    longitude TEXT,
-    periode TEXT,
+    petugas_name TEXT,            -- Nama petugas pelapor
+    keterangan TEXT,              -- Hasil kunjungan (Sudah Bayar, Janji Bayar, dll)
+    no_hp TEXT,                   -- Nomor HP pelanggan yang diupdate saat kunjungan
+    catatan TEXT,                 -- Catatan lapangan tambahan
+    janji_bayar_dt TEXT,          -- Tanggal janji bayar (jika ada)
+    mc REAL DEFAULT 0,            -- Snapshot Tagihan MC saat dikunjungi (untuk laporan WA)
+    ardebt REAL DEFAULT 0,        -- Snapshot Ardebt saat dikunjungi (untuk laporan WA)
+    foto_path TEXT,               -- Nama file foto bukti
+    latitude TEXT,                -- GPS Lat
+    longitude TEXT,               -- GPS Lon
+    periode TEXT,                 -- Periode pelaporan
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
