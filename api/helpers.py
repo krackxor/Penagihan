@@ -1,8 +1,15 @@
+"""
+Core Helpers - Sunter Dashboard Pro
+Updated: 2026-01-09 (Sinergi Level 3)
+Standardized Data Sanitizer & Server Intelligence
+"""
+
 import socket
 import pytz
 import re
+import os
 from datetime import datetime
-from flask import jsonify
+from flask import jsonify, request
 
 class APIResponse:
     """
@@ -14,15 +21,18 @@ class APIResponse:
         return jsonify({
             "status": "success",
             "message": message,
-            "data": data
+            "data": data if data is not None else []
         }), code
 
     @staticmethod
-    def error(message="Error occurred", code=500):
-        return jsonify({
+    def error(message="Error occurred", code=500, details=None):
+        response = {
             "status": "error",
             "message": message
-        }), code
+        }
+        if details:
+            response["details"] = str(details)
+        return jsonify(response), code
 
 def get_jakarta_time():
     """
@@ -42,6 +52,7 @@ def get_server_ip():
     """
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
+        # Mencoba koneksi dummy untuk memicu pencarian rute network asli
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
     except Exception:
@@ -55,22 +66,25 @@ def format_idr(nominal):
     Mengonversi angka menjadi format Rupiah standar Indonesia.
     Contoh: 1250500 -> Rp 1.250.500
     """
-    if nominal is None or nominal == '':
+    if nominal is None or str(nominal).strip() == '':
         return "Rp 0"
     
     try:
         if isinstance(nominal, str):
-            nominal = re.sub(r'[^\d.]', '', nominal)
+            # Hapus semua karakter kecuali angka dan titik/koma desimal
+            nominal = re.sub(r'[^\d,.]', '', nominal)
+            if ',' in nominal and '.' not in nominal: # Handle format Indo (koma desimal)
+                nominal = nominal.replace(',', '.')
             
         val = float(nominal)
-        # Gunakan format ribuan dengan koma, lalu tukar koma menjadi titik
+        # Format ribuan dengan koma, lalu ganti menjadi standar Indonesia (titik)
         return f"Rp {val:,.0f}".replace(',', '.')
     except (ValueError, TypeError):
         return "Rp 0"
 
 def clean_nomen(value):
     """
-    Membersihkan Nomen/NoTag dari format ilmiah Excel (E+).
+    Membersihkan Nomen/IDPEL dari format ilmiah Excel (1.23E+11) atau spasi liar.
     Sinergi: Menjamin 'Pintu Ganda' (Match Data) tidak error karena salah format ID.
     """
     if value is None or str(value).strip().upper() in ('NAN', 'NULL', ''):
@@ -82,18 +96,49 @@ def clean_nomen(value):
     if 'E' in val_str.upper() or '+' in val_str:
         try:
             return "{:.0f}".format(float(val_str))
-        except:
-            return val_str.split('.')[0]
+        except (ValueError, TypeError):
+            pass
             
-    return val_str.split('.')[0]
+    # Hapus spasi dan bagian desimal .0 yang sering muncul otomatis di pandas/excel
+    return val_str.split('.')[0].replace(' ', '')
+
+def clean_phone(phone):
+    """
+    Sanitasi nomor HP untuk Sinergi WA Blast.
+    Mengonversi 0812... atau +62812... menjadi 62812...
+    """
+    if phone is None or str(phone).strip() in ('', '-', '0'):
+        return ""
+    
+    # Ambil angka saja
+    cleaned = re.sub(r'\D', '', str(phone))
+    
+    if not cleaned: return ""
+    
+    # Jika diawali 0, ganti ke 62
+    if cleaned.startswith('0'):
+        cleaned = '62' + cleaned[1:]
+    
+    # Jika diawali 8 (misal 812...), tambahkan 62
+    if cleaned.startswith('8'):
+        cleaned = '62' + cleaned
+        
+    return cleaned
 
 def get_role_redirect(role):
     """
-    Helper Sinergi: Menentukan halaman tujuan pertama setelah login.
+    Helper Sinergi: Menentukan rute Dashboard spesifik per Level Akses.
     """
     redirects = {
         'admin': '/admin/dashboard',
         'petugas': '/belum-bayar',
         'publik': '/'
     }
-    return redirects.get(role, '/')
+    return redirects.get(role.lower(), '/')
+
+def get_base_url():
+    """
+    Mendeteksi Base URL secara otomatis (HTTP/HTTPS + IP + Port).
+    Penting untuk validasi file path statis di laporan WhatsApp.
+    """
+    return request.host_url.rstrip('/')
