@@ -4,7 +4,7 @@ Logic:
 1. Riwayat unggahan file.
 2. Log kunjungan petugas mendetail (Mandatori Foto, No HP, & Detail Teknis).
 3. Analisis tren pembayaran dan identifikasi pelanggan macet.
-4. Sinergi laporan internal WhatsApp ke Admin/Supervisor.
+4. Sinergi laporan internal WhatsApp ke Admin/Supervisor dengan Fallback System.
 
 Author: Sunter Team
 Updated: 2026-01-09
@@ -111,7 +111,7 @@ def delete_upload_history(id):
 def simpan_kunjungan():
     """
     Fungsi penyimpan laporan lapangan & pemicu WA Internal.
-    FIX: Menggunakan query yang mencari ke seluruh periode master data.
+    FIX 404: Menggunakan sistem Fallback (Master Historis -> Ardebt).
     """
     nomen = request.form.get('nomen')
     petugas = request.form.get('petugas_name')
@@ -123,57 +123,53 @@ def simpan_kunjungan():
     if not foto or not no_hp:
         return jsonify({"status": "error", "message": "Foto dan No HP wajib diisi!"}), 400
 
-    # Simpan Foto secara Fisik
-    filename = f"KUNJ_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-    upload_path = os.path.join(current_app.root_path, 'static/uploads/kunjungan', filename)
-    foto.save(upload_path)
-
     conn = get_db_connection()
     try:
-        # FIX ERROR 404: Cari nomen di master pelanggan tanpa kunci periode kaku
-        # Serta ambil info admin dari rute_petugas
+        # --- LOGIKA SINERGI ROBUST ---
+        # 1. Cari di Master Pelanggan (Semua periode, ambil terbaru)
         data = conn.execute("""
-            SELECT 
-                p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc, p.pcez,
-                COALESCE((SELECT SUM(jumlah) FROM ardebt WHERE nomen = p.nomen), 0) as ardebt,
-                COALESCE((SELECT no_admin FROM rute_petugas WHERE pcez = p.pcez LIMIT 1), '628123456789') as no_admin
+            SELECT p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc, p.pcez,
+                   (SELECT no_admin FROM rute_petugas WHERE pcez = p.pcez LIMIT 1) as no_admin
             FROM master_pelanggan p
-            WHERE p.nomen = ?
+            WHERE p.nomen = ? 
             ORDER BY p.periode DESC LIMIT 1
         """, (nomen,)).fetchone()
 
+        # 2. Cari Data Tunggakan di tabel Ardebt
+        ardebt_info = conn.execute("""
+            SELECT SUM(jumlah) as total_ardebt FROM ardebt WHERE nomen = ?
+        """, (nomen,)).fetchone()
+        total_ardebt = ardebt_info['total_ardebt'] if ardebt_info and ardebt_info['total_ardebt'] else 0
+
+        # --- VALIDASI & FALLBACK ---
         if not data:
-            # Fallback jika benar-benar tidak ada di master_pelanggan, cari di ardebt saja
-            fallback = conn.execute("SELECT SUM(jumlah) as jml FROM ardebt WHERE nomen = ?", (nomen,)).fetchone()
-            if fallback and fallback['jml']:
-                # Buat data minimal jika hanya ada di ardebt
+            # Jika di Master tidak ada, cek apakah ada di Ardebt
+            if total_ardebt > 0:
                 res_data = {
-                    "nomen": nomen, "nama": "Konsumen Ardebt", "nomet": "-", "rayon": "-",
-                    "vol": 0, "mc": 0, "ardebt": fallback['jml'], "total": fallback['jml'],
-                    "hp": no_hp, "status": hasil, "catatan": catatan, "petugas": petugas,
-                    "foto_path": filename, "no_admin": "628123456789"
+                    "nomen": nomen, "nama": "Konsumen (Data Ardebt)", "nomet": "-",
+                    "rayon": "-", "vol": 0, "mc": 0, "ardebt": total_ardebt,
+                    "total": total_ardebt, "hp": no_hp, "status": hasil,
+                    "catatan": catatan, "petugas": petugas, "no_admin": "628123456789"
                 }
             else:
-                return jsonify({"status": "error", "message": f"NOMEN {nomen} tidak terdaftar di sistem!"}), 404
+                return jsonify({"status": "error", "message": f"ID {nomen} tidak terdaftar di Master maupun Ardebt!"}), 404
         else:
+            # Data lengkap ditemukan
             res_data = {
-                "nomen": nomen,
-                "nama": data['nama'],
-                "nomet": data['nomet'],
-                "rayon": data['rayon'],
-                "vol": data['vol'],
-                "mc": data['mc'],
-                "ardebt": data['ardebt'],
-                "total": data['mc'] + data['ardebt'],
-                "hp": no_hp,
-                "status": hasil,
-                "catatan": catatan,
-                "petugas": petugas,
-                "foto_path": filename,
-                "no_admin": data['no_admin']
+                "nomen": nomen, "nama": data['nama'], "nomet": data['nomet'],
+                "rayon": data['rayon'], "vol": data['vol'], "mc": data['mc'],
+                "ardebt": total_ardebt, "total": data['mc'] + total_ardebt,
+                "hp": no_hp, "status": hasil, "catatan": catatan, "petugas": petugas,
+                "no_admin": data['no_admin'] if data['no_admin'] else "628123456789"
             }
 
-        # Simpan ke Log Kunjungan
+        # 3. Simpan File Foto
+        filename = f"KUNJ_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        upload_path = os.path.join(current_app.root_path, 'static/uploads/kunjungan', filename)
+        foto.save(upload_path)
+        res_data["foto_path"] = filename
+
+        # 4. Simpan Log ke Database
         conn.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, petugas_name, no_hp, keterangan, catatan, foto_path, periode)
@@ -181,10 +177,8 @@ def simpan_kunjungan():
         """, (nomen, petugas, no_hp, hasil, catatan, filename, datetime.now().strftime('%m-%Y')))
         conn.commit()
 
-        return jsonify({
-            "status": "success",
-            "wa_data": res_data
-        })
+        return jsonify({"status": "success", "wa_data": res_data})
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
