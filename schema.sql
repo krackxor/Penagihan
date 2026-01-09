@@ -1,7 +1,28 @@
 -- Sunter Dashboard Pro - Database Schema
--- Updated: 2026-01-09 (Full Synergy: Field Activity & Admin Reporting)
+-- Updated: 2026-01-09 (Full Synergy: Field Activity, Admin Control Center & 3-Level Login)
 
--- 1. Tabel Master Pelanggan (Data Utama dari file MC)
+-- 
+
+-- ==========================================
+-- 1. SISTEM AKSES & LOGIN (PENGATURAN ADMIN)
+-- ==========================================
+
+-- Tabel User untuk Manajemen Akses 3 Level
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,      -- ID Login (contoh: 'pian_sunter')
+    password TEXT NOT NULL,             -- Hashed Password
+    role TEXT NOT NULL,                 -- 'admin', 'petugas', 'publik'
+    petugas_id TEXT,                    -- SINERGI: Kunci Nama yang harus SAMA dengan rute_petugas.petugas
+    last_login TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- 2. DATA MASTER & OPERASIONAL (EXISTING)
+-- ==========================================
+
+-- Tabel Master Pelanggan (Data Utama dari file MC)
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,          -- ID Pelanggan
@@ -19,76 +40,81 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     UNIQUE(nomen, notagihan, periode) 
 );
 
--- 2. Tabel Mapping Rute & Petugas (SINERGI: Tambah Laporan Admin)
+-- Tabel Mapping Rute & Petugas (SINERGI: Kunci utama untuk Filter Petugas)
 CREATE TABLE IF NOT EXISTS rute_petugas (
-    pcez TEXT PRIMARY KEY,        -- Kode PCEZ unik sebagai primary key
-    petugas TEXT NOT NULL,        -- Nama Petugas Lapangan
+    pcez TEXT PRIMARY KEY,        -- Kode PCEZ unik
+    petugas TEXT NOT NULL,        -- Nama Petugas Lapangan (Sesuai kolom petugas_id di tabel users)
     no_admin TEXT,                -- NOMOR WA ADMIN/SUPERVISOR (Target Laporan Internal)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Tabel Master Bayar (Pelanggan Lunas dari file MB - Status: UNDUE)
+-- Tabel Master Bayar (Pelanggan Lunas dari file MB)
 CREATE TABLE IF NOT EXISTS master_bayar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    notagihan TEXT,               -- Link ke master_pelanggan.notagihan
+    notagihan TEXT,
     nominal REAL DEFAULT 0,
     tgl_bayar TEXT,
-    periode TEXT,                 -- PERIODE DATA (N+1)
+    periode TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, notagihan, periode)
 );
 
--- 4. Tabel Collection Harian (Data Pembayaran Real-time - Status: CURRENT)
+-- Tabel Collection Harian (Real-time Status)
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    notag TEXT,                   -- Link ke master_pelanggan.notagihan
+    notag TEXT,
     nominal REAL DEFAULT 0,
-    pay_dt TEXT,                  -- Tanggal pembayaran (YYYY-MM-DD)
-    periode TEXT,                 -- Format MM-YYYY
+    pay_dt TEXT,
+    periode TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, notag, periode)
 );
 
--- 5. Tabel Ardebt (Data Tunggakan Berekor)
+-- Tabel Ardebt (Data Tunggakan Berekor)
 CREATE TABLE IF NOT EXISTS ardebt (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT NOT NULL,          -- Link ke master_pelanggan.nomen
-    jumlah REAL DEFAULT 0,        -- Total biaya tunggakan
-    volume REAL DEFAULT 0,        -- Total pemakaian air
-    periode_bill TEXT,            -- Periode tunggakan (Raw)
+    nomen TEXT NOT NULL,
+    jumlah REAL DEFAULT 0,
+    volume REAL DEFAULT 0,
+    periode_bill TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Tabel Kunjungan Petugas (Log Laporan Lapangan & Janji Bayar)
+-- Tabel Kunjungan Petugas (Log Lapangan & Janji Bayar)
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    petugas_name TEXT,
-    keterangan TEXT,              -- Status (Sudah Bayar, Janji Bayar, RKS, dll)
-    no_hp TEXT,                   -- WA Konsumen yang dihubungi
+    petugas_name TEXT,            -- Nama petugas yang melakukan kunjungan
+    keterangan TEXT,
+    no_hp TEXT,
     catatan TEXT,
-    janji_bayar_dt TEXT,          -- Tanggal yang dijanjikan pelanggan untuk membayar
-    foto_path TEXT,               -- Nama file foto bukti (Mandatori)
+    janji_bayar_dt TEXT,
+    foto_path TEXT,
     latitude TEXT,
     longitude TEXT,
-    periode TEXT,                 -- Periode bulan berjalan saat kunjungan
+    periode TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Tabel Riwayat Unggahan (Log Admin)
+-- Tabel Riwayat Unggahan (Log Admin Control Center)
 CREATE TABLE IF NOT EXISTS upload_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_name TEXT,
     file_type TEXT,               -- MC, MB, Collection, Ardebt, Rute
     periode TEXT,
     row_count INTEGER,
-    status TEXT,                  -- Success / Error
+    status TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Indeks untuk Performa Kecepatan Tinggi (Indexing)
+-- ==========================================
+-- 3. INDEXING (OPTIMASI PERFORMA)
+-- ==========================================
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_petugas_id ON users(petugas_id);
 CREATE INDEX IF NOT EXISTS idx_nomen_pelanggan ON master_pelanggan(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_mb ON master_bayar(nomen);
 CREATE INDEX IF NOT EXISTS idx_nomen_coll ON collection_harian(nomen);
