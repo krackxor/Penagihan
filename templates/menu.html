@@ -4,14 +4,18 @@
             <div class="bg-white rounded-3 text-primary d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
                 <i class="fas fa-bolt-lightning fa-xl text-primary"></i>
             </div>
-            <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas"></button>
         </div>
         <div>
-            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px; font-family: 'Plus Jakarta Sans', sans-serif;">SUNTER PRO</h5>
+            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel">SUNTER PRO</h5>
             <div class="d-flex align-items-center mt-1">
                 <span class="badge bg-success rounded-pill me-2" style="width: 8px; height: 8px; padding: 0; animation: pulse 2s infinite;"> </span>
                 <small class="text-white-50 fw-medium">
-                    {{ session['role']|upper }} Account | {{ session['username'] }}
+                    {% if session['username'] %}
+                        {{ session['role']|upper }} | {{ session['username'] }}
+                    {% else %}
+                        Mode Tamu (Silakan Login)
+                    {% endif %}
                 </small>
             </div>
         </div>
@@ -20,7 +24,7 @@
     <div class="offcanvas-body p-0 bg-white">
         <div class="list-group list-group-flush mt-3 px-3">
             
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Ringkasan & Analisis</small>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Ringkasan Utama</small>
             
             <a href="/" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/' %}active-menu{% endif %}">
                 <div class="icon-box-formal me-3 bg-primary-subtle text-primary">
@@ -29,144 +33,135 @@
                 <span class="fw-medium text-dark-emphasis">Dashboard Realisasi</span>
             </a>
 
-            <a href="/history" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/history' %}active-menu{% endif %}">
+            <a href="/history" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/history' %}active-menu{% endif %}"
+               onclick="checkAccess(event, 'any', '/history')">
                 <div class="icon-box-formal me-3 bg-info-subtle text-info">
                     <i class="fas fa-chart-pie"></i>
                 </div>
                 <div class="flex-grow-1">
                     <span class="fw-medium text-dark-emphasis d-block">Riwayat & Radar</span>
-                    <small class="text-muted" style="font-size: 0.6rem;">Tren 3 Bln & Radar Macet</small>
                 </div>
             </a>
 
-            {% if session['role'] == 'admin' %}
-            <a href="/monitoring-collection" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
+            <a href="/monitoring-collection" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/monitoring-collection' %}active-menu{% endif %}"
+               onclick="checkAccess(event, 'admin', '/monitoring-collection')">
                 <div class="icon-box-formal me-3 bg-success-subtle text-success">
                     <i class="fas fa-chart-line"></i>
                 </div>
                 <div class="flex-grow-1">
                     <span class="fw-medium text-dark-emphasis d-block">Monitoring Collection</span>
-                    <small class="text-muted" style="font-size: 0.65rem;">Tracking Harian (U+C)</small>
+                    {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
                 </div>
             </a>
-            {% endif %}
 
             <div class="my-3 border-top opacity-25 mx-2"></div>
 
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Operasional Lapangan</small>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; opacity: 0.8;">Operasional Lapangan</small>
             
-            <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
+            <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3"
+               onclick="checkAccess(event, 'any', '/belum-bayar')">
                 <div class="icon-box-formal me-3 bg-warning-subtle text-warning">
                     <i class="fas fa-file-invoice-dollar"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Penagihan Current</span>
             </a>
 
-            <a href="/tunggakan-berekor" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/tunggakan-berekor' %}active-menu{% endif %}">
+            <a href="/tunggakan-berekor" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3"
+               onclick="checkAccess(event, 'any', '/tunggakan-berekor')">
                 <div class="icon-box-formal me-3 bg-danger-subtle text-danger">
                     <i class="fas fa-dragon"></i>
                 </div>
-                <div class="flex-grow-1">
-                    <span class="fw-medium text-dark-emphasis d-block">Tunggakan Ardebt</span>
-                    <small class="text-muted" style="font-size: 0.65rem;">Piutang Tertunda</small>
-                </div>
+                <span class="fw-medium text-dark-emphasis">Tunggakan Ardebt</span>
             </a>
 
-            <a href="/janji-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
-                <div class="icon-box-formal me-3 bg-info-subtle text-info">
-                    <i class="fas fa-calendar-alt"></i>
-                </div>
-                <span class="fw-medium text-dark-emphasis">Janji Bayar</span>
-            </a>
-
-            <a href="/galeri" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/galeri' %}active-menu{% endif %}">
-                <div class="icon-box-formal me-3 bg-secondary-subtle text-secondary">
-                    <i class="fas fa-camera-retro"></i>
-                </div>
-                <span class="fw-medium text-dark-emphasis">Galeri Dokumentasi</span>
-            </a>
-
-            {% if session['role'] == 'admin' %}
             <div class="my-3 border-top opacity-25 mx-2"></div>
 
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Pusat Kendali Admin</small>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; opacity: 0.8;">Pusat Kendali Admin</small>
 
-            <a href="/wa-blast" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/wa-blast' %}active-menu{% endif %}">
-                <div class="icon-box-formal me-3 bg-success-subtle text-success">
+            <a href="/wa-blast" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3"
+               onclick="checkAccess(event, 'admin', '/wa-blast')">
+                <div class="icon-box-formal me-3 {% if session['role'] == 'admin' %}bg-success-subtle text-success{% else %}bg-light text-muted{% endif %}">
                     <i class="fab fa-whatsapp"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">WA Blast Massal</span>
+                <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% endif %}">WA Blast Massal</span>
+                {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
             </a>
 
-            <a href="/performa" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/performa' %}active-menu{% endif %}">
-                <div class="icon-box-formal me-3 bg-warning-subtle text-warning">
-                    <i class="fas fa-award"></i>
-                </div>
-                <span class="fw-medium text-dark-emphasis">Kinerja Tim</span>
-            </a>
-
-            <a href="/setting-rute" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/setting-rute' %}active-menu{% endif %}">
-                <div class="icon-box-formal me-3 bg-dark-subtle text-dark">
-                    <i class="fas fa-map-marked-alt"></i>
-                </div>
-                <span class="fw-medium text-dark-emphasis">Mapping Rute</span>
-            </a>
-
-            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/upload' %}active-menu{% endif %}">
-                <div class="icon-box-formal me-3 text-secondary border">
+            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3"
+               onclick="checkAccess(event, 'admin', '/upload')">
+                <div class="icon-box-formal me-3 {% if session['role'] == 'admin' %}bg-secondary-subtle text-secondary{% else %}bg-light text-muted{% endif %}">
                     <i class="fas fa-cloud-upload-alt"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">Sinkronisasi Data</span>
+                <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% endif %}">Sinkronisasi Data</span>
+                {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
             </a>
-            {% endif %}
 
+            <a href="/setting-rute" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3"
+               onclick="checkAccess(event, 'admin', '/setting-rute')">
+                <div class="icon-box-formal me-3 {% if session['role'] == 'admin' %}bg-dark-subtle text-dark{% else %}bg-light text-muted{% endif %}">
+                    <i class="fas fa-map-marked-alt"></i>
+                </div>
+                <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% endif %}">Mapping Rute</span>
+                {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
+            </a>
         </div>
     </div>
     
     <div class="offcanvas-footer p-4 bg-light border-top">
-        <a href="/api/auth/logout" class="btn btn-dark w-100 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center border-0 shadow-sm" style="background: #1e293b;">
-            <i class="fas fa-sign-out-alt me-2"></i> KELUAR SISTEM
-        </a>
+        {% if session['username'] %}
+            <a href="/api/auth/logout" class="btn btn-dark w-100 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center border-0 shadow-sm" style="background: #1e293b;">
+                <i class="fas fa-sign-out-alt me-2"></i> KELUAR SISTEM
+            </a>
+        {% else %}
+            <a href="/login" class="btn btn-primary w-100 rounded-3 py-2 fw-bold shadow-sm">
+                <i class="fas fa-sign-in-alt me-2"></i> LOGIN PETUGAS
+            </a>
+        {% endif %}
     </div>
 </div>
 
-<style>
-    /* Sinergi: Styling Menu Aktif */
-    .active-menu {
-        background-color: #f1f5f9 !important;
-        border-left: 4px solid #3b82f6 !important;
-        font-weight: 700 !important;
-    }
-    .active-menu .icon-box-formal {
-        background-color: #3b82f6 !important;
-        color: white !important;
-        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+<script>
+/**
+ * Fungsi Pintu Penjaga Sinergi
+ * Logic:
+ * 1. Cek Login (Jika belum, suruh login)
+ * 2. Cek Role (Jika petugas klik menu admin, tolak dengan notif)
+ */
+function checkAccess(event, requiredRole, targetUrl) {
+    const isLoggedIn = "{{ session['username'] }}";
+    const userRole = "{{ session['role'] }}";
+
+    // 1. CEK STATUS LOGIN
+    if (!isLoggedIn) {
+        event.preventDefault();
+        Swal.fire({
+            icon: 'warning',
+            title: 'Akses Terbatas',
+            text: 'Silakan login terlebih dahulu untuk mengakses menu ini.',
+            showCancelButton: true,
+            confirmButtonText: 'Ke Halaman Login',
+            confirmButtonColor: '#0d6efd',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) window.location.href = '/login';
+        });
+        return;
     }
 
-    /* Styling Icon Box Modern */
-    .icon-box-formal {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        transition: all 0.2s ease-in-out;
+    // 2. CEK PROTEKSI ADMIN
+    if (requiredRole === 'admin' && userRole !== 'admin') {
+        event.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Akses Ditolak',
+            text: 'Maaf, menu ini hanya dapat diakses oleh Administrator Pusat.',
+            confirmButtonColor: '#ef4444',
+            footer: '<small class="text-muted">Hubungi Admin jika Anda butuh akses rute ini.</small>'
+        });
+        return;
     }
 
-    .nav-link-custom:hover .icon-box-formal {
-        transform: scale(1.1) rotate(5deg);
-    }
-
-    /* Animasi Indikator Online */
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
-    }
-
-    .nav-link-custom {
-        transition: background 0.2s;
-    }
-</style>
+    // Jika lolos, biarkan navigasi berlanjut
+}
+</script>
