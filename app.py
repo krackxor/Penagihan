@@ -32,7 +32,7 @@ def get_db():
             db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'penagihan.db')
         g.db = sqlite3.connect(db_path, timeout=30)
         g.db.row_factory = sqlite3.Row
-        # WAL Mode untuk konkurensi tinggi (Petugas lapor bersamaan)
+        # WAL Mode untuk konkurensi tinggi agar petugas bisa lapor bersamaan tanpa lock
         g.db.execute('PRAGMA journal_mode=WAL;')
         g.db.execute('PRAGMA synchronous=NORMAL;')
     return g.db
@@ -64,27 +64,34 @@ def create_app():
     @app.before_request
     def security_layer():
         """
-        Melindungi rute operasional. 
-        Petugas tidak bisa masuk ke menu Admin (Upload/Mapping).
-        Publik tidak bisa melihat rute penagihan.
+        Lapis Keamanan Server:
+        1. Mencegah bypass URL manual jika belum login.
+        2. Mencegah Petugas/Publik mengakses rute administratif.
         """
+        # Rute yang benar-benar terbuka untuk siapa saja
         public_routes = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo'
         ]
         
-        # Jika bukan rute publik, cek status login
-        if request.endpoint and request.endpoint not in public_routes:
-            if 'role' not in session:
-                return redirect(url_for('login_page'))
-            
-            # Filter Admin Only (Hanya role 'admin' yang bisa mengakses menu manajemen)
-            admin_only_routes = [
-                'upload_page', 'setting_rute_page', 'wa_blast_page', 
-                'history_page', 'admin_dashboard', 'performa_page'
-            ]
-            if request.endpoint in admin_only_routes and session.get('role') != 'admin':
-                return redirect(url_for('index'))
+        # Izinkan akses ke rute publik tanpa login
+        if not request.endpoint or request.endpoint in public_routes:
+            return
+
+        # Cek Login untuk rute selain publik
+        if 'role' not in session:
+            # Jika user mencoba akses menu via URL langsung, arahkan ke login
+            return redirect(url_for('login_page'))
+        
+        # Proteksi Khusus Admin (Bahkan jika URL diketik manual oleh petugas)
+        admin_only_routes = [
+            'upload_page', 'setting_rute_page', 'wa_blast_page', 
+            'admin_dashboard', 'performa_page'
+        ]
+        
+        if request.endpoint in admin_only_routes and session.get('role') != 'admin':
+            # Jika petugas nekat ketik URL admin, lempar balik ke Dashboard
+            return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -111,7 +118,8 @@ def create_app():
 
     @app.route('/login')
     def login_page(): 
-        if 'role' in session: return redirect(url_for('index'))
+        if 'role' in session: 
+            return redirect(url_for('index'))
         return render_template('login.html')
 
     # LEVEL 2: OPERASIONAL PETUGAS (Field Work)
@@ -167,5 +175,5 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    # Host 0.0.0.0 agar bisa diakses oleh HP Petugas di jaringan yang sama
+    # Host 0.0.0.0 agar bisa diakses oleh HP Petugas di jaringan lokal yang sama
     app.run(host='0.0.0.0', port=5000, debug=True)
