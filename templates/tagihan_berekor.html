@@ -3,7 +3,7 @@
 <div class="animate__animated animate__fadeIn">
     <div class="px-2 mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1">Tagihan Berekor 🐉</h4>
+            <h4 class="fw-bold mb-1 text-dark">Tagihan Berekor 🐉</h4>
             <p class="text-muted small mb-0">Prioritas 20 Data per Petugas (Ardebt)</p>
         </div>
         <div class="bg-danger text-white px-3 py-1 rounded-pill small fw-bold shadow-sm" style="font-size: 0.65rem;">
@@ -32,7 +32,7 @@
                                placeholder="Cari Nama/IDPEL untuk revisi..." onkeyup="liveSearch()">
                     </div>
                     <small class="text-muted mt-2 d-block" style="font-size: 10px; line-height: 1.2;">
-                        * Menampilkan 20 data rute terlama. Data yang sudah dilaporkan akan "masuk kotak" (hilang) dan muncul kembali setelah 30 hari.
+                        * Menampilkan 20 data rute terlama. Data yang dilaporkan akan muncul kembali setelah 30 hari.
                     </small>
                 </div>
             </div>
@@ -53,16 +53,20 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <form id="formKunjungan">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="fw-bold"><i class="fas fa-edit me-2 text-danger"></i>Laporan Ardebt</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header border-0 pb-0 bg-danger text-white p-3 rounded-top-4">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-camera me-2"></i>Laporan Lapangan Ardebt</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" id="modal-idpel">
-                    <input type="hidden" id="modal-nominal-val">
+                    <input type="hidden" id="modal-idpel" name="idpel">
+                    <input type="hidden" id="modal-nominal-val" name="nominal_display">
+                    <input type="hidden" id="modal-nomet-hidden">
+                    <input type="hidden" id="modal-vol-hidden">
+                    <input type="hidden" id="modal-rayon-hidden">
+                    <input type="hidden" id="modal-nama-hidden">
                     
                     <div class="bg-danger-subtle p-3 rounded-4 mb-3 border border-danger-subtle">
-                        <h6 id="modal-nama" class="fw-bold mb-1 text-danger"></h6>
+                        <h6 id="modal-nama" class="fw-bold mb-1 text-danger text-uppercase"></h6>
                         <div class="d-flex justify-content-between">
                             <small id="modal-sub-info" class="text-muted fw-bold"></small>
                             <small id="modal-sub-vol" class="text-muted fw-bold"></small>
@@ -70,12 +74,17 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Hasil Kunjungan</label>
-                        <select id="modal-hasil" class="form-select rounded-3 bg-light border-0" required onchange="toggleJanjiInput()">
+                        <label class="form-label small fw-bold">WhatsApp Pelanggan *</label>
+                        <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 border-danger-subtle" placeholder="0812..." required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Hasil Kunjungan *</label>
+                        <select id="modal-hasil" name="hasil" class="form-select rounded-3 bg-light border-0" required onchange="toggleJanjiInput()">
                             <option value="">-- Pilih Hasil --</option>
-                            <option value="Sudah Bayar">Sudah Bayar (Ada Bukti)</option>
-                            <option value="Janji Bayar">Janji Bayar (Set Tanggal)</option>
-                            <option value="Rumah Kosong">Rumah Kosong / Tutup</option>
+                            <option value="Sudah Bayar">Sudah Bayar</option>
+                            <option value="Janji Bayar">Janji Bayar</option>
+                            <option value="Rumah Kosong">Rumah Kosong</option>
                             <option value="Tutup Bor">Tutup Bor / Segel</option>
                             <option value="Lainnya">Lainnya / Kendala</option>
                         </select>
@@ -83,23 +92,22 @@
 
                     <div class="mb-3 d-none" id="group-janji">
                         <label class="form-label small fw-bold text-danger">Tanggal Janji Bayar</label>
-                        <input type="date" id="modal-janji-dt" class="form-control rounded-3 bg-light border-0">
+                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control rounded-3 bg-light border-0">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Kontak & Catatan</label>
-                        <input type="tel" id="modal-no-hp" class="form-control rounded-3 bg-light border-0 mb-2" placeholder="Nomor WhatsApp...">
-                        <textarea id="modal-keterangan" class="form-control rounded-3 bg-light border-0" rows="2" placeholder="Catatan lapangan..."></textarea>
+                        <label class="form-label small fw-bold">Catatan Lapangan</label>
+                        <textarea id="modal-keterangan" name="keterangan" class="form-control rounded-3 bg-light border-0" rows="2" placeholder="Tulis catatan tambahan..."></textarea>
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label small fw-bold">Lampiran Foto Bukti</label>
-                        <input type="file" id="modal-foto" class="form-control rounded-3 bg-light border-0" accept="image/*" capture="camera">
+                        <label class="form-label small fw-bold">Foto Bukti Kunjungan *</label>
+                        <input type="file" id="modal-foto" name="foto" class="form-control rounded-3" accept="image/*" capture="camera" required>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="submit" class="btn btn-danger w-100 rounded-3 py-3 fw-bold shadow">
-                        SIMPAN & REVISI LAPORAN <i class="fas fa-check-double ms-1"></i>
+                    <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-bold shadow">
+                        SIMPAN & KIRIM LAPORAN <i class="fab fa-whatsapp ms-1"></i>
                     </button>
                 </div>
             </form>
@@ -110,6 +118,7 @@
 <script>
     let rawData = [];
     let modalKunjungan;
+    const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
     document.addEventListener('DOMContentLoaded', () => {
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
@@ -158,11 +167,11 @@
     function renderCards(data) {
         const container = document.getElementById('list-container');
         if (data.length === 0) {
-            container.innerHTML = '<div class="text-center mt-5"><i class="fas fa-tasks fa-3x text-muted mb-3"></i><p class="fw-bold text-muted">Antrean 20 rute hari ini sudah bersih!</p></div>';
+            container.innerHTML = '<div class="text-center mt-5"><i class="fas fa-tasks fa-3x text-muted mb-3"></i><p class="fw-bold text-muted">Antrean hari ini sudah bersih!</p></div>';
             return;
         }
 
-        container.innerHTML = data.map((item, index) => `
+        container.innerHTML = data.map((item) => `
             <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card animate__animated animate__fadeInUp" 
                  data-search="${item.nama} ${item.nomen} ${item.pcez} ${item.nomet}">
                 <div class="card-body p-3">
@@ -184,8 +193,8 @@
                             <small class="d-block text-muted" style="font-size: 9px;">TOTAL TUNGGAKAN</small>
                             <span class="fw-bold text-danger h6">Rp ${Number(item.jumlah).toLocaleString('id-ID')}</span>
                         </div>
-                        <button class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm" 
-                                onclick="openModal('${item.nomen}', '${item.nama}', '${item.jumlah}', '${item.periode_bill}', '${item.volume}', '${item.nomet}')">
+                        <button class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm btn-sm" 
+                                onclick="openModal('${item.nomen}', '${item.nama}', '${item.jumlah}', '${item.periode_bill}', '${item.volume}', '${item.nomet}', '${item.rayon}')">
                             LAPOR
                         </button>
                     </div>
@@ -211,12 +220,19 @@
         `;
     }
 
-    function openModal(nomen, nama, nominal, periode, vol, nomet) {
+    function openModal(nomen, nama, nominal, periode, vol, nomet, rayon) {
         document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nama').innerText = nama || 'PELANGGAN';
         document.getElementById('modal-nominal-val').value = nominal;
         document.getElementById('modal-sub-info').innerText = `MET: ${nomet || '-'} | BILL: ${periode}`;
         document.getElementById('modal-sub-vol').innerText = `VOL: ${vol} m³`;
+        
+        // Data for WhatsApp
+        document.getElementById('modal-nama-hidden').value = nama;
+        document.getElementById('modal-nomet-hidden').value = nomet || '-';
+        document.getElementById('modal-vol-hidden').value = vol;
+        document.getElementById('modal-rayon-hidden').value = rayon || '-';
+
         document.getElementById('formKunjungan').reset();
         toggleJanjiInput();
         modalKunjungan.show();
@@ -225,32 +241,23 @@
     async function simpanLaporan() {
         Swal.fire({ title: 'Memproses Laporan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         
-        const formData = new FormData();
-        formData.append('idpel', document.getElementById('modal-idpel').value);
+        const formData = new FormData(document.getElementById('formKunjungan'));
         formData.append('petugas_name', document.getElementById('filter-petugas').value);
-        formData.append('hasil', document.getElementById('modal-hasil').value);
-        formData.append('janji_bayar_dt', document.getElementById('modal-janji-dt').value);
-        formData.append('no_hp', document.getElementById('modal-no-hp').value);
-        formData.append('keterangan', document.getElementById('modal-keterangan').value);
         formData.append('nama_pelanggan', document.getElementById('modal-nama').innerText);
-        formData.append('nominal_display', document.getElementById('modal-nominal-val').value);
-        
-        const foto = document.getElementById('modal-foto').files[0];
-        if (foto) formData.append('foto', foto);
 
         try {
-            // Menggunakan endpoint lapor yang sama karena mendukung revisi otomatis harian
-            const res = await fetch('/api/belum_bayar/lapor', { method: 'POST', body: formData });
+            const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
             const result = await res.json();
 
             if (res.ok) {
                 Swal.fire({
                     icon: 'success',
-                    title: result.revisi ? 'Laporan Direvisi' : 'Berhasil',
-                    text: 'Data telah masuk kotak untuk 30 hari ke depan.',
-                    timer: 2000,
+                    title: 'Berhasil',
+                    text: 'Membuka WhatsApp...',
+                    timer: 1500,
                     showConfirmButton: false
                 }).then(() => {
+                    executeDoubleWA(result.wa_data);
                     modalKunjungan.hide();
                     loadArdebt();
                 });
@@ -261,5 +268,49 @@
             Swal.fire('Error', 'Gagal menghubungi server.', 'error');
         }
     }
+
+    function executeDoubleWA(wa) {
+        const waktu = new Date().toLocaleString('id-ID');
+
+        // 1. TEMPLATE INTERNAL (DETAIL KOMPLIT)
+        const pesanInternal = 
+            `*[LAPORAN INTERNAL PETUGAS]* 📡%0A` +
+            `-------------------------------------------%0A` +
+            `👤 *Petugas:* ${wa.petugas}%0A` +
+            `🏠 *Konsumen:* ${wa.nama}%0A` +
+            `🆔 *NOMEN:* ${wa.nomen}%0A` +
+            `📟 *NOMET:* ${wa.nomet}%0A` +
+            `📍 *Rayon:* ${wa.rayon}%0A%0A` +
+            `*HASIL KUNJUNGAN:*%0A` +
+            `📌 Status: *${wa.status}*%0A` +
+            `📝 Catatan: ${wa.catatan}%0A%0A` +
+            `*RINCIAN PIUTANG:*%0A` +
+            `💵 MC: Rp ${formatIDR(wa.mc)}%0A` +
+            `💸 Ardebt: Rp ${formatIDR(wa.ardebt)}%0A` +
+            `🧾 *TOTAL: Rp ${formatIDR(wa.total)}*%0A` +
+            `💧 *VOL:* ${wa.vol} m³%0A%0A` +
+            `📸 *Bukti Foto:*%0A` +
+            `${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
+            `*Waktu:* ${waktu}%0A` +
+            `-------------------------------------------`;
+
+        // 2. TEMPLATE KONSUMEN (RESIKO)
+        const pesanKonsumen = `*PEMBERITAHUAN TAGIHAN AIR*%0A...`; // Bisa disesuaikan
+
+        // Kirim Ke Konsumen
+        window.open(`https://api.whatsapp.com/send?phone=${wa.hp.replace(/^0/, '62')}&text=${pesanKonsumen}`, '_blank');
+        
+        // Kirim Ke Internal (Berbasis No Admin yang dikirim Backend)
+        setTimeout(() => {
+            window.open(`https://api.whatsapp.com/send?phone=${wa.no_admin}&text=${pesanInternal}`, '_blank');
+        }, 2000);
+    }
 </script>
+
+<style>
+    .customer-card { transition: all 0.3s; border: 1px solid rgba(0,0,0,0.05) !important; }
+    .customer-card:active { transform: scale(0.98); }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .border-danger-subtle { border-color: #fecaca !important; }
+</style>
 {% endblock %}
