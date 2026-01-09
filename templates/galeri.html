@@ -4,7 +4,13 @@
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-end">
         <div>
             <h4 class="fw-bold mb-1 text-dark">Galeri Lapangan 📸</h4>
-            <p class="text-muted small mb-0">Dokumentasi hasil kunjungan petugas</p>
+            <p class="text-muted small mb-0">
+                {% if session['role'] == 'admin' %}
+                    Audit dokumentasi seluruh petugas
+                {% else %}
+                    Dokumentasi hasil kunjungan Anda
+                {% endif %}
+            </p>
         </div>
         <button class="btn btn-sm btn-light rounded-pill shadow-sm px-3" onclick="loadGaleri()">
             <i class="fas fa-sync-alt text-primary"></i>
@@ -15,14 +21,14 @@
         <div class="input-group bg-white rounded-4 shadow-sm border-0">
             <span class="input-group-text border-0 bg-transparent ps-3"><i class="fas fa-search text-muted"></i></span>
             <input type="text" id="searchGaleri" class="form-control border-0 py-2 shadow-none" 
-                   placeholder="Cari Nama atau Petugas..." onkeyup="filterGaleri()">
+                   placeholder="Cari Nama Pelanggan..." onkeyup="filterGaleri()">
         </div>
     </div>
 
     <div id="galeri-container" class="row g-2">
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted small">Memuat dokumentasi...</p>
+            <p class="mt-2 text-muted small">Sinkronisasi galeri...</p>
         </div>
     </div>
 </div>
@@ -33,7 +39,7 @@
             <div class="modal-body p-0 text-center position-relative">
                 <img src="" id="img-zoom" class="img-fluid rounded-4 shadow-lg">
                 <div id="zoom-caption" class="position-absolute bottom-0 start-0 end-0 p-3 text-white rounded-bottom-4" 
-                     style="background: linear-gradient(transparent, rgba(0,0,0,0.8));">
+                     style="background: linear-gradient(transparent, rgba(0,0,0,0.9));">
                 </div>
                 <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
             </div>
@@ -43,46 +49,50 @@
 
 <script>
     let galeriData = [];
+    const ROLE = "{{ session['role'] }}";
+    const PETUGAS_ID = "{{ session['petugas_id'] }}";
 
     async function loadGaleri() {
         const container = document.getElementById('galeri-container');
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
         
         try {
-            // Mengambil data dari endpoint riwayat kunjungan
+            // Sinergi: Mengambil data dari endpoint riwayat kunjungan (yang sudah difilter di backend berdasarkan role)
             const res = await fetch('/api/history/kunjungan');
             const result = await res.json();
             
-            // Filter hanya data yang memiliki foto
+            // Filter hanya data yang benar-benar memiliki file foto
             galeriData = (result.data || []).filter(item => item.foto_path && item.foto_path !== '-');
             
             if (galeriData.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center mt-5 py-5">
-                        <i class="fas fa-image fa-3x text-light mb-3"></i>
-                        <p class="text-muted">Belum ada foto dokumentasi tersedia.</p>
+                    <div class="text-center mt-5 py-5 animate__animated animate__fadeIn">
+                        <i class="fas fa-camera-retro fa-3x text-light mb-3"></i>
+                        <p class="text-muted small">Belum ada foto dokumentasi<br>yang tersimpan.</p>
                     </div>`;
                 return;
             }
 
             renderGaleri(galeriData);
         } catch (e) {
-            container.innerHTML = '<div class="alert alert-danger mx-2">Gagal memuat galeri. Periksa koneksi internet.</div>';
+            container.innerHTML = '<div class="alert alert-danger mx-2 small">Gagal sinkronisasi galeri.</div>';
         }
     }
 
     function renderGaleri(data) {
         const container = document.getElementById('galeri-container');
-        container.innerHTML = data.map(item => `
-            <div class="col-6 col-md-4 mb-2 galeri-item" data-search="${item.nama} ${item.petugas_name}">
+        container.innerHTML = data.map((item, index) => `
+            <div class="col-6 col-md-4 mb-2 galeri-item" 
+                 data-search="${item.nama} ${item.petugas_name}" 
+                 style="animation-delay: ${index * 0.05}s">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
-                     onclick="zoomImage('/static/uploads/kunjungan/${item.foto_path}', '${item.nama}')">
+                     onclick="zoomImage('/static/uploads/kunjungan/${item.foto_path}', '${item.nama} - ${item.keterangan}')">
                     <div class="position-relative">
                         <img src="/static/uploads/kunjungan/${item.foto_path}" 
                              class="card-img-top lazy-img" 
-                             style="height: 160px; object-fit: cover;"
+                             style="height: 150px; object-fit: cover;"
                              loading="lazy"
-                             onerror="this.src='https://placehold.co/400x600?text=Foto+Bermasalah'">
+                             onerror="this.src='https://placehold.co/400x600?text=Foto+Tidak+Ada'">
                         <div class="position-absolute top-0 end-0 m-2">
                              <span class="badge bg-dark bg-opacity-50 rounded-pill" style="font-size: 0.6rem;">
                                 <i class="fas fa-expand"></i>
@@ -90,13 +100,13 @@
                         </div>
                     </div>
                     <div class="card-body p-2">
-                        <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.75rem;">${item.nama}</h6>
+                        <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.7rem;">${item.nama}</h6>
                         <div class="d-flex justify-content-between align-items-center mt-1">
-                            <small class="text-primary fw-bold" style="font-size: 0.65rem;">
-                                <i class="fas fa-user-badge me-1"></i>${item.petugas_name.split(' ')[0]}
+                            <small class="text-primary fw-bold" style="font-size: 0.6rem;">
+                                <i class="fas fa-user me-1"></i>${item.petugas_name.split(' ')[0]}
                             </small>
-                            <small class="text-muted" style="font-size: 0.6rem;">
-                                ${new Date(item.created_at).toLocaleDateString('id-ID')}
+                            <small class="text-muted" style="font-size: 0.55rem;">
+                                ${new Date(item.waktu).toLocaleDateString('id-ID')}
                             </small>
                         </div>
                     </div>
@@ -113,9 +123,9 @@
         });
     }
 
-    function zoomImage(src, nama) {
+    function zoomImage(src, caption) {
         document.getElementById('img-zoom').src = src;
-        document.getElementById('zoom-caption').innerText = nama;
+        document.getElementById('zoom-caption').innerText = caption;
         new bootstrap.Modal(document.getElementById('modalZoom')).show();
     }
 
@@ -123,28 +133,30 @@
 </script>
 
 <style>
-    .card { transition: all 0.2s ease-in-out; cursor: pointer; }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
-    .card:active { transform: scale(0.98); }
+    .card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; border: 1px solid #f1f5f9 !important; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.08) !important; }
+    .card:active { transform: scale(0.97); }
     
     #img-zoom { 
-        max-height: 80vh; 
-        border: 4px solid white; 
-        background-color: #f8f9fa;
+        max-height: 85vh; 
+        border: 5px solid white; 
+        background-color: #000;
     }
     
-    .lazy-img {
-        transition: opacity 0.3s;
-    }
+    .lazy-img { transition: opacity 0.4s; }
     
-    /* Animasi masuk untuk item galeri */
     .galeri-item {
-        animation: fadeIn 0.5s ease backwards;
+        animation: fadeInUp 0.4s ease backwards;
     }
     
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(15px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Penyesuaian Grid Mobile */
+    @media (max-width: 576px) {
+        .card-img-top { height: 130px !important; }
     }
 </style>
 {% endblock %}
