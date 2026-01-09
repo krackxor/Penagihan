@@ -56,17 +56,19 @@ def create_app():
         1. Mencegah akses rute internal tanpa login.
         2. Filter Level Akses: Admin, Petugas, Publik.
         """
-        # Daftar rute yang terbuka untuk umum
+        # Daftar rute yang terbuka untuk umum agar navigasi tetap muncul bagi Guest
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
-            'login_page', 'static', 'serve_kunjungan_photo'
+            'login_page', 'static', 'serve_kunjungan_photo', 'auth.check_session'
         ]
         
         endpoint = request.endpoint
+        
+        # Jika endpoint tidak ditemukan atau termasuk rute publik, izinkan akses
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # Cek Status Login
+        # Cek Status Login: Jika mencoba akses rute internal tanpa session
         if 'role' not in session:
             return redirect(url_for('login_page'))
         
@@ -76,10 +78,10 @@ def create_app():
             'admin_dashboard', 'performa_page', 'history_page'
         ]
         
-        # PERBARUI: Gunakan .lower() untuk memastikan pengecekan role admin aman
-        current_role = str(session.get('role', '')).lower()
+        # Gunakan .lower() untuk memastikan pengecekan role sinkron dengan menu.html
+        user_role = str(session.get('role', '')).lower()
         
-        if endpoint in admin_only_endpoints and current_role != 'admin':
+        if endpoint in admin_only_endpoints and user_role != 'admin':
             return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
@@ -89,7 +91,7 @@ def create_app():
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
-    app.register_blueprint(collection_bp, url_prefix='/api/collection') 
+    app.register_blueprint(collection_bp, url_prefix='/api/collection')
     
     # Registrasi rute performa PCEZ (Mapping rute lapangan)
     register_pcez_routes(app, get_db_connection)
