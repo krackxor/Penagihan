@@ -1,10 +1,9 @@
 """
 History API Endpoints - Sunter Dashboard Pro
-Logic: 
-1. Riwayat unggahan file.
-2. Log kunjungan petugas mendetail (Mandatori Foto, No HP, & Detail Teknis).
-3. Analisis tren pembayaran dan identifikasi pelanggan macet.
-4. Sinergi laporan internal WhatsApp ke Admin/Supervisor dengan Fallback System.
+Sinergi: 
+1. Penyatuan Logika Current (MC) dan Ardebt dalam satu respon laporan.
+2. Penanganan field nomen/idpel secara fleksibel.
+3. Fallback System jika data Master belum diunggah.
 
 Author: Sunter Team
 Updated: 2026-01-09
@@ -111,65 +110,73 @@ def delete_upload_history(id):
 def simpan_kunjungan():
     """
     Fungsi penyimpan laporan lapangan & pemicu WA Internal.
-    FIX 404: Menggunakan sistem Fallback (Master Historis -> Ardebt).
+    PENYATUAN LOGIKA: Mendukung data dari mode Belum Bayar dan Ardebt.
     """
-    nomen = request.form.get('nomen')
-    petugas = request.form.get('petugas_name')
+    # Menangkap nomen/idpel secara fleksibel agar sinergi di semua halaman
+    nomen = request.form.get('nomen') or request.form.get('idpel')
+    petugas = request.form.get('petugas_name') or request.form.get('petugas')
     no_hp = request.form.get('no_hp')
     hasil = request.form.get('hasil') or request.form.get('keterangan')
     catatan = request.form.get('catatan') or request.form.get('keterangan_lapangan')
     foto = request.files.get('foto')
 
+    if not nomen:
+        return jsonify({"status": "error", "message": "ID Pelanggan (NOMEN) tidak terbaca!"}), 400
     if not foto or not no_hp:
         return jsonify({"status": "error", "message": "Foto dan No HP wajib diisi!"}), 400
 
     conn = get_db_connection()
     try:
         # --- LOGIKA SINERGI ROBUST ---
-        # 1. Cari di Master Pelanggan (Semua periode, ambil terbaru)
+        # 1. Cari data teknis di Master Pelanggan (ambil yang terbaru)
         data = conn.execute("""
-            SELECT p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc, p.pcez,
-                   (SELECT no_admin FROM rute_petugas WHERE pcez = p.pcez LIMIT 1) as no_admin
+            SELECT p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc, p.pcez
             FROM master_pelanggan p
             WHERE p.nomen = ? 
             ORDER BY p.periode DESC LIMIT 1
         """, (nomen,)).fetchone()
 
-        # 2. Cari Data Tunggakan di tabel Ardebt
+        # 2. Cari total tunggakan di tabel Ardebt
         ardebt_info = conn.execute("""
             SELECT SUM(jumlah) as total_ardebt FROM ardebt WHERE nomen = ?
         """, (nomen,)).fetchone()
-        total_ardebt = ardebt_info['total_ardebt'] if ardebt_info and ardebt_info['total_ardebt'] else 0
+        val_ardebt = ardebt_info['total_ardebt'] if ardebt_info and ardebt_info['total_ardebt'] else 0
+
+        # 3. Cari Mapping Admin Lapangan
+        admin_info = conn.execute("""
+            SELECT no_admin FROM rute_petugas 
+            WHERE pcez = ? OR petugas = ? LIMIT 1
+        """, (data['pcez'] if data else '', petugas)).fetchone()
+        no_admin = admin_info['no_admin'] if admin_info and admin_info['no_admin'] else "628123456789"
 
         # --- VALIDASI & FALLBACK ---
-        if not data:
-            # Jika di Master tidak ada, cek apakah ada di Ardebt
-            if total_ardebt > 0:
-                res_data = {
-                    "nomen": nomen, "nama": "Konsumen (Data Ardebt)", "nomet": "-",
-                    "rayon": "-", "vol": 0, "mc": 0, "ardebt": total_ardebt,
-                    "total": total_ardebt, "hp": no_hp, "status": hasil,
-                    "catatan": catatan, "petugas": petugas, "no_admin": "628123456789"
-                }
-            else:
-                return jsonify({"status": "error", "message": f"ID {nomen} tidak terdaftar di Master maupun Ardebt!"}), 404
-        else:
-            # Data lengkap ditemukan
-            res_data = {
-                "nomen": nomen, "nama": data['nama'], "nomet": data['nomet'],
-                "rayon": data['rayon'], "vol": data['vol'], "mc": data['mc'],
-                "ardebt": total_ardebt, "total": data['mc'] + total_ardebt,
-                "hp": no_hp, "status": hasil, "catatan": catatan, "petugas": petugas,
-                "no_admin": data['no_admin'] if data['no_admin'] else "628123456789"
-            }
+        if not data and val_ardebt == 0:
+            return jsonify({"status": "error", "message": f"ID {nomen} tidak ditemukan di Master maupun Ardebt!"}), 404
 
-        # 3. Simpan File Foto
+        # Konstruksi Objek Respon WA (Gabungan Current + Ardebt)
+        res_data = {
+            "nomen": nomen,
+            "nama": data['nama'] if data else "Pelanggan (Data Ardebt)",
+            "nomet": data['nomet'] if data else "-",
+            "rayon": data['rayon'] if data else "-",
+            "vol": data['vol'] if data else 0,
+            "mc": data['mc'] if data else 0,
+            "ardebt": val_ardebt,
+            "total": (data['mc'] if data else 0) + val_ardebt,
+            "hp": no_hp,
+            "status": hasil,
+            "catatan": catatan,
+            "petugas": petugas,
+            "no_admin": no_admin
+        }
+
+        # 4. Simpan File Foto
         filename = f"KUNJ_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
         upload_path = os.path.join(current_app.root_path, 'static/uploads/kunjungan', filename)
         foto.save(upload_path)
         res_data["foto_path"] = filename
 
-        # 4. Simpan Log ke Database
+        # 5. Simpan Log ke Database
         conn.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, petugas_name, no_hp, keterangan, catatan, foto_path, periode)
