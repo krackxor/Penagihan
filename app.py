@@ -3,7 +3,7 @@ Flask Application - Sunter Dashboard Pro
 Sinergi: 
 1. Sistem Login 3 Level (Publik, Petugas, Admin).
 2. Proteksi Rute: Middleware otomatis untuk keamanan field & administratif.
-3. Admin Control Center: Manajemen rute & Sinkronisasi Intelijen Excel.
+3. Admin Control Center: Manajemen Terpadu (User, Rute, & Sinkronisasi Excel).
 """
 
 import os
@@ -30,7 +30,7 @@ def create_app():
 
     # Inisialisasi Environment & Folder Sistem
     with app.app_context():
-        init_db(app) # Inisialisasi Tabel & User Admin Default
+        init_db(app) 
         
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
@@ -47,57 +47,38 @@ def create_app():
         if db is not None:
             db.close()
 
-    # --- MIDDLEWARE: SECURITY LAYER 3 (PEROMBAKAN TOTAL) ---
+    # --- MIDDLEWARE: SECURITY LAYER 3 ---
     @app.before_request
     def security_layer():
         """
         Lapis Keamanan Server Terpadu:
-        1. Menjamin navigasi dasar tetap muncul untuk Guest.
-        2. Menangani permintaan API secara khusus (mengirim JSON 401, bukan redirect HTML).
-        3. Normalisasi Role secara real-time untuk sinkronisasi template.
+        Menangani otorisasi akses berdasarkan role (Admin/Petugas/Publik).
         """
-        # Daftar rute yang terbuka untuk umum
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 'auth.check_session'
         ]
         
         endpoint = request.endpoint
-        
-        # Izinkan rute publik tanpa pemeriksaan session
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # 1. Validasi Login & Sesi
+        # 1. Validasi Login
         if 'role' not in session:
-            # Cegah error 'Unexpected token <' pada AJAX dengan mengirimkan JSON
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({
-                    "status": "error",
-                    "message": "Sesi berakhir. Navigasi memerlukan login ulang."
-                }), 401
-            
-            # Akses halaman biasa diarahkan ke login
+                return jsonify({"status": "error", "message": "Sesi berakhir."}), 401
             return redirect(url_for('login_page'))
         
-        # 2. Proteksi Rute Administratif (Pusat Kendali)
+        # 2. Proteksi Pusat Kendali (Admin Only)
         admin_only_endpoints = [
-            'upload_page', 'setting_rute_page', 'wa_blast_page', 
-            'admin_dashboard', 'performa_page', 'history_page'
+            'admin_dashboard', 'performa_page', 'wa_blast_page', 'history_page'
         ]
         
-        # Normalisasi role ke lowercase untuk menjamin kecocokan dengan menu.html
         user_role = str(session.get('role', 'publik')).lower()
         
         if endpoint in admin_only_endpoints and user_role != 'admin':
-            # Jika akses API ditolak, kirim JSON 403
-            if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({
-                    "status": "error",
-                    "message": "Akses ditolak: Memerlukan level Administrator."
-                }), 403
-            
-            # Jika akses halaman ditolak, kembalikan ke Dashboard
+            if request.path.startswith('/api/'):
+                return jsonify({"status": "error", "message": "Akses Admin diperlukan."}), 403
             return redirect(url_for('index'))
 
     # --- REGISTRASI BLUEPRINT API ---
@@ -109,10 +90,11 @@ def create_app():
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     app.register_blueprint(collection_bp, url_prefix='/api/collection') 
     
-    # Registrasi rute performa (Mapping rute lapangan)
     register_pcez_routes(app, get_db_connection)
 
     # --- RUTE NAVIGASI FRONTEND ---
+    
+    # LEVEL 1: PUBLIK
     @app.route('/')
     def index(): 
         return render_template('index.html')
@@ -123,11 +105,10 @@ def create_app():
 
     @app.route('/login')
     def login_page(): 
-        # Jika sudah login, jangan tampilkan halaman login lagi
-        if 'role' in session: 
-            return redirect(url_for('index'))
+        if 'role' in session: return redirect(url_for('index'))
         return render_template('login.html')
 
+    # LEVEL 2: OPERASIONAL (PETUGAS & ADMIN)
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
         return render_template('belum_bayar.html')
@@ -144,21 +125,15 @@ def create_app():
     def galeri_page(): 
         return render_template('galeri.html')
 
+    # LEVEL 3: PUSAT KENDALI (KHUSUS ADMIN)
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
+        """Halaman Terpadu: Kelola User, Rute, dan Sinkronisasi Upload Excel."""
         return render_template('admin_dashboard.html')
 
     @app.route('/performa')
     def performa_page(): 
         return render_template('performa.html')
-
-    @app.route('/setting-rute')
-    def setting_rute_page(): 
-        return render_template('setting_rute.html')
-
-    @app.route('/upload')
-    def upload_page(): 
-        return render_template('upload.html')
 
     @app.route('/wa-blast')
     def wa_blast_page(): 
@@ -168,9 +143,16 @@ def create_app():
     def history_page(): 
         return render_template('history.html')
 
+    # --- REDIRECTS UNTUK PEMBERSIHAN FILE (LEGACY) ---
+    @app.route('/upload')
+    @app.route('/setting-rute')
+    def legacy_redirects():
+        """Mengarahkan URL lama ke Dashboard Admin Terpadu."""
+        return redirect(url_for('admin_dashboard'))
+
+    # --- FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
-        """Audit visual foto bukti laporan petugas."""
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
         return send_from_directory(folder, filename)
 
@@ -178,5 +160,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    # Host 0.0.0.0 agar sistem bisa diakses oleh perangkat petugas di lapangan
     app.run(host='0.0.0.0', port=5000, debug=True)
