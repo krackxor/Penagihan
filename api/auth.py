@@ -2,8 +2,8 @@
 Authentication API - Sunter Dashboard Pro
 Sinergi:
 1. Handle Login 3 Level (Admin, Petugas, Publik).
-2. Session Management untuk mengunci rute petugas.
-3. Integrasi dengan rute_petugas untuk mapping otomatis.
+2. CRUD User Management untuk Pusat Kendali Admin.
+3. Session Management untuk mengunci rute petugas secara sinkron.
 """
 
 from flask import Blueprint, request, session, jsonify, redirect, url_for
@@ -26,51 +26,112 @@ def login():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Ambil user dan data petugas terkait (untuk mapping rute)
-        user = cursor.execute('''
-            SELECT * FROM users WHERE username = ?
-        ''', (username,)).fetchone()
+        # Case-insensitive check untuk username agar lebih user-friendly
+        user = cursor.execute('SELECT * FROM users WHERE LOWER(username) = LOWER(?)', (username,)).fetchone()
 
         if user and check_password_hash(user['password'], password):
-            # SIMPAN KE SESSION
             session.clear()
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['role'] = user['role']
-            session['petugas_id'] = user['petugas_id'] # Nama petugas di rute_petugas
+            session['role'] = user['role'].lower()
+            # Mapping petugas_id (Contoh: PIAN, TEGUH, atau ALL)
+            session['petugas_id'] = user['petugas_id'] if user['petugas_id'] else 'ALL'
+
+            # Tentukan halaman tujuan berdasarkan role
+            redirect_to = "/"
+            if session['role'] == 'petugas':
+                redirect_to = "/belum-bayar"
 
             return APIResponse.success(data={
                 "role": user['role'],
-                "redirect": "/" if user['role'] in ['admin', 'publik'] else "/belum-bayar"
-            }, message="Login Berhasil")
+                "redirect": redirect_to
+            }, message=f"Selamat datang, {user['username']}")
         
         return APIResponse.error("Username atau password salah", code=401)
     finally:
         conn.close()
 
-@auth_bp.route('/logout', methods=['GET', 'POST'])
+@auth_bp.route('/logout')
 def logout():
-    """Hapus session dan keluar."""
+    """Hapus session dan arahkan kembali ke login dengan parameter status."""
     session.clear()
-    return redirect(url_for('login_page'))
+    return redirect(url_for('login_page', logout='success'))
+
+# --- USER MANAGEMENT API (Sinergi Admin Dashboard) ---
+
+@auth_bp.route('/users', methods=['GET'])
+def list_users():
+    """Mengambil daftar semua user (Hanya untuk Admin)."""
+    if session.get('role') != 'admin':
+        return APIResponse.error("Akses ditolak", code=403)
+        
+    conn = get_db_connection()
+    try:
+        users = conn.execute('SELECT id, username, role, petugas_id, created_at FROM users ORDER BY id DESC').fetchall()
+        return jsonify([dict(u) for u in users])
+    finally:
+        conn.close()
+
+@auth_bp.route('/register', methods=['POST'])
+def register():
+    """Mendaftarkan user baru dari Dashboard Admin."""
+    if session.get('role') != 'admin':
+        return APIResponse.error("Hanya Admin yang bisa menambah user", code=403)
+        
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    role = data.get('role', 'petugas')
+    petugas_id = data.get('petugas_id', '').upper()
+
+    if not username or not password:
+        return APIResponse.error("Username dan Password wajib diisi")
+
+    conn = get_db_connection()
+    try:
+        hashed_pw = generate_password_hash(password)
+        conn.execute('''
+            INSERT INTO users (username, password, role, petugas_id) 
+            VALUES (?, ?, ?, ?)
+        ''', (username, hashed_pw, role, petugas_id))
+        conn.commit()
+        return APIResponse.success(message=f"User {username} berhasil didaftarkan")
+    except Exception as e:
+        if 'UNIQUE constraint' in str(e):
+            return APIResponse.error("Username sudah terdaftar", code=400)
+        return APIResponse.error(str(e))
+    finally:
+        conn.close()
+
+@auth_bp.route('/delete-user/<username>', methods=['DELETE'])
+def delete_user(username):
+    """Menghapus user (Kecuali admin_sunter)."""
+    if session.get('role') != 'admin':
+        return APIResponse.error("Akses ditolak", code=403)
+
+    if username == 'admin_sunter':
+        return APIResponse.error("Admin utama tidak boleh dihapus", code=400)
+
+    conn = get_db_connection()
+    try:
+        conn.execute('DELETE FROM users WHERE username = ?', (username,))
+        conn.commit()
+        return APIResponse.success(message="User berhasil dihapus")
+    finally:
+        conn.close()
 
 @auth_bp.route('/create-admin-initial', methods=['GET'])
 def create_initial_user():
-    """Helper sementara untuk membuat user admin pertama kali (bisa dihapus nanti)."""
+    """Helper Sinergi: Menjamin adanya akun Admin awal."""
     conn = get_db_connection()
     try:
-        # Contoh membuat 1 Admin dan 1 Petugas
         pw_admin = generate_password_hash('admin123')
-        pw_petugas = generate_password_hash('petugas123')
-        
-        conn.execute('INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)',
-                    ('admin_sunter', pw_admin, 'admin'))
-        
-        conn.execute('INSERT OR IGNORE INTO users (username, password, role, petugas_id) VALUES (?, ?, ?, ?)',
-                    ('ahmad', pw_petugas, 'petugas', 'AHMAD')) # AHMAD harus ada di rute_petugas
-        
+        conn.execute('''
+            INSERT OR IGNORE INTO users (username, password, role, petugas_id) 
+            VALUES (?, ?, ?, ?)
+        ''', ('admin_sunter', pw_admin, 'admin', 'ALL'))
         conn.commit()
-        return APIResponse.success(message="User awal berhasil dibuat")
+        return APIResponse.success(message="Akun admin_sunter:admin123 siap digunakan")
     except Exception as e:
         return APIResponse.error(str(e))
     finally:
