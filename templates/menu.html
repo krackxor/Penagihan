@@ -2,7 +2,7 @@
     <div class="offcanvas-header py-4 px-4 text-white d-block" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
         <div class="d-flex justify-content-between align-items-start mb-3">
             <div class="bg-white rounded-3 text-primary d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
-                <i class="fas fa-bolt-lightning fa-xl text-primary"></i>
+                <i class="fas fa-shield-halved fa-xl text-primary"></i>
             </div>
             <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
@@ -22,7 +22,7 @@
             
             <a href="/" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
                 <div class="icon-box-formal me-3 bg-primary-subtle text-primary">
-                    <i class="fas fa-chart-pie"></i>
+                    <i class="fas fa-rectangle-list"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Dashboard Realisasi</span>
             </a>
@@ -50,87 +50,58 @@
 
             <a href="/tunggakan-berekor" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
                 <div class="icon-box-formal me-3 bg-danger-subtle text-danger">
-                    <i class="fas fa-dragon"></i>
+                    <i class="fas fa-layer-group"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">Tunggakan Ardebt</span>
+                <div class="flex-grow-1">
+                    <span class="fw-medium text-dark-emphasis d-block">Tunggakan Ardebt</span>
+                    <small class="text-muted" style="font-size: 0.65rem;">Piutang Tertunda</small>
+                </div>
+            </a>
+
+            <a href="/wa-blast" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3 bg-success-subtle text-success">
+                    <i class="fab fa-whatsapp"></i>
+                </div>
+                <span class="fw-medium text-dark-emphasis">WA Blast Massal</span>
             </a>
 
             <a href="/janji-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
                 <div class="icon-box-formal me-3 bg-info-subtle text-info">
-                    <i class="fas fa-calendar-check"></i>
+                    <i class="fas fa-user-clock"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Monitoring Janji Bayar</span>
             </a>
 
-            <a href="/galeri" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
-                <div class="icon-box-formal me-3">
-                    <i class="fas fa-camera-retro"></i>
-                </div>
-                <span class="fw-medium text-dark-emphasis">Galeri Kunjungan</span>
-            </a>
-
             <div class="my-3 border-top opacity-25 mx-2"></div>
 
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Sistem & Admin</small>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.6rem; letter-spacing: 1.2px; opacity: 0.8;">Sistem & Performa</small>
 
             <a href="/performa" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
-                <div class="icon-box-formal me-3 text-secondary">
-                    <i class="fas fa-medal"></i>
+                <div class="icon-box-formal me-3 bg-warning-subtle text-warning">
+                    <i class="fas fa-award"></i>
                 </div>
                 <span class="fw-medium text-dark-emphasis">Kinerja Petugas</span>
             </a>
 
-            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
-                <div class="icon-box-formal me-3 text-secondary">
-                    <i class="fas fa-cloud-upload-alt"></i>
+            <a href="/setting-rute" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3 bg-dark-subtle text-dark">
+                    <i class="fas fa-route"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">Sinkronisasi Data</span>
+                <span class="fw-medium text-dark-emphasis">Mapping Rute</span>
             </a>
 
-            <a href="/history" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
-                <div class="icon-box-formal me-3 text-secondary">
-                    <i class="fas fa-clock-rotate-left"></i>
+            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3">
+                <div class="icon-box-formal me-3 text-secondary border">
+                    <i class="fas fa-database"></i>
                 </div>
-                <span class="fw-medium text-dark-emphasis">Log Sistem</span>
+                <span class="fw-medium text-dark-emphasis">Sinkronisasi Data</span>
             </a>
         </div>
     </div>
     
     <div class="offcanvas-footer p-4 bg-light border-top">
-        <button class="btn btn-dark w-100 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center border-0 shadow-sm" style="background: #1e293b;">
-            <i class="fas fa-power-off me-2" style="font-size: 0.85rem;"></i> KELUAR SISTEM
+        <button class="btn btn-dark w-100 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center border-0" style="background: #1e293b;">
+            <i class="fas fa-sign-out-alt me-2"></i> KELUAR SISTEM
         </button>
-        <p class="text-center text-muted mt-3 mb-0" style="font-size: 0.6rem; font-weight: 600; letter-spacing: 0.5px;">SUNTER PRO V2.5.0 • 2026</p>
     </div>
 </div>
-
-<style>
-    /* Styling Tambahan untuk Robustness */
-    .icon-box-formal {
-        width: 38px;
-        height: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 10px;
-        font-size: 1.1rem;
-        background-color: #f8f9fa;
-        transition: all 0.3s ease;
-    }
-    
-    .nav-link-custom:hover .icon-box-formal {
-        transform: scale(1.1);
-        background-color: #e9ecef;
-    }
-    
-    .nav-link-custom span {
-        font-size: 0.9rem;
-        letter-spacing: -0.2px;
-    }
-
-    @keyframes pulse {
-        0% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(1.2); }
-        100% { opacity: 1; transform: scale(1); }
-    }
-</style>
