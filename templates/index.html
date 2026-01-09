@@ -10,7 +10,7 @@
                 </h4>
                 <p class="text-muted small mb-0" id="display-date"></p>
                 {% if session['role'] == 'petugas' %}
-                    <span class="badge bg-primary-subtle text-primary rounded-pill mt-1" style="font-size: 0.6rem;">PETUGAS: {{ session['petugas_id'] }}</span>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill mt-1" style="font-size: 0.6rem;">ID PETUGAS: {{ session['petugas_id'] }}</span>
                 {% endif %}
             </div>
             <div class="d-flex gap-2">
@@ -56,13 +56,13 @@
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">UNDUE (MB)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS (MB)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">CURRENT (COLL)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">LUNAS (COLL)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
@@ -83,28 +83,28 @@
         </div>
     </div>
 
-    {% if session['role'] == 'admin' %}
     <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
-        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between">
-            <h6 class="fw-bold mb-0 small"><i class="fas fa-chart-bar me-2 text-primary"></i>Ranking Aktivitas Lapangan</h6>
+        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0 small"><i class="fas fa-award text-warning me-2"></i>Ranking Performa Petugas</h6>
+            <span class="badge bg-light text-muted fw-normal" style="font-size: 0.6rem;">Bulan Ini</span>
         </div>
         <div class="card-body pt-0">
-            <canvas id="performaChart" style="height: 180px;"></canvas>
+            {% if session['role'] == 'admin' %}
+            <div style="height: 180px; margin-bottom: 20px;">
+                <canvas id="performaChart"></canvas>
+            </div>
+            {% endif %}
+            <div id="leaderboard-section">
+                <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+            </div>
         </div>
     </div>
-
-    <div class="px-1 mb-3">
-        <h6 class="fw-bold small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-medal text-warning me-2"></i>Top Performa Petugas</h6>
-    </div>
-    <div id="leaderboard-section" class="mb-4">
-        </div>
-    {% endif %}
 
     <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
-        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-stream text-primary me-2"></i>Log Aktivitas Live</h6>
+        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-stream text-primary me-2"></i>Aktivitas Terbaru</h6>
         <div class="d-flex align-items-center bg-white shadow-sm rounded-pill px-3 py-1 border border-danger border-opacity-25">
             <span class="realtime-dot me-2"></span>
-            <small class="fw-bold text-danger" style="font-size: 0.55rem;">SYNC</small>
+            <small class="fw-bold text-danger" style="font-size: 0.55rem;">LIVE</small>
         </div>
     </div>
     <div id="list-history-petugas" class="mb-3"></div>
@@ -123,6 +123,7 @@
     const logsPerPage = 10; 
     let myChart = null;
     const USER_ROLE = "{{ session['role'] }}";
+    const MY_PETUGAS_ID = "{{ session['petugas_id'] }}";
 
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     
@@ -147,6 +148,7 @@
         const periode = `${month}-${year}`; 
 
         try {
+            // Sinergi: API Backend akan otomatis memfilter jika role adalah petugas
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
             const result = await res.json();
             
@@ -154,12 +156,12 @@
 
             const g = result.global;
 
+            // Update Statistik
             document.getElementById('g-nomen-mc').innerText = (g.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc || 0);
             document.getElementById('stat-sisa-nom').innerText = toIDR(g.total_nominal_mc - (g.nom_undue + g.nom_current));
             document.getElementById('stat-sisa-nomen').innerText = (g.sisa_nomen || 0).toLocaleString();
             document.getElementById('stat-realisasi').innerText = `${(g.total_lunas_mc || 0).toLocaleString()} / ${(g.total_nomen_mc || 0).toLocaleString()}`;
-            
             document.getElementById('val-undue').innerText = (g.count_undue || 0).toLocaleString();
             document.getElementById('val-current').innerText = (g.count_current || 0).toLocaleString();
 
@@ -167,13 +169,16 @@
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            if (USER_ROLE === 'admin') {
+            // Update Leaderboard (Sinergi untuk semua role)
+            renderLeaderboard(result.officers || []);
+            
+            // Update Chart (Hanya Admin)
+            if (USER_ROLE === 'admin' && document.getElementById('performaChart')) {
                 renderChart(result.officers || []);
-                renderLeaderboard(result.officers || []);
             }
 
+            // Update Aktivitas
             allLogs = result.log_petugas || [];
-            currentPage = 1;
             renderLiveLogs();
 
         } catch (e) { console.error("Sync Error:", e); } 
@@ -184,65 +189,51 @@
         const lb = document.getElementById('leaderboard-section');
         if (!lb) return;
 
-        // Urutkan berdasarkan total_nominal (pencapaian rupiah tertinggi)
         const sorted = [...officers].sort((a, b) => b.total_nominal - a.total_nominal);
         
         lb.innerHTML = sorted.slice(0, 5).map((o, i) => {
-            let medal = '';
-            let borderClass = 'border-light';
+            let medal = (i === 0) ? '🥇' : (i === 1) ? '🥈' : (i === 2) ? '🥉' : (i + 1);
+            let isMe = (o.petugas === MY_PETUGAS_ID) ? 'border-primary bg-primary bg-opacity-10' : 'bg-white';
             
-            if(i === 0) { medal = '🥇'; borderClass = 'border-warning'; }
-            else if(i === 1) { medal = '🥈'; borderClass = 'border-secondary-subtle'; }
-            else if(i === 2) { medal = '🥉'; borderClass = 'border-danger-subtle'; }
-
             return `
-            <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-white border-start border-4 ${borderClass} animate__animated animate__fadeInUp" style="animation-delay: ${i * 0.1}s">
+            <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 ${isMe} animate__animated animate__fadeInUp" style="animation-delay: ${i * 0.1}s">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
-                        <div class="fw-bold text-center me-3" style="width: 25px; font-size: 1.1rem;">${medal || (i + 1)}</div>
+                        <div class="fw-bold text-center me-3" style="width: 25px;">${medal}</div>
                         <div>
-                            <h6 class="fw-bold mb-0 text-dark small text-uppercase">${o.petugas}</h6>
-                            <div class="d-flex align-items-center mt-1">
-                                <span class="badge bg-success-subtle text-success me-2" style="font-size: 0.55rem;">${o.jml_bayar} Lunas</span>
-                                <span class="badge bg-info-subtle text-info" style="font-size: 0.55rem;">${o.jml_janji} Janji</span>
-                            </div>
+                            <h6 class="fw-bold mb-0 text-dark small">${o.petugas} ${o.petugas === MY_PETUGAS_ID ? '(SAYA)' : ''}</h6>
+                            <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Lunas • ${o.jml_janji} Janji</small>
                         </div>
                     </div>
-                    <div class="text-end">
-                        <small class="text-muted d-block" style="font-size: 0.55rem;">TOTAL SETORAN</small>
-                        <span class="fw-bold text-primary" style="font-size: 0.85rem;">${toIDR(o.total_nominal)}</span>
-                    </div>
+                    <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 0.65rem;">${toIDR(o.total_nominal)}</span>
                 </div>
             </div>
             `;
-        }).join('');
+        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada data performa</div>';
     }
 
     function renderChart(officers) {
-        const chartEl = document.getElementById('performaChart');
-        if (!chartEl) return;
-        const ctx = chartEl.getContext('2d');
+        const ctx = document.getElementById('performaChart').getContext('2d');
         if (myChart) myChart.destroy();
         myChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: officers.map(o => o.petugas.split(' ')[0]),
                 datasets: [{ 
-                    label: 'Kunjungan', 
-                    data: officers.map(o => o.total_dijalan), 
+                    label: 'Pencapaian (Rp)', 
+                    data: officers.map(o => o.total_nominal), 
                     backgroundColor: '#3b82f6', 
-                    borderRadius: 8,
-                    barThickness: 20
+                    borderRadius: 5 
                 }]
             },
             options: { 
                 responsive: true, 
                 maintainAspectRatio: false, 
-                plugins: { legend: { display: false } }, 
+                plugins: { legend: { display: false } },
                 scales: { 
-                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, 
-                    x: { grid: { display: false } } 
-                } 
+                    y: { display: false },
+                    x: { grid: { display: false }, ticks: { font: { size: 9 } } } 
+                }
             }
         });
     }
@@ -252,24 +243,27 @@
         const start = (currentPage - 1) * logsPerPage;
         const currentLogs = allLogs.slice(start, start + logsPerPage);
         
-        container.innerHTML = currentLogs.map(log => `
-            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
+        container.innerHTML = currentLogs.map(log => {
+            let labelClass = log.keterangan.includes('Sudah') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
+            return `
+            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white">
                 <div class="d-flex justify-content-between small mb-1">
-                    <span class="fw-bold text-dark text-uppercase">${log.petugas}</span>
-                    <span class="text-muted" style="font-size:0.6rem;"><i class="far fa-clock me-1"></i>${log.waktu.split(' ')[1]}</span>
+                    <span class="fw-bold text-dark">${log.petugas}</span>
+                    <span class="text-muted" style="font-size:0.6rem;">${log.waktu.split(' ')[1]}</span>
                 </div>
-                <div class="small text-muted text-truncate mb-2">ID: <b>${log.nomen}</b> - ${log.nama || 'Pelanggan'}</div>
+                <div class="small text-muted text-truncate mb-2">ID: ${log.nomen} - ${log.nama || 'Pelanggan'}</div>
                 <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-                    <span class="badge ${log.keterangan.includes('Sudah') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'} rounded-pill" style="font-size:0.6rem;">${log.keterangan}</span>
-                    <span class="fw-bold text-primary" style="font-size:0.7rem;">${toIDR(log.nominal || 0)}</span>
+                    <span class="badge ${labelClass} rounded-pill" style="font-size:0.55rem;">${log.keterangan}</span>
+                    <span class="fw-bold text-primary" style="font-size:0.75rem;">${toIDR(log.nominal || 0)}</span>
                 </div>
             </div>
-        `).join('') || '<div class="text-center py-4 text-muted small">Belum ada aktivitas hari ini</div>';
+            `;
+        }).join('') || '<div class="text-center py-4 text-muted small">Belum ada aktivitas</div>';
         
         const totalPages = Math.ceil(allLogs.length / logsPerPage) || 1;
         document.getElementById('page-info').innerText = `Hal ${currentPage} / ${totalPages}`;
         document.getElementById('btn-prev').disabled = currentPage === 1;
-        document.getElementById('btn-next').disabled = currentPage === totalPages;
+        document.getElementById('btn-next').disabled = currentPage === totalPages || allLogs.length === 0;
     }
 
     function changePage(step) {
