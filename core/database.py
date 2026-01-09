@@ -46,7 +46,7 @@ def init_db(app):
 
             cursor = db.cursor()
             
-            # 2. Pastikan Tabel upload_history Tersedia
+            # 2. Pastikan Tabel Dasar Tersedia
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS upload_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,44 +59,57 @@ def init_db(app):
                 )
             """)
 
+            # --- SINERGI: Tabel Users untuk Login 3 Level ---
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    role TEXT NOT NULL, -- 'admin', 'petugas', 'publik'
+                    petugas_id TEXT,    -- Mapping ke nama petugas di rute_petugas
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            print("✅ Tabel 'users' siap (Sinergi Login 3 Level).")
+
             # 3. LOGIKA AUTO-MIGRASI KOLOM (Mencegah OperationalError)
             
             # --- Migrasi Tabel master_pelanggan ---
             cursor.execute("PRAGMA table_info(master_pelanggan)")
             cols_pelanggan = [row['name'] for row in cursor.fetchall()]
             
-            # Kolom untuk identifikasi Rayon (34/35) - KRUSIAL UNTUK MONITORING
             if 'rayon' not in cols_pelanggan:
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN rayon TEXT")
-                print("➕ Kolom 'rayon' ditambahkan ke master_pelanggan.")
+                print("➕ Kolom 'rayon' ditambahkan.")
 
             if 'nomet' not in cols_pelanggan:
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN nomet TEXT")
-                print("➕ Kolom 'nomet' ditambahkan ke master_pelanggan.")
+                print("➕ Kolom 'nomet' ditambahkan.")
             
             if 'periode' not in cols_pelanggan:
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN periode TEXT")
-                print("➕ Kolom 'periode' ditambahkan ke master_pelanggan.")
-                
+            
             if 'volume' not in cols_pelanggan:
                 cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN volume REAL DEFAULT 0")
-                print("➕ Kolom 'volume' ditambahkan ke master_pelanggan.")
+
+            # --- Migrasi Tabel rute_petugas (Tambahkan No Admin) ---
+            cursor.execute("PRAGMA table_info(rute_petugas)")
+            cols_rute = [row['name'] for row in cursor.fetchall()]
+            if 'no_admin' not in cols_rute:
+                cursor.execute("ALTER TABLE rute_petugas ADD COLUMN no_admin TEXT DEFAULT '628123456789'")
+                print("➕ Kolom 'no_admin' ditambahkan ke rute_petugas.")
 
             # --- Migrasi Tabel collection_harian ---
             cursor.execute("PRAGMA table_info(collection_harian)")
             cols_coll = [row['name'] for row in cursor.fetchall()]
-            
-            # Kolom pay_dt untuk monitoring per tanggal
             if 'pay_dt' not in cols_coll:
                 cursor.execute("ALTER TABLE collection_harian ADD COLUMN pay_dt TEXT")
-                print("➕ Kolom 'pay_dt' ditambahkan ke collection_harian.")
 
             # --- Migrasi Tabel ardebt ---
             cursor.execute("PRAGMA table_info(ardebt)")
             cols_ardebt = [row['name'] for row in cursor.fetchall()]
             if 'volume' not in cols_ardebt:
                 cursor.execute("ALTER TABLE ardebt ADD COLUMN volume REAL DEFAULT 0")
-                print("➕ Kolom 'volume' ditambahkan ke ardebt.")
 
             # --- Migrasi tabel transaksi lainnya untuk kolom periode ---
             tables_to_check = ['master_bayar', 'collection_harian', 'kunjungan_petugas']
@@ -105,7 +118,6 @@ def init_db(app):
                 cols = [row['name'] for row in cursor.fetchall()]
                 if 'periode' not in cols:
                     cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
-                    print(f"➕ Kolom 'periode' ditambahkan ke {table}.")
 
             db.commit()
             print("✅ Database initialized and migrated successfully.")
