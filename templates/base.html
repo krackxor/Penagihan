@@ -73,7 +73,7 @@
             padding: 12px 0; border-top: 1px solid #e2e8f0;
             box-shadow: 0 -5px 20px rgba(0,0,0,0.05); z-index: 1000;
         }
-        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 600; }
+        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 600; transition: 0.3s; }
         .nav-item-link.active { color: var(--sunter-blue); }
         .nav-item-link i { font-size: 1.3rem; display: block; margin-bottom: 4px; }
 
@@ -96,12 +96,12 @@
             {% if session['username'] %}
             <div class="dropdown">
                 <button class="btn btn-white rounded-circle p-0 border shadow-sm" style="width: 40px; height: 40px;" data-bs-toggle="dropdown">
-                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0D6EFD&color=fff&bold=true" class="rounded-circle w-100">
+                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0D6EFD&color=fff&bold=true" class="rounded-circle w-100" alt="Profile">
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-3 rounded-4 animate__animated animate__fadeInUp animate__faster">
                     <li class="px-3 py-3">
                         <div class="fw-bold text-dark small">{{ session['username']|upper }}</div>
-                        <div class="text-muted" style="font-size: 0.7rem;">Sesi: {{ session['role'] }}</div>
+                        <div class="text-muted" style="font-size: 0.7rem;">Sesi Akun: {{ session['role']|capitalize }}</div>
                     </li>
                     <li><hr class="dropdown-divider opacity-50"></li>
                     <li><a class="dropdown-item py-2 text-danger fw-bold small" href="/api/auth/logout"><i class="fas fa-sign-out-alt me-2"></i> Keluar Sistem</a></li>
@@ -165,26 +165,38 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <script>
-        // Sinergi: Efek visual saat navigasi diklik
-        document.querySelectorAll('.offcanvas-body a, .bottom-nav a').forEach(link => {
-            link.addEventListener('click', (e) => {
-                // Untuk menu samping, sembunyikan offcanvas setelah diklik
-                const offcanvasElement = document.getElementById('offcanvasMenu');
-                const bsOffcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
-                if(bsOffcanvas) bsOffcanvas.hide();
+        // Sinergi UI: Menangani navigasi dan UX Mobile
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-close Offcanvas saat link diklik (UX Mobile)
+            const offcanvasElement = document.getElementById('offcanvasMenu');
+            const bsOffcanvas = new bootstrap.Offcanvas(offcanvasElement);
+            
+            document.querySelectorAll('.offcanvas-body a').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth < 992) {
+                        bsOffcanvas.hide();
+                    }
+                });
             });
+
+            // Sinkronisasi Alert Logout
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('logout') === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Logout Berhasil',
+                    text: 'Sesi Anda telah diakhiri dengan aman.',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    background: '#fff',
+                    color: '#0f172a'
+                });
+                // Bersihkan URL dari parameter logout
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
         });
-        
-        // Cek status login via session untuk alert logout
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('logout')) {
-            Swal.fire({
-                icon: 'success', title: 'Logout Berhasil', 
-                text: 'Sesi Anda telah diakhiri dengan aman.',
-                timer: 2000, showConfirmButton: false
-            });
-        }
     </script>
 </body>
 </html>
