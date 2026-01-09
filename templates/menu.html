@@ -1,136 +1,45 @@
 <div class="offcanvas offcanvas-start border-0 shadow-lg" tabindex="-1" id="offcanvasMenu" style="width: 285px;">
-    <div class="offcanvas-header py-4 px-4 text-white d-block" 
-         style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); position: relative; overflow: hidden;">
-        <div class="d-flex justify-content-between align-items-center mb-3" style="position: relative; z-index: 2;">
-            <div class="bg-white rounded-4 p-2 shadow-sm d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
-                <i class="fas fa-bolt-lightning text-primary fa-lg"></i>
-            </div>
-            <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas"></button>
+    <div class="offcanvas-header py-4 px-4 text-white d-block" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+        <h5 class="offcanvas-title fw-bold mb-0">SUNTER PRO</h5>
+        <div class="mt-2">
+            {% if session.get('role') %}
+                <span class="badge bg-primary rounded-pill">{{ session['role']|upper }}</span>
+                <small class="text-white-50 ms-2">{{ session['username'] }}</small>
+            {% else %}
+                <span class="badge bg-secondary rounded-pill">GUEST</span>
+            {% endif %}
         </div>
-        <div style="position: relative; z-index: 2;">
-            <h5 class="offcanvas-title fw-bold mb-0">SUNTER PRO</h5>
-            <div class="mt-2 d-flex align-items-center">
-                {% if session.get('role') %}
-                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill me-2" style="font-size: 0.6rem;">
-                        {{ session['role']|upper }}
-                    </span>
-                    <small class="text-white-50 fw-medium">{{ session.get('username') }}</small>
-                {% else %}
-                    <span class="badge bg-secondary rounded-pill me-2" style="font-size: 0.6rem;">GUEST</span>
-                    <small class="text-white-50">Silakan Login</small>
-                {% endif %}
-            </div>
-        </div>
-        <i class="fas fa-shield-halved" style="position: absolute; right: -20px; bottom: -20px; font-size: 6rem; opacity: 0.1; transform: rotate(-15deg);"></i>
     </div>
 
     <div class="offcanvas-body p-0 bg-white">
         <div class="list-group list-group-flush mt-3 px-3">
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2">Utama</small>
+            <a href="/" class="nav-link-custom list-group-item border-0 rounded-4">Dashboard</a>
+            <a href="/monitoring-collection" class="nav-link-custom list-group-item border-0 rounded-4">Monitoring</a>
+
+            {% set role = session.get('role', '')|lower %}
             
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.65rem; letter-spacing: 1px;">Menu Utama</small>
-            
-            <a href="/" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/' %}active-menu{% endif %}">
-                <i class="fas fa-chart-pie me-3"></i>Dashboard Realisasi
-            </a>
-
-            <a href="/monitoring-collection" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
-                <i class="fas fa-gauge-high me-3"></i>Monitoring Harian
-            </a>
-
-            {% set current_role = session.get('role', 'publik')|lower %}
-
+            {% if role in ['petugas', 'admin'] %}
             <div class="my-3 border-top opacity-25"></div>
-
-            {# Operasional Lapangan: Muncul untuk Petugas dan Admin #}
-            {% if current_role in ['petugas', 'admin'] %}
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.65rem; letter-spacing: 1px;">Operasional Lapangan</small>
-            
-            <a href="/belum-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
-                <i class="fas fa-hand-holding-dollar me-3"></i>Penagihan Current
-            </a>
-
-            <a href="/tunggakan-berekor" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/tunggakan-berekor' %}active-menu{% endif %}">
-                <i class="fas fa-file-invoice-dollar me-3"></i>Tunggakan Ardebt
-            </a>
-
-            <a href="/janji-bayar" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
-                <i class="fas fa-calendar-check me-3"></i>Daftar Janji Bayar
-            </a>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2">Petugas</small>
+            <a href="/belum-bayar" class="nav-link-custom list-group-item border-0 rounded-4">Penagihan</a>
+            <a href="/janji-bayar" class="nav-link-custom list-group-item border-0 rounded-4">Janji Bayar</a>
             {% endif %}
 
-            {# Pusat Kendali: Khusus Admin #}
-            {% if current_role == 'admin' %}
+            {% if role == 'admin' %}
             <div class="my-3 border-top opacity-25"></div>
-            <small class="text-muted text-uppercase fw-bold mb-2 ps-2" style="font-size: 0.65rem; letter-spacing: 1px;">Pusat Kendali</small>
-
-            <a href="/wa-blast" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/wa-blast' %}active-menu{% endif %}">
-                <i class="fab fa-whatsapp me-3 text-success"></i>WhatsApp Blast
-            </a>
-
-            <a href="/admin/dashboard" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
-                <i class="fas fa-users-gear me-3"></i>Kelola User & Rute
-            </a>
-
-            <a href="/upload" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-4 mb-1 py-3 {% if request.path == '/upload' %}active-menu{% endif %}">
-                <i class="fas fa-cloud-arrow-up me-3 text-primary"></i>Sinkronisasi Data
-            </a>
+            <small class="text-muted text-uppercase fw-bold mb-2 ps-2">Admin</small>
+            <a href="/admin/dashboard" class="nav-link-custom list-group-item border-0 rounded-4">Kelola User</a>
+            <a href="/upload" class="nav-link-custom list-group-item border-0 rounded-4">Upload Data</a>
             {% endif %}
-
         </div>
     </div>
 
-    <div class="offcanvas-footer p-4 border-top bg-light">
+    <div class="offcanvas-footer p-4 border-top">
         {% if session.get('username') %}
-        <a href="/api/auth/logout" class="btn btn-outline-danger w-100 rounded-pill fw-bold btn-sm py-2">
-            <i class="fas fa-power-off me-2"></i>Logout dari Sistem
-        </a>
+            <a href="/api/auth/logout" class="btn btn-outline-danger w-100">Logout</a>
         {% else %}
-        <a href="/login" class="btn btn-primary w-100 rounded-pill fw-bold py-2">
-            <i class="fas fa-sign-in-alt me-2"></i>Login Akses
-        </a>
+            <a href="/login" class="btn btn-primary w-100">Login</a>
         {% endif %}
     </div>
 </div>
-
-<style>
-    .nav-link-custom {
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        font-weight: 600;
-        color: #64748b;
-        font-size: 0.85rem;
-    }
-    .nav-link-custom i {
-        width: 24px;
-        text-align: center;
-        font-size: 1.1rem;
-        transition: transform 0.2s;
-    }
-    .nav-link-custom:hover {
-        background-color: #f8fafc !important;
-        color: #3b82f6;
-    }
-    .nav-link-custom:hover i {
-        transform: scale(1.1);
-    }
-    .active-menu {
-        background-color: #eff6ff !important;
-        color: #2563eb !important;
-        position: relative;
-    }
-    .active-menu::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 20%;
-        height: 60%;
-        width: 4px;
-        background-color: #2563eb;
-        border-radius: 0 4px 4px 0;
-    }
-    .active-menu i {
-        color: #2563eb;
-    }
-    .list-group-item {
-        -webkit-tap-highlight-color: transparent;
-    }
-</style>
