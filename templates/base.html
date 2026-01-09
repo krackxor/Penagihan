@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sunter Pro - Penagihan</title>
+    <title>Sunter Pro - Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
@@ -12,10 +12,16 @@
     <style>
         :root { --primary-gradient: linear-gradient(135deg, #0d6efd 0%, #003d99 100%); }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f4f7fe; color: #2d3748; overflow-x: hidden; }
+        
+        /* Navbar & Sidebar Styling */
         .navbar { background: rgba(255, 255, 255, 0.9) !important; backdrop-filter: blur(10px); border-bottom: 1px solid #e2e8f0; }
         .navbar-brand { font-weight: 800; letter-spacing: -1px; color: #0d6efd !important; }
         .btn-menu-toggle { border: none; background: #edf2f7; border-radius: 10px; width: 40px; height: 40px; transition: 0.3s; }
-        .btn-menu-toggle:active { transform: scale(0.9); background: #e2e8f0; }
+        
+        /* Profile Section in Sidebar */
+        .user-profile-box { background: var(--primary-gradient); border-radius: 15px; padding: 15px; color: white; margin-bottom: 20px; }
+        .role-badge { font-size: 0.7rem; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 5px; text-transform: uppercase; }
+        
         .main-content { padding-bottom: 80px; }
     </style>
 </head>
@@ -28,14 +34,53 @@
             <a class="navbar-brand mx-auto" href="/">
                 <i class="fas fa-bolt me-1"></i> SUNTER PRO
             </a>
-            <div style="width: 40px;"></div> </div>
+            
+            {% if session['username'] %}
+            <div class="dropdown">
+                <button class="btn btn-light rounded-circle p-0" style="width: 35px; height: 35px;" data-bs-toggle="dropdown">
+                    <i class="fas fa-user-circle text-primary"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 rounded-3">
+                    <li class="px-3 py-2 small fw-bold text-muted border-bottom mb-1">
+                        Halo, {{ session['username'] }}
+                    </li>
+                    <li><a class="dropdown-item text-danger" href="/api/auth/logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
+                </ul>
+            </div>
+            {% else %}
+            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-3">Login</a>
+            {% endif %}
+        </div>
     </nav>
 
-    {% include 'menu.html' %}
+    <div class="offcanvas offcanvas-start border-0 shadow" tabindex="-1" id="offcanvasMenu" style="width: 280px;">
+        <div class="offcanvas-body p-3">
+            {% if session['username'] %}
+            <div class="user-profile-box shadow-sm animate__animated animate__fadeIn">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
+                        <i class="fas fa-user-shield fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-0 fw-bold">{{ session['username'] }}</h6>
+                        <span class="role-badge">{{ session['role'] }}</span>
+                    </div>
+                </div>
+                {% if session['petugas_id'] %}
+                <div class="small opacity-75"><i class="fas fa-map-marker-alt me-1"></i> Wilayah: {{ session['petugas_id'] }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% include 'menu.html' %}
+        </div>
+    </div>
 
     <div class="container-fluid main-content">
         {% block content %}{% endblock %}
     </div>
+
+    
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
