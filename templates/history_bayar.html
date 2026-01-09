@@ -4,7 +4,7 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 text-center">
         <h4 class="fw-bold mb-1 text-dark">Analisis Riwayat Bayar 📊</h4>
-        <p class="text-muted small">Tren pembayaran 3 bulan terakhir & radar pelanggan macet</p>
+        <p class="text-muted small">Tren pembayaran 3 bulan terakhir & audit aktivitas</p>
     </div>
 
     <div class="bg-white p-1 rounded-4 shadow-sm mb-4 border mx-1">
@@ -17,6 +17,11 @@
             <li class="nav-item">
                 <button class="nav-link rounded-3 fw-bold small py-2" id="current-tab" data-bs-toggle="tab" data-bs-target="#current-pane" type="button">
                     <i class="fas fa-bolt me-1 text-warning"></i> CURRENT
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link rounded-3 fw-bold small py-2" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit-pane" type="button">
+                    <i class="fas fa-user-check me-1 text-primary"></i> AUDIT
                 </button>
             </li>
             <li class="nav-item">
@@ -46,13 +51,22 @@
             </div>
         </div>
 
+        <div class="tab-pane fade" id="audit-pane" role="tabpanel">
+            <div id="list-audit">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">Sinkronisasi log lapangan...</p>
+                </div>
+            </div>
+        </div>
+
         <div class="tab-pane fade" id="macet-pane" role="tabpanel">
             <div class="alert alert-danger mx-1 rounded-4 border-0 shadow-sm mb-3">
                 <div class="d-flex">
                     <i class="fas fa-info-circle me-2 mt-1"></i>
                     <div>
                         <small class="fw-bold d-block">RADAR MACET (Sangat Penting)</small>
-                        <small style="font-size: 0.7rem;">Daftar pelanggan aktif di MC terbaru yang memiliki akumulasi tunggakan berekor di Ardebt.</small>
+                        <small style="font-size: 0.7rem;">Pelanggan aktif di MC terbaru dengan akumulasi tunggakan Ardebt.</small>
                     </div>
                 </div>
             </div>
@@ -66,17 +80,18 @@
     </div>
 </div>
 
+
+
 <script>
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    // 1. Load Data Analisis Tren (Undue & Current)
+    // 1. Load Data Analisis Tren (Undue & Current) - FUNGSI LAMA UTUH
     async function loadAnalisis() {
         try {
             const res = await fetch('/api/history/analisis-bayar');
             const result = await res.json();
             const data = result.data || [];
             
-            // Filter berdasarkan tipe_pembayaran sesuai struktur backend
             const undueData = data.filter(d => d.tipe_pembayaran === 'Undue');
             const currentData = data.filter(d => d.tipe_pembayaran === 'Current');
 
@@ -95,7 +110,7 @@
         }
 
         container.innerHTML = data.map(item => `
-            <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 border-start border-4 ${accentClass.replace('bg-', 'border-')}">
+            <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 border-start border-4 ${accentClass.replace('bg-', 'border-')} animate__animated animate__fadeInUp">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
@@ -113,7 +128,7 @@
         `).join('');
     }
 
-    // 2. Load Data Radar Macet (Ardebt Cross-Check)
+    // 2. Load Data Radar Macet (FUNGSI LAMA UTUH)
     async function loadNomenMacet() {
         const container = document.getElementById('list-macet');
         try {
@@ -127,7 +142,7 @@
             }
 
             container.innerHTML = data.map(item => `
-                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 bg-white position-relative overflow-hidden">
+                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 animate__animated animate__fadeInUp">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between mb-2">
                             <span class="badge bg-danger text-white rounded-pill px-2" style="font-size: 0.65rem;">
@@ -137,7 +152,6 @@
                         </div>
                         <h6 class="fw-bold mb-1 text-dark text-uppercase" style="font-size: 0.9rem;">${item.nama}</h6>
                         <small class="text-muted d-block mb-2">Rute: ${item.pcez || '-'}</small>
-                        
                         <div class="row g-0 mt-2 pt-2 border-top">
                             <div class="col-6">
                                 <small class="text-muted d-block" style="font-size: 0.6rem;">TAGIHAN TERBARU</small>
@@ -156,33 +170,54 @@
         }
     }
 
+    // 3. Load Audit Kunjungan (FUNGSI BARU SINERGI)
+    async function loadAuditKunjungan() {
+        const container = document.getElementById('list-audit');
+        try {
+            const res = await fetch('/api/history/kunjungan');
+            const result = await res.json();
+            const data = result.data || [];
+
+            if (data.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada aktivitas lapangan.</div>';
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 animate__animated animate__fadeInUp">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="text-primary fw-bold"><i class="fas fa-user me-1"></i>${item.petugas_name}</small>
+                            <small class="text-muted" style="font-size: 0.65rem;">${item.waktu}</small>
+                        </div>
+                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${item.nama}</h6>
+                        <div class="d-flex justify-content-between mt-2">
+                            <span class="badge bg-light text-dark border rounded-pill" style="font-size: 0.65rem;">${item.keterangan}</span>
+                            <small class="text-danger fw-bold" style="font-size: 0.75rem;">Total: ${toIDR(item.mc + item.ardebt)}</small>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = '<div class="text-center py-5 text-muted small">Gagal memuat log audit.</div>';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         loadAnalisis();
-        // Hanya load data macet jika tab macet diklik (untuk efisiensi)
+        // Sinergi: Load data hanya saat tab diklik untuk hemat resource
         document.getElementById('macet-tab').addEventListener('shown.bs.tab', loadNomenMacet);
+        document.getElementById('audit-tab').addEventListener('shown.bs.tab', loadAuditKunjungan);
     });
 </script>
 
 <style>
-    /* Styling Nav Pills agar lebih modern */
-    .nav-pills .nav-link {
-        color: #6c757d;
-        transition: all 0.3s;
-    }
-    .nav-pills .nav-link.active {
-        background-color: #0d6efd;
-        color: white !important;
-        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2);
-    }
-    
-    /* Warna khusus untuk Tab Macet saat aktif */
-    .nav-item:last-child .nav-link.active {
-        background-color: #dc3545 !important;
-        box-shadow: 0 4px 10px rgba(220, 53, 69, 0.2);
-    }
-
+    .nav-pills .nav-link { color: #6c757d; transition: all 0.3s; border: 1px solid transparent; }
+    .nav-pills .nav-link.active { background-color: #0d6efd; color: white !important; box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2); }
+    .nav-item:nth-child(3) .nav-link.active { background-color: #0d6efd !important; } /* Audit Tab */
+    .nav-item:last-child .nav-link.active { background-color: #dc3545 !important; box-shadow: 0 4px 10px rgba(220, 53, 69, 0.2); } /* Macet Tab */
     .border-info { border-color: #0dcaf0 !important; }
     .border-warning { border-color: #ffc107 !important; }
-    .bg-danger-subtle { background-color: #f8d7da; }
+    .animate__animated { --animate-duration: 0.5s; }
 </style>
 {% endblock %}
