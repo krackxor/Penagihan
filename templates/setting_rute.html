@@ -1,144 +1,214 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="animate__animated animate__fadeIn px-2 pb-5">
-    <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
+<div class="container py-4 animate__animated animate__fadeIn">
+    <div class="mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1 text-dark">Manajemen Rute 🗺️</h4>
-            <p class="text-muted small mb-0">Atur penugasan rute PCEZ ke petugas</p>
+            <h4 class="fw-bold mb-1">Pengaturan Mapping Rute 🗺️</h4>
+            <p class="text-muted small mb-0">Hubungkan Kode PCEZ dengan Petugas Lapangan</p>
         </div>
-        <a href="/upload" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold shadow-sm">
-            <i class="fas fa-file-upload me-1"></i> Upload
-        </a>
+        <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="loadRute()">
+            <i class="fas fa-sync-alt me-1"></i> Refresh
+        </button>
     </div>
 
-    <div class="mb-3">
-        <div class="input-group bg-white shadow-sm rounded-4 border overflow-hidden px-3">
-            <span class="input-group-text bg-transparent border-0"><i class="fas fa-search text-muted"></i></span>
-            <input type="text" id="searchRute" class="form-control border-0 py-2 shadow-none" placeholder="Cari Kode PCEZ atau Petugas..." onkeyup="filterRute()">
+    <div class="card border-0 shadow-sm rounded-4 mb-3 bg-primary text-white d-none" id="mass-toolbar">
+        <div class="card-body p-3 d-flex justify-content-between align-items-center">
+            <span class="small fw-bold"><i class="fas fa-check-double me-2"></i><span id="selected-count">0</span> Rute Terpilih</span>
+            <div class="d-flex gap-2">
+                <select id="mass-petugas" class="form-select form-select-sm border-0 rounded-3 shadow-none" style="width: 150px;">
+                    <option value="">-- Pilih Petugas --</option>
+                </select>
+                <button class="btn btn-light btn-sm fw-bold px-3 rounded-3" onclick="processMassUpdate()">Update</button>
+                <button class="btn btn-close btn-close-white" onclick="cancelSelection()"></button>
+            </div>
         </div>
     </div>
 
-    <div id="rute-container">
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted small">Sinkronisasi rute...</p>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="p-3 bg-white border-bottom">
+            <div class="input-group bg-light rounded-3 px-2">
+                <span class="input-group-text border-0 bg-transparent text-muted"><i class="fas fa-search"></i></span>
+                <input type="text" id="searchRute" class="form-control border-0 bg-transparent py-2 shadow-none" 
+                       placeholder="Cari Kode PCEZ atau Nama Petugas..." onkeyup="filterRute()">
+            </div>
+        </div>
+        <div class="table-responsive" style="max-height: 70vh;">
+            <table class="table align-middle mb-0 table-hover">
+                <thead class="bg-light sticky-top">
+                    <tr class="small text-uppercase fw-bold text-muted">
+                        <th class="ps-3" style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="check-all" onclick="toggleAll()">
+                        </th>
+                        <th>Kode PCEZ</th>
+                        <th>Petugas Lapangan</th>
+                        <th>Admin WA</th>
+                        <th class="text-center">Jml Pel</th>
+                        <th class="text-end pe-3">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="ruteTableBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditRute" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header border-0 bg-light p-3">
+                <h6 class="modal-title fw-bold">Edit Mapping Rute</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="edit-pcez">
+                <div class="mb-3">
+                    <label class="small fw-bold mb-1">Kode PCEZ</label>
+                    <input type="text" id="display-pcez" class="form-control bg-light border-0 fw-bold" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold mb-1">Petugas Lapangan</label>
+                    <input type="text" id="edit-petugas" class="form-control rounded-3 text-uppercase" placeholder="Nama Petugas di Excel">
+                </div>
+                <div class="mb-4">
+                    <label class="small fw-bold mb-1">Nomor WhatsApp Admin</label>
+                    <input type="tel" id="edit-no-admin" class="form-control rounded-3" placeholder="628123456789">
+                    <small class="text-muted" style="font-size: 0.65rem;">Gunakan format 62 tanpa tanda + atau spasi.</small>
+                </div>
+                <button class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm" onclick="saveSingleRute()">
+                    <i class="fas fa-save me-1"></i> SIMPAN PERUBAHAN
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    async function loadRuteManager() {
-        const container = document.getElementById('rute-container');
+    let ruteData = [];
+    const editModal = new bootstrap.Modal(document.getElementById('modalEditRute'));
+
+    async function loadRute() {
+        const body = document.getElementById('ruteTableBody');
+        body.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
         
         try {
             const res = await fetch('/api/rute/list');
-            const data = await res.json();
-
-            if(data.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-5 bg-white rounded-4 shadow-sm mx-1 border">
-                        <i class="fas fa-map-marked-alt fa-3x text-light mb-3"></i>
-                        <p class="text-muted mb-0 px-4">Data rute masih kosong.<br>Silakan upload file MC terlebih dahulu.</p>
-                    </div>`;
-                return;
-            }
-
-            container.innerHTML = data.map(item => {
-                const isAssigned = item.petugas && item.petugas.trim() !== "";
-                const inputId = `input-${item.pcez.replace(/[^a-zA-Z0-9]/g, '-')}`;
-                
-                return `
-                <div class="card border-0 shadow-sm rounded-4 mb-3 rute-card animate__animated animate__fadeInUp" 
-                     data-search="${item.pcez} ${item.petugas || ''}">
-                    <div class="card-body p-3">
-                        <div class="row align-items-center g-3">
-                            <div class="col-4">
-                                <div class="p-2 rounded-3 text-center border ${isAssigned ? 'bg-primary-subtle border-primary-subtle text-primary' : 'bg-danger-subtle border-danger-subtle text-danger'}">
-                                    <small class="d-block text-uppercase fw-bold" style="font-size: 0.65rem;">KODE PCEZ</small>
-                                    <span class="fw-bold">${item.pcez}</span>
-                                </div>
-                            </div>
-                            
-                            <div class="col-8">
-                                <label class="small text-muted mb-1 fw-bold" style="font-size: 0.65rem;">NAMA PETUGAS</label>
-                                <div class="input-group">
-                                    <input type="text" 
-                                           id="${inputId}" 
-                                           class="form-control border-0 bg-light rounded-start-3 fw-bold py-2 shadow-none" 
-                                           value="${item.petugas || ''}" 
-                                           placeholder="Belum ada..."
-                                           style="text-transform: uppercase; font-size: 0.85rem;">
-                                    <button class="btn btn-primary px-3 rounded-end-3" onclick="updatePetugas('${item.pcez}', '${inputId}')">
-                                        <i class="fas fa-save"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-        } catch (error) {
-            container.innerHTML = '<div class="alert alert-danger rounded-4">Gagal memuat data rute.</div>';
+            ruteData = await res.json();
+            renderRute(ruteData);
+            loadOfficerOptions();
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-danger">Gagal memuat data rute.</td></tr>';
         }
     }
 
-    async function updatePetugas(pcez, inputId) {
-        const inputEl = document.getElementById(inputId);
-        const namaPetugas = inputEl.value;
-        
-        // Visual Loading State
-        const originalBtnHtml = event.currentTarget.innerHTML;
-        const btn = event.currentTarget;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-        btn.disabled = true;
+    function renderRute(data) {
+        const body = document.getElementById('ruteTableBody');
+        body.innerHTML = data.map((item, idx) => `
+            <tr class="animate__animated animate__fadeInUp" style="animation-delay: ${idx * 0.01}s">
+                <td class="ps-3">
+                    <input type="checkbox" class="form-check-input row-checkbox" value="${item.pcez}" onchange="updateSelection()">
+                </td>
+                <td class="fw-bold text-dark">${item.pcez}</td>
+                <td>
+                    <span class="badge ${item.petugas ? 'bg-primary-subtle text-primary' : 'bg-danger-subtle text-danger'} rounded-pill px-3">
+                        ${item.petugas || 'Belum Diatur'}
+                    </span>
+                </td>
+                <td class="small text-muted">${item.no_admin || '-'}</td>
+                <td class="text-center fw-bold small">${item.jml_pelanggan}</td>
+                <td class="text-end pe-3">
+                    <button class="btn btn-sm btn-light rounded-circle shadow-sm" onclick="openEdit('${item.pcez}', '${item.petugas}', '${item.no_admin}')">
+                        <i class="fas fa-pen text-primary"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
 
+    async function loadOfficerOptions() {
+        const res = await fetch('/api/belum-bayar/petugas-tabs');
+        const list = await res.json();
+        const select = document.getElementById('mass-petugas');
+        select.innerHTML = '<option value="">-- Pilih Petugas --</option>' + 
+                          list.map(n => `<option value="${n}">${n}</option>`).join('');
+    }
+
+    function openEdit(pcez, petugas, no_admin) {
+        document.getElementById('edit-pcez').value = pcez;
+        document.getElementById('display-pcez').value = pcez;
+        document.getElementById('edit-petugas').value = petugas === 'null' ? '' : petugas;
+        document.getElementById('edit-no-admin').value = no_admin === 'null' ? '' : no_admin;
+        editModal.show();
+    }
+
+    async function saveSingleRute() {
         const formData = new FormData();
-        formData.append('pcez', pcez);
-        formData.append('petugas', namaPetugas);
+        formData.append('pcez', document.getElementById('edit-pcez').value);
+        formData.append('petugas', document.getElementById('edit-petugas').value);
+        formData.append('no_admin', document.getElementById('edit-no-admin').value);
 
-        try {
-            const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
-            const result = await res.json();
-            
-            if(result.status === 'success') {
-                // Highlight Success
-                inputEl.classList.add('bg-success', 'text-white');
-                setTimeout(() => inputEl.classList.remove('bg-success', 'text-white'), 800);
-                
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: 'Rute Updated',
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-            }
-        } catch (e) {
-            Swal.fire('Error', 'Gagal menyimpan perubahan', 'error');
-        } finally {
-            btn.innerHTML = originalBtnHtml;
-            btn.disabled = false;
+        const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
+        if (res.ok) {
+            Swal.fire({ icon: 'success', title: 'Berhasil', showConfirmButton: false, timer: 1000 });
+            editModal.hide();
+            loadRute();
         }
+    }
+
+    function updateSelection() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        const toolbar = document.getElementById('mass-toolbar');
+        document.getElementById('selected-count').innerText = checked.length;
+        toolbar.classList.toggle('d-none', checked.length === 0);
+    }
+
+    async function processMassUpdate() {
+        const pcez_list = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+        const petugas = document.getElementById('mass-petugas').value;
+        
+        if (!petugas) return Swal.fire('Error', 'Pilih petugas tujuan dulu!', 'warning');
+
+        const res = await fetch('/api/rute/mass-update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pcez_list, petugas })
+        });
+
+        if (res.ok) {
+            Swal.fire('Updated', `${pcez_list.length} rute berhasil dipindah ke ${petugas}`, 'success');
+            cancelSelection();
+            loadRute();
+        }
+    }
+
+    function toggleAll() {
+        const isChecked = document.getElementById('check-all').checked;
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = isChecked);
+        updateSelection();
+    }
+
+    function cancelSelection() {
+        document.getElementById('check-all').checked = false;
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        updateSelection();
     }
 
     function filterRute() {
-        const val = document.getElementById('searchRute').value.toLowerCase();
-        const cards = document.querySelectorAll('.rute-card');
-        cards.forEach(card => {
-            const matches = card.dataset.search.toLowerCase().includes(val);
-            card.style.display = matches ? 'block' : 'none';
+        const query = document.getElementById('searchRute').value.toLowerCase();
+        document.querySelectorAll('#ruteTableBody tr').forEach(tr => {
+            tr.style.display = tr.innerText.toLowerCase().includes(query) ? '' : 'none';
         });
     }
 
-    document.addEventListener('DOMContentLoaded', loadRuteManager);
+    document.addEventListener('DOMContentLoaded', loadRute);
 </script>
 
 <style>
-    .bg-primary-subtle { background-color: #e7f1ff; }
-    .bg-danger-subtle { background-color: #ffeef0; }
-    .text-primary { color: #0d6efd !important; }
-    .text-danger { color: #dc3545 !important; }
-    .form-control:focus { background-color: #f8f9fa !important; }
+    .table thead th { background: #f8fafc; border-bottom: 2px solid #edf2f7; font-size: 0.65rem; }
+    .table tbody td { border-bottom: 1px solid #f1f5f9; font-size: 0.75rem; }
+    .bg-primary-subtle { background-color: #e0f2fe !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    #mass-toolbar { position: sticky; top: 70px; z-index: 1010; }
+    .form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
 </style>
 {% endblock %}
