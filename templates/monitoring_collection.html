@@ -4,14 +4,14 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-0 text-dark">Monitoring Collection 📈</h4>
+            <h4 class="fw-bold mb-0 text-dark">Collection Monitor 📈</h4>
             <p class="text-muted small mb-0">Tracking harian Rayon 34 & 35</p>
         </div>
         <div class="d-flex gap-2">
             <input type="month" id="filter-periode" 
                    class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" 
                    style="width: 150px; font-size: 0.75rem;" onchange="loadMonitor()">
-            <button class="btn btn-sm btn-white shadow-sm rounded-circle p-2" onclick="loadMonitor()">
+            <button class="btn btn-sm btn-white shadow-sm rounded-circle p-2" onclick="loadMonitor()" id="btn-sync">
                 <i class="fas fa-sync-alt text-primary" id="sync-icon"></i>
             </button>
         </div>
@@ -22,12 +22,12 @@
             <div class="card border-0 shadow-sm rounded-4 text-white position-relative overflow-hidden" 
                  style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
                 <div class="card-body p-4 text-center">
-                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI TOTAL GABUNGAN (U+C)</small>
+                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI TOTAL GABUNGAN (MC + COLL)</small>
                     <div class="d-flex justify-content-center align-items-end gap-2 mt-1">
                         <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
                         <div id="variance-area" class="mb-2"></div>
                     </div>
-                    <p class="small mb-0 opacity-75" id="sum-info">Menarik data dari database...</p>
+                    <p class="small mb-0 opacity-75" id="sum-info">Sinkronisasi data rute...</p>
                 </div>
             </div>
         </div>
@@ -47,8 +47,9 @@
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
-        <div class="card-header bg-white py-3 border-0">
-            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-chart-line me-2 text-primary"></i>Tren Akumulasi Harian</h6>
+        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0 small text-uppercase"><i class="fas fa-chart-line me-2 text-primary"></i>Tren Akumulasi Harian</h6>
+            <span class="badge bg-light text-muted fw-normal" style="font-size: 0.55rem;">Data Kumulatif</span>
         </div>
         <div class="card-body pt-0">
             <canvas id="collectionChart" style="height: 180px;"></canvas>
@@ -59,11 +60,11 @@
         <div class="table-responsive" style="max-height: 500px;">
             <table class="table table-sm table-bordered small mb-0 text-center align-middle">
                 <thead class="bg-dark text-white sticky-top">
-                    <tr>
+                    <tr style="font-size: 0.65rem;">
                         <th rowspan="2" class="align-middle px-3">TGL</th>
                         <th colspan="2" class="border-start">RAYON 34</th>
                         <th colspan="2" class="border-start bg-secondary">RAYON 35</th>
-                        <th colspan="3" class="border-start bg-primary">TOTAL (AB SUNTER)</th>
+                        <th colspan="3" class="border-start bg-primary">TOTAL (SINERGI)</th>
                     </tr>
                     <tr style="font-size: 0.55rem;">
                         <th class="border-start">Rp Harian</th><th>% COLL</th>
@@ -71,7 +72,9 @@
                         <th class="border-start">Rp Harian</th><th>Kumulatif</th><th>% TOTAL</th>
                     </tr>
                 </thead>
-                <tbody id="table-body"></tbody>
+                <tbody id="table-body">
+                    <tr><td colspan="8" class="py-5">Memuat data...</td></tr>
+                </tbody>
                 <tfoot class="bg-light fw-bold" id="table-footer"></tfoot>
             </table>
         </div>
@@ -84,9 +87,9 @@
             <div class="modal-header border-0 bg-light p-3">
                 <div>
                     <h6 class="modal-title fw-bold mb-0" id="detailTitle">Rincian Pembayaran</h6>
-                    <small class="text-muted" style="font-size: 0.6rem;">Sinkronisasi Real-time (Collection Harian)</small>
+                    <small class="text-muted" style="font-size: 0.6rem;">Data harian sinkron dengan sistem billing</small>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0">
                 <table class="table table-sm small mb-0">
@@ -104,14 +107,11 @@
     </div>
 </div>
 
-
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     let myChart = null;
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    // FUNGSI UTAMA LOAD MONITOR (TETAP SAMA + SYNC ICON ANIMATION)
     async function loadMonitor() {
         const picker = document.getElementById('filter-periode').value;
         const icon = document.getElementById('sync-icon');
@@ -131,17 +131,16 @@
                 renderChart(result.data);
             }
         } catch (e) {
-            console.error("Dashboard Error:", e);
+            console.error("Dashboard Load Failed:", e);
         } finally {
             icon.classList.remove('fa-spin');
         }
     }
 
-    // UPDATE UI (FUNGSI LAMA)
     function updateUI(res) {
         const s = res.summary;
         document.getElementById('sum-pct').innerText = (s.pct || 0).toFixed(2) + '%';
-        document.getElementById('sum-info').innerText = `${toIDR(s.realisasi || 0)} / ${toIDR(s.target || 0)}`;
+        document.getElementById('sum-info').innerText = `Realisasi: ${toIDR(s.realisasi || 0)} / Target: ${toIDR(s.target || 0)}`;
         
         const lastRow = res.data[res.data.length - 1];
         if (lastRow) {
@@ -158,12 +157,11 @@
         `;
     }
 
-    // RENDER TABEL (FUNGSI LAMA + PENINGKATAN VISUAL)
     function renderTable(data, periode) {
         const body = document.getElementById('table-body');
         const footer = document.getElementById('table-footer');
         
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data belum tersedia untuk periode ini.</td></tr>';
             footer.innerHTML = '';
             return;
@@ -173,7 +171,7 @@
             const tglDay = row.tgl.split('-')[2];
             return `
             <tr onclick="showDetail('${row.tgl}', '${periode}')" style="cursor: pointer;" class="clickable-row">
-                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-search-plus opacity-25" style="font-size: 0.5rem;"></i></td>
+                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-magnifying-glass-plus opacity-25 ms-1" style="font-size: 0.5rem;"></i></td>
                 <td class="text-end border-start">Rp ${(row.r34.rp || 0).toLocaleString()}</td>
                 <td class="fw-bold text-primary">${(row.r34.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start">Rp ${(row.r35.rp || 0).toLocaleString()}</td>
@@ -203,11 +201,10 @@
         `;
     }
 
-    // SHOW DETAIL (FUNGSI LAMA + SINERGI ROLE/RUTE)
     async function showDetail(tgl, periode) {
         const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
         const body = document.getElementById('detail-body');
-        document.getElementById('detailTitle').innerText = `Rincian Bayar: ${tgl}`;
+        document.getElementById('detailTitle').innerText = `Rincian Lunas: ${tgl}`;
         
         body.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
         modal.show();
@@ -216,7 +213,6 @@
             const res = await fetch(`/api/collection/daily-detail?tgl=${tgl}&periode=${periode}`);
             const result = await res.json();
             
-            // Sinergi: Menampilkan NOMEN dan PCEZ (Rute) dalam satu baris
             body.innerHTML = result.data.map(d => `
                 <tr class="border-bottom animate__animated animate__fadeInSmall">
                     <td class="ps-3 py-2">
@@ -226,13 +222,12 @@
                     <td class="py-2"><div class="text-truncate text-uppercase" style="max-width: 140px; font-size: 0.75rem;">${d.nama || 'Pelanggan'}</div></td>
                     <td class="text-end pe-3 py-2 fw-bold text-success" style="font-size: 0.75rem;">${(d.nominal || 0).toLocaleString()}</td>
                 </tr>
-            `).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted small">Tidak ada rincian data (Akses terbatas).</td></tr>';
+            `).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted small">Tidak ada data rincian untuk tanggal ini.</td></tr>';
         } catch (e) {
-            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4 small">Gagal sinkronisasi rincian.</td></tr>';
+            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4 small">Gagal sinkron rincian data.</td></tr>';
         }
     }
 
-    // CHART RENDER (FUNGSI LAMA)
     function renderChart(data) {
         const ctx = document.getElementById('collectionChart').getContext('2d');
         if (myChart) myChart.destroy();
@@ -241,7 +236,7 @@
             data: {
                 labels: data.map(d => d.tgl.split('-')[2]),
                 datasets: [{
-                    label: 'Progres (%)',
+                    label: 'Progres Gabungan (%)',
                     data: data.map(d => d.total.pct),
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
