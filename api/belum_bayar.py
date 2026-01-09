@@ -1,6 +1,7 @@
 """
 Belum Bayar API - Sunter Dashboard Pro
 Sinergi: Menambahkan data Nomet, Vol, Rayon, dan No Admin pada respon laporan.
+Watermark: Update 4 Baris (Petugas, Nomen, Keterangan, Nominal).
 """
 
 import os
@@ -16,19 +17,24 @@ from PIL import Image, ImageDraw, ImageFont
 belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
 def add_watermark(image_path, info):
-    """Menambahkan watermark informasi penagihan secara robust."""
+    """Menambahkan watermark informasi penagihan (4 Baris: Petugas, Nomen, Keterangan, Nominal)."""
     try:
         img = Image.open(image_path)
+        # Fix orientasi EXIF dari kamera HP
         if hasattr(img, '_getexif'): img = Image.open(image_path) 
         
         draw = ImageDraw.Draw(img)
         width, height = img.size
-        font_size = int(width * 0.035)
         
+        # Font size proporsional (4% dari lebar gambar)
+        font_size = int(width * 0.04)
+        
+        # Daftar path font standar Linux/Windows
         font_paths = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            "C:\\Windows\\Fonts\\arialbd.ttf"
+            "C:\\Windows\\Fonts\\arialbd.ttf",
+            "arial.ttf"
         ]
         
         font = None
@@ -38,22 +44,27 @@ def add_watermark(image_path, info):
                 break
         if not font: font = ImageFont.load_default()
 
+        # TEKS WATERMARK SESUAI PERMINTAAN: Petugas, Nomen, Keterangan, Nominal
         text = (
-            f"WAKTU: {info['waktu']}\n"
             f"PETUGAS: {info['petugas']}\n"
-            f"NOMEN: {info['nomen']} ({info['nama'][:20]})\n"
-            f"TAGIHAN: Rp {info['nominal']}"
+            f"NOMEN: {info['nomen']} ({info['nama'][:15]})\n"
+            f"KETERANGAN: {info['keterangan']}\n"
+            f"NOMINAL: Rp {info['nominal']}"
         )
 
-        margin = int(width * 0.02)
+        margin = int(width * 0.03)
         x = margin
+        # Posisi di kiri bawah (Y disesuaikan agar 4 baris muat)
         y = height - (font_size * 6) - margin
 
-        shadow = 2
-        draw.multiline_text((x + shadow, y + shadow), text, font=font, fill="black", spacing=5)
-        draw.multiline_text((x, y), text, font=font, fill="yellow", spacing=5)
+        # Shadow (Bayangan Hitam) agar terbaca di background terang
+        shadow_offset = 2
+        draw.multiline_text((x + shadow_offset, y + shadow_offset), text, font=font, fill="black", spacing=8)
         
-        img.save(image_path, quality=85)
+        # Teks Utama (Kuning)
+        draw.multiline_text((x, y), text, font=font, fill="yellow", spacing=8)
+        
+        img.save(image_path, quality=90)
         return True
     except Exception as e:
         current_app.logger.error(f"❌ Watermark Error: {str(e)}")
@@ -134,11 +145,12 @@ def lapor_kunjungan():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
         
+        # UPDATE PEMANGGILAN WATERMARK 4 DATA
         add_watermark(foto_path, {
-            'waktu': datetime.now().strftime('%d/%m/%Y %H:%M WIB'),
             'petugas': petugas_name or "Petugas Lapangan", 
             'nomen': nomen,
             'nama': request.form.get('nama_pelanggan') or "-",
+            'keterangan': hasil,
             'nominal': request.form.get('nominal_display') or "0"
         })
 
@@ -146,7 +158,7 @@ def lapor_kunjungan():
     try:
         cursor = conn.cursor()
 
-        # AMBIL DATA SINERGI (Ardebt, Rayon, No Admin, Nomet, Vol)
+        # AMBIL DATA SINERGI
         cursor.execute("""
             SELECT 
                 p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc,
@@ -157,7 +169,6 @@ def lapor_kunjungan():
         """, (petugas_name, nomen))
         master = cursor.fetchone()
 
-        # Cek revisi harian
         cursor.execute("""
             SELECT id FROM kunjungan_petugas 
             WHERE nomen = ? AND date(created_at, '+7 hours') = date('now', 'localtime')
@@ -185,7 +196,6 @@ def lapor_kunjungan():
         
         conn.commit()
 
-        # RESPONSE WA_DATA UNTUK FRONTEND (Internal Laporan)
         return APIResponse.success(data={
             "filename": filename, 
             "revisi": bool(existing),
