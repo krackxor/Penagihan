@@ -5,11 +5,11 @@
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h4 class="fw-bold mb-1">WA Blast Tagihan 🚀</h4>
-            <p class="text-muted small mb-0">Prioritas: Tagihan Undue & Ardebt</p>
+            <p class="text-muted small mb-0">Prioritas: Filter Strategis & Audit Rute</p>
         </div>
         <div id="status-koneksi">
             <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 border border-success-subtle">
-                <i class="fas fa-circle me-1 animate__animated animate__flash animate__infinite" style="font-size: 0.5rem;"></i> WA Connected
+                <i class="fas fa-circle me-1 animate__animated animate__flash animate__infinite" style="font-size: 0.5rem;"></i> Database Ready
             </span>
         </div>
     </div>
@@ -20,36 +20,38 @@
                 <div class="bg-primary-subtle text-primary rounded-3 p-2 me-2">
                     <i class="fas fa-cog"></i>
                 </div>
-                <h6 class="fw-bold mb-0 small">Konfigurasi Penerima</h6>
+                <h6 class="fw-bold mb-0 small">Konfigurasi & Sinergi Pesan</h6>
             </div>
             
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Filter Target</label>
+                <label class="form-label small fw-bold text-muted">Filter Target Penagihan</label>
                 <select id="target-filter" class="form-select border-0 bg-light rounded-3 shadow-none py-2" onchange="resetPreview()">
                     <option value="undue">Tagihan Bulan Lalu (Undue)</option>
                     <option value="ardebt">Tagihan Berekor (Ardebt)</option>
                     <option value="current">Tagihan Bulan Ini (Current)</option>
                 </select>
-                <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Memilih "Undue" akan menyaring pelanggan yang belum lunas di sistem pusat bulan lalu.</small>
+                <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Data ditarik dari sinkronisasi Master Pelanggan & Ardebt terbaru.</small>
             </div>
 
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Template Pesan</label>
+                <label class="form-label small fw-bold text-muted">Template Pesan (Dynamic)</label>
                 <textarea id="msg-template" class="form-control border-0 bg-light rounded-3 small py-3 shadow-none" rows="6" placeholder="Tulis pesan di sini...">
-Halo Bapak/Ibu *{nama}*,
+Yth. Bapak/Ibu *{nama}*,
 Kami menginformasikan tagihan Nomen: *{nomen}*.
-Total tunggakan Anda: *Rp {nominal}*.
+Total tunggakan: *Rp {nominal}*.
+Petugas wilayah: *{petugas}*.
 
-Mohon segera melakukan pembayaran agar terhindar dari pemutusan. Abaikan jika sudah lunas. Terima kasih.</textarea>
+Mohon segera melakukan pembayaran. Abaikan jika sudah lunas. Terima kasih.</textarea>
                 <div class="mt-2 d-flex flex-wrap gap-1">
                     <span class="badge bg-white text-muted border" style="font-size: 0.65rem;">{nama}</span>
                     <span class="badge bg-white text-muted border" style="font-size: 0.65rem;">{nomen}</span>
                     <span class="badge bg-white text-muted border" style="font-size: 0.65rem;">{nominal}</span>
+                    <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.65rem;">{petugas}</span>
                 </div>
             </div>
 
             <button onclick="previewBlast()" class="btn btn-primary w-100 rounded-3 fw-bold py-2 shadow-sm">
-                <i class="fas fa-tasks me-2"></i> ANALISIS TARGET
+                <i class="fas fa-tasks me-2"></i> ANALISIS & VALIDASI KONTAK
             </button>
         </div>
     </div>
@@ -60,10 +62,10 @@ Mohon segera melakukan pembayaran agar terhindar dari pemutusan. Abaikan jika su
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h2 class="fw-bold mb-0 text-dark" id="target-count">0</h2>
-                        <small class="text-muted fw-bold" style="font-size: 0.7rem;">KONTAK SIAP BLAST</small>
+                        <small class="text-muted fw-bold" style="font-size: 0.7rem;">KONTAK TERVALIDASI</small>
                     </div>
                     <button onclick="startBlast()" id="btn-start" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm py-2">
-                        KIRIM <i class="fas fa-paper-plane ms-2"></i>
+                        KIRIM MASSAL <i class="fas fa-paper-plane ms-2"></i>
                     </button>
                 </div>
             </div>
@@ -79,46 +81,50 @@ Mohon segera melakukan pembayaran agar terhindar dari pemutusan. Abaikan jika su
                     <div id="blast-progress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                 </div>
                 <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-2 bg-black bg-opacity-25" style="max-height: 180px; font-family: monospace;">
-                    <span class="text-warning">> System ready. Press Analisis...</span>
+                    <span class="text-warning">> System ready. Menunggu analisis rute...</span>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+
+
 <script>
 let targetList = [];
 
+// FUNGSI RESET PREVIEW (DIPERTAHANKAN)
 function resetPreview() {
     document.getElementById('preview-section').classList.add('d-none');
     targetList = [];
 }
 
+// FUNGSI ANALISIS TARGET (DIPERBARUI DENGAN SINERGI RUTE)
 async function previewBlast() {
     const filter = document.getElementById('target-filter').value;
     const logList = document.getElementById('log-list');
     
-    Swal.fire({ title: 'Menyaring Data...', didOpen: () => { Swal.showLoading(); }, timer: 800 });
+    Swal.fire({ title: 'Menyaring Basis Data...', didOpen: () => { Swal.showLoading(); }, timer: 1000 });
 
     try {
-        let endpoint = '/api/belum-bayar';
-        if (filter === 'ardebt') endpoint = '/api/belum-bayar/ardebt';
+        // Sinergi: Menarik data berdasarkan filter yang dipilih
+        let endpoint = filter === 'ardebt' ? '/api/ardebt?petugas=all' : '/api/belum-bayar?petugas=all';
         
         const res = await fetch(endpoint);
         let data = await res.json();
         
-        // Logika Khusus: Jika filter adalah Undue, kita bisa memodifikasi query 
-        // atau menyaring hasil yang periode-nya adalah bulan lalu (n-1)
-        targetList = data;
+        // Filter: Hanya yang memiliki nomor HP (HP tidak kosong atau '-')
+        targetList = data.filter(item => item.no_hp && item.no_hp !== '-' && item.no_hp.length > 5);
         
         document.getElementById('target-count').innerText = targetList.length;
         document.getElementById('preview-section').classList.remove('d-none');
-        logList.innerHTML = `<div class="text-success fw-bold">> [FILTER: ${filter.toUpperCase()}] Terdeteksi ${targetList.length} pelanggan.</div>`;
+        logList.innerHTML = `<div class="text-success fw-bold">> [DATABASE SYNC] Terdeteksi ${targetList.length} nomor valid dari total ${data.length} data.</div>`;
     } catch (e) {
-        Swal.fire('Error', 'Gagal memproses filter target', 'error');
+        Swal.fire('Error', 'Gagal memproses sinkronisasi target', 'error');
     }
 }
 
+// FUNGSI START BLAST (FUNGSI LAMA + PENYESUAIAN FIELD SINERGI)
 async function startBlast() {
     const btn = document.getElementById('btn-start');
     const logList = document.getElementById('log-list');
@@ -129,47 +135,60 @@ async function startBlast() {
     if(targetList.length === 0) return;
 
     const confirm = await Swal.fire({
-        title: 'Konfirmasi Blast',
-        text: `Kirim pesan massal ke ${targetList.length} pelanggan?`,
-        icon: 'warning',
+        title: 'Konfirmasi Pengiriman',
+        text: `Sistem akan mengirim pesan ke ${targetList.length} pelanggan secara bertahap. Lanjutkan?`,
+        icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Jalankan!'
+        confirmButtonText: 'Ya, Jalankan Blast'
     });
 
     if (!confirm.isConfirmed) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>RUNNING...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>PROSES...';
 
     for (let i = 0; i < targetList.length; i++) {
         const item = targetList[i];
         
-        // Penyesuaian variabel karena Ardebt dan MC punya key yang sedikit berbeda
-        const namaVal = item.nama || item.nama_pelanggan || "Pelanggan";
-        const nomenVal = item.nomen || item.idpel;
-        const nominalVal = item.total_tunggakan || item.nominal;
+        // Penyesuaian variabel Sinergi (Field dari Master Pelanggan & Ardebt)
+        const namaVal = item.nama || "Pelanggan";
+        const nomenVal = item.nomen || "-";
+        const nominalVal = item.nominal || item.jumlah || 0;
+        const petugasVal = item.petugas || "Petugas Lapangan"; // Ditarik dari mapping PCEZ
 
         let message = template
             .replace(/{nama}/g, namaVal)
             .replace(/{nomen}/g, nomenVal)
-            .replace(/{nominal}/g, Number(nominalVal).toLocaleString('id-ID'));
+            .replace(/{nominal}/g, Number(nominalVal).toLocaleString('id-ID'))
+            .replace(/{petugas}/g, petugasVal);
 
         const logEntry = document.createElement('div');
         logEntry.innerHTML = `<span class="text-info">[${i+1}/${targetList.length}]</span> ${namaVal}... `;
         logList.prepend(logEntry);
 
-        // Update Progress
+        // Update Progress UI
         const percent = Math.round(((i + 1) / targetList.length) * 100);
         progressBar.style.width = percent + '%';
         progressText.innerText = percent + '%';
 
-        // Jeda Anti-Banned (3 Detik)
+        // EKSEKUSI: Simulasi kirim (Link WA) atau integrasi API Blast Anda
+        // Untuk Dashboard Pro, kita menggunakan simulasi log agar Admin bisa memantau antrean
+        
+        // Jeda Anti-Banned (Penting: Menjaga akun WA tidak terblokir)
         await new Promise(resolve => setTimeout(resolve, 3000));
-        logEntry.innerHTML += '<span class="text-success">SENT ✅</span>';
+        logEntry.innerHTML += '<span class="text-success">OK ✅</span>';
     }
 
-    Swal.fire('Selesai!', 'Blast tagihan telah berhasil dikirim.', 'success');
-    btn.innerHTML = 'BLAST FINISHED';
+    Swal.fire('Blast Selesai!', `Berhasil memproses ${targetList.length} pelanggan.`, 'success');
+    btn.innerHTML = 'BLAST SELESAI';
+    btn.className = 'btn btn-secondary rounded-pill px-4 fw-bold py-2';
 }
 </script>
+
+<style>
+    #log-list::-webkit-scrollbar { width: 5px; }
+    #log-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    .progress-bar { transition: width 0.5s ease; }
+    .bg-primary-subtle { background-color: #e0f2fe !important; }
+</style>
 {% endblock %}
