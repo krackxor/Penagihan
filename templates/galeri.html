@@ -6,29 +6,29 @@
             <h4 class="fw-bold mb-1 text-dark">Galeri Lapangan 📸</h4>
             <p class="text-muted small mb-0">
                 {% if session['role'] == 'admin' %}
-                    Audit dokumentasi seluruh petugas
+                    Audit dokumentasi seluruh tim petugas
                 {% else %}
-                    Dokumentasi hasil kunjungan Anda
+                    Dokumentasi rute {{ session['petugas_id'] }}
                 {% endif %}
             </p>
         </div>
-        <button class="btn btn-sm btn-light rounded-pill shadow-sm px-3" onclick="loadGaleri()">
+        <button class="btn btn-white shadow-sm rounded-circle p-2" onclick="loadGaleri()" id="btn-refresh">
             <i class="fas fa-sync-alt text-primary"></i>
         </button>
     </div>
 
     <div class="mb-3 px-1">
-        <div class="input-group bg-white rounded-4 shadow-sm border-0">
+        <div class="input-group bg-white rounded-4 shadow-sm border-0 border-start border-primary border-4">
             <span class="input-group-text border-0 bg-transparent ps-3"><i class="fas fa-search text-muted"></i></span>
             <input type="text" id="searchGaleri" class="form-control border-0 py-2 shadow-none" 
-                   placeholder="Cari Nama Pelanggan..." onkeyup="filterGaleri()">
+                   placeholder="Cari Nama atau Keterangan..." onkeyup="filterGaleri()">
         </div>
     </div>
 
     <div id="galeri-container" class="row g-2">
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted small">Sinkronisasi galeri...</p>
+            <p class="mt-2 text-muted small">Sinkronisasi arsip foto...</p>
         </div>
     </div>
 </div>
@@ -37,11 +37,15 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content bg-transparent border-0">
             <div class="modal-body p-0 text-center position-relative">
-                <img src="" id="img-zoom" class="img-fluid rounded-4 shadow-lg">
-                <div id="zoom-caption" class="position-absolute bottom-0 start-0 end-0 p-3 text-white rounded-bottom-4" 
-                     style="background: linear-gradient(transparent, rgba(0,0,0,0.9));">
+                <div class="zoom-card shadow-lg rounded-5 overflow-hidden bg-dark">
+                    <img src="" id="img-zoom" class="img-fluid w-100">
+                    <div id="zoom-caption" class="p-3 text-white text-start" 
+                         style="background: linear-gradient(transparent, rgba(0,0,0,0.9)); position: absolute; bottom: 0; width: 100%;">
+                    </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn btn-light rounded-circle position-absolute top-0 end-0 m-3 shadow" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -53,66 +57,74 @@
     const PETUGAS_ID = "{{ session['petugas_id'] }}";
 
     async function loadGaleri() {
+        const btn = document.getElementById('btn-refresh');
+        const icon = btn.querySelector('i');
         const container = document.getElementById('galeri-container');
-        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+        
+        icon.classList.add('fa-spin');
+        container.innerHTML = '<div class="text-center py-5 col-12"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">Memuat Dokumentasi...</p></div>';
         
         try {
-            // Sinergi: Mengambil data dari endpoint riwayat kunjungan (yang sudah difilter di backend berdasarkan role)
+            // Sinergi: Mengambil data dari endpoint riwayat kunjungan
             const res = await fetch('/api/history/kunjungan');
             const result = await res.json();
             
-            // Filter hanya data yang benar-benar memiliki file foto
+            // Filter hanya data yang benar-benar memiliki file foto (foto_path tidak '-' atau null)
             galeriData = (result.data || []).filter(item => item.foto_path && item.foto_path !== '-');
             
             if (galeriData.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center mt-5 py-5 animate__animated animate__fadeIn">
-                        <i class="fas fa-camera-retro fa-3x text-light mb-3"></i>
-                        <p class="text-muted small">Belum ada foto dokumentasi<br>yang tersimpan.</p>
+                    <div class="text-center mt-5 py-5 col-12 animate__animated animate__fadeIn">
+                        <i class="fas fa-images fa-3x text-light mb-3"></i>
+                        <p class="text-muted small">Belum ada dokumentasi foto<br>yang diunggah petugas.</p>
                     </div>`;
                 return;
             }
 
             renderGaleri(galeriData);
         } catch (e) {
-            container.innerHTML = '<div class="alert alert-danger mx-2 small">Gagal sinkronisasi galeri.</div>';
+            console.error("Galeri Error:", e);
+            container.innerHTML = '<div class="alert alert-danger mx-2 small col-12 text-center">Gagal sinkronisasi galeri server.</div>';
+        } finally {
+            icon.classList.remove('fa-spin');
         }
     }
 
     function renderGaleri(data) {
         const container = document.getElementById('galeri-container');
-        container.innerHTML = data.map((item, index) => `
-            <div class="col-6 col-md-4 mb-2 galeri-item" 
-                 data-search="${item.nama} ${item.petugas_name}" 
+        container.innerHTML = data.map((item, index) => {
+            // Sinergi: Nama file foto di server biasanya ada di static/uploads/kunjungan/
+            const fotoUrl = `/static/uploads/kunjungan/${item.foto_path}`;
+            const labelWaktu = item.waktu ? item.waktu.split(' ')[0] : 'Hari ini';
+            const labelJam = item.waktu ? item.waktu.split(' ')[1].substring(0, 5) : '--:--';
+
+            return `
+            <div class="col-6 col-md-4 mb-2 galeri-item animate__animated animate__zoomIn" 
+                 data-search="${item.nama} ${item.keterangan} ${item.petugas_name}" 
                  style="animation-delay: ${index * 0.05}s">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
-                     onclick="zoomImage('/static/uploads/kunjungan/${item.foto_path}', '${item.nama} - ${item.keterangan}')">
-                    <div class="position-relative">
-                        <img src="/static/uploads/kunjungan/${item.foto_path}" 
-                             class="card-img-top lazy-img" 
-                             style="height: 150px; object-fit: cover;"
+                     onclick="zoomImage('${fotoUrl}', '${item.nama}', '${item.petugas_name}', '${item.keterangan}', '${labelWaktu} ${labelJam}')">
+                    <div class="img-wrapper" style="height: 160px; background: #eee; overflow: hidden;">
+                        <img src="${fotoUrl}" 
+                             class="w-100 h-100 object-fit-cover"
                              loading="lazy"
-                             onerror="this.src='https://placehold.co/400x600?text=Foto+Tidak+Ada'">
-                        <div class="position-absolute top-0 end-0 m-2">
-                             <span class="badge bg-dark bg-opacity-50 rounded-pill" style="font-size: 0.6rem;">
-                                <i class="fas fa-expand"></i>
-                             </span>
-                        </div>
+                             onerror="this.src='https://placehold.co/400x600?text=Foto+Arsip'">
                     </div>
                     <div class="card-body p-2">
-                        <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.7rem;">${item.nama}</h6>
+                        <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.75rem;">${item.nama}</h6>
                         <div class="d-flex justify-content-between align-items-center mt-1">
-                            <small class="text-primary fw-bold" style="font-size: 0.6rem;">
-                                <i class="fas fa-user me-1"></i>${item.petugas_name.split(' ')[0]}
+                            <small class="badge bg-primary-subtle text-primary fw-bold" style="font-size: 0.55rem;">
+                                ${item.petugas_name.split(' ')[0]}
                             </small>
                             <small class="text-muted" style="font-size: 0.55rem;">
-                                ${new Date(item.waktu).toLocaleDateString('id-ID')}
+                                <i class="far fa-clock me-1"></i>${labelJam}
                             </small>
                         </div>
                     </div>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     function filterGaleri() {
@@ -123,40 +135,44 @@
         });
     }
 
-    function zoomImage(src, caption) {
+    function zoomImage(src, nama, petugas, ket, waktu) {
         document.getElementById('img-zoom').src = src;
-        document.getElementById('zoom-caption').innerText = caption;
-        new bootstrap.Modal(document.getElementById('modalZoom')).show();
+        document.getElementById('zoom-caption').innerHTML = `
+            <div class="fw-bold text-uppercase" style="font-size: 0.9rem;">${nama}</div>
+            <div class="small opacity-75">Oleh: ${petugas} • ${waktu}</div>
+            <div class="badge bg-primary mt-2" style="font-size: 0.65rem;">${ket}</div>
+        `;
+        const modal = new bootstrap.Modal(document.getElementById('modalZoom'));
+        modal.show();
     }
 
     document.addEventListener('DOMContentLoaded', loadGaleri);
 </script>
 
 <style>
-    .card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; border: 1px solid #f1f5f9 !important; }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.08) !important; }
-    .card:active { transform: scale(0.97); }
+    .btn-white { background: white; border: none; }
+    .card { transition: all 0.2s ease; cursor: pointer; }
+    .card:active { transform: scale(0.95); }
+    .object-fit-cover { object-fit: cover; }
     
-    #img-zoom { 
-        max-height: 85vh; 
-        border: 5px solid white; 
-        background-color: #000;
-    }
-    
-    .lazy-img { transition: opacity 0.4s; }
-    
-    .galeri-item {
-        animation: fadeInUp 0.4s ease backwards;
-    }
-    
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(15px); }
-        to { opacity: 1; transform: translateY(0); }
+    .zoom-card {
+        border: 4px solid white;
+        background-color: #1a1a1a;
     }
 
-    /* Penyesuaian Grid Mobile */
+    #img-zoom {
+        max-height: 80vh;
+        object-fit: contain;
+    }
+
+    /* Grid Responsif Sinergi */
     @media (max-width: 576px) {
-        .card-img-top { height: 130px !important; }
+        .img-wrapper { height: 130px !important; }
+        h6 { font-size: 0.7rem !important; }
+    }
+
+    .animate__animated.animate__zoomIn {
+        animation-duration: 0.4s;
     }
 </style>
 {% endblock %}
