@@ -70,12 +70,12 @@
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: white; display: flex; justify-content: space-around;
-            padding: 12px 0; border-top: 1px solid #e2e8f0;
+            padding: 8px 0 12px 0; border-top: 1px solid #e2e8f0;
             box-shadow: 0 -5px 20px rgba(0,0,0,0.05); z-index: 1000;
         }
-        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 600; transition: 0.3s; }
+        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.6rem; font-weight: 600; transition: 0.3s; }
         .nav-item-link.active { color: var(--sunter-blue); }
-        .nav-item-link i { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+        .nav-item-link i { font-size: 1.3rem; display: block; margin-bottom: 2px; }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 5px; }
@@ -167,33 +167,36 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
-        // Sinergi UI: Menangani navigasi dan UX Mobile
         document.addEventListener('DOMContentLoaded', function() {
-            // Auto-close Offcanvas saat link diklik (UX Mobile)
-            const offcanvasElement = document.getElementById('offcanvasMenu');
-            const bsOffcanvas = new bootstrap.Offcanvas(offcanvasElement);
-            
+            // Sinergi: Inisialisasi Offcanvas dengan proteksi null-check
+            const offcanvasEl = document.getElementById('offcanvasMenu');
+            let bsOffcanvas = null;
+            if (offcanvasEl) {
+                bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
+            }
+
+            // Auto-close menu saat link diklik (Untuk mobile UX)
             document.querySelectorAll('.offcanvas-body a').forEach(link => {
                 link.addEventListener('click', () => {
-                    if (window.innerWidth < 992) {
+                    if (window.innerWidth < 992 && bsOffcanvas) {
                         bsOffcanvas.hide();
                     }
                 });
             });
 
-            // Sinkronisasi Alert Logout
+            // Sinkronisasi Notifikasi Logout
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('logout') === 'success') {
                 Swal.fire({
                     icon: 'success',
                     title: 'Logout Berhasil',
                     text: 'Sesi Anda telah diakhiri dengan aman.',
-                    timer: 2000,
+                    timer: 2500,
                     showConfirmButton: false,
                     background: '#fff',
-                    color: '#0f172a'
+                    color: '#0f172a',
+                    customClass: { popup: 'rounded-4' }
                 });
-                // Bersihkan URL dari parameter logout
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         });
