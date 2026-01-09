@@ -4,7 +4,7 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 text-center">
         <h4 class="fw-bold mb-1 text-dark">Analisis Riwayat Bayar 📊</h4>
-        <p class="text-muted small">Tren pembayaran 3 bulan terakhir & audit aktivitas</p>
+        <p class="text-muted small">Tren pembayaran 3 bulan terakhir & intelijen penagihan</p>
     </div>
 
     <div class="bg-white p-1 rounded-4 shadow-sm mb-4 border mx-1">
@@ -26,7 +26,7 @@
             </li>
             <li class="nav-item">
                 <button class="nav-link rounded-3 fw-bold small py-2 text-danger" id="macet-tab" data-bs-toggle="tab" data-bs-target="#macet-pane" type="button">
-                    <i class="fas fa-exclamation-triangle me-1"></i> MACET
+                    <i class="fas fa-satellite-dish me-1"></i> RADAR
                 </button>
             </li>
         </ul>
@@ -34,58 +34,36 @@
 
     <div class="tab-content" id="historyTabContent">
         <div class="tab-pane fade show active" id="undue-pane" role="tabpanel">
-            <div id="list-undue">
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="text-muted small mt-2">Menganalisis tren Undue...</p>
-                </div>
-            </div>
+            <div id="list-undue"><div class="text-center py-5"><div class="spinner-border text-primary"></div></div></div>
         </div>
 
         <div class="tab-pane fade" id="current-pane" role="tabpanel">
-            <div id="list-current">
-                <div class="text-center py-5">
-                    <div class="spinner-border text-warning" role="status"></div>
-                    <p class="text-muted small mt-2">Menganalisis tren Current...</p>
-                </div>
-            </div>
+            <div id="list-current"><div class="text-center py-5"><div class="spinner-border text-warning"></div></div></div>
         </div>
 
         <div class="tab-pane fade" id="audit-pane" role="tabpanel">
-            <div id="list-audit">
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="text-muted small mt-2">Sinkronisasi log lapangan...</p>
-                </div>
-            </div>
+            <div id="list-audit"><div class="text-center py-5"><div class="spinner-border text-primary"></div></div></div>
         </div>
 
         <div class="tab-pane fade" id="macet-pane" role="tabpanel">
             <div class="alert alert-danger mx-1 rounded-4 border-0 shadow-sm mb-3">
                 <div class="d-flex">
-                    <i class="fas fa-info-circle me-2 mt-1"></i>
+                    <i class="fas fa-triangle-exclamation me-2 mt-1"></i>
                     <div>
-                        <small class="fw-bold d-block">RADAR MACET (Sangat Penting)</small>
-                        <small style="font-size: 0.7rem;">Pelanggan aktif di MC terbaru dengan akumulasi tunggakan Ardebt.</small>
+                        <small class="fw-bold d-block">RADAR MACET AKTIF</small>
+                        <small style="font-size: 0.7rem;">Analisis pelanggan dengan akumulasi tunggakan Ardebt bulan berjalan.</small>
                     </div>
                 </div>
             </div>
-            <div id="list-macet">
-                <div class="text-center py-5">
-                    <div class="spinner-border text-danger" role="status"></div>
-                    <p class="text-muted small mt-2">Menghitung akumulasi tunggakan...</p>
-                </div>
-            </div>
+            <div id="list-macet"><div class="text-center py-5"><div class="spinner-border text-danger"></div></div></div>
         </div>
     </div>
 </div>
 
-
-
 <script>
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    // 1. Load Data Analisis Tren (Undue & Current) - FUNGSI LAMA UTUH
+    // 1. Load Data Analisis Tren (Undue & Current)
     async function loadAnalisis() {
         try {
             const res = await fetch('/api/history/analisis-bayar');
@@ -104,8 +82,8 @@
 
     function renderHistory(data, elementId, accentClass) {
         const container = document.getElementById(elementId);
-        if (data.length === 0) {
-            container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada riwayat pembayaran 3 bulan terakhir.</div>';
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada riwayat pembayaran terbaru.</div>';
             return;
         }
 
@@ -115,7 +93,7 @@
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
                             <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">${item.nomen}</h6>
-                            <small class="text-muted" style="font-size: 0.7rem;">Tagihan Periode: <b>${item.periode}</b></small>
+                            <small class="text-muted" style="font-size: 0.7rem;">Tagihan: <b>${item.periode}</b></small>
                         </div>
                         <span class="badge ${accentClass} text-dark rounded-pill" style="font-size: 0.6rem;">${item.termin}</span>
                     </div>
@@ -128,7 +106,7 @@
         `).join('');
     }
 
-    // 2. Load Data Radar Macet (FUNGSI LAMA UTUH)
+    // 2. Load Data Radar Macet
     async function loadNomenMacet() {
         const container = document.getElementById('list-macet');
         try {
@@ -137,12 +115,12 @@
             const data = result.data || [];
 
             if (data.length === 0) {
-                container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada pelanggan macet terdeteksi.</div>';
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Alhamdulillah, tidak ada indikasi macet.</div>';
                 return;
             }
 
             container.innerHTML = data.map(item => `
-                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 animate__animated animate__fadeInUp">
+                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 animate__animated animate__fadeInUp border-start border-4 border-danger">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between mb-2">
                             <span class="badge bg-danger text-white rounded-pill px-2" style="font-size: 0.65rem;">
@@ -151,7 +129,7 @@
                             <small class="fw-bold text-muted">${item.nomen}</small>
                         </div>
                         <h6 class="fw-bold mb-1 text-dark text-uppercase" style="font-size: 0.9rem;">${item.nama}</h6>
-                        <small class="text-muted d-block mb-2">Rute: ${item.pcez || '-'}</small>
+                        <small class="text-muted d-block mb-2">PCEZ: ${item.pcez || '-'}</small>
                         <div class="row g-0 mt-2 pt-2 border-top">
                             <div class="col-6">
                                 <small class="text-muted d-block" style="font-size: 0.6rem;">TAGIHAN TERBARU</small>
@@ -166,11 +144,11 @@
                 </div>
             `).join('');
         } catch (e) {
-            container.innerHTML = '<div class="text-center py-5 text-danger small">Gagal menganalisis data radar macet.</div>';
+            container.innerHTML = '<div class="text-center py-5 text-danger small">Gagal sinkronisasi Radar Macet.</div>';
         }
     }
 
-    // 3. Load Audit Kunjungan (FUNGSI BARU SINERGI)
+    // 3. Load Audit Kunjungan (Intelijen Sinergi)
     async function loadAuditKunjungan() {
         const container = document.getElementById('list-audit');
         try {
@@ -179,45 +157,52 @@
             const data = result.data || [];
 
             if (data.length === 0) {
-                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada aktivitas lapangan.</div>';
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada aktivitas lapangan tercatat.</div>';
                 return;
             }
 
             container.innerHTML = data.map(item => `
                 <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 animate__animated animate__fadeInUp">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <small class="text-primary fw-bold"><i class="fas fa-user me-1"></i>${item.petugas_name}</small>
+                        <div class="d-flex justify-content-between mb-2">
+                            <small class="text-primary fw-bold"><i class="fas fa-user-circle me-1"></i>${item.petugas_name}</small>
                             <small class="text-muted" style="font-size: 0.65rem;">${item.waktu}</small>
                         </div>
-                        <h6 class="fw-bold mb-0" style="font-size: 0.85rem;">${item.nama}</h6>
-                        <div class="d-flex justify-content-between mt-2">
-                            <span class="badge bg-light text-dark border rounded-pill" style="font-size: 0.65rem;">${item.keterangan}</span>
-                            <small class="text-danger fw-bold" style="font-size: 0.75rem;">Total: ${toIDR(item.mc + item.ardebt)}</small>
+                        <h6 class="fw-bold mb-1" style="font-size: 0.85rem;">${item.nama} <small class="text-muted">(${item.nomen})</small></h6>
+                        <div class="d-flex justify-content-between mt-2 pt-2 border-top border-light">
+                            <span class="badge ${item.keterangan.includes('Sudah') ? 'bg-success' : 'bg-primary'} rounded-pill" style="font-size: 0.65rem;">${item.keterangan}</span>
+                            <small class="text-dark fw-bold" style="font-size: 0.75rem;">Tagihan: ${toIDR(item.mc + item.ardebt)}</small>
                         </div>
+                        ${item.catatan ? `<div class="mt-2 p-2 bg-light rounded-3 small text-muted italic" style="font-size: 0.7rem;">"${item.catatan}"</div>` : ''}
                     </div>
                 </div>
             `).join('');
         } catch (e) {
-            container.innerHTML = '<div class="text-center py-5 text-muted small">Gagal memuat log audit.</div>';
+            container.innerHTML = '<div class="text-center py-5 text-muted small">Gagal memuat log intelijen.</div>';
         }
     }
 
+    // Inisialisasi Sinergi
     document.addEventListener('DOMContentLoaded', () => {
         loadAnalisis();
-        // Sinergi: Load data hanya saat tab diklik untuk hemat resource
+        // Sinergi: Data hanya dimuat saat tab aktif untuk menghemat data internet petugas
         document.getElementById('macet-tab').addEventListener('shown.bs.tab', loadNomenMacet);
         document.getElementById('audit-tab').addEventListener('shown.bs.tab', loadAuditKunjungan);
     });
 </script>
 
 <style>
-    .nav-pills .nav-link { color: #6c757d; transition: all 0.3s; border: 1px solid transparent; }
-    .nav-pills .nav-link.active { background-color: #0d6efd; color: white !important; box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2); }
-    .nav-item:nth-child(3) .nav-link.active { background-color: #0d6efd !important; } /* Audit Tab */
-    .nav-item:last-child .nav-link.active { background-color: #dc3545 !important; box-shadow: 0 4px 10px rgba(220, 53, 69, 0.2); } /* Macet Tab */
+    /* Styling Sinergi Tab */
+    .nav-pills .nav-link { color: #6c757d; border: 1px solid transparent; transition: 0.3s; }
+    .nav-pills .nav-link.active { background-color: #0d6efd; color: white !important; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2); }
+    .nav-item:last-child .nav-link.active { background-color: #dc3545 !important; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2); }
+    
+    /* Card Hover Effects */
+    .card { transition: transform 0.2s ease; }
+    .card:active { transform: scale(0.97); }
+    
     .border-info { border-color: #0dcaf0 !important; }
     .border-warning { border-color: #ffc107 !important; }
-    .animate__animated { --animate-duration: 0.5s; }
+    .animate__animated { --animate-duration: 0.4s; }
 </style>
 {% endblock %}
