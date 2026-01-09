@@ -72,9 +72,9 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">WhatsApp Pelanggan *</label>
+                        <label class="form-label small fw-bold">Kontak Pelanggan (Hanya Catatan) *</label>
                         <div class="input-group">
-                            <span class="input-group-text border-0 bg-light"><i class="fab fa-whatsapp"></i></span>
+                            <span class="input-group-text border-0 bg-light"><i class="fas fa-phone"></i></span>
                             <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 border-primary-subtle" placeholder="0812..." required>
                         </div>
                     </div>
@@ -83,10 +83,10 @@
                         <label class="form-label small fw-bold">Hasil Kunjungan *</label>
                         <select id="modal-hasil" name="hasil" class="form-select rounded-3 bg-light border-0" required onchange="toggleJanjiInput()">
                             <option value="">-- Pilih Hasil --</option>
-                            <option value="Sudah Bayar">Sudah Bayar (Ada Bukti)</option>
-                            <option value="Janji Bayar">Janji Bayar (Set Tanggal)</option>
-                            <option value="Rumah Kosong">Rumah Kosong / Tutup</option>
-                            <option value="Cabut Segel">Cabut Segel / Stop Keran</option>
+                            <option value="Sudah Bayar">Sudah Bayar</option>
+                            <option value="Janji Bayar">Janji Bayar</option>
+                            <option value="Rumah Kosong">Rumah Kosong</option>
+                            <option value="Tutup Bor">Tutup Bor / Segel</option>
                             <option value="Lainnya">Lainnya / Kendala</option>
                         </select>
                     </div>
@@ -108,7 +108,7 @@
                 </div>
                 <div class="modal-footer border-0">
                     <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow">
-                        SIMPAN & KIRIM LAPORAN <i class="fab fa-whatsapp ms-1"></i>
+                        SIMPAN & BAGIKAN LAPORAN <i class="fab fa-whatsapp ms-1"></i>
                     </button>
                 </div>
             </form>
@@ -232,7 +232,6 @@
         document.getElementById('modal-sub-nomet').innerText = `MET: ${nomet}`;
         document.getElementById('modal-sub-vol').innerText = `VOL: ${vol} m³`;
         
-        // Data for WA Template
         document.getElementById('modal-nama-hidden').value = nama;
         document.getElementById('modal-nomet-hidden').value = nomet || '-';
         document.getElementById('modal-vol-hidden').value = vol;
@@ -255,8 +254,8 @@
             const result = await res.json();
             
             if (res.ok) {
-                Swal.fire('Berhasil', 'Membuka WhatsApp...', 'success').then(() => {
-                    executeDoubleWA(result.wa_data);
+                Swal.fire('Berhasil', 'Menyiapkan Laporan WA...', 'success').then(() => {
+                    executeShareWA(result.wa_data);
                     modalKunjungan.hide();
                     loadData();
                 });
@@ -268,41 +267,33 @@
         }
     }
 
-    function executeDoubleWA(wa) {
+    function executeShareWA(wa) {
         const waktu = new Date().toLocaleString('id-ID');
 
-        // 1. TEMPLATE INTERNAL (DETAIL KOMPLIT)
-        const pesanInternal = 
-            `*[LAPORAN INTERNAL PETUGAS]* 📡%0A` +
+        // TEMPLATE LAPORAN KOMPLIT (Bisa dibagikan ke mana saja)
+        const pesanShare = 
+            `*[LAPORAN KUNJUNGAN LAPANGAN]* 📡%0A` +
             `-------------------------------------------%0A` +
             `👤 *Petugas:* ${wa.petugas}%0A` +
             `🏠 *Konsumen:* ${wa.nama}%0A` +
-            `🆔 *NOMEN:* ${wa.nomen}%0A` +
+            `🆔 *IDPEL:* ${wa.nomen}%0A` +
             `📟 *NOMET:* ${wa.nomet}%0A` +
             `📍 *Rayon:* ${wa.rayon}%0A%0A` +
             `*HASIL KUNJUNGAN:*%0A` +
             `📌 Status: *${wa.status}*%0A` +
             `📝 Catatan: ${wa.catatan}%0A%0A` +
-            `*RINCIAN PIUTANG:*%0A` +
-            `💵 MC: Rp ${formatIDR(wa.mc)}%0A` +
+            `*RINCIAN TAGIHAN:*%0A` +
+            `🧾 Current: Rp ${formatIDR(wa.mc)}%0A` +
             `💸 Ardebt: Rp ${formatIDR(wa.ardebt)}%0A` +
-            `🧾 *TOTAL: Rp ${formatIDR(wa.total)}*%0A` +
+            `💰 *TOTAL: Rp ${formatIDR(wa.total)}*%0A` +
             `💧 *VOL:* ${wa.vol} m³%0A%0A` +
             `📸 *Bukti Foto:*%0A` +
             `${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
             `*Waktu:* ${waktu}%0A` +
             `-------------------------------------------`;
 
-        // 2. TEMPLATE KONSUMEN (RESIKO)
-        const pesanKonsumen = `*INFO TAGIHAN AIR - SUNTER PRO*%0A...`; 
-
-        // Kirim Ke Konsumen
-        window.open(`https://api.whatsapp.com/send?phone=${wa.hp.replace(/^0/, '62')}&text=${pesanKonsumen}`, '_blank');
-        
-        // Kirim Ke Admin Internal
-        setTimeout(() => {
-            window.open(`https://api.whatsapp.com/send?phone=${wa.no_admin}&text=${pesanInternal}`, '_blank');
-        }, 2000);
+        // INI KUNCINYA: Membuka WA tanpa nomor tujuan (Agar muncul daftar kontak/grup)
+        window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
     }
 </script>
 {% endblock %}
