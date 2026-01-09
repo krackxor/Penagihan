@@ -6,32 +6,32 @@
 
 <style>
     :root {
-        --samsul-dark: #0f172a;
-        --samsul-blue: #3b82f6;
-        --samsul-red: #ef4444;
+        --sunter-dark: #0f172a;
+        --sunter-blue: #3b82f6;
+        --sunter-red: #ef4444;
         --glass: rgba(255, 255, 255, 0.98);
     }
-    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+    body { background-color: #f8fafc; }
     .mobile-container { padding: 1rem 0.75rem; }
     .glass-panel { background: var(--glass); border-radius: 1.25rem; border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .main-command { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 1.5rem; color: white; padding: 1.25rem; }
-    .info-box { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.8rem; font-size: 0.7rem; border-left: 4px solid var(--samsul-blue); line-height: 1.4; }
+    .info-box { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.8rem; font-size: 0.7rem; border-left: 4px solid var(--sunter-blue); line-height: 1.4; }
     .nav-pills .nav-link { font-size: 0.65rem; font-weight: 700; border-radius: 0.75rem; color: #64748b; background: white; border: 1px solid #e2e8f0; margin-right: 5px; white-space: nowrap; }
-    .nav-pills .nav-link.active { background-color: var(--samsul-dark); color: white; border-color: var(--samsul-dark); }
+    .nav-pills .nav-link.active { background-color: var(--sunter-dark); color: white; border-color: var(--sunter-dark); }
     .area-card { border-left: 4px solid #cbd5e1; background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #f1f5f9; }
-    .area-card.kritis { border-left-color: var(--samsul-red); background: #fffafb; }
+    .area-card.kritis { border-left-color: var(--sunter-red); background: #fffafb; }
     .xsmall { font-size: 0.65rem !important; }
 </style>
 
 <div class="mobile-container pb-5">
     <div class="pt-2 mb-3 d-flex justify-content-between align-items-center">
         <div>
-            <h5 class="fw-bold mb-0 text-dark">Laporan Strategis</h5>
+            <h5 class="fw-bold mb-0 text-dark">Laporan Strategis 📊</h5>
             <p class="text-muted xsmall mb-0" id="display-current-date"></p>
         </div>
         <div class="d-flex gap-2">
             <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" onchange="runAnalysis()">
-            <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="runAnalysis()">
+            <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="runAnalysis()" id="btn-sync">
                 <i class="fas fa-sync-alt text-primary" id="refresh-icon"></i>
             </button>
         </div>
@@ -48,7 +48,7 @@
                 <h2 class="fw-bold mb-1" style="font-size: 1.6rem;" id="val-projected">Rp 0</h2>
                 <div class="d-flex justify-content-between xsmall opacity-75">
                     <span id="trend-status">Tren: Memproses...</span>
-                    <span>Stabilitas: <span id="conf-score">0%</span></span>
+                    <span>Akurasi: <span id="conf-score">0%</span></span>
                 </div>
                 <div class="progress bg-white bg-opacity-10 mt-2" style="height: 6px; border-radius: 10px;">
                     <div id="risk-bar" class="progress-bar bg-primary" style="width: 0%"></div>
@@ -57,7 +57,7 @@
             <div class="col-12">
                 <div class="p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10">
                     <div class="d-flex justify-content-between align-items-end mb-1">
-                        <small class="text-white-50 fw-bold xsmall">PROGRES (Target 97%)</small>
+                        <small class="text-white-50 fw-bold xsmall">PROGRES (Target Realisasi 97%)</small>
                         <h5 class="fw-bold mb-0" id="val-progress">0%</h5>
                     </div>
                     <div class="progress bg-white bg-opacity-10" style="height: 10px; border-radius: 10px;">
@@ -83,7 +83,7 @@
         <div class="tab-pane fade show active" id="tab-priority">
             <div class="glass-panel p-3">
                 <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase">Beban Piutang Wilayah</h6>
-                <div id="priority-area-list"></div>
+                <div id="priority-area-list"><div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div></div>
             </div>
         </div>
 
@@ -96,26 +96,26 @@
                 </div>
                 <div style="height: 180px;"><canvas id="performanceChart"></canvas></div>
             </div>
-            <div class="info-box shadow-sm" id="prediction-advice">Menganalisis wawasan operasional...</div>
+            <div class="info-box shadow-sm" id="prediction-advice">Menganalisis intelijen operasional...</div>
         </div>
 
         {% if session['role'] == 'admin' %}
         <div class="tab-pane fade" id="tab-simulator">
-            <div class="glass-panel p-3 shadow-sm">
-                <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase">Simulasi Capaian Akhir Bulan</h6>
+            <div class="glass-panel p-3 shadow-sm border-start border-4 border-primary">
+                <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase">Simulator Capaian 97%</h6>
                 <div class="mb-4">
-                    <label class="xsmall fw-bold text-muted mb-2">RENCANA TAMBAHAN SETORAN HARI INI:</label>
+                    <label class="xsmall fw-bold text-muted mb-2">INPUT TAMBAHAN SETORAN HARI INI:</label>
                     <input type="range" class="form-range" id="sim-input" min="0" max="500000000" step="5000000" value="0">
                     <div class="fw-bold text-primary small mt-1" id="sim-display">Rp 0</div>
                 </div>
                 <div id="sim-result" class="p-3 rounded-4 bg-light border text-center xsmall">
-                    Geser slider untuk melihat perubahan estimasi capaian 97%.
+                    Geser slider untuk melihat perubahan estimasi capaian akhir bulan.
                 </div>
             </div>
         </div>
 
         <div class="tab-pane fade" id="tab-officers">
-            <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase px-1">Ranking Kontribusi Petugas</h6>
+            <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase px-1">Audit Kontribusi Petugas</h6>
             <div id="officer-list"></div>
         </div>
         {% endif %}
@@ -123,7 +123,11 @@
 </div>
 
 <div class="modal fade" id="auditModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered mx-3"><div class="modal-content border-0 rounded-4 shadow-lg"><div id="audit-modal-body"></div></div></div>
+    <div class="modal-dialog modal-dialog-centered mx-3">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div id="audit-modal-body"></div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -148,7 +152,7 @@ async function runAnalysis() {
     const periode = `${month}-${year}`;
 
     try {
-        // SINERGI: API full-stats sekarang merespon data sesuai role login
+        // Sinergi: Mengambil data performa komprehensif (global & per-officer)
         const response = await fetch(`/api/performance/full-stats?periode=${periode}`);
         const data = await response.json();
         GlobalData = data;
@@ -163,9 +167,9 @@ async function runAnalysis() {
         }
         initChart();
     } catch (err) {
-        console.error("Dashboard Sync Error:", err);
+        console.error("Analysis Sync Failed:", err);
     } finally {
-        setTimeout(() => icon.classList.remove('fa-spin'), 800);
+        setTimeout(() => icon.classList.remove('fa-spin'), 600);
     }
 }
 
@@ -177,7 +181,8 @@ function processLogic() {
     
     const g = GlobalData.global || {};
     const currentRev = (g.nom_undue || 0) + (g.nom_current || 0);
-    const target97 = (g.total_nominal_mc || 1) * 0.97;
+    const targetTotal = (g.total_nominal_mc || 1);
+    const target97 = targetTotal * 0.97;
     
     const velocity = currentRev / today;
     const projected = velocity * lastDay;
@@ -194,22 +199,24 @@ function renderDashboard() {
     document.getElementById('progress-bar-97').style.width = Math.min(100, m.progress) + '%';
     document.getElementById('risk-bar').style.width = Math.min(100, m.progress) + '%';
     
-    document.getElementById('trend-status').innerText = `Proyeksi: ${m.projected >= m.target97 ? 'CAPAI TARGET' : 'DI BAWAH TARGET'}`;
-    document.getElementById('conf-score').innerText = Math.min(100, (m.velocity / (m.dailyNeeded || 1) * 100)).toFixed(0) + '%';
+    document.getElementById('trend-status').innerText = `Proyeksi Akhir: ${m.projected >= m.target97 ? 'CAPAI TARGET' : 'DI BAWAH TARGET'}`;
+    const score = Math.min(100, (m.velocity / (m.dailyNeeded || 1) * 100));
+    document.getElementById('conf-score').innerText = score.toFixed(0) + '%';
     document.getElementById('panic-alert').className = (m.progress < 85 && m.today > 15) ? 'text-center mb-3 animate__animated animate__shakeX' : 'd-none';
 }
 
 function renderPriorityAreas() {
     const container = document.getElementById('priority-area-list');
-    const areas = [...(GlobalData.officers || [])];
+    const areas = [...(GlobalData.officers || [])].sort((a,b) => b.total_nominal - a.total_nominal);
+    
     container.innerHTML = areas.map((a, index) => `
-        <div class="area-card ${index < 1 && a.total_nominal > 10000000 ? 'kritis' : ''} animate__animated animate__fadeInUp">
+        <div class="area-card ${index < 2 ? 'kritis' : ''} animate__animated animate__fadeInUp">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="fw-bold xsmall mb-1">${a.petugas}</h6>
-                    <div class="text-muted xsmall">Sisa Target: <span class="text-danger fw-bold">${toIDR(a.total_nominal * 0.9)}</span></div>
+                    <h6 class="fw-bold xsmall mb-1 text-uppercase">${a.petugas}</h6>
+                    <div class="text-muted xsmall">Piutang Tersisa: <span class="text-danger fw-bold">${toIDR(a.total_nominal)}</span></div>
                 </div>
-                <span class="badge ${index < 1 ? 'bg-danger' : 'bg-primary'} xsmall">Rute Aktif</span>
+                <span class="badge ${index < 2 ? 'bg-danger' : 'bg-primary'} xsmall rounded-pill px-2">Priority ${index + 1}</span>
             </div>
         </div>`).join('');
 }
@@ -221,13 +228,13 @@ function renderPrediction() {
     const adv = document.getElementById('prediction-advice');
 
     if (m.velocity >= m.dailyNeeded) {
-        stext.innerText = "LANCAR"; stext.className = "fw-bold text-success";
-        sdesc.innerText = "Laju setoran saat ini mencukupi target.";
-        adv.innerHTML = "<b>Saran:</b> Ritme kerja saat ini sudah optimal, teruskan hingga akhir periode.";
+        stext.innerText = "LANCAR 🟢"; stext.className = "fw-bold text-success h5";
+        sdesc.innerText = "Laju harian mencukupi target realisasi 97%.";
+        adv.innerHTML = "<b>Saran Sinergi:</b> Ritme kerja optimal. Fokus menjaga stabilitas setoran hingga penutupan periode.";
     } else {
-        stext.innerText = "RISIKO TERHAMBAT"; stext.className = "fw-bold text-danger";
-        sdesc.innerText = "Laju harian berada di bawah ambang batas target 97%.";
-        adv.innerHTML = `<b>Instruksi:</b> Perlu tambahan rata-rata <b>${toIDR(m.dailyNeeded - m.velocity)}</b> per hari.`;
+        stext.innerText = "RISIKO TERHAMBAT 🔴"; stext.className = "fw-bold text-danger h5";
+        sdesc.innerText = "Laju harian di bawah ambang batas aman target.";
+        adv.innerHTML = `<b>Instruksi Sinergi:</b> Perlu tambahan rata-rata <b>${toIDR(m.dailyNeeded - m.velocity)}</b> per hari untuk mencapai target aman.`;
     }
 }
 
@@ -235,18 +242,24 @@ function initChart() {
     const ctx = document.getElementById('performanceChart').getContext('2d');
     if (PerformanceChart) PerformanceChart.destroy();
     
-    // SINERGI: Mengambil data historis real-time dari log kunjungan
-    const logs = GlobalData.log_petugas || [];
-    const chartLabels = ["H-6", "H-5", "H-4", "H-3", "H-2", "H-1", "Hari Ini"];
-    const chartData = [10, 25, 15, 30, 45, 20, logs.length]; // Contoh data harian
-
+    const logs = GlobalData.officers || [];
     PerformanceChart = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
-            labels: chartLabels,
-            datasets: [{ data: chartData, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.05)', fill: true, tension: 0.4, pointRadius: 3 }]
+            labels: logs.map(o => o.petugas.split(' ')[0]),
+            datasets: [{ 
+                label: 'Capaian (Juta)',
+                data: logs.map(o => o.total_nominal / 1000000), 
+                backgroundColor: '#3b82f6', 
+                borderRadius: 8,
+                barThickness: 15
+            }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 8 } } } } }
+        options: { 
+            responsive: true, maintainAspectRatio: false, 
+            plugins: { legend: { display: false } },
+            scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 8 } } } } 
+        }
     });
 }
 
@@ -263,7 +276,7 @@ function renderDecisionHub() {
         const newProj = ((m.currentRev + val) / m.today) * m.lastDay;
         const newProg = (newProj / m.target97) * 100;
         simResult.className = `p-3 rounded-4 text-center xsmall animate__animated animate__pulse ${newProg >= 97 ? 'bg-success-subtle text-success border-success' : 'bg-danger-subtle text-danger border-danger'}`;
-        simResult.innerHTML = `Tambahan <b>${toIDR(val)}</b> hari ini memproyeksikan capaian akhir menjadi <b>${newProg.toFixed(1)}%</b>.`;
+        simResult.innerHTML = `Jika hari ini setor <b>${toIDR(val)}</b>, proyeksi akhir bulan menjadi <b>${newProg.toFixed(1)}%</b>.`;
     };
 }
 
@@ -275,12 +288,14 @@ function renderOfficers() {
         <div class="glass-panel p-3 mb-2 border-start border-primary border-4 animate__animated animate__fadeIn">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="fw-bold xsmall mb-0">${l.petugas}</h6>
-                    <small class="text-muted" style="font-size: 0.6rem;">${l.jml_bayar} Tagihan Lunas / ${l.total_dijalan} Kunjungan</small>
+                    <h6 class="fw-bold xsmall mb-0 text-uppercase">${l.petugas}</h6>
+                    <small class="text-muted" style="font-size: 0.6rem;">${l.jml_bayar} Lunas • ${l.total_dijalan} Kunjungan Lapangan</small>
                 </div>
-                <h6 class="fw-bold xsmall text-primary mb-0">${toIDR(l.total_nominal)}</h6>
+                <div class="text-end">
+                    <h6 class="fw-bold xsmall text-primary mb-0">${toIDR(l.total_nominal)}</h6>
+                    <button class="btn btn-link p-0 xsmall text-dark fw-bold" onclick="showAuditModal('${l.petugas}')">Audit Rinci</button>
+                </div>
             </div>
-            <div class="d-flex justify-content-end mt-2"><button class="btn btn-dark btn-sm p-1 px-3 xsmall rounded-pill" onclick="showAuditModal('${l.petugas}')">Audit Rinci</button></div>
         </div>`).join('');
 }
 
@@ -288,14 +303,17 @@ function showAuditModal(name) {
     const l = GlobalData.officers.find(o => o.petugas === name);
     const modal = new bootstrap.Modal(document.getElementById('auditModal'));
     document.getElementById('audit-modal-body').innerHTML = `
-        <div class="p-3">
-            <h6 class="fw-bold text-dark mb-3">Audit Performa: ${name}</h6>
+        <div class="bg-dark text-white p-3 border-bottom border-secondary">
+            <h6 class="fw-bold mb-0">Audit Kinerja: ${name}</h6>
+        </div>
+        <div class="p-3 bg-white">
             <div class="info-box mb-3 shadow-sm">
-                <b>EFEKTIVITAS:</b> ${((l.jml_bayar/(l.total_dijalan || 1))*100).toFixed(1)}%<br>
-                <b>HASIL SETORAN:</b> ${toIDR(l.total_nominal)}<br>
-                <b>HAMBATAN:</b> ${l.jml_rks} Rumah Kosong / Segel
+                <div class="d-flex justify-content-between mb-1"><span>EFEKTIVITAS:</span><b>${((l.jml_bayar/(l.total_dijalan || 1))*100).toFixed(1)}%</b></div>
+                <div class="d-flex justify-content-between mb-1"><span>JUMLAH LUNAS:</span><b>${l.jml_bayar} Data</b></div>
+                <div class="d-flex justify-content-between mb-1"><span>TOTAL NOMINAL:</span><b>${toIDR(l.total_nominal)}</b></div>
+                <div class="d-flex justify-content-between"><span>RUMAH KOSONG:</span><b>${l.jml_rks || 0}</b></div>
             </div>
-            <button class="btn btn-dark w-100 py-2 rounded-3 fw-bold xsmall shadow" data-bs-dismiss="modal">TUTUP LAPORAN</button>
+            <button class="btn btn-dark w-100 py-3 rounded-3 fw-bold xsmall shadow" data-bs-dismiss="modal">TUTUP AUDIT</button>
         </div>`;
     modal.show();
 }
