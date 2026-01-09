@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="mb-4">
+        <h3 class="fw-bold text-dark">Pusat Kendali Admin</h3>
+        <p class="text-muted small">Sunter Pro v2.5.0 - Sinkronisasi & Manajemen Terpadu</p>
+    </div>
+
+    <ul class="nav nav-pills nav-fill bg-white p-2 shadow-sm rounded-4 mb-4" id="adminTab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active rounded-3" data-bs-toggle="tab" data-bs-target="#tab-sync">
+                <i class="fas fa-sync me-2"></i> Sinkron Data
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-mapping">
+                <i class="fas fa-map-location-dot me-2"></i> Mapping Rute
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-users">
+                <i class="fas fa-users-cog me-2"></i> Kelola User
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="tab-sync">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3">Upload Master Rute & Tagihan</h5>
+                <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light">
+                    <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
+                    <p class="mb-3">Tarik file Excel rute (PCEZ & PETUGAS) ke sini</p>
+                    <input type="file" id="excelFile" class="form-control mb-3">
+                    <button class="btn btn-success w-100 fw-bold rounded-3" onclick="uploadData()">PROSES SINKRONISASI</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-mapping">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <h5 class="fw-bold">Mapping Petugas Lapangan</h5>
+                    <input type="text" class="form-control w-25" placeholder="Cari PCEZ...">
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Kode PCEZ</th>
+                                <th>Petugas Saat Ini (Excel)</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mappingTableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-users">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <h5 class="fw-bold">User Access & Kunci Rute</h5>
+                    <button class="btn btn-primary btn-sm rounded-pill" onclick="addUser()">+ User Baru</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Kunci Rute (petugas_id)</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userListBody">
+                            <tr>
+                                <td>pian_sunter</td>
+                                <td><span class="badge bg-info">Petugas</span></td>
+                                <td class="fw-bold text-primary">PIAN</td>
+                                <td><span class="text-success">● Aktif</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .nav-pills .nav-link.active { background-color: #0f172a; }
+    .nav-pills .nav-link { color: #64748b; font-weight: 600; }
+    .border-dashed { border: 2px dashed #cbd5e1; }
+</style>
+{% endblock %}
