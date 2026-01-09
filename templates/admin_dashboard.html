@@ -6,7 +6,7 @@
             <h3 class="fw-bold text-dark mb-0">Pusat Kendali Admin ⚡</h3>
             <p class="text-muted small">Sunter Pro v2.5.0 - Sinkronisasi & Manajemen Terpadu</p>
         </div>
-        <div id="status-indicator">
+        <div id="status-indicator" class="d-none d-md-block">
             <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
                 <i class="fas fa-shield-check me-1"></i> Admin Level 3 Active
             </span>
@@ -36,7 +36,7 @@
             <div class="row g-4">
                 <div class="col-md-7">
                     <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-                        <h5 class="fw-bold mb-3">Upload Master & Tagihan</h5>
+                        <h5 class="fw-bold mb-3"><i class="fas fa-cloud-arrow-up text-primary me-2"></i>Upload Master & Tagihan</h5>
                         <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light mb-3" id="drop-zone">
                             <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
                             <p class="mb-3 text-secondary small">Dukung File: MC, MB, Rute RL, atau Ardebt</p>
@@ -44,18 +44,18 @@
                             <button class="btn btn-outline-success px-4 rounded-pill fw-bold" onclick="document.getElementById('excelFile').click()">
                                 <i class="fas fa-search me-1"></i> Pilih File Excel
                             </button>
-                            <div id="file-name-preview" class="mt-2 small fw-bold text-primary"></div>
+                            <div id="file-name-preview" class="mt-3 small fw-bold text-primary"></div>
                         </div>
                         <button class="btn btn-dark w-100 fw-bold rounded-3 py-3 shadow" onclick="uploadData()">
-                            <i class="fas fa-cloud-upload-alt me-2"></i> PROSES SINKRONISASI SEKARANG
+                            <i class="fas fa-bolt me-2 text-warning"></i> PROSES SINKRONISASI SEKARANG
                         </button>
                     </div>
                 </div>
                 <div class="col-md-5">
                     <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-                        <h5 class="fw-bold mb-3">Integritas Database</h5>
+                        <h5 class="fw-bold mb-3"><i class="fas fa-database text-info me-2"></i>Integritas Database</h5>
                         <div id="data-status-list">
-                            <div class="text-center py-4 text-muted small"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                            <div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
                         </div>
                     </div>
                 </div>
@@ -64,17 +64,17 @@
 
         <div class="tab-pane fade" id="tab-mapping">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                     <h5 class="fw-bold mb-0">Mapping Petugas Lapangan</h5>
-                    <div class="input-group w-50">
+                    <div class="input-group" style="max-width: 300px;">
                         <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
                         <input type="text" class="form-control bg-light border-0 small" id="searchMapping" placeholder="Cari PCEZ/Petugas..." onkeyup="filterMapping()">
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 500px;">
                     <table class="table align-middle table-hover">
-                        <thead class="sticky-top bg-white">
-                            <tr class="small text-uppercase text-muted border-bottom">
+                        <thead class="sticky-top bg-white border-bottom">
+                            <tr class="small text-uppercase text-muted">
                                 <th>Kode PCEZ</th>
                                 <th>Petugas Lapangan</th>
                                 <th>Admin WhatsApp</th>
@@ -89,12 +89,12 @@
 
         <div class="tab-pane fade" id="tab-users">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                     <div>
                         <h5 class="fw-bold mb-0">User Access Control</h5>
-                        <p class="text-muted small mb-0">Atur siapa yang bisa lapor rute tertentu</p>
+                        <p class="text-muted small mb-0">Proteksi rute berdasarkan login petugas</p>
                     </div>
-                    <button class="btn btn-primary rounded-pill px-4 fw-bold" onclick="showAddUserModal()">
+                    <button class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="showAddUserModal()">
                         <i class="fas fa-plus me-2"></i> Buat Akun Baru
                     </button>
                 </div>
@@ -128,11 +128,11 @@
                         <input type="text" id="edit_pcez" class="form-control bg-light" readonly>
                     </div>
                     <div class="mb-3">
-                        <label class="small fw-bold">Nama Petugas (Sesuai Excel)</label>
+                        <label class="small fw-bold">Nama Petugas (Wajib sama dengan Excel)</label>
                         <input type="text" id="edit_petugas" class="form-control text-uppercase" placeholder="Contoh: PIAN">
                     </div>
                     <div class="mb-3">
-                        <label class="small fw-bold">Nomor WhatsApp Admin (Sharing)</label>
+                        <label class="small fw-bold">Nomor WA Supervisor</label>
                         <input type="text" id="edit_no_admin" class="form-control" placeholder="628123xxx">
                     </div>
                     <button type="button" class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow-sm" onclick="saveMapping()">SIMPAN PEMBARUAN</button>
@@ -144,14 +144,16 @@
 
 <div class="modal fade" id="userModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 rounded-4">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
             <div class="modal-body p-4">
-                <h5 class="fw-bold mb-3" id="userModalTitle">Tambah Akun Sinergi</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0" id="userModalTitle">Tambah Akun Sinergi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
                 <form id="userForm">
-                    <input type="hidden" id="user_action" value="add">
                     <div class="mb-3">
                         <label class="small fw-bold">Username</label>
-                        <input type="text" id="u_username" class="form-control" required>
+                        <input type="text" id="u_username" class="form-control form-control-lg" placeholder="username_petugas" required>
                     </div>
                     <div class="mb-3">
                         <label class="small fw-bold">Password Baru</label>
@@ -164,10 +166,12 @@
                             <option value="admin">Administrator Pusat</option>
                         </select>
                     </div>
-                    <div class="mb-3" id="kunci-rute-group">
-                        <label class="small fw-bold text-danger">Kunci Petugas ID (Sesuai Excel)</label>
-                        <input type="text" id="u_petugas_id" class="form-control text-uppercase" placeholder="ALL atau Nama Petugas">
-                        <small class="text-muted" style="font-size: 0.65rem;">Sistem hanya menampilkan rute sesuai ID ini saat petugas login.</small>
+                    <div class="mb-3 p-3 bg-danger-subtle rounded-3">
+                        <label class="small fw-bold text-danger">Kunci Petugas ID (Sinergi Excel)</label>
+                        <input type="text" id="u_petugas_id" class="form-control text-uppercase mt-1" placeholder="ALL atau Nama Petugas">
+                        <small class="text-danger-emphasis d-block mt-1" style="font-size: 0.65rem;">
+                            <i class="fas fa-info-circle me-1"></i> Jika diisi "PIAN", user hanya bisa melihat data rute PIAN.
+                        </small>
                     </div>
                     <button type="button" class="btn btn-dark w-100 py-3 rounded-3 fw-bold" onclick="saveUser()">DAFTARKAN AKUN</button>
                 </form>
@@ -183,12 +187,18 @@
     .border-dashed:hover { border-color: #22c55e; background-color: #f0fdf4 !important; }
     .badge-role-admin { background: #e0f2fe; color: #0369a1; }
     .badge-role-petugas { background: #fef3c7; color: #92400e; }
+    .table thead th { font-size: 0.7rem; border-bottom: 2px solid #f1f5f9; }
 </style>
 
 <script>
 // --- GLOBAL HANDLER ---
 document.getElementById('excelFile').onchange = function() {
-    document.getElementById('file-name-preview').innerText = "File Terpilih: " + this.files[0].name;
+    if(this.files[0]) {
+        document.getElementById('file-name-preview').innerHTML = `
+            <div class="alert alert-primary mb-0 py-2">
+                <i class="fas fa-file-excel me-2"></i>${this.files[0].name}
+            </div>`;
+    }
 };
 
 // --- 1. TAB: SINKRON DATA ---
@@ -197,41 +207,41 @@ async function checkDataStatus() {
         const res = await fetch('/api/upload/data-status');
         const status = await res.json();
         let html = '';
-        const labels = { 'MC': 'Master Tagihan', 'MB': 'Master Undue', 'Collection': 'Data Harian', 'Ardebt': 'Tunggakan Ardebt', 'Rute': 'Mapping Wilayah', 'Users': 'Akun Aktif' };
+        const labels = { 'MC': 'Master Tagihan', 'MB': 'Master Lunas', 'Collection': 'Log Harian', 'Ardebt': 'Tunggakan Ardebt', 'Rute': 'Mapping Rute', 'Users': 'User Aktif' };
         
         for (const [key, val] of Object.entries(status)) {
             html += `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded-3">
                     <div>
                         <span class="fw-bold d-block small">${labels[key] || key}</span>
-                        <small class="text-muted" style="font-size:0.65rem;">${val.count.toLocaleString()} Records</small>
+                        <small class="text-muted" style="font-size:0.65rem;">${val.count.toLocaleString()} Baris Data</small>
                     </div>
-                    <i class="fas fa-check-circle ${val.exists ? 'text-success' : 'text-danger-subtle'}"></i>
+                    <i class="fas ${val.exists ? 'fa-check-circle text-success' : 'fa-circle-xmark text-danger-subtle'} fa-lg"></i>
                 </div>`;
         }
         document.getElementById('data-status-list').innerHTML = html;
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Status Load Failed", e); }
 }
 
 async function uploadData() {
     const fileInput = document.getElementById('excelFile');
-    if (fileInput.files.length === 0) return Swal.fire('Error', 'Pilih file Excel terlebih dahulu', 'warning');
+    if (fileInput.files.length === 0) return Swal.fire('Pilih File', 'Silakan pilih file Excel terlebih dahulu', 'warning');
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
 
-    Swal.fire({ title: 'Menjalankan Sync Sinergi...', html: 'Menganalisis kolom & memetakan rute petugas', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Mensinkronkan Data...', html: 'Menganalisis skema & mapping rute...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
         const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
         const result = await res.json();
         if (res.ok) {
-            Swal.fire('Sync Berhasil!', `Tipe: ${result.type.toUpperCase()}<br>Data: ${result.rows} Baris`, 'success');
+            Swal.fire('Sync Berhasil!', `Data ${result.type} (${result.rows} baris) masuk ke sistem.`, 'success');
             checkDataStatus();
         } else {
-            Swal.fire('Gagal Sync', result.error, 'error');
+            Swal.fire('Gagal Sync', result.error || 'Terjadi kesalahan sistem', 'error');
         }
-    } catch (e) { Swal.fire('Error', 'Server tidak merespon', 'error'); }
+    } catch (e) { Swal.fire('Error', 'Server tidak merespon (Timeout)', 'error'); }
 }
 
 // --- 2. TAB: MAPPING RUTE ---
@@ -243,16 +253,16 @@ async function loadMapping() {
         html += `
             <tr class="mapping-row" data-search="${row.pcez} ${row.petugas}">
                 <td class="fw-bold text-primary">${row.pcez}</td>
-                <td class="text-uppercase small">${row.petugas || '<span class="text-danger">NON-MAPPING</span>'}</td>
-                <td class="small">${row.no_admin || '-'}</td>
+                <td class="text-uppercase small">${row.petugas || '<span class="badge bg-danger">NON-MAPPING</span>'}</td>
+                <td class="small font-monospace">${row.no_admin || '-'}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-light shadow-sm" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
-                        <i class="fas fa-pen-to-square"></i>
+                    <button class="btn btn-sm btn-light shadow-sm rounded-pill px-3" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
+                        <i class="fas fa-edit me-1"></i> Edit
                     </button>
                 </td>
             </tr>`;
     });
-    document.getElementById('mappingTableBody').innerHTML = html;
+    document.getElementById('mappingTableBody').innerHTML = html || '<tr><td colspan="4" class="text-center p-4">Belum ada data mapping</td></tr>';
 }
 
 function filterMapping() {
@@ -277,15 +287,15 @@ async function saveMapping() {
 
     const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
     if (res.ok) {
-        Swal.fire('Mapping Updated', 'Rute wilayah telah diperbarui.', 'success');
+        Swal.fire({ icon: 'success', title: 'Mapping Updated', timer: 1500, showConfirmButton: false });
         bootstrap.Modal.getInstance('#editMappingModal').hide();
         loadMapping();
     }
 }
 
-// --- 3. TAB: KELOLA USER (LOGIKA BARU) ---
+// --- 3. TAB: KELOLA USER ---
 async function loadUsers() {
-    const res = await fetch('/api/auth/users'); // Pastikan endpoint ini ada di api/auth.py
+    const res = await fetch('/api/auth/users');
     const users = await res.json();
     let html = '';
     users.forEach(u => {
@@ -295,59 +305,55 @@ async function loadUsers() {
                 <td><span class="badge ${u.role === 'admin' ? 'badge-role-admin' : 'badge-role-petugas'} rounded-pill">${u.role.toUpperCase()}</span></td>
                 <td class="small fw-bold text-primary">${u.petugas_id || 'OPEN'}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.username}')">
-                        <i class="fas fa-trash"></i>
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteUser('${u.username}')">
+                        <i class="fas fa-trash-can"></i>
                     </button>
                 </td>
             </tr>`;
     });
-    document.getElementById('userListBody').innerHTML = html || '<tr><td colspan="4" class="text-center p-4">Belum ada akun petugas</td></tr>';
+    document.getElementById('userListBody').innerHTML = html || '<tr><td colspan="4" class="text-center p-4 text-muted">Belum ada akun terdaftar</td></tr>';
 }
 
 function showAddUserModal() {
     document.getElementById('userForm').reset();
-    document.getElementById('user_action').value = 'add';
-    document.getElementById('userModalTitle').innerText = "Buat Akun Petugas Sinergi";
     new bootstrap.Modal('#userModal').show();
 }
 
 async function saveUser() {
-    const data = {
-        username: document.getElementById('u_username').value,
-        password: document.getElementById('u_password').value,
-        role: document.getElementById('u_role').value,
-        petugas_id: document.getElementById('u_petugas_id').value
-    };
+    const username = document.getElementById('u_username').value;
+    const password = document.getElementById('u_password').value;
+    const role = document.getElementById('u_role').value;
+    const petugas_id = document.getElementById('u_petugas_id').value;
 
-    if (!data.username || !data.password) return Swal.fire('Error', 'Username & Password wajib diisi', 'error');
+    if (!username || !password) return Swal.fire('Error', 'Username & Password wajib diisi', 'error');
 
     const res = await fetch('/api/auth/register', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data) 
+        body: JSON.stringify({ username, password, role, petugas_id }) 
     });
 
+    const result = await res.json();
     if (res.ok) {
-        Swal.fire('Akun Dibuat', 'User berhasil ditambahkan ke database', 'success');
+        Swal.fire('Berhasil', 'Akun petugas telah aktif', 'success');
         bootstrap.Modal.getInstance('#userModal').hide();
         loadUsers();
     } else {
-        const err = await res.json();
-        Swal.fire('Gagal', err.message, 'error');
+        Swal.fire('Gagal', result.message, 'error');
     }
 }
 
 async function deleteUser(username) {
-    if (username === 'admin_sunter') return Swal.fire('Ditolak', 'Akun admin utama tidak bisa dihapus', 'error');
+    if (username === 'admin_sunter') return Swal.fire('Ditolak', 'Akun Master Admin tidak dapat dihapus', 'error');
     
-    const confirm = await Swal.fire({ title: 'Hapus Akun?', text: `User ${username} akan kehilangan akses!`, icon: 'warning', showCancelButton: true });
+    const confirm = await Swal.fire({ title: 'Hapus User?', text: `User ${username} tidak akan bisa login lagi!`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' });
     if (!confirm.isConfirmed) return;
 
     const res = await fetch(`/api/auth/delete-user/${username}`, { method: 'DELETE' });
-    if (res.ok) { loadUsers(); Swal.fire('Dihapus', 'Akun telah ditiadakan', 'success'); }
+    if (res.ok) { loadUsers(); Swal.fire('Dihapus', 'User telah dihapus dari sistem.', 'success'); }
 }
 
-// INITIAL LOAD
+// Initial Load Sinergi
 document.addEventListener('DOMContentLoaded', () => {
     checkDataStatus();
 });
