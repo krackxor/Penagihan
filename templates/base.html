@@ -150,7 +150,8 @@
             <div class="user-profile-box animate__animated animate__fadeIn">
                 <div class="d-flex align-items-center mb-3">
                     <div class="bg-white text-dark rounded-4 d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 50px; height: 50px;">
-                        <i class="fas {% if session['role'] == 'admin' %}fa-user-tie{% else %}fa-motorcycle{% endif %} fa-lg"></i>
+                        {# Perbarui: Filter lowercase pada pengecekan role ikon #}
+                        <i class="fas {% if session['role']|lower == 'admin' %}fa-user-tie{% else %}fa-motorcycle{% endif %} fa-lg"></i>
                     </div>
                     <div>
                         <h6 class="mb-0 fw-bold">{{ session['username']|upper }}</h6>
@@ -172,7 +173,8 @@
         {% block content %}{% endblock %}
     </main>
 
-    {% if session['role'] == 'petugas' %}
+    {# Perbarui: Filter lowercase pada pengecekan role untuk Bottom Navigation #}
+    {% if session['role']|lower == 'petugas' %}
     <nav class="bottom-nav animate__animated animate__slideInUp">
         <a href="/" class="nav-item-link {% if request.path == '/' %}active{% endif %}">
             <i class="fas fa-house-chimney"></i> Home
