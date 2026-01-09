@@ -1,7 +1,15 @@
+"""
+Upload API - Sunter Dashboard Pro
+Sinergi:
+1. Auto-Detection: Mengenali tipe file (MC, MB, Rute, Ardebt) secara otomatis.
+2. Auto-Rayon: Mapping otomatis Rayon 34/35 berdasarkan kode PCEZ.
+3. WhatsApp Integration: Mendukung penyimpanan No Admin saat upload rute.
+"""
+
 import os
 import pandas as pd
 from datetime import datetime
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, session
 from core.database import get_db_connection
 from processors.auto_detect import identify_file_type, detect_file_period
 
@@ -13,8 +21,6 @@ def clean_pcez(val):
         return None, None
     
     val_str = str(val).strip().replace(" ", "")
-    
-    # Deteksi Rayon dari awal string (34 atau 35)
     rayon_hint = val_str[:2] if val_str[:2] in ('34', '35') else None
     
     if '/' in val_str:
@@ -26,18 +32,18 @@ def clean_pcez(val):
     
     s = ''.join(filter(str.isdigit, val_str))
     formatted_pcez = val_str
-    if len(s) == 4:
-        formatted_pcez = f"0{s[:2]}/{s[2:]}"
-    elif len(s) == 5:
-        formatted_pcez = f"{s[:3]}/{s[3:]}"
-    elif len(s) >= 7: 
-        formatted_pcez = f"{s[2:5]}/{s[5:7]}"
+    if len(s) == 4: formatted_pcez = f"0{s[:2]}/{s[2:]}"
+    elif len(s) == 5: formatted_pcez = f"{s[:3]}/{s[3:]}"
+    elif len(s) >= 7: formatted_pcez = f"{s[2:5]}/{s[5:7]}"
             
     return formatted_pcez, rayon_hint
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
-    """Endpoint unggahan file dengan fitur Auto-Rayon Mapping."""
+    """Endpoint unggahan file terpadu (Hanya untuk Admin)."""
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Hanya Admin yang dapat mengunggah data"}), 403
+
     if 'file' not in request.files:
         return jsonify({"error": "Pilih file Excel"}), 400
     
@@ -46,26 +52,31 @@ def handle_upload():
     row_count = 0
     
     try:
-        df = pd.read_excel(file, dtype=str)
-        df = df.fillna('') 
-        
+        df = pd.read_excel(file, dtype=str).fillna('')
         file_type = identify_file_type(df)
+        
         if not file_type:
             return jsonify({"error": "Format kolom file tidak dikenali."}), 400
 
         bulan, tahun = detect_file_period(df, file_type)
-        periode_str = f"{str(bulan).zfill(2)}-{tahun}" if bulan else None
+        periode_str = f"{str(bulan).zfill(2)}-{tahun}" if bulan else datetime.now().strftime('%m-%Y')
         
         df.columns = [str(c).upper().strip() for c in df.columns]
         row_count = len(df)
 
-        # 1. PROSES RUTE PETUGAS
+        # 1. PROSES RUTE PETUGAS (Sinergi: Tambah Kolom No Admin)
         if file_type == 'rute':
             for _, row in df.iterrows():
                 pcez, _ = clean_pcez(row.get('PCEZ'))
                 petugas = str(row.get('PETUGAS', '')).strip().upper()
+                # Jika di excel ada kolom NO_ADMIN, ambil. Jika tidak, pakai default.
+                no_admin = str(row.get('NO_ADMIN', '628123456789')).replace("'", "").strip()
+                
                 if pcez and petugas not in ('', 'NAN', 'NULL'):
-                    db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas) VALUES (?, ?)", (pcez, petugas))
+                    db.execute("""
+                        INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    """, (pcez, petugas, no_admin))
 
         # 2. PROSES MASTER CATAT (MC)
         elif file_type == 'mc':
@@ -124,7 +135,7 @@ def handle_upload():
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)",
                    (file.filename, file_type.upper(), periode_str, row_count, 'SUCCESS'))
         db.commit()
-        return jsonify({"status": "success", "type": file_type, "rows": row_count})
+        return jsonify({"status": "success", "type": file_type, "rows": row_count, "periode": periode_str})
 
     except Exception as e:
         if db: db.rollback()
@@ -134,10 +145,10 @@ def handle_upload():
 
 @upload_bp.route('/data-status', methods=['GET'])
 def get_data_status():
-    """Fix Error 404: Endpoint untuk mengecek ketersediaan data di dashboard."""
+    """Mengecek ketersediaan data untuk dashboard utama."""
     db = get_db_connection()
     try:
-        tables = {'MC': 'master_pelanggan', 'MB': 'master_bayar', 'Collection': 'collection_harian', 'Ardebt': 'ardebt'}
+        tables = {'MC': 'master_pelanggan', 'MB': 'master_bayar', 'Collection': 'collection_harian', 'Ardebt': 'ardebt', 'Rute': 'rute_petugas', 'Users': 'users'}
         status = {}
         for label, table in tables.items():
             count = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
