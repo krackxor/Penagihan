@@ -26,7 +26,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         
-        /* Navbar Styling */
+        /* Navbar Glassmorphism */
         .navbar { 
             background: rgba(255, 255, 255, 0.8) !important; 
             backdrop-filter: blur(12px); 
@@ -95,7 +95,7 @@
     </style>
 </head>
 <body>
-    {# Normalisasi role ke lowercase #}
+    {# Normalisasi role ke lowercase untuk menjamin kecocokan logika navigasi #}
     {% set current_role = (session.get('role', 'guest')|string)|lower %}
 
     <nav class="navbar sticky-top">
@@ -183,10 +183,7 @@
                     <i class="fas fa-clock-rotate-left"></i>Log History
                 </a>
                 <a href="/admin/dashboard" class="nav-link-custom {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
-                    <i class="fas fa-users-gear"></i>Kelola User & Rute
-                </a>
-                <a href="/upload" class="nav-link-custom {% if request.path == '/upload' %}active-menu{% endif %}">
-                    <i class="fas fa-cloud-arrow-up"></i>Sinkronisasi Data
+                    <i class="fas fa-shield-halved"></i>Pusat Kendali (User/Rute/Upload)
                 </a>
                 {% endif %}
             </div>
@@ -224,6 +221,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const offcanvasEl = document.getElementById('offcanvasNav');
