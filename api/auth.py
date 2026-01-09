@@ -38,12 +38,14 @@ def login():
             session.clear()
             session.permanent = True  # Mengikuti PERMANENT_SESSION_LIFETIME di config
             
+            # NORMALISASI ROLE: Paksa ke lowercase agar cocok dengan logika di menu.html
+            user_role = user['role'].lower() if user['role'] else 'publik'
+            
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['role'] = user['role'].lower()
+            session['role'] = user_role
             
             # SINERGI: petugas_id digunakan sebagai filter data global di API lain
-            # Jika admin, petugas_id biasanya 'ALL'
             session['petugas_id'] = user['petugas_id'] if user['petugas_id'] else 'ALL'
 
             # Update Last Login untuk audit log
@@ -51,16 +53,16 @@ def login():
                          (datetime.datetime.now(), user['id']))
             conn.commit()
 
-            # Routing cerdas berdasarkan Level Akses
+            # Routing cerdas berdasarkan Level Akses (menggunakan role yang sudah dinormalisasi)
             redirect_to = "/"
-            if session['role'] == 'petugas':
+            if user_role == 'petugas':
                 redirect_to = "/belum-bayar"
-            elif session['role'] == 'admin':
+            elif user_role == 'admin':
                 redirect_to = "/admin/dashboard"
 
             return APIResponse.success(data={
                 "username": user['username'],
-                "role": user['role'],
+                "role": user_role, # Mengirimkan role dalam format lowercase ke frontend
                 "petugas_id": session['petugas_id'],
                 "redirect": redirect_to
             }, message=f"Login berhasil. Selamat bertugas, {user['username']}")
