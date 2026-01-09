@@ -1,24 +1,17 @@
 """
 Flask Application - Sunter Dashboard Pro
-Mobile-first water billing dashboard with file processing and automated reporting.
-
 Sinergi: 
-1. Mengintegrasikan sistem pelaporan WhatsApp Internal.
-2. Mendukung Pintu Ganda (MC + Ardebt) dalam satu dashboard.
-3. Optimasi Database WAL Mode untuk akses simultan petugas lapangan.
-
-Author: Sunter Team
-Updated: 2026-01-09
+1. Sistem Login 3 Level (Publik, Petugas, Admin).
+2. Proteksi Rute: Kunci akses berdasarkan Role & Petugas ID.
+3. Optimasi Database WAL Mode & Session Management.
 """
 
 import os
 import sqlite3
-from flask import Flask, render_template, g, send_from_directory, current_app
+from flask import Flask, render_template, g, send_from_directory, current_app, session, redirect, url_for, request
 
-# Import Konfigurasi dari config.py
+# Import Konfigurasi
 from config import Config
-
-# Import Helper Database
 from core.database import init_db
 
 # Import Blueprints (API)
@@ -29,18 +22,15 @@ from api.ardebt import ardebt_bp
 from api.belum_bayar import belum_bayar_bp
 from api.collection import collection_bp 
 from api.pcez_performance import register_pcez_routes
+from api.auth import auth_bp # Import Blueprint Auth baru
 
 def get_db():
-    """Koneksi database terpusat dengan optimasi WAL Mode agar tidak locking saat banyak petugas upload foto."""
     if 'db' not in g:
         db_path = current_app.config.get('DATABASE')
         if not db_path:
             db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'penagihan.db')
-            
         g.db = sqlite3.connect(db_path, timeout=30)
         g.db.row_factory = sqlite3.Row
-        
-        # Optimasi performa: WAL Mode sangat penting agar baca/tulis data tidak bergantian (antre)
         g.db.execute('PRAGMA journal_mode=WAL;')
         g.db.execute('PRAGMA synchronous=NORMAL;')
     return g.db
@@ -49,12 +39,10 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Inisialisasi Database & Pastikan Struktur Folder Unggahan Tersedia
     with app.app_context():
         Config.init_app(app)
-        init_db(app) # Migrasi otomatis: Menambahkan kolom no_admin, nomet, volume, rayon jika belum ada.
+        init_db(app) 
         
-        # Penanganan folder secara absolut untuk menyimpan foto kunjungan mandatori
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'temp')
@@ -62,9 +50,7 @@ def create_app():
         for folder in folders:
             if not os.path.exists(folder):
                 os.makedirs(folder, exist_ok=True)
-                # Permission 755 agar gambar bisa tampil di dashboard (akses publik terbatas)
                 os.chmod(folder, 0o755)
-                print(f"📁 Folder Ready: {folder}")
 
     @app.teardown_appcontext
     def close_connection(exception):
@@ -72,7 +58,26 @@ def create_app():
         if db is not None:
             db.close()
 
+    # --- MIDDLEWARE: PROTEKSI RUTE ---
+    @app.before_request
+    def require_login():
+        # Rute yang bisa diakses tanpa login (Level 1 & Auth)
+        public_routes = [
+            'index', 'monitoring_collection_page', 'auth.login', 
+            'login_page', 'static', 'serve_kunjungan_photo'
+        ]
+        
+        if request.endpoint and request.endpoint not in public_routes:
+            if 'role' not in session:
+                return redirect(url_for('login_page'))
+            
+            # Proteksi khusus Admin (Level 3)
+            admin_only_routes = ['upload_page', 'setting_rute_page', 'wa_blast_page', 'history_page']
+            if request.endpoint in admin_only_routes and session.get('role') != 'admin':
+                return redirect(url_for('index'))
+
     # --- REGISTRASI BLUEPRINT API ---
+    app.register_blueprint(auth_bp, url_prefix='/api/auth') # Registrasi Auth
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
@@ -80,16 +85,24 @@ def create_app():
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     app.register_blueprint(collection_bp, url_prefix='/api/collection') 
     
-    # Registrasi rute performa (Full Stats & Reminders)
     register_pcez_routes(app, get_db)
 
-    # --- RUTE NAVIGASI FRONTEND (SINERGI DASHBOARD) ---
+    # --- RUTE NAVIGASI FRONTEND ---
+    
+    # LEVEL 1: PUBLIK (Dashboard & Collection)
     @app.route('/')
     def index(): return render_template('index.html')
 
     @app.route('/monitoring-collection')
     def monitoring_collection_page(): return render_template('monitoring_collection.html')
 
+    # AUTHENTICATION
+    @app.route('/login')
+    def login_page(): 
+        if 'role' in session: return redirect(url_for('index'))
+        return render_template('login.html')
+
+    # LEVEL 2: OPERASIONAL PETUGAS
     @app.route('/belum-bayar')
     def belum_bayar_page(): return render_template('belum_bayar.html')
 
@@ -105,6 +118,7 @@ def create_app():
     @app.route('/history-bayar')
     def history_bayar_page(): return render_template('history_bayar.html')
 
+    # LEVEL 3: ADMIN ONLY
     @app.route('/performa')
     def performa_page(): return render_template('performa.html')
 
@@ -120,17 +134,14 @@ def create_app():
     @app.route('/history')
     def history_page(): return render_template('history.html')
 
-    # --- SERVING FILES (MODUL FOTO KUNJUNGAN) ---
+    # --- SERVING FILES ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
-        if not os.path.isfile(os.path.join(folder, filename)):
-            return "File not found", 404
         return send_from_directory(folder, filename)
 
     return app
 
 if __name__ == '__main__':
     app = create_app()
-    # Host 0.0.0.0 agar bisa diakses via HP petugas di jaringan yang sama/internet
     app.run(host='0.0.0.0', port=5000, debug=True)
