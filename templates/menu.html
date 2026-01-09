@@ -7,7 +7,7 @@
             <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas"></button>
         </div>
         <div>
-            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px; font-family: 'Plus Jakarta Sans', sans-serif;">SUNTER PRO</h5>
+            <h5 class="offcanvas-title fw-bold mb-0" id="offcanvasMenuLabel" style="letter-spacing: 0.5px;">SUNTER PRO</h5>
             <div class="d-flex align-items-center mt-1">
                 <span class="badge bg-success rounded-pill me-2" style="width: 8px; height: 8px; padding: 0; animation: pulse 2s infinite;"> </span>
                 <small class="text-white-50 fw-medium">
@@ -34,19 +34,16 @@
             </a>
 
             <a href="/history" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/history' %}active-menu{% endif %}"
-               onclick="checkAccess(event, 'admin', '/history')">
+               onclick="checkAccess(event, 'any', '/history')">
                 <div class="icon-box-formal me-3 bg-info-subtle text-info">
                     <i class="fas fa-chart-pie"></i>
                 </div>
-                <div class="flex-grow-1">
-                    <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% else %}text-dark-emphasis{% endif %}">Riwayat & Radar Macet</span>
-                </div>
-                {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
+                <span class="fw-medium text-dark-emphasis">Riwayat & Radar Macet</span>
             </a>
 
             <a href="/monitoring-collection" class="nav-link-custom list-group-item list-group-item-action border-0 rounded-3 mb-1 d-flex align-items-center py-3 {% if request.path == '/monitoring-collection' %}active-menu{% endif %}"
                onclick="checkAccess(event, 'admin', '/monitoring-collection')">
-                <div class="icon-box-formal me-3 bg-success-subtle text-success">
+                <div class="icon-box-formal me-3 {% if session['role'] == 'admin' %}bg-success-subtle text-success{% else %}bg-light text-muted{% endif %}">
                     <i class="fas fa-chart-line"></i>
                 </div>
                 <div class="flex-grow-1">
@@ -100,7 +97,9 @@
                 <div class="icon-box-formal me-3 {% if session['role'] == 'admin' %}bg-success-subtle text-success{% else %}bg-light text-muted{% endif %}">
                     <i class="fab fa-whatsapp"></i>
                 </div>
-                <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% else %}text-dark-emphasis{% endif %}">WA Blast Massal</span>
+                <div class="flex-grow-1">
+                    <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% else %}text-dark-emphasis{% endif %}">WA Blast Massal</span>
+                </div>
                 {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
             </a>
 
@@ -109,7 +108,9 @@
                 <div class="icon-box-formal me-3 {% if session['role'] == 'admin' %}bg-dark-subtle text-dark{% else %}bg-light text-muted{% endif %}">
                     <i class="fas fa-users-gear"></i>
                 </div>
-                <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% else %}text-dark-emphasis{% endif %}">Kelola User & Rute</span>
+                <div class="flex-grow-1">
+                    <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% else %}text-dark-emphasis{% endif %}">Kelola User & Rute</span>
+                </div>
                 {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
             </a>
 
@@ -118,7 +119,9 @@
                 <div class="icon-box-formal me-3 {% if session['role'] == 'admin' %}bg-secondary-subtle text-secondary{% else %}bg-light text-muted{% endif %}">
                     <i class="fas fa-cloud-upload-alt"></i>
                 </div>
-                <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% else %}text-dark-emphasis{% endif %}">Sinkronisasi Data</span>
+                <div class="flex-grow-1">
+                    <span class="fw-medium {% if session['role'] != 'admin' %}text-muted{% else %}text-dark-emphasis{% endif %}">Sinkronisasi Data</span>
+                </div>
                 {% if session['role'] != 'admin' %}<i class="fas fa-lock ms-auto small text-muted"></i>{% endif %}
             </a>
         </div>
@@ -176,14 +179,11 @@ function checkAccess(event, requiredRole, targetUrl) {
         });
         return;
     }
-
-    // Jika lolos (Petugas buka rute petugas atau Admin buka rute apa saja)
-    // Navigasi akan berlanjut secara otomatis ke targetUrl
 }
 </script>
 
 <style>
-    /* Styling Sinergi */
+    /* Styling Sinergi Visual */
     .active-menu {
         background-color: #f1f5f9 !important;
         border-left: 4px solid #3b82f6 !important;
@@ -204,6 +204,8 @@ function checkAccess(event, requiredRole, targetUrl) {
         transition: 0.2s;
     }
     .nav-link-custom:hover { background-color: #f8fafc; }
+    .nav-link-custom.text-muted { opacity: 0.7; }
+    
     @keyframes pulse {
         0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
         70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
