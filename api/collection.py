@@ -3,7 +3,7 @@ Collection API - Sunter Dashboard Pro
 Logic: 
 1. Daily Monitoring (Level 1 - Publik): Menampilkan grafik realisasi harian global.
 2. Daily Detail (Level 2/3 - Internal): Menampilkan rincian bayar per nama pelanggan.
-3. Sinergi: Optimasi pencocokan Pintu Ganda (MC + Ardebt) via NoTagihan.
+3. Sinergi: Kalkulasi Variance & Akumulasi Kumulatif Pintu Ganda (MC + MB + Coll).
 """
 
 import os
@@ -16,7 +16,7 @@ collection_bp = Blueprint('collection', __name__)
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Fungsi monitoring harian (Akses Publik). Menampilkan target vs realisasi."""
+    """Fungsi monitoring harian. Menghitung laju progres harian vs target bulanan."""
     periode_req = request.args.get('periode') # Format: MM-YYYY
     if not periode_req:
         return jsonify({"status": "error", "message": "Periode harus diisi"}), 400
@@ -25,7 +25,7 @@ def daily_monitor():
     try:
         cursor = conn.cursor()
         
-        # 1. AMBIL TARGET MC (Penyebut)
+        # 1. AMBIL TARGET MC (Penyebut Utama)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -35,7 +35,7 @@ def daily_monitor():
         """, (periode_req,))
         target = dict(cursor.fetchone())
 
-        # 2. AMBIL SALDO AWAL MB / UNDUE (Match by NOTAGIHAN)
+        # 2. AMBIL SALDO MB (UNDUE) - Pelanggan yang sudah lunas sebelum harian berjalan
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
@@ -47,13 +47,11 @@ def daily_monitor():
         """, (periode_req, periode_req))
         undue = dict(cursor.fetchone())
 
-        # 3. AMBIL REALISASI HARIAN (Match by NOTAG)
+        # 3. AMBIL REALISASI COLLECTION HARIAN
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
-                COUNT(CASE WHEN p.rayon = '34' THEN c.nomen END) as cust_34,
                 COALESCE(SUM(CASE WHEN p.rayon = '34' THEN c.nominal ELSE 0 END), 0) as rp_34,
-                COUNT(CASE WHEN p.rayon = '35' THEN c.nomen END) as cust_35,
                 COALESCE(SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END), 0) as rp_35
             FROM collection_harian c
             INNER JOIN master_pelanggan p ON c.notag = p.notagihan 
@@ -62,43 +60,50 @@ def daily_monitor():
         """, (periode_req, periode_req))
         rows = cursor.fetchall()
 
-        # 4. ITERASI KUMULATIF
+        # 4. ITERASI KUMULATIF & VARIANCE
         results = []
         cum_34 = 0; cum_35 = 0
         base_34 = undue['undue_34']; base_35 = undue['undue_35']; base_total = undue['undue_total']
+        
+        prev_pct = (base_total / target['target_total'] * 100) if target['target_total'] > 0 else 0
 
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
             
+            # Kalkulasi Persentase (Base Undue + Kumulatif Harian)
             p_34 = ((cum_34 + base_34) / target['target_34'] * 100) if target['target_34'] > 0 else 0
             p_35 = ((cum_35 + base_35) / target['target_35'] * 100) if target['target_35'] > 0 else 0
-            p_total = ((cum_34 + cum_35 + base_total) / target['target_total'] * 100) if target['target_total'] > 0 else 0
+            
+            total_current_rp = cum_34 + cum_35 + base_total
+            p_total = (total_current_rp / target['target_total'] * 100) if target['target_total'] > 0 else 0
 
             results.append({
                 "tgl": r['tgl'],
-                "r34": {"cust": r['cust_34'], "rp": r['rp_34'], "pct": round(p_34, 2)},
-                "r35": {"cust": r['cust_35'], "rp": r['rp_35'], "pct": round(p_35, 2)},
+                "r34": {"rp": r['rp_34'], "pct": round(p_34, 2)},
+                "r35": {"rp": r['rp_35'], "pct": round(p_35, 2)},
                 "total": {
-                    "rp": r['rp_34'] + r['rp_35'],
-                    "cum_all": cum_34 + cum_35 + base_total,
-                    "pct": round(p_total, 2)
+                    "rp_harian": r['rp_34'] + r['rp_35'],
+                    "cum_all": total_current_rp,
+                    "pct": round(p_total, 2),
+                    "variance": round(p_total - prev_pct, 2)
                 }
             })
+            prev_pct = p_total
 
-        # Final Realisasi & Summary
+        # Final Summary untuk Card Dashboard
         last_cum = results[-1]['total']['cum_all'] if results else base_total
-        last_pct = results[-1]['total']['pct'] if results else (base_total / target['target_total'] * 100 if target['target_total'] > 0 else 0)
+        last_pct = results[-1]['total']['pct'] if results else round(prev_pct, 2)
+        total_variance = results[-1]['total']['variance'] if results else 0
 
         return jsonify({
             "status": "success", 
             "data": results, 
-            "undue_base": undue,
             "summary": {
                 "target": target['target_total'],
                 "realisasi": last_cum,
-                "pct": round(last_pct, 2),
-                "variance": 0 
+                "pct": last_pct,
+                "variance": total_variance 
             }
         })
     except Exception as e:
@@ -108,35 +113,27 @@ def daily_monitor():
 
 @collection_bp.route('/daily-detail', methods=['GET'])
 def daily_detail():
-    """Mengambil rincian NOMEN yang bayar (Hanya Admin & Petugas)."""
-    # KEAMANAN: Cegah publik melihat rincian per nama pelanggan
+    """Rincian drill-down: Siapa saja yang bayar pada tanggal tertentu."""
     if 'role' not in session:
-        return jsonify({"status": "error", "message": "Akses terbatas"}), 403
+        return jsonify({"status": "error", "message": "Akses terbatas untuk internal"}), 403
 
-    tgl = request.args.get('tgl') # YYYY-MM-DD
-    periode = request.args.get('periode') # MM-YYYY
+    tgl = request.args.get('tgl') 
+    periode = request.args.get('periode') 
     
-    if not tgl or not periode:
-        return jsonify({"status": "error", "message": "Parameter tidak lengkap"}), 400
-
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # Query Sinergi: Menampilkan data pelanggan + PCEZ (Rute) agar Admin bisa audit rute petugas
         cursor.execute("""
             SELECT 
-                c.nomen, 
-                p.nama, 
-                p.pcez,
-                p.rayon, 
-                c.nominal
+                c.nomen, p.nama, p.pcez, p.rayon, c.nominal
             FROM collection_harian c
             INNER JOIN master_pelanggan p ON c.notag = p.notagihan
             WHERE c.pay_dt = ? AND p.periode = ? AND c.periode = ?
-            ORDER BY p.rayon ASC, c.nominal DESC
+            ORDER BY c.nominal DESC
         """, (tgl, periode, periode))
         
-        details = [dict(row) for row in cursor.fetchall()]
-        return jsonify({"status": "success", "data": details})
+        return jsonify({"status": "success", "data": [dict(row) for row in cursor.fetchall()]})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
