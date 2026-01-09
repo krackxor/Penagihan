@@ -1,9 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-    <div class="mb-4">
-        <h3 class="fw-bold text-dark">Pusat Kendali Admin</h3>
-        <p class="text-muted small">Sunter Pro v2.5.0 - Sinkronisasi & Manajemen Terpadu</p>
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h3 class="fw-bold text-dark mb-0">Pusat Kendali Admin</h3>
+            <p class="text-muted small">Sunter Pro v2.5.0 - Sinkronisasi & Manajemen Terpadu</p>
+        </div>
+        <div id="status-indicator">
+            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
+                <i class="fas fa-database me-1"></i> Database Online
+            </span>
+        </div>
     </div>
 
     <ul class="nav nav-pills nav-fill bg-white p-2 shadow-sm rounded-4 mb-4" id="adminTab" role="tablist">
@@ -13,12 +20,12 @@
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-mapping">
+            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-mapping" onclick="loadMapping()">
                 <i class="fas fa-map-location-dot me-2"></i> Mapping Rute
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-users">
+            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-users" onclick="loadUsers()">
                 <i class="fas fa-users-cog me-2"></i> Kelola User
             </button>
         </li>
@@ -26,34 +33,54 @@
 
     <div class="tab-content">
         <div class="tab-pane fade show active" id="tab-sync">
-            <div class="card border-0 shadow-sm rounded-4 p-4">
-                <h5 class="fw-bold mb-3">Upload Master Rute & Tagihan</h5>
-                <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light">
-                    <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
-                    <p class="mb-3">Tarik file Excel rute (PCEZ & PETUGAS) ke sini</p>
-                    <input type="file" id="excelFile" class="form-control mb-3">
-                    <button class="btn btn-success w-100 fw-bold rounded-3" onclick="uploadData()">PROSES SINKRONISASI</button>
+            <div class="row g-4">
+                <div class="col-md-7">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+                        <h5 class="fw-bold mb-3">Upload Master Rute & Tagihan</h5>
+                        <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light mb-3" id="drop-zone">
+                            <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
+                            <p class="mb-3 text-secondary">Tarik file Excel (MC, MB, Rute, atau Ardebt) ke sini</p>
+                            <input type="file" id="excelFile" class="form-control d-none">
+                            <button class="btn btn-outline-success px-4 rounded-pill" onclick="document.getElementById('excelFile').click()">
+                                Pilih File
+                            </button>
+                        </div>
+                        <button class="btn btn-success w-100 fw-bold rounded-3 py-2" onclick="uploadData()">
+                            <i class="fas fa-cloud-upload-alt me-2"></i> PROSES SINKRONISASI
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+                        <h5 class="fw-bold mb-3">Status Data Saat Ini</h5>
+                        <div id="data-status-list">
+                            <div class="text-center py-4 text-muted small">Mengecek status database...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="tab-pane fade" id="tab-mapping">
             <div class="card border-0 shadow-sm rounded-4 p-4">
-                <div class="d-flex justify-content-between mb-3">
-                    <h5 class="fw-bold">Mapping Petugas Lapangan</h5>
-                    <input type="text" class="form-control w-25" placeholder="Cari PCEZ...">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">Mapping Petugas Lapangan</h5>
+                    <div class="input-group w-50">
+                        <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control bg-light border-0" id="searchMapping" placeholder="Cari Kode PCEZ atau Petugas..." onkeyup="filterMapping()">
+                    </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
-                            <tr>
+                <div class="table-responsive" style="max-height: 500px;">
+                    <table class="table align-middle table-hover">
+                        <thead class="sticky-top bg-white">
+                            <tr class="small text-uppercase text-muted">
                                 <th>Kode PCEZ</th>
-                                <th>Petugas Saat Ini (Excel)</th>
-                                <th>Aksi</th>
+                                <th>Petugas (Excel)</th>
+                                <th>No Admin (WA)</th>
+                                <th class="text-end">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody id="mappingTableBody">
-                            </tbody>
+                        <tbody id="mappingTableBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -61,28 +88,23 @@
 
         <div class="tab-pane fade" id="tab-users">
             <div class="card border-0 shadow-sm rounded-4 p-4">
-                <div class="d-flex justify-content-between mb-3">
-                    <h5 class="fw-bold">User Access & Kunci Rute</h5>
-                    <button class="btn btn-primary btn-sm rounded-pill" onclick="addUser()">+ User Baru</button>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0">User Access & Kunci Rute</h5>
+                    <button class="btn btn-primary rounded-pill px-4" onclick="showAddUserModal()">
+                        <i class="fas fa-plus me-2"></i> Tambah User Baru
+                    </button>
                 </div>
                 <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
+                    <table class="table align-middle">
+                        <thead class="bg-light">
+                            <tr class="small text-uppercase">
                                 <th>Username</th>
                                 <th>Role</th>
                                 <th>Kunci Rute (petugas_id)</th>
-                                <th>Status</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
-                        <tbody id="userListBody">
-                            <tr>
-                                <td>pian_sunter</td>
-                                <td><span class="badge bg-info">Petugas</span></td>
-                                <td class="fw-bold text-primary">PIAN</td>
-                                <td><span class="text-success">● Aktif</span></td>
-                            </tr>
-                        </tbody>
+                        <tbody id="userListBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -90,9 +112,127 @@
     </div>
 </div>
 
+<div class="modal fade" id="editMappingModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4">
+            <div class="modal-body p-4">
+                <h5 class="fw-bold mb-3">Update Mapping PCEZ</h5>
+                <form id="mappingForm">
+                    <input type="hidden" id="edit_pcez">
+                    <div class="mb-3">
+                        <label class="small fw-bold">Petugas Terpilih</label>
+                        <input type="text" id="edit_petugas" class="form-control text-uppercase">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold">Nomor WA Supervisor (Admin)</label>
+                        <input type="text" id="edit_no_admin" class="form-control" placeholder="628123xxx">
+                    </div>
+                    <button type="button" class="btn btn-dark w-100 py-2 rounded-3" onclick="saveMapping()">SIMPAN MAPPING</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
-    .nav-pills .nav-link.active { background-color: #0f172a; }
-    .nav-pills .nav-link { color: #64748b; font-weight: 600; }
-    .border-dashed { border: 2px dashed #cbd5e1; }
+    .nav-pills .nav-link.active { background-color: #0f172a; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
+    .nav-pills .nav-link { color: #64748b; font-weight: 600; padding: 12px; }
+    .border-dashed { border: 2px dashed #cbd5e1; transition: all 0.3s; }
+    .border-dashed:hover { border-color: #22c55e; background-color: #f0fdf4 !important; }
+    .table thead th { font-weight: 600; font-size: 0.75rem; border-bottom: 2px solid #f1f5f9; }
 </style>
+
+
+
+<script>
+// --- 1. SINKRON DATA ---
+async function checkDataStatus() {
+    const res = await fetch('/api/upload/data-status');
+    const status = await res.json();
+    let html = '';
+    for (const [key, val] of Object.entries(status)) {
+        html += `
+            <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded-3">
+                <div>
+                    <span class="fw-bold d-block">${key}</span>
+                    <small class="text-muted">${val.count} records</small>
+                </div>
+                <i class="fas fa-check-circle ${val.exists ? 'text-success' : 'text-danger-subtle'}"></i>
+            </div>
+        `;
+    }
+    document.getElementById('data-status-list').innerHTML = html;
+}
+
+async function uploadData() {
+    const fileInput = document.getElementById('excelFile');
+    if (fileInput.files.length === 0) return Swal.fire('Error', 'Pilih file excel dulu', 'warning');
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    Swal.fire({ title: 'Memproses Sinkronisasi...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    try {
+        const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
+        const result = await res.json();
+        if (result.status === 'success') {
+            Swal.fire('Berhasil!', `Data ${result.type} berhasil disinkronkan (${result.rows} baris)`, 'success');
+            checkDataStatus();
+        } else {
+            Swal.fire('Gagal', result.error, 'error');
+        }
+    } catch (e) {
+        Swal.fire('Error', 'Koneksi terputus', 'error');
+    }
+}
+
+// --- 2. MAPPING RUTE ---
+async function loadMapping() {
+    const res = await fetch('/api/rute/list');
+    const data = await res.json();
+    let html = '';
+    data.forEach(row => {
+        html += `
+            <tr>
+                <td class="fw-bold">${row.pcez}</td>
+                <td class="text-uppercase">${row.petugas || '<span class="text-danger">Belum Diatur</span>'}</td>
+                <td>${row.no_admin || '-'}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-light rounded-circle" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    document.getElementById('mappingTableBody').innerHTML = html;
+}
+
+function editMapping(pcez, petugas, no_admin) {
+    document.getElementById('edit_pcez').value = pcez;
+    document.getElementById('edit_petugas').value = petugas === 'null' ? '' : petugas;
+    document.getElementById('edit_no_admin').value = no_admin === 'null' ? '' : no_admin;
+    new bootstrap.Modal('#editMappingModal').show();
+}
+
+async function saveMapping() {
+    const formData = new FormData();
+    formData.append('pcez', document.getElementById('edit_pcez').value);
+    formData.append('petugas', document.getElementById('edit_petugas').value);
+    formData.append('no_admin', document.getElementById('edit_no_admin').value);
+
+    const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
+    if (res.ok) {
+        Swal.fire('Updated', 'Mapping rute berhasil diperbarui', 'success');
+        bootstrap.Modal.getInstance('#editMappingModal').hide();
+        loadMapping();
+    }
+}
+
+// Initial Load
+document.addEventListener('DOMContentLoaded', () => {
+    checkDataStatus();
+});
+</script>
 {% endblock %}
