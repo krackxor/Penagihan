@@ -1,50 +1,35 @@
 """
-Belum Bayar API - Sunter Dashboard Pro
-Sinergi: Menambahkan data Nomet, Vol, Rayon, dan No Admin pada respon laporan.
-Watermark: Update 4 Baris (Petugas, Nomen, Keterangan, Nominal).
+Belum Bayar API - Sunter Dashboard Pro (Updated)
+Sinergi: 
+1. Kunci Rute Otomatis berdasarkan session login (Mapping User).
+2. Data Lengkap: Nomet, Vol, Rayon, dan No Admin pada respon laporan.
+3. Watermark 4 Baris: Petugas, Nomen, Keterangan, Nominal.
 """
 
-import os
-import sqlite3
-import logging
-from flask import Blueprint, jsonify, request, current_app
+import os, sqlite3
+from flask import Blueprint, jsonify, request, current_app, session
 from core.database import get_db_connection
 from core.helpers import APIResponse
 from datetime import datetime
-from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
 
 belum_bayar_bp = Blueprint('belum_bayar', __name__)
 
 def add_watermark(image_path, info):
-    """Menambahkan watermark informasi penagihan (4 Baris: Petugas, Nomen, Keterangan, Nominal)."""
+    """Menambahkan watermark informasi penagihan (4 Baris)."""
     try:
         img = Image.open(image_path)
-        # Fix orientasi EXIF dari kamera HP
-        if hasattr(img, '_getexif'): img = Image.open(image_path) 
-        
         draw = ImageDraw.Draw(img)
         width, height = img.size
-        
-        # Font size proporsional (4% dari lebar gambar)
         font_size = int(width * 0.04)
         
-        # Daftar path font standar Linux/Windows
-        font_paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            "C:\\Windows\\Fonts\\arialbd.ttf",
-            "arial.ttf"
-        ]
-        
         font = None
-        for path in font_paths:
+        for path in ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "C:\\Windows\\Fonts\\arialbd.ttf", "arial.ttf"]:
             if os.path.exists(path):
                 font = ImageFont.truetype(path, font_size)
                 break
-        if not font: font = ImageFont.load_default()
+        font = font or ImageFont.load_default()
 
-        # TEKS WATERMARK SESUAI PERMINTAAN: Petugas, Nomen, Keterangan, Nominal
         text = (
             f"PETUGAS: {info['petugas']}\n"
             f"NOMEN: {info['nomen']} ({info['nama'][:15]})\n"
@@ -53,26 +38,17 @@ def add_watermark(image_path, info):
         )
 
         margin = int(width * 0.03)
-        x = margin
-        # Posisi di kiri bawah (Y disesuaikan agar 4 baris muat)
-        y = height - (font_size * 6) - margin
+        x, y = margin, height - (font_size * 6) - margin
 
-        # Shadow (Bayangan Hitam) agar terbaca di background terang
-        shadow_offset = 2
-        draw.multiline_text((x + shadow_offset, y + shadow_offset), text, font=font, fill="black", spacing=8)
-        
-        # Teks Utama (Kuning)
-        draw.multiline_text((x, y), text, font=font, fill="yellow", spacing=8)
-        
+        draw.multiline_text((x + 2, y + 2), text, font=font, fill="black", spacing=8) # Shadow
+        draw.multiline_text((x, y), text, font=font, fill="yellow", spacing=8) # Teks Kuning
         img.save(image_path, quality=90)
-        return True
     except Exception as e:
         current_app.logger.error(f"❌ Watermark Error: {str(e)}")
-        return False
 
 @belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
 def get_petugas_tabs():
-    """FIX 404: Mengambil daftar petugas unik untuk filter dropdown."""
+    """Mengambil daftar petugas unik untuk filter dropdown (Admin)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -83,7 +59,11 @@ def get_petugas_tabs():
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """LOGIKA OPERASIONAL ROBUST (Current & Revisi)."""
+    """LOGIKA OPERASIONAL: Kunci Rute Petugas & Filter 30 Hari."""
+    # AMBIL DATA SESSION (SINERGI LOGIN)
+    user_role = session.get('role')
+    user_petugas_id = session.get('petugas_id') 
+
     petugas_filter = request.args.get('petugas')
     req_periode = request.args.get('periode') 
     search_query = request.args.get('search', '').strip()
@@ -102,6 +82,14 @@ def get_belum_bayar():
         """
         params = [req_periode, req_periode]
         
+        # --- LOGIKA KUNCI RUTE (3 LEVEL LOGIN) ---
+        if user_role == 'petugas':
+            query += " AND r.petugas = ?"
+            params.append(user_petugas_id)
+        elif user_role == 'admin' and petugas_filter and petugas_filter != 'all':
+            query += " AND r.petugas = ?"
+            params.append(petugas_filter)
+
         if search_query:
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ? OR p.nomet LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"])
@@ -115,10 +103,6 @@ def get_belum_bayar():
                 AND NOT EXISTS (SELECT 1 FROM ardebt a WHERE a.nomen = p.nomen)
             """
         
-        if petugas_filter and petugas_filter != 'all':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
-            
         query += " ORDER BY p.pcez ASC, p.nomen ASC LIMIT 20"
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
@@ -127,7 +111,7 @@ def get_belum_bayar():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Menyimpan laporan dengan respon WA_DATA untuk laporan internal (Sinergi Total)."""
+    """Simpan laporan dengan data sinergi untuk WhatsApp Admin."""
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
@@ -145,7 +129,6 @@ def lapor_kunjungan():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
         
-        # UPDATE PEMANGGILAN WATERMARK 4 DATA
         add_watermark(foto_path, {
             'petugas': petugas_name or "Petugas Lapangan", 
             'nomen': nomen,
@@ -157,11 +140,9 @@ def lapor_kunjungan():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-
-        # AMBIL DATA SINERGI
+        # DATA SINERGI UNTUK WA_DATA
         cursor.execute("""
-            SELECT 
-                p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc,
+            SELECT p.nama, p.nomet, p.rayon, p.volume as vol, p.nominal as mc,
                 COALESCE((SELECT jumlah FROM ardebt WHERE nomen = p.nomen LIMIT 1), 0) as ardebt,
                 COALESCE((SELECT no_admin FROM rute_petugas WHERE petugas = ? LIMIT 1), '628123456789') as no_admin
             FROM master_pelanggan p
@@ -169,63 +150,49 @@ def lapor_kunjungan():
         """, (petugas_name, nomen))
         master = cursor.fetchone()
 
-        cursor.execute("""
-            SELECT id FROM kunjungan_petugas 
-            WHERE nomen = ? AND date(created_at, '+7 hours') = date('now', 'localtime')
-        """, (nomen,))
+        # CEK REVISI HARI INI
+        cursor.execute("SELECT id FROM kunjungan_petugas WHERE nomen = ? AND date(created_at) = date('now')", (nomen,))
         existing = cursor.fetchone()
         
         if existing:
             cursor.execute("""
-                UPDATE kunjungan_petugas 
-                SET keterangan = ?, catatan = ?, no_hp = ?, janji_bayar_dt = ?, 
-                    foto_path = COALESCE(?, foto_path), created_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                UPDATE kunjungan_petugas SET keterangan = ?, catatan = ?, no_hp = ?, janji_bayar_dt = ?, 
+                foto_path = COALESCE(?, foto_path), created_at = CURRENT_TIMESTAMP WHERE id = ?
             """, (hasil, request.form.get('keterangan'), request.form.get('no_hp'), 
                   request.form.get('janji_bayar_dt'), filename, existing['id']))
         else:
             cursor.execute("""
-                INSERT INTO kunjungan_petugas (
-                    nomen, petugas_name, keterangan, no_hp, catatan, 
-                    janji_bayar_dt, foto_path, latitude, longitude, periode
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, no_hp, catatan, 
+                janji_bayar_dt, foto_path, latitude, longitude, periode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (nomen, petugas_name, hasil, request.form.get('no_hp'), 
                   request.form.get('keterangan'), request.form.get('janji_bayar_dt'), 
-                  filename, request.form.get('latitude'), request.form.get('longitude'), 
-                  datetime.now().strftime('%m-%Y')))
+                  filename, request.form.get('latitude'), request.form.get('longitude'), datetime.now().strftime('%m-%Y')))
         
         conn.commit()
 
+        mc_val = master['mc'] if master else 0
+        ardebt_val = master['ardebt'] if master else 0
+        
         return APIResponse.success(data={
             "filename": filename, 
             "revisi": bool(existing),
             "wa_data": {
-                "nomen": nomen,
-                "nama": master['nama'] if master else request.form.get('nama_pelanggan'),
-                "nomet": master['nomet'] if master else "-",
-                "rayon": master['rayon'] if master else "-",
-                "vol": master['vol'] if master else "0",
-                "mc": master['mc'] if master else request.form.get('nominal_display'),
-                "ardebt": master['ardebt'] if master else 0,
-                "total": (master['mc'] + master['ardebt']) if master else request.form.get('nominal_display'),
-                "hp": request.form.get('no_hp'),
-                "status": hasil,
-                "catatan": request.form.get('keterangan') or "-",
-                "petugas": petugas_name,
-                "foto_path": filename,
-                "no_admin": master['no_admin'] if master else "628123456789"
+                "nomen": nomen, "nama": master['nama'] if master else "-",
+                "nomet": master['nomet'] if master else "-", "rayon": master['rayon'] if master else "-",
+                "vol": master['vol'] if master else "0", "mc": mc_val, "ardebt": ardebt_val,
+                "total": (mc_val + ardebt_val), "hp": request.form.get('no_hp'),
+                "status": hasil, "catatan": request.form.get('keterangan') or "-",
+                "petugas": petugas_name, "no_admin": master['no_admin'] if master else "628123456789"
             }
         })
-    except Exception as e:
-        return APIResponse.error(str(e), code=500)
     finally:
         conn.close()
 
 @belum_bayar_bp.route('/ardebt', methods=['GET'])
 def get_tagihan_berekor():
-    """Mengambil rincian Ardebt dengan kuota 20 data dan LOGIKA 30 HARI."""
-    petugas_filter = request.args.get('petugas')
-    search_query = request.args.get('search', '').strip()
+    user_role = session.get('role')
+    user_petugas_id = session.get('petugas_id')
+    p_filter, search = request.args.get('petugas'), request.args.get('search', '').strip()
     
     conn = get_db_connection()
     try:
@@ -233,31 +200,24 @@ def get_tagihan_berekor():
         query = """
             SELECT a.nomen, p.nama, p.pcez, p.nomet, p.rayon, r.petugas as nama_petugas,
                    a.periode_bill, a.jumlah, a.volume
-            FROM ardebt a
-            INNER JOIN master_pelanggan p ON a.nomen = p.nomen
-            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE 1=1
+            FROM ardebt a INNER JOIN master_pelanggan p ON a.nomen = p.nomen
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez WHERE 1=1
         """
         params = []
-        
-        if search_query:
-            query += " AND (a.nomen LIKE ? OR p.nama LIKE ?)"
-            params.extend([f"%{search_query}%", f"%{search_query}%"])
-        else:
-            query += """
-                AND NOT EXISTS (
-                    SELECT 1 FROM kunjungan_petugas k 
-                    WHERE k.nomen = a.nomen 
-                    AND k.created_at >= datetime('now', '-30 days')
-                )
-            """
-            
-        if petugas_filter and petugas_filter != 'all':
+        if user_role == 'petugas':
             query += " AND r.petugas = ?"
-            params.append(petugas_filter)
+            params.append(user_petugas_id)
+        elif user_role == 'admin' and p_filter and p_filter != 'all':
+            query += " AND r.petugas = ?"
+            params.append(p_filter)
+
+        if search:
+            query += " AND (a.nomen LIKE ? OR p.nama LIKE ?)"
+            params.extend([f"%{search}%", f"%{search}%"])
+        else:
+            query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = a.nomen AND k.created_at >= datetime('now', '-30 days'))"
             
-        query += " ORDER BY a.periode_bill ASC LIMIT 20"
-        cursor.execute(query, params)
+        cursor.execute(query + " ORDER BY a.periode_bill ASC LIMIT 20", params)
         return jsonify([dict(row) for row in cursor.fetchall()])
     finally:
         conn.close()
