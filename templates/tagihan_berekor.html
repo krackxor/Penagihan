@@ -64,7 +64,7 @@
     <div id="list-container" class="px-2 pb-5">
         <div class="text-center py-5">
             <div class="spinner-border text-danger" role="status"></div>
-            <p class="mt-2 text-muted small">Sinkronisasi data piutang...</p>
+            <p class="mt-2 text-muted small">Sinkronisasi target prioritas...</p>
         </div>
     </div>
 </div>
@@ -100,7 +100,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-bold" data-bs-dismiss="modal">Tutup Riwayat</button>
+                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-bold" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
@@ -111,12 +111,14 @@
         <div class="modal-content border-0 shadow-lg rounded-4">
             <form id="formKunjungan">
                 <div class="modal-header border-0 bg-danger text-white p-3">
-                    <h6 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Formulir Kunjungan Lapangan</h6>
+                    <h6 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Formulir Laporan Lapangan</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="modal-idpel" name="idpel">
                     <input type="hidden" id="modal-nominal-val" name="nominal_display">
+                    <input type="hidden" id="modal-lat" name="latitude">
+                    <input type="hidden" id="modal-lng" name="longitude">
                     
                     <div class="bg-danger-subtle p-3 rounded-4 mb-3 border border-danger-subtle text-center">
                         <i class="fas fa-id-card-alt fa-2x text-danger mb-2"></i>
@@ -130,7 +132,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted"><i class="fas fa-tasks me-1"></i> Hasil Penagihan *</label>
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-tasks me-1"></i> Hasil Koordinasi *</label>
                         <select id="modal-hasil" name="hasil" class="form-select rounded-3 fw-bold" required onchange="toggleJanjiInput()">
                             <option value="">-- Pilih Hasil --</option>
                             <option value="Sudah Bayar">💰 Sudah Bayar</option>
@@ -166,16 +168,14 @@
 </div>
 
 <script>
-    /**
-     * [VARIABEL GLOBAL] 
-     * Memudahkan akses modal dan target kuota harian.
+    /* * [VARIABEL GLOBAL] 
+     * Memudahkan akses modal, target kuota harian, dan koordinat.
      */
     let modalKunjungan, modalHistory;
     const DAILY_TARGET = 20; 
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    /**
-     * [INIT DOM] 
+    /* * [INIT DOM] 
      * Dijalankan saat halaman selesai dimuat.
      */
     document.addEventListener('DOMContentLoaded', () => {
@@ -183,7 +183,6 @@
         modalHistory = new bootstrap.Modal(document.getElementById('modalHistory'));
         loadArdebt();
         
-        // Listener Form Kunjungan
         document.getElementById('formKunjungan').addEventListener('submit', (e) => { 
             e.preventDefault(); 
             simpanLaporan(); 
@@ -192,8 +191,8 @@
 
     /**
      * [FUNGSI: loadArdebt]
-     * Logika: Menarik data 20 target teratas dengan pemakaian kubik tertinggi (High Priority).
-     * Juga memproses update Progress Bar harian petugas.
+     * Logika: Menarik data 20 target teratas dengan pemakaian kubik tinggi.
+     * Mengintegrasikan info NOMET (Nomor Meter) dan Update Progress Bar.
      */
     async function loadArdebt() {
         const petugas = document.getElementById('filter-petugas').value;
@@ -203,7 +202,7 @@
             const res = await fetch(`/api/ardebt?petugas=${encodeURIComponent(petugas)}`);
             const data = await res.json();
             
-            // Hitung Progres Kerja (Maks 20/Hari)
+            // Logika Performance Tracking (Progress Bar)
             const sisaTarget = data.length;
             const selesai = Math.max(0, DAILY_TARGET - sisaTarget);
             const persen = (selesai / DAILY_TARGET) * 100;
@@ -213,8 +212,8 @@
                 container.innerHTML = `
                     <div class="text-center mt-5 py-5 animate__animated animate__fadeIn">
                         <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                        <h6 class="fw-bold">Target Selesai! 🎉</h6>
-                        <p class="text-muted small">Semua prioritas harian sudah dikunjungi.</p>
+                        <h6 class="fw-bold">Target Harian Selesai! 🎉</h6>
+                        <p class="text-muted small">Semua prioritas kubik tinggi sudah dikunjungi.</p>
                     </div>`;
                 return;
             }
@@ -230,13 +229,13 @@
                         <h6 class="fw-bold mb-1 text-dark text-uppercase">${item.nama}</h6>
                         
                         <div class="text-muted mb-2 fw-bold" style="font-size: 0.7rem;">
-                            <i class="fas fa-tachometer-alt me-1"></i> No. Meter: ${item.no_seri_meter || '-'}
+                            <i class="fas fa-tachometer-alt me-1 text-danger"></i> No. Meter: ${item.no_seri_meter || '-'}
                         </div>
 
                         <p class="text-muted mb-2" style="font-size: 0.65rem;"><i class="fas fa-map-marker-alt me-1"></i>${item.alamat}</p>
                         <div class="d-flex justify-content-between align-items-center border-top pt-3">
                             <div>
-                                <small class="d-block text-muted fw-bold" style="font-size: 8px;">TOTAL KEWAJIBAN</small>
+                                <small class="d-block text-muted fw-bold" style="font-size: 8px;">TOTAL TUNGGAKAN</small>
                                 <span class="fw-bold text-danger" style="font-size: 1.1rem;">Rp ${formatIDR(item.nominal_mc + item.nominal_ardebt)}</span>
                             </div>
                             <div class="btn-group">
@@ -255,7 +254,7 @@
 
     /**
      * [FUNGSI: updateProgressBar]
-     * Visualisasi pencapaian target harian petugas di lapangan.
+     * Visualisasi harian untuk memotivasi petugas di lapangan.
      */
     function updateProgressBar(selesai, persen) {
         const bar = document.getElementById('progress-bar');
@@ -275,8 +274,95 @@
     }
 
     /**
+     * [FUNGSI SIMPAN: simpanLaporan]
+     * Logika V6.3: Integrasi GPS Geolocation.
+     * Minta izin GPS -> Ambil Koordinat -> Kirim Data -> Auto Hide List.
+     */
+    async function simpanLaporan() {
+        Swal.fire({ 
+            title: 'Mendeteksi Lokasi...', 
+            text: 'Mengunci titik GPS petugas untuk validasi laporan.',
+            allowOutsideClick: false, 
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                document.getElementById('modal-lat').value = position.coords.latitude;
+                document.getElementById('modal-lng').value = position.coords.longitude;
+                await executeSubmit();
+            }, (error) => {
+                Swal.fire('GPS Error', 'Akses lokasi wajib diaktifkan sebagai bukti kunjungan!', 'error');
+            }, { enableHighAccuracy: true });
+        } else {
+            Swal.fire('Error', 'HP tidak mendukung GPS.', 'error');
+        }
+    }
+
+    /**
+     * [FUNGSI HELPER: executeSubmit]
+     * Melakukan pengiriman data final ke API setelah GPS terkunci.
+     */
+    async function executeSubmit() {
+        const form = document.getElementById('formKunjungan');
+        const formData = new FormData(form);
+        const petugasName = document.getElementById('filter-petugas').value;
+        formData.append('petugas_name', petugasName);
+
+        try {
+            const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
+            const result = await res.json();
+            if (res.ok) {
+                Swal.fire({ icon: 'success', title: 'Data Terverifikasi!', text: 'Laporan & Lokasi berhasil diarsipkan.' }).then(() => {
+                    executeShareWA(result.wa_data);
+                    modalKunjungan.hide();
+                    loadArdebt(); // Refresh daftar (Auto-Hide yang sudah lapor)
+                });
+            } else { Swal.fire('Error!', result.message, 'error'); }
+        } catch (err) { Swal.fire('Gagal!', 'Koneksi database terputus.', 'error'); }
+    }
+
+    /**
+     * [FUNGSI SHARE: executeShareWA]
+     * Template Detail: Mencakup No HP Pelanggan & Link Google Maps Lokasi Petugas.
+     */
+    function executeShareWA(wa) {
+        const waktu = new Date().toLocaleString('id-ID');
+        const lat = document.getElementById('modal-lat').value;
+        const lng = document.getElementById('modal-lng').value;
+        const gmapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+
+        const pesanShare = 
+            `*🚨 LAPORAN KUNJUNGAN LAPANGAN*%0A` +
+            `*(ANTREAN ARDEBT - PENGAWASAN)*%0A` +
+            `-------------------------------------------%0A` +
+            `📅 *Waktu:* ${waktu}%0A` +
+            `👤 *Petugas:* ${wa.petugas}%0A` +
+            `-------------------------------------------%0A%0A` +
+            `*DATA KONSUMEN:*%0A` +
+            `👤 *Nama:* ${wa.nama}%0A` +
+            `🆔 *IDPEL:* ${wa.nomen}%0A` +
+            `📟 *No Meter:* ${wa.nomet || '-'}%0A` +
+            `📞 *HP Konsumen:* ${wa.no_hp || '-'}%0A%0A` +
+            `*HASIL EVALUASI:*%0A` +
+            `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
+            `🚩 *Tunggakan:* ${wa.jcount} Bulan%0A` +
+            `📝 *Catatan:* ${wa.catatan}%0A%0A` +
+            `📍 *LOKASI GPS (KOORDINAT):*%0A` +
+            `${gmapsLink}%0A%0A` +
+            `*RINCIAN KEUANGAN:*%0A` +
+            `• *TOTAL WAJIB BAYAR: Rp ${formatIDR(wa.total)}*%0A%0A` +
+            `🖼️ *DOKUMENTASI FOTO:*%0A` +
+            `${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
+            `-------------------------------------------` +
+            `_Laporan Otomatis Sunter Dashboard Pro_`;
+        
+        window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
+    }
+
+    /**
      * [FUNGSI: showHistory]
-     * Logika: Menampilkan JCOUNT & Baris Merah jika piutang terverifikasi 3 arah (MC-MB-CH).
+     * Logic: Menampilkan JCOUNT & Baris Merah jika piutang terverifikasi 3 arah.
      */
     async function showHistory(nomen, nama) {
         document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Memproses audit data...</td></tr>';
@@ -308,66 +394,6 @@
         } catch (e) { console.error("Error History:", e); }
     }
 
-    /**
-     * [FUNGSI: simpanLaporan]
-     * Kegunaan: Eksekusi simpan ke database dan kirim template detail ke WA Share.
-     * Setelah sukses, data otomatis hilang dari daftar (Auto-Hide).
-     */
-    async function simpanLaporan() {
-        Swal.fire({ title: 'Memproses Laporan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
-        const form = document.getElementById('formKunjungan');
-        const formData = new FormData(form);
-        const petugasName = document.getElementById('filter-petugas').value;
-        formData.append('petugas_name', petugasName);
-        try {
-            const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
-            const result = await res.json();
-            if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'Data Terverifikasi!', text: 'Laporan berhasil diarsipkan.' }).then(() => {
-                    executeShareWA(result.wa_data);
-                    modalKunjungan.hide();
-                    loadArdebt(); // Me-refresh daftar agar data yang sudah dilaporkan menghilang
-                });
-            } else { Swal.fire('Error!', result.message, 'error'); }
-        } catch (err) { Swal.fire('Gagal!', 'Koneksi database terputus.', 'error'); }
-    }
-
-    /**
-     * [FUNGSI: executeShareWA]
-     * Template: Laporan sangat detail untuk Grup (Universal Share).
-     */
-    function executeShareWA(wa) {
-        const waktu = new Date().toLocaleString('id-ID');
-        const pesanShare = 
-            `*🚨 LAPORAN KUNJUNGAN LAPANGAN*%0A` +
-            `*(ANTREAN ARDEBT - PENGAWASAN)*%0A` +
-            `-------------------------------------------%0A` +
-            `📅 *Waktu:* ${waktu}%0A` +
-            `👤 *Petugas:* ${wa.petugas}%0A` +
-            `-------------------------------------------%0A%0A` +
-            `*DATA KONSUMEN:*%0A` +
-            `👤 *Nama:* ${wa.nama}%0A` +
-            `🆔 *IDPEL:* ${wa.nomen}%0A` +
-            `📞 *HP Konsumen:* ${wa.no_hp || '-'}%0A%0A` +
-            `*HASIL EVALUASI:*%0A` +
-            `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
-            `🚩 *Tunggakan:* ${wa.jcount} Bulan%0A` +
-            `📝 *Catatan:* ${wa.catatan}%0A%0A` +
-            `*RINCIAN KEUANGAN:*%0A` +
-            `• Tagihan Baru: Rp ${formatIDR(wa.mc)}%0A` +
-            `• Piutang Lama: Rp ${formatIDR(wa.ardebt)}%0A` +
-            `• *TOTAL TAGIHAN: Rp ${formatIDR(wa.total)}*%0A%0A` +
-            `*DOKUMENTASI FOTO:*%0A` +
-            `🖼️ Link: ${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
-            `-------------------------------------------` +
-            `_Laporan Otomatis Sunter Dashboard Pro_`;
-        window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
-    }
-
-    /**
-     * [FUNGSI: liveSearch]
-     * Memungkinkan petugas mencari data yang sudah tersembunyi (Global Search).
-     */
     function liveSearch() {
         const q = document.getElementById('searchBar').value.toLowerCase();
         document.querySelectorAll('.customer-card').forEach(c => {
@@ -375,10 +401,6 @@
         });
     }
 
-    /**
-     * [FUNGSI: openModal]
-     * Persiapan data snapshot untuk formulir laporan.
-     */
     function openModal(nomen, nama, total, no_hp) {
         document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nama').innerText = nama;
@@ -389,19 +411,11 @@
         modalKunjungan.show();
     }
 
-    /**
-     * [FUNGSI: toggleJanjiInput]
-     * Menampilkan input tanggal komitmen bayar.
-     */
     function toggleJanjiInput() {
         const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
         document.getElementById('group-janji').classList.toggle('d-none', !isJanji);
     }
 
-    /**
-     * [FUNGSI: updateSummary]
-     * Kalkulasi sisa target di layar.
-     */
     function updateSummary(data) {
         const total = data.reduce((acc, curr) => acc + (curr.nominal_mc + curr.nominal_ardebt), 0);
         document.getElementById('summary-area').innerHTML = `
@@ -413,9 +427,8 @@
 </script>
 
 <style>
-    /* STYLING BUSINESS PROFESSIONAL */
     .bg-danger-subtle { background-color: #fff5f5 !important; }
-    .customer-card { border-left: 4px solid #dc3545 !important; transition: transform 0.2s; }
+    .customer-card { border: 1px solid #fecaca !important; transition: transform 0.2s; }
     .customer-card:active { transform: scale(0.98); }
     .table-danger { --bs-table-bg: #ffebeb; --bs-table-color: #b30000; }
     .progress-bar { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
