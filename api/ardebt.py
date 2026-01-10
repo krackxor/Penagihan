@@ -1,10 +1,10 @@
 """
-Ardebt (Tagihan Berekor) API Endpoints
-Sinergi & Logic: 
-1. Level Akses: Petugas dikunci ke rutenya (petugas_id), Admin akses global.
-2. Akumulasi Cerdas: Menggabungkan semua periode berekor per NOMEN agar list tidak panjang.
-3. Kuota Lapangan: Menampilkan 20 titik rute (PCEZ) prioritas.
-4. Auto-Hide: Data hilang dari list selama 30 hari setelah dilaporkan.
+Ardebt (Tagihan Berekor) API - Smart Autopilot Version
+Sinergi & Smart Update:
+1. Autopilot Ardebt: Menghitung sejarah tunggakan otomatis dari data MC bulan-bulan lalu.
+2. Transitional Logic: Otomatis mendeteksi periode aktif terbaru untuk masa transisi awal bulan.
+3. High Value Filter: Tetap menjaga efisiensi dengan filter nominal MC >= 300.000.
+4. Smart Casting & Grouping: Normalisasi NOMEN untuk akurasi link data antar periode.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -14,72 +14,103 @@ from datetime import datetime
 
 ardebt_bp = Blueprint('ardebt', __name__)
 
+def get_latest_periode_available(cursor):
+    """
+    FUNGSI CERDAS: Mencari periode terakhir yang tersedia di database.
+    Mencegah dashboard kosong saat ganti bulan (Tanggal 1-10).
+    """
+    cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
+    row = cursor.fetchone()
+    # Jika database kosong, gunakan bulan berjalan sebagai fallback
+    return row['periode'] if row else datetime.now().strftime('%m-%Y')
+
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
-    # 1. Identifikasi Sinergi Login
-    user_role = session.get('role')
-    user_petugas_id = session.get('petugas_id') # Nama Petugas (Contoh: PIAN)
+    """
+    Endpoint Utama Ardebt Autopilot:
+    Menampilkan nasabah dengan tagihan MC besar beserta akumulasi hutang lamanya.
+    """
+    # 1. IDENTIFIKASI AKSES & SESI
+    user_role = str(session.get('role', 'guest')).lower()
+    user_petugas_id = session.get('petugas_id')
     
-    # 2. Ambil Parameter Request
-    petugas_filter = request.args.get('petugas') # Digunakan Admin
+    # 2. PARAMETER REQUEST (Search & Admin Filter)
+    petugas_filter = request.args.get('petugas')
     search_query = request.args.get('search', '').strip()
     
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         
-        # 3. Query Utama dengan Akumulasi (GROUP BY nomen)
-        # Menghitung total lembar berekor dan total rupiah per pelanggan
-        query = """
-            SELECT 
-                a.id, a.nomen, p.nama, p.pcez, p.nomet, p.rayon, p.notagihan,
-                GROUP_CONCAT(a.periode_bill, ', ') as rincian_periode,
-                COUNT(a.id) as lembar_berekor,
-                SUM(a.jumlah) as jumlah, 
-                SUM(a.volume) as volume,
-                r.petugas as nama_petugas
-            FROM ardebt a
-            INNER JOIN master_pelanggan p ON a.nomen = p.nomen
-            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE 1=1
-        """
-        params = []
+        # 3. DETEKSI PERIODE AKTIF (Masa Transisi)
+        # Mencari periode terbaru yang ada di sistem (misal: Jan-2026 jika sudah ada, atau Des-2025 jika belum)
+        current_period = get_latest_periode_available(cursor)
 
-        # --- LOGIKA PROTEKSI AKSES 3 LEVEL ---
+        # 4. QUERY AUTOPILOT SINERGI
+        # Menghitung nominal bulan berjalan (MC) DAN sejarah tunggakan bulan-bulan sebelumnya
+        query = f"""
+            SELECT 
+                p.nomen, p.nama, p.pcez, p.nomet, p.rayon,
+                p.nominal as nominal_mc,                      -- Tagihan periode terbaru
+                p.periode as periode_aktif,
+                -- SUBQUERY SMART: Hitung total rupiah tunggakan dari periode-periode SEBELUMNYA
+                COALESCE((
+                    SELECT SUM(m2.nominal) 
+                    FROM master_pelanggan m2 
+                    WHERE CAST(m2.nomen AS TEXT) = CAST(p.nomen AS TEXT) 
+                    AND m2.periode < p.periode
+                    AND NOT EXISTS (
+                        SELECT 1 FROM master_bayar mb 
+                        WHERE CAST(mb.notagihan AS TEXT) = CAST(m2.notagihan AS TEXT)
+                    )
+                ), 0) as total_ardebt,
+                -- SUBQUERY SMART: Hitung berapa lembar (bulan) yang menunggak
+                (
+                    SELECT COUNT(*) 
+                    FROM master_pelanggan m2 
+                    WHERE CAST(m2.nomen AS TEXT) = CAST(p.nomen AS TEXT) 
+                    AND m2.periode < p.periode
+                    AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m2.notagihan)
+                ) as lembar_berekor,
+                r.petugas as nama_petugas
+            FROM master_pelanggan p
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            WHERE p.periode = ?
+            AND p.nominal >= 300000                            -- [SMART FILTER] Efisiensi Collection
+            AND NOT EXISTS (
+                SELECT 1 FROM master_bayar mb 
+                WHERE CAST(mb.notagihan AS TEXT) = CAST(p.notagihan AS TEXT)
+            )
+        """
+        params = [current_period]
+
+        # --- LOGIKA FILTER ROLE (KEAMANAN) ---
         if user_role == 'petugas':
-            # Paksa filter rute milik petugas yang login
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
         elif user_role == 'admin' and petugas_filter and petugas_filter != 'all':
-            # Admin memilih petugas tertentu dari dropdown
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
 
-        # --- LOGIKA PENCARIAN & FILTER 30 HARI ---
+        # --- SMART SEARCH & AUTO-HIDE 30 HARI ---
         if search_query:
-            query += " AND (a.nomen LIKE ? OR p.nama LIKE ?)"
+            query += " AND (CAST(p.nomen AS TEXT) LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
-            # Filter Kotak (Hanya tampilkan yang belum dikunjungi dalam 30 hari terakhir)
+            # Sembunyikan IDPEL yang sudah dikunjungi dalam 30 hari agar petugas menyisir rumah lain
             query += """
                 AND NOT EXISTS (
                     SELECT 1 FROM kunjungan_petugas k 
-                    WHERE k.nomen = a.nomen 
+                    WHERE CAST(k.nomen AS TEXT) = CAST(p.nomen AS TEXT) 
                     AND k.created_at >= datetime('now', '-30 days')
                 )
             """
             
-        # Finalisasi Query: Kelompokkan per Nomen dan urutkan rute terkecil
-        query += """ 
-            GROUP BY a.nomen 
-            ORDER BY p.pcez ASC, lembar_berekor DESC 
-            LIMIT 20 
-        """
+        # Urutkan berdasarkan potensi rupiah terbesar (MC + Ardebt)
+        query += " ORDER BY (nominal_mc + total_ardebt) DESC LIMIT 25"
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
-        
-        # Sinergi Fetch: Mengembalikan list JSON murni untuk performa frontend mobile
         return jsonify([dict(row) for row in rows])
         
     except Exception as e:
@@ -89,22 +120,23 @@ def get_tunggakan_berekor():
 
 @ardebt_bp.route('/summary', methods=['GET'])
 def get_ardebt_summary():
-    """Analisis Dashboard: Menghitung beban piutang berekor global."""
+    """
+    Dashboard Analysis: 
+    Menghitung total potensi piutang berekor yang tersedia di seluruh sejarah database.
+    """
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Query optimasi untuk ringkasan cepat
+        # Menghitung seluruh data 'Belum Bayar' dari periode lama
         cursor.execute("""
             SELECT 
-                COUNT(id) as total_lembar,
-                COUNT(DISTINCT nomen) as total_pelanggan,
-                SUM(jumlah) as total_rupiah,
-                SUM(volume) as total_m3
-            FROM ardebt
+                COUNT(*) as total_lembar, 
+                SUM(nominal) as total_rupiah 
+            FROM master_pelanggan m
+            WHERE NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m.notagihan)
+            AND m.periode < (SELECT MAX(periode) FROM master_pelanggan)
         """)
         row = cursor.fetchone()
-        return APIResponse.success(data=dict(row) if row else {})
-    except Exception as e:
-        return APIResponse.error(str(e))
+        return APIResponse.success(data=dict(row) if row else {"total_rupiah": 0, "total_lembar": 0})
     finally:
         conn.close()
