@@ -59,18 +59,18 @@
 </div>
 
 <script>
-    let dataKunjungan = []; // Master state untuk filter offline
+    let dataKunjungan = []; // Penampung data untuk pencarian cepat
     const formatIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
     /**
-     * INITIALIZER: Memuat log kunjungan secara default saat halaman dibuka.
+     * INITIALIZER: Menjalankan fungsi muat data pertama kali.
      */
     document.addEventListener('DOMContentLoaded', () => {
         loadKunjunganLog();
     });
 
     /**
-     * REFRESH LOG: Logika cerdas untuk memuat ulang data pada tab yang sedang aktif.
+     * REFRESH LOG: Logika cerdas untuk memuat ulang data sesuai konteks tab.
      */
     function refreshLog() {
         const icon = document.getElementById('sync-icon');
@@ -84,8 +84,8 @@
     }
 
     /**
-     * LOAD KUNJUNGAN: Mengambil data aktivitas lapangan dari API History.
-     * Sinergi: Menampilkan data snapshot nominal saat petugas melapor.
+     * LOAD KUNJUNGAN: Mengambil data riwayat kunjungan dari API.
+     * Sinergi: Backend sekarang mengirimkan snapshot MC dan Ardebt secara terpisah.
      */
     async function loadKunjunganLog() {
         const container = document.getElementById('container-kunjungan');
@@ -95,12 +95,12 @@
             dataKunjungan = result.data || [];
             renderKunjungan(dataKunjungan);
         } catch (e) {
-            container.innerHTML = '<div class="alert alert-danger mx-2 small">Gagal memuat log lapangan.</div>';
+            container.innerHTML = '<div class="alert alert-danger mx-2 small">❌ Gagal sinkronisasi jejak lapangan.</div>';
         }
     }
 
     /**
-     * RENDER KUNJUNGAN: Membangun kartu log dengan layout mobile-friendly.
+     * RENDER KUNJUNGAN: Menyusun kartu log yang informatif dan responsif.
      */
     function renderKunjungan(data) {
         const container = document.getElementById('container-kunjungan');
@@ -110,9 +110,10 @@
         }
 
         container.innerHTML = data.map((log) => {
-            // Logika Warna Badge: Sudah Bayar (Hijau), Janji/Lainnya (Kuning/Biru)
+            // Visual Status: Menggunakan warna berbeda untuk status kritis
             const isLunas = log.keterangan.includes('Sudah');
             const badgeClass = isLunas ? 'bg-success' : 'bg-warning text-dark';
+            const totalVal = (Number(log.mc) || 0) + (Number(log.ardebt) || 0);
             
             return `
             <div class="card border-0 shadow-sm rounded-4 mb-2 bg-white animate__animated animate__fadeInUp" onclick="showDetail('${log.id}')">
@@ -124,11 +125,11 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="fw-bold mb-0 text-dark small text-uppercase">${log.nama}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;"><i class="fas fa-id-badge me-1"></i>Petugas: ${log.petugas_name}</small>
+                            <small class="text-muted" style="font-size: 0.6rem;"><i class="fas fa-user-circle me-1"></i>${log.petugas_name}</small>
                         </div>
                         <div class="text-end">
                             <span class="badge ${badgeClass} rounded-pill mb-1" style="font-size: 0.5rem;">${log.keterangan}</span>
-                            <div class="fw-bold text-primary" style="font-size: 0.75rem;">${formatIDR(Number(log.mc || 0) + Number(log.ardebt || 0))}</div>
+                            <div class="fw-bold text-primary" style="font-size: 0.75rem;">${formatIDR(totalVal)}</div>
                         </div>
                     </div>
                 </div>
@@ -137,7 +138,7 @@
     }
 
     /**
-     * FILTER: Menyaring log kunjungan secara instan tanpa request ke server.
+     * FILTER: Logika autopilot pencarian client-side (Cepat & Hemat Data).
      */
     function filterKunjungan() {
         const q = document.getElementById('searchKunjungan').value.toLowerCase();
@@ -150,12 +151,11 @@
     }
 
     /**
-     * LOAD UPLOAD: Audit sinkronisasi master file oleh Admin.
-     * Autopilot: Mendeteksi keberhasilan sinkronisasi baris data Excel.
+     * LOAD UPLOAD: Audit riwayat pengunggahan file Excel oleh tim Admin.
      */
     async function loadUploadLog() {
         const container = document.getElementById('container-upload');
-        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary border-width-2"></div></div>';
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
         
         try {
             const res = await fetch('/api/history/list');
@@ -163,7 +163,7 @@
             const data = result.data || [];
             
             if(data.length === 0) {
-                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada riwayat upload file master.</div>';
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada riwayat pengunggahan file.</div>';
                 return;
             }
 
@@ -175,71 +175,75 @@
                             <small class="text-muted" style="font-size: 0.55rem;">${log.created_at}</small>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">Tipe: <b class="text-dark">${log.file_type}</b> | Data: <b>${log.row_count} Baris</b></small>
-                            <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 0.55rem;">SYNC SUCCESS</span>
+                            <small class="text-muted">Kategori: <b class="text-dark">${log.file_type}</b> | <b>${log.row_count} Baris</b></small>
+                            <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 0.55rem;">SINKRON</span>
                         </div>
                     </div>
                 </div>`).join('');
         } catch (e) {
-            container.innerHTML = '<div class="alert alert-warning mx-2 small">Akses Log Sinkronisasi terbatas untuk Administrator.</div>';
+            container.innerHTML = '<div class="alert alert-warning mx-2 small">Akses terbatas untuk Administrator.</div>';
         }
     }
 
     /**
-     * SHOW DETAIL: Menampilkan rincian audit kunjungan lapangan dalam modal.
-     * Sinergi: Membedah nominal MC dan Ardebt secara transparan.
+     * SHOW DETAIL: Membedah rincian log termasuk perbandingan MC vs Ardebt.
      */
     function showDetail(id) {
         const log = dataKunjungan.find(l => l.id == id);
         if(!log) return;
 
-        const totalNominal = Number(log.mc || 0) + Number(log.ardebt || 0);
+        const mcVal = Number(log.mc) || 0;
+        const ardebtVal = Number(log.ardebt) || 0;
 
         document.getElementById('log-detail-content').innerHTML = `
             <div class="modal-header bg-dark text-white border-0 py-3">
-                <h6 class="modal-title fw-bold small text-uppercase">Audit Jejak Lapangan #${log.id}</h6>
+                <h6 class="modal-title fw-bold small text-uppercase">Detail Audit Lapangan #${log.id}</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
+                <div class="bg-light p-3 rounded-4 mb-4">
+                    <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.55rem;">Nama Pelanggan</small>
+                    <h6 class="fw-bold text-dark mb-0">${log.nama}</h6>
+                    <small class="text-muted">IDPEL: ${log.nomen}</small>
+                </div>
+                
                 <div class="row g-3 mb-4">
-                    <div class="col-12 bg-light p-3 rounded-4 mb-2">
-                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.55rem;">Nama Konsumen</small>
-                        <span class="fw-bold text-dark">${log.nama}</span>
-                    </div>
                     <div class="col-6">
-                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.55rem;">Petugas Pelapor</small>
-                        <span class="fw-bold small text-dark">${log.petugas_name}</span>
-                    </div>
-                    <div class="col-6 text-end">
-                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.55rem;">Hasil Kunjungan</small>
+                        <small class="text-muted d-block fw-bold" style="font-size: 0.55rem;">STATUS</small>
                         <span class="badge bg-primary rounded-pill px-3">${log.keterangan}</span>
                     </div>
-                    <div class="col-12 border-top pt-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <small class="text-muted small">Tagihan Berjalan (MC)</small>
-                            <span class="small fw-bold">${formatIDR(log.mc || 0)}</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <small class="text-muted small">Tunggakan Berekor (Ardebt)</small>
-                            <span class="small fw-bold">${formatIDR(log.ardebt || 0)}</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-2">
-                            <span class="fw-bold text-dark">TOTAL TAGIHAN</span>
-                            <span class="fw-bold text-primary h6 mb-0">${formatIDR(totalNominal)}</span>
-                        </div>
+                    <div class="col-6 text-end">
+                        <small class="text-muted d-block fw-bold" style="font-size: 0.55rem;">PETUGAS</small>
+                        <span class="fw-bold small">${log.petugas_name}</span>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <small class="text-muted d-block text-uppercase fw-bold mb-2" style="font-size: 0.55rem;">Catatan Petugas Lapangan</small>
-                    <div class="bg-light p-3 rounded-4 small text-muted border border-light italic">
+
+                <div class="border-top border-bottom py-3 mb-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">Tagihan Berjalan (MC)</small>
+                        <span class="small fw-bold">${formatIDR(mcVal)}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">Tunggakan Lama (Ardebt)</small>
+                        <span class="small fw-bold">${formatIDR(ardebtVal)}</span>
+                    </div>
+                    <div class="d-flex justify-content-between pt-2 border-top">
+                        <span class="fw-bold">TOTAL TAGIHAN</span>
+                        <span class="fw-bold text-primary">${formatIDR(mcVal + ardebtVal)}</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <small class="text-muted d-block fw-bold mb-2" style="font-size: 0.55rem;">CATATAN LAPANGAN</small>
+                    <div class="bg-light p-3 rounded-3 small text-muted border-start border-3 border-primary">
                         "${log.catatan || 'Tidak ada catatan tambahan.'}"
                     </div>
                 </div>
+
                 ${log.foto_path ? `
-                <div class="mb-0">
-                    <small class="text-muted d-block text-uppercase fw-bold mb-2" style="font-size: 0.55rem;">Dokumentasi Foto</small>
-                    <a href="/static/uploads/kunjungan/${log.foto_path}" target="_blank" class="btn btn-sm btn-outline-primary w-100 rounded-pill">
-                        <i class="fas fa-external-link-alt me-2"></i>Lihat Foto Full-Res
+                <div class="d-grid">
+                    <a href="/static/uploads/kunjungan/${log.foto_path}" target="_blank" class="btn btn-outline-dark rounded-pill fw-bold small py-2">
+                        <i class="fas fa-camera me-2"></i> LIHAT FOTO BUKTI
                     </a>
                 </div>` : ''}
             </div>`;
@@ -249,14 +253,11 @@
 </script>
 
 <style>
-    /* SINERGI UI STYLING */
+    /* Styling Navigasi & Animasi */
     .nav-pills .nav-link { color: #64748b; background: #fff; margin: 0 4px; border: 1px solid #f1f5f9; transition: 0.3s; }
-    .nav-pills .nav-link.active { background: #0f172a !important; color: #fff; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); border-color: #0f172a; }
-    .btn-white { background: white; border: 1px solid #e2e8f0; }
+    .nav-pills .nav-link.active { background: #0f172a !important; color: #fff; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
     .card { transition: all 0.2s ease; cursor: pointer; border: 1px solid transparent !important; }
     .card:hover { border-color: #e2e8f0 !important; box-shadow: 0 8px 15px rgba(0,0,0,0.05) !important; }
     .card:active { transform: scale(0.98); }
-    .bg-primary-subtle { background-color: #eef2ff !important; color: #4338ca !important; }
-    .bg-success-subtle { background-color: #f0fdf4 !important; color: #166534 !important; }
 </style>
 {% endblock %}
