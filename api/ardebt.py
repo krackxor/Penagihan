@@ -1,10 +1,10 @@
 """
-Ardebt (Tagihan Berekor) API - Sunter Dashboard Pro (V4.2 Intelligence Edition)
+Ardebt (Tagihan Berekor) API - V4.9 (Active User & Ardebt Priority)
 Sinergi & Smart Update:
-1. Unlimited History: Menampilkan seluruh rekam jejak pemakaian tanpa batas LIMIT.
-2. Intelligence Analytics: Deteksi otomatis potensi kebocoran pipa & meter macet.
-3. Availability Guard: Memberikan status "Data Belum Tersedia" jika pelanggan baru (1 periode).
-4. Maintenance Friendly: Komentar teknis lengkap di setiap blok untuk kemudahan edit.
+1. Active Filter: Menampilkan hanya pelanggan Ardebt yang memiliki pemakaian air (Kubik > 0).
+2. Ardebt Driver: Data utama bersumber dari tabel 'ardebt' (Hasil upload Excel Ardebt).
+3. Data Linking: Melengkapi informasi profil (Alamat, Nomet, Tarif) dari Master Pelanggan.
+4. Maintenance Friendly: Komentar teknis di setiap blok untuk kemudahan audit/edit.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -16,35 +16,31 @@ ardebt_bp = Blueprint('ardebt', __name__)
 
 def get_latest_periode_available(cursor):
     """
-    FUNGSI CERDAS: Mencari periode terakhir yang tersedia di database.
-    Mencegah dashboard kosong selama masa transisi data awal bulan (Tanggal 1-10).
+    FUNGSI: Mencari periode terakhir di Master Pelanggan untuk cek status pemakaian (Kubik).
+    Mencegah data kosong saat masa transisi awal bulan.
     """
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
-    # Jika database kosong, gunakan bulan berjalan sebagai fallback
+    # Fallback ke bulan berjalan jika database benar-benar kosong
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
 @ardebt_bp.route('/history/<nomen>', methods=['GET'])
 def get_customer_full_intelligence(nomen):
     """
-    FUNGSI: Laporan Cerdas & Riwayat Tak Terbatas (History Button).
-    Menganalisis tren kubikasi dan memberikan saran tindakan otomatis.
+    FUNGSI: Laporan Cerdas Riwayat (Tombol History).
+    Menampilkan SEMUA riwayat pemakaian air tanpa batasan limit.
+    Mendeteksi potensi kebocoran atau meteran macet secara otomatis.
     """
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         
-        # --- 1. AMBIL SELURUH RIWAYAT (UNLIMITED) ---
-        # Mengambil semua data dari awal hingga terbaru berdasarkan ID Pelanggan
+        # --- 1. AMBIL SELURUH RIWAYAT ---
+        # CAST AS TEXT digunakan untuk menjaga konsistensi IDPEL
         cursor.execute("""
             SELECT 
-                periode, 
-                kubik as pemakaian_air, 
-                nominal as rupiah, 
-                tarif, 
-                nomet as no_seri_meter,
-                status_lunas, 
-                tgl_lunas
+                periode, kubik as pemakaian_air, nominal as rupiah, 
+                tarif, nomet as no_seri_meter, status_lunas, tgl_lunas
             FROM master_pelanggan 
             WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT) 
             ORDER BY id DESC
@@ -52,7 +48,7 @@ def get_customer_full_intelligence(nomen):
         
         all_history = [dict(row) for row in cursor.fetchall()]
 
-        # --- 2. VALIDASI KETERSEDIAAN DATA PEMBANDING ---
+        # --- 2. VALIDASI KETERSEDIAAN DATA ---
         if len(all_history) <= 1:
             return jsonify({
                 "status": "not_available",
@@ -60,110 +56,84 @@ def get_customer_full_intelligence(nomen):
                 "history": all_history
             })
 
-        # --- 3. LOGIKA ANALISIS TREN (SINERGI ANALYTICS) ---
-        curr = all_history[0]   # Periode Terbaru
-        prev = all_history[1]   # Periode Sebelumnya
-        
+        # --- 3. LOGIKA ANALISIS TREN (SMART ANALYTICS) ---
+        curr, prev = all_history[0], all_history[1]
         diff_kubik = curr['pemakaian_air'] - prev['pemakaian_air']
         status_tren = "NAIK" if diff_kubik > 0 else "TURUN"
+        saran, alert_level = "Pemakaian air terpantau normal.", "success"
         
-        # Default saran normal
-        saran = "Pemakaian air terpantau normal."
-        alert_level = "success"
-        
-        # A. Deteksi Potensi Kebocoran (Lonjakan > 100%)
+        # Deteksi lonjakan drastis
         if curr['pemakaian_air'] > (prev['pemakaian_air'] * 2) and prev['pemakaian_air'] > 0:
-            saran = "⚠️ POTENSI KEBOCORAN: Lonjakan air >100%. Mohon edukasi pelanggan cek instalasi pipa!"
-            alert_level = "danger"
-            
-        # B. Deteksi Meter Macet / Rumah Kosong (Pemakaian 0)
+            saran, alert_level = "⚠️ POTENSI KEBOCORAN: Pemakaian melonjak >100%!", "danger"
+        # Deteksi meteran macet / tidak terbaca
         elif curr['pemakaian_air'] == 0 and prev['pemakaian_air'] > 0:
-            saran = "🔍 AUDIT METER: Pemakaian 0 m3. Cek apakah meter macet atau rumah kosong."
-            alert_level = "warning"
-            
-        # C. Deteksi Perubahan Tarif
-        elif curr['tarif'] != prev['tarif']:
-            saran = "ℹ️ PERUBAHAN TARIF: Ada perubahan golongan tarif dari bulan lalu."
-            alert_level = "info"
+            saran, alert_level = "🔍 CEK METER: Pemakaian 0 m3. Waspada meter macet.", "warning"
 
         return jsonify({
             "status": "available",
-            "nomen": nomen,
             "analysis": {
-                "perubahan_pemakaian": f"{abs(diff_kubik)} m3 ({status_tren})",
-                "saran_tindakan": saran,
-                "alert_level": alert_level,
-                "total_rekam_jejak": len(all_history)
+                "perubahan": f"{abs(diff_kubik)} m3 ({status_tren})",
+                "saran": saran, "level": alert_level
             },
-            "history": all_history # Mengeluarkan seluruh data tanpa batas
+            "history": all_history
         })
-        
-    except Exception as e:
-        print(f"❌ Intelligence API Error: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
 
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
     """
-    Endpoint Utama: Menampilkan Daftar Tagihan Detail.
-    NOMET = No Seri Meter | KUBIK = Pemakaian Air | NOMINAL = Rupiah Tagihan.
+    ENDPOINT UTAMA: Daftar Penagihan Ardebt Prioritas Pengguna Aktif.
+    LOGIKA SINERGI:
+    - Hanya mengambil ID yang ada di file Ardebt.
+    - Hanya mengambil yang memiliki pemakaian air (Kubik > 0) di periode terbaru.
     """
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id')
     search_query = request.args.get('search', '').strip()
-    petugas_filter = request.args.get('petugas')
     
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        current_period = get_latest_periode_available(cursor)
+        curr_period = get_latest_periode_available(cursor)
 
-        # QUERY DETAIL: Mengambil informasi pelanggan lengkap sesuai DB V3.8
-        query = f"""
+        # --- QUERY SINERGI: ARDEBT X ACTIVE MASTER ---
+        # Menggunakan INNER JOIN agar hanya pelanggan yang aktif di kedua tabel yang muncul
+        query = """
             SELECT 
-                p.nomen, p.nama, p.alamat, p.tarif,
-                p.nomet as no_seri_meter,    -- Informasi Seri Meter
-                p.kubik as pemakaian_air,    -- Informasi Kubikasi
-                p.nominal as nominal_mc,     -- Informasi Rupiah
+                a.nomen, 
+                a.periode_bill as rincian_periode, 
+                a.jumlah as nominal_ardebt, 
+                a.volume as volume_ardebt,
+                p.nama, 
+                p.alamat, 
+                p.nomet as no_seri_meter,
+                p.tarif,
+                p.kubik as pemakaian_air, -- Cek pemakaian air bulan ini
                 p.pcez, p.pc, p.ez, p.blok,
-                -- SUBQUERY: Menghitung akumulasi rupiah tunggakan bulan-bulan sebelumnya
-                COALESCE((
-                    SELECT SUM(m2.nominal) FROM master_pelanggan m2 
-                    WHERE CAST(m2.nomen AS TEXT) = CAST(p.nomen AS TEXT) AND m2.periode < p.periode
-                    AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m2.notagihan)
-                ), 0) as total_ardebt,
-                -- SUBQUERY: Menghitung jumlah lembar rekening yang menunggak
-                (
-                    SELECT COUNT(*) FROM master_pelanggan m2 
-                    WHERE CAST(m2.nomen AS TEXT) = CAST(p.nomen AS TEXT) AND m2.periode < p.periode
-                    AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = m2.notagihan)
-                ) as lembar_berekor,
+                COALESCE(p.nominal, 0) as nominal_mc,
                 r.petugas as nama_petugas
-            FROM master_pelanggan p
+            FROM ardebt a
+            INNER JOIN master_pelanggan p ON CAST(a.nomen AS TEXT) = CAST(p.nomen AS TEXT)
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
-            AND p.status_lunas = 0
-            AND p.nominal >= 300000 
+              AND p.kubik > 0        -- [SMART FILTER]: Pastikan ada pemakaian air
+              AND p.status_lunas = 0 -- Belum lunas tagihan berjalannya
         """
-        params = [current_period]
+        params = [curr_period]
 
-        # Logika pembatasan data sesuai login petugas
+        # Keamanan Role: Petugas hanya melihat area kerjanya
         if user_role == 'petugas':
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
-        elif user_role == 'admin' and petugas_filter and petugas_filter != 'all':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
 
-        # Logika pencarian cerdas
+        # Filter Pencarian (Nomen atau Nama)
         if search_query:
-            query += " AND (p.nomen LIKE ? OR p.nama LIKE ? OR p.alamat LIKE ?)"
-            params.extend([f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"])
+            query += " AND (a.nomen LIKE ? OR p.nama LIKE ?)"
+            params.extend([f"%{search_query}%", f"%{search_query}%"])
         
-        # Urutkan berdasarkan potensi rupiah tertinggi (Tagihan + Tunggakan)
-        query += " ORDER BY (nominal_mc + total_ardebt) DESC LIMIT 50"
+        # Urutan: Berdasarkan jumlah hutang Ardebt terbesar (Potensi Rupiah)
+        query += " ORDER BY a.jumlah DESC"
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
