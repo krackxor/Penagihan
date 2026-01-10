@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="animate__animated animate__fadeIn">
-    <div class="px-2 mb-4 d-flex justify-content-between align-items-center">
+    <div class="px-2 mb-4 d-flex justify-content-between align-items-center mt-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark">Tunggakan Ardebt 🐉</h4>
             <p class="text-muted small mb-0">Prioritas Antrean Penagihan Berekor</p>
@@ -108,7 +108,7 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">WhatsApp/No Telp Pelanggan *</label>
-                        <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3" placeholder="0812..." required>
+                        <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 shadow-none border-light-subtle" placeholder="0812..." required>
                     </div>
 
                     <div class="mb-3">
@@ -129,7 +129,7 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Catatan Petugas</label>
-                        <textarea id="modal-keterangan" name="keterangan" class="form-control rounded-3" rows="2" placeholder="Tulis kendala..."></textarea>
+                        <textarea id="modal-keterangan" name="keterangan" class="form-control rounded-3 shadow-none" rows="2" placeholder="Tulis kendala lapangan..."></textarea>
                     </div>
 
                     <div class="mb-0">
@@ -138,7 +138,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-3 pt-0">
-                    <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-bold shadow">
+                    <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-bold shadow-lg">
                         SIMPAN & SHARE WA <i class="fab fa-whatsapp ms-1"></i>
                     </button>
                 </div>
@@ -151,14 +151,10 @@
     let modalKunjungan, modalHistory;
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    /**
-     * INIT: Setup modal dan penarikan data awal
-     */
     document.addEventListener('DOMContentLoaded', () => {
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
         modalHistory = new bootstrap.Modal(document.getElementById('modalHistory'));
         loadArdebt();
-
         document.getElementById('formKunjungan').addEventListener('submit', (e) => { 
             e.preventDefault(); 
             simpanLaporan(); 
@@ -166,73 +162,8 @@
     });
 
     /**
-     * FUNGSI API: simpanLaporan()
-     * Mengirim data ke server dan memicu executeShareWA()
-     */
-    async function simpanLaporan() {
-        Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
-        
-        const form = document.getElementById('formKunjungan');
-        const formData = new FormData(form);
-        const petugasName = document.getElementById('filter-petugas').value;
-        formData.append('petugas_name', petugasName);
-
-        try {
-            const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
-            const result = await res.json();
-            if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Laporan kerja siap dikirim.' }).then(() => {
-                    executeShareWA(result.wa_data);
-                    modalKunjungan.hide();
-                    loadArdebt();
-                });
-            } else { Swal.fire('Gagal!', result.message, 'error'); }
-        } catch (err) { Swal.fire('Error!', 'Koneksi terputus.', 'error'); }
-    }
-
-    /**
-     * FUNGSI SHARE: executeShareWA()
-     * Template laporan detail untuk dikirim ke Grup/Pimpinan
-     */
-    function executeShareWA(wa) {
-        const waktu = new Date().toLocaleString('id-ID');
-        const labelBulan = wa.jcount ? `${wa.jcount} Bulan` : 'Cek Riwayat';
-
-        const pesanShare = 
-            `*🚨 LAPORAN KUNJUNGAN LAPANGAN*%0A` +
-            `*(ANTREAN ARDEBT - SUNTER PRO)*%0A` +
-            `-------------------------------------------%0A` +
-            `📅 *Waktu:* ${waktu}%0A` +
-            `👤 *Petugas:* ${wa.petugas}%0A` +
-            `-------------------------------------------%0A%0A` +
-
-            `*DATA PELANGGAN:*%0A` +
-            `👤 *Nama:* ${wa.nama}%0A` +
-            `🆔 *IDPEL:* ${wa.nomen}%0A` +
-            `📟 *No Seri Meter:* ${wa.nomet || '-'}%0A` +
-            `📞 *No HP Pelanggan:* ${wa.no_hp || '-'}%0A%0A` +
-            
-            `*HASIL KUNJUNGAN:*%0A` +
-            `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
-            `🚩 *Tunggakan:* ${labelBulan}%0A` +
-            `📝 *Catatan:* ${wa.catatan}%0A%0A` +
-            
-            `*RINCIAN TAGIHAN:*%0A` +
-            `• Tagihan MC: Rp ${formatIDR(wa.mc)}%0A` +
-            `• Piutang Ardebt: Rp ${formatIDR(wa.ardebt)}%0A` +
-            `• *TOTAL WAJIB BAYAR: Rp ${formatIDR(wa.total)}*%0A%0A` +
-            
-            `*BUKTI OTENTIK (FOTO):*%0A` +
-            `🖼️ Link Foto: ${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
-            
-            `-------------------------------------------%0A` +
-            `_Laporan dikirim via Sunter Dashboard Pro_`;
-
-        window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
-    }
-
-    /**
-     * FUNGSI DATA: loadArdebt()
+     * [FUNGSI DATA: loadArdebt]
+     * Kegunaan: Merender Kartu Pelanggan dengan Style Visual yang Bapak sukai.
      */
     async function loadArdebt() {
         const petugas = document.getElementById('filter-petugas').value;
@@ -245,7 +176,7 @@
                 return;
             }
             container.innerHTML = data.map((item) => `
-                <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white" data-search="${item.nomen} ${item.nama}">
+                <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp" data-search="${item.nomen} ${item.nama}">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1" style="font-size: 9px;">🆔 ${item.nomen}</span>
@@ -271,11 +202,11 @@
     }
 
     /**
-     * FUNGSI RIWAYAT: showHistory()
-     * Visual baris MERAH untuk status PIUTANG (0)
+     * [FUNGSI RIWAYAT: showHistory]
+     * Logic: Menampilkan J-Count (🚩 X Bulan Menunggak) dan Baris Merah Skakmat.
      */
     async function showHistory(nomen, nama) {
-        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Verifikasi tiga arah...</td></tr>';
+        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Verifikasi data...</td></tr>';
         document.getElementById('boxAnalisis').classList.add('d-none');
         modalHistory.show();
         try {
@@ -287,7 +218,6 @@
                 box.className = `alert alert-${resData.analysis.level} mb-3 shadow-sm border-start border-4`;
                 document.getElementById('txtSaran').innerText = resData.analysis.saran;
                 document.getElementById('txtTren').innerHTML = `🚩 ${resData.analysis.count_nunggak} Bulan Menunggak`;
-                
                 let rows = '';
                 resData.history.forEach(h => {
                     const isLunas = h.status_lunas == 1;
@@ -303,6 +233,62 @@
                 document.querySelector('#tableHistoryContent').innerHTML = rows;
             }
         } catch (e) { console.error(e); }
+    }
+
+    /**
+     * [FUNGSI SIMPAN: simpanLaporan]
+     * Kegunaan: Eksekusi simpan ke database dan kirim template detail ke WA Share.
+     */
+    async function simpanLaporan() {
+        Swal.fire({ title: 'Mengirim Laporan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+        const form = document.getElementById('formKunjungan');
+        const formData = new FormData(form);
+        const petugasName = document.getElementById('filter-petugas').value;
+        formData.append('petugas_name', petugasName);
+        try {
+            const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
+            const result = await res.json();
+            if (res.ok) {
+                Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Buka WhatsApp untuk lapor.' }).then(() => {
+                    executeShareWA(result.wa_data);
+                    modalKunjungan.hide();
+                    loadArdebt();
+                });
+            } else { Swal.fire('Gagal!', result.message, 'error'); }
+        } catch (err) { Swal.fire('Error!', 'Koneksi terputus.', 'error'); }
+    }
+
+    /**
+     * [FUNGSI SHARE: executeShareWA]
+     * Template: Laporan sangat detail untuk Grup (Universal Share).
+     */
+    function executeShareWA(wa) {
+        const waktu = new Date().toLocaleString('id-ID');
+        const pesanShare = 
+            `*🚨 LAPORAN KUNJUNGAN LAPANGAN*%0A` +
+            `*(ANTREAN ARDEBT - SUNTER PRO)*%0A` +
+            `-------------------------------------------%0A` +
+            `📅 *Waktu:* ${waktu}%0A` +
+            `👤 *Petugas:* ${wa.petugas}%0A` +
+            `-------------------------------------------%0A%0A` +
+            `*DATA PELANGGAN:*%0A` +
+            `👤 *Nama:* ${wa.nama}%0A` +
+            `🆔 *IDPEL:* ${wa.nomen}%0A` +
+            `📟 *No Seri Meter:* ${wa.nomet || '-'}%0A` +
+            `📞 *No HP Pelanggan:* ${wa.no_hp || '-'}%0A%0A` +
+            `*HASIL KUNJUNGAN:*%0A` +
+            `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
+            `🚩 *Tunggakan:* ${wa.jcount} Bulan%0A` +
+            `📝 *Catatan:* ${wa.catatan}%0A%0A` +
+            `*RINCIAN TAGIHAN:*%0A` +
+            `• Tagihan MC: Rp ${formatIDR(wa.mc)}%0A` +
+            `• Piutang Ardebt: Rp ${formatIDR(wa.ardebt)}%0A` +
+            `• *TOTAL WAJIB BAYAR: Rp ${formatIDR(wa.total)}*%0A%0A` +
+            `*BUKTI OTENTIK (FOTO):*%0A` +
+            `🖼️ Link Foto: ${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
+            `-------------------------------------------%0A` +
+            `_Laporan dikirim via Sunter Dashboard Pro_`;
+        window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
     }
 
     function liveSearch() {
@@ -330,17 +316,18 @@
     function updateSummary(data) {
         const total = data.reduce((acc, curr) => acc + (curr.nominal_mc + curr.nominal_ardebt), 0);
         document.getElementById('summary-area').innerHTML = `
-            <div class="bg-danger shadow-sm rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white">
-                <div><div class="opacity-75" style="font-size: 0.65rem;">TARGET ARDEBT</div><div class="fw-bold h5 mb-0">${data.length}</div></div>
-                <div class="text-end"><div class="opacity-75" style="font-size: 0.65rem;">PIUTANG</div><div class="fw-bold h5 mb-0">Rp ${formatIDR(total)}</div></div>
-            </div>
-        `;
+            <div class="bg-danger shadow-sm rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn">
+                <div><div class="opacity-75" style="font-size: 0.65rem;">TOTAL TARGET ARDEBT</div><div class="fw-bold h5 mb-0">${data.length} <small style="font-size: 0.6rem;">NASABAH</small></div></div>
+                <div class="text-end"><div class="opacity-75" style="font-size: 0.65rem;">NOMINAL PIUTANG</div><div class="fw-bold h5 mb-0">Rp ${formatIDR(total)}</div></div>
+            </div>`;
     }
 </script>
 
 <style>
     .bg-danger-subtle { background-color: #fff5f5 !important; }
-    .customer-card { border: 1px solid #fecaca !important; }
+    .customer-card { border: 1px solid #fecaca !important; transition: transform 0.2s; }
+    .customer-card:active { transform: scale(0.98); }
     .table-danger { --bs-table-bg: #ffebeb; --bs-table-color: #b30000; }
+    .modal-dialog-scrollable .modal-body { max-height: 70vh; }
 </style>
 {% endblock %}
