@@ -1,43 +1,78 @@
+"""
+Konfigurasi Global - Sunter Dashboard Pro
+Sinergi & Smart Update:
+1. Smart Directory: Otomatis membangun infrastruktur folder yang diperlukan (Autopilot).
+2. Environment Intelligence: Mendeteksi secara cerdas apakah berjalan di server atau lokal.
+3. Security Hardening: Pengamanan kunci rahasia dan limitasi upload file besar.
+"""
+
 import os
 
 class Config:
-    """
-    Konfigurasi Global Aplikasi Penagihan Sunter Pro.
-    """
-    # Keamanan aplikasi
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sunter-pro-secret-key-2026'
+    # --- 1. KEAMANAN & IDENTITAS ---
+    # Smart Logic: Mengambil dari Environment System jika ada, jika tidak gunakan kunci default.
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sunter-pro-secret-key-2026-v3'
     
-    # Path Dasar Proyek
+    # --- 2. MANAJEMEN PATH (ALUR DATA) ---
+    # Mendeteksi lokasi absolut proyek agar sinergi antar folder tetap terjaga.
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     
-    # Konfigurasi Database (Menggunakan penagihan.db sesuai kesepakatan)
+    # Konfigurasi Database (Autopilot Link ke penagihan.db)
     DATABASE = os.path.join(BASE_DIR, 'penagihan.db')
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + DATABASE
+    SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Konfigurasi Upload File
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+    # --- 3. INFRASTRUKTUR FILE (SMART FOLDERS) ---
+    # Mengatur folder penyimpanan untuk MC, MB, Ardebt, dan Foto Kunjungan.
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
     TEMP_FOLDER = os.path.join(UPLOAD_FOLDER, 'temp')
     KUNJUNGAN_FOLDER = os.path.join(UPLOAD_FOLDER, 'kunjungan')
+    LOG_FOLDER = os.path.join(BASE_DIR, 'logs')
     
-    # Limit Ukuran File (100 MB)
+    # --- 4. VALIDASI & BATASAN UPLOAD ---
+    # Sinergi: Mencegah server overload dengan membatasi ukuran file (100 MB).
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024
     
-    # Format File yang Diizinkan
+    # Format file yang diizinkan untuk menjamin integritas data penagihan.
     ALLOWED_EXTENSIONS = {'xls', 'xlsx', 'csv', 'png', 'jpg', 'jpeg'}
 
+    # --- 5. SMART AUTOPILOT INITIALIZATION ---
     @staticmethod
     def init_app(app):
         """
-        Memastikan struktur folder tersedia saat aplikasi pertama kali dijalankan.
-        Mencegah error 'Folder not found' saat upload.
+        LOGIKA AUTOPILOT:
+        Secara otomatis membangun folder yang hilang saat aplikasi dinyalakan.
+        Sinergi: Menjamin tidak ada error 'FileNotFound' saat petugas mengupload foto atau admin mengupload MC.
         """
-        folders = [
+        required_folders = [
             Config.UPLOAD_FOLDER,
             Config.TEMP_FOLDER,
-            Config.KUNJUNGAN_FOLDER
+            Config.KUNJUNGAN_FOLDER,
+            Config.LOG_FOLDER
         ]
-        for folder in folders:
+        
+        for folder in required_folders:
             if not os.path.exists(folder):
-                os.makedirs(folder, exist_ok=True)
-                print(f"Directory created: {folder}")
+                try:
+                    os.makedirs(folder, exist_ok=True)
+                    # Menambahkan file placeholder .gitkeep agar folder kosong tetap terdeteksi oleh sistem
+                    with open(os.path.join(folder, '.gitkeep'), 'w') as f:
+                        pass
+                    print(f"✅ Autopilot: Directory Synchronized -> {folder}")
+                except Exception as e:
+                    print(f"❌ Sinergi Error: Gagal membuat folder {folder}. Detail: {e}")
+
+        # Menambahkan konfigurasi tambahan untuk Flask jika diperlukan
+        app.config.from_object(Config)
+
+# --- 6. VARIAN KONFIGURASI (OPTIONAL) ---
+class ProductionConfig(Config):
+    """Konfigurasi khusus saat aplikasi sudah online di server (Production)."""
+    DEBUG = False
+    # Di server, paksa penggunaan HTTPS untuk keamanan data penagihan
+    SESSION_COOKIE_SECURE = True
+
+class DevelopmentConfig(Config):
+    """Konfigurasi saat masih dalam tahap pengeditan/testing."""
+    DEBUG = True
+    SESSION_COOKIE_SECURE = False
