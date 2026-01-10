@@ -1,11 +1,11 @@
 """
-Flask Application - Sunter Dashboard Pro (V3 Smart Edition)
-Updated: 2026-01-10 (Smart Autopilot & Synergy Version)
+Flask Application - Sunter Dashboard Pro (V6.5 Enterprise Edition)
+Updated: 2026-01-11 (Smart Tracking & Sinergi Version)
 
-LOGIKA SINERGI AKSES:
-1. Level 1 (Publik/Guest): Monitoring Realisasi & Statistik Global.
-2. Level 2 (Petugas): Operasional Penagihan & Laporan Lapangan.
-3. Level 3 (Admin): Pusat Kendali Data, User, WA Blast, & Sinkronisasi Excel.
+LOGIKA SINERGI AKSES (Security Matrix):
+1. Level 1 (Publik/Guest): Statistik Global & Dashboard Realisasi.
+2. Level 2 (Petugas): Fokus Target Harian (20 Data), Penagihan, & GPS Reporting.
+3. Level 3 (Admin): Audit Lokasi (GPS), Kendali Data Master, Management User.
 """
 
 import os
@@ -17,7 +17,7 @@ from config import Config
 from core.database import init_db, get_db_connection
 from core.helpers import get_role_redirect
 
-# Import Blueprints (Sistem Modular API Sinergi)
+# Import Blueprints (Sistem Modular API Sinergi V6.5)
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
@@ -26,21 +26,25 @@ from api.belum_bayar import belum_bayar_bp
 from api.collection import collection_bp
 from api.pcez_performance import register_pcez_routes
 from api.auth import auth_bp
-from api.wa_gateway import wa_bp  # Modul WA Blast Baru
+from api.wa_gateway import wa_bp 
 
 def create_app():
-    # Inisialisasi Flask menggunakan objek Konfigurasi Smart
+    """
+    [FUNGSI: ENGINE UTAMA APLIKASI]
+    Kegunaan: Menginisialisasi Flask, Middleware, Route UI, dan API modular.
+    """
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # AUTOPILOT SESSION: Durasi Sesi 12 Jam (Cocok untuk shift kerja petugas lapangan)
+    # AUTOPILOT SESSION: Durasi Sesi 12 Jam (Disesuaikan dengan shift lapangan)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
 
     # --- 1. STARTUP AUTOPILOT: Inisialisasi Infrastruktur ---
     with app.app_context():
-        init_db(app) # Pastikan tabel-tabel (Users, MC, MB, ARDEBT) tersedia
+        # Inisialisasi Database: Auto-Migration GPS & NOMET (Self-Healing)
+        init_db(app) 
         
-        # Sinergi Folder: Memastikan folder upload foto & temp excel tersedia otomatis
+        # Sinergi Folder: Menjamin folder storage tersedia untuk foto bukti & GPS logs
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'temp')
@@ -48,11 +52,11 @@ def create_app():
         for folder in folders:
             if not os.path.exists(folder):
                 os.makedirs(folder, exist_ok=True)
-                print(f"🚀 Autopilot: Infrastruktur siap -> {folder}")
+                print(f"🚀 Infrastruktur V6.5 Ready -> {folder}")
 
     @app.teardown_appcontext
     def close_connection(exception):
-        """Mencegah 'Database Locked' dengan menutup koneksi setiap akhir request."""
+        """Mencegah 'Database Locked' dengan menutup koneksi SQLite secara disiplin."""
         db = g.pop('db', None)
         if db is not None:
             db.close()
@@ -61,10 +65,10 @@ def create_app():
     @app.before_request
     def security_layer():
         """
-        Lapis Keamanan Terpadu:
-        Menentukan siapa yang boleh melihat data sensitif nasabah.
+        Lapis Keamanan V6.5:
+        Mencegah kebocoran koordinat lokasi GPS dan data master pelanggan.
         """
-        # DAFTAR PUTIH: Bisa diakses tanpa login (Dashboard Publik)
+        # DAFTAR PUTIH: Akses publik tanpa login (Monitoring Dashboard)
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 
@@ -74,26 +78,27 @@ def create_app():
         
         endpoint = request.endpoint
         
-        # Jika rute tidak ada (404) atau masuk daftar putih, izinkan lewat
+        # Izinkan lewat jika endpoint publik atau error 404
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # Proteksi Sesi: User wajib login untuk akses fitur operasional
+        # Proteksi Sesi: User wajib login untuk mengakses fitur Target 20 & Audit
         if 'role' not in session:
-            # Sinergi API: Berikan response JSON jika yang merequest adalah sistem/JS
+            # Sinergi AJAX: Kirim JSON 401 jika sesi habis saat petugas sedang lapor
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({"status": "error", "message": "Sesi berakhir. Login ulang."}), 401
+                return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
-        # Proteksi Role: Membatasi rute khusus Administrator
+        # Proteksi Role: Membatasi rute khusus Administrator (Audit GPS & Data Master)
         admin_only_endpoints = [
             'admin_dashboard', 'performa_page', 'wa_blast_page', 
-            'history_page', 'upload.handle_upload', 'rute.save_rute_manual'
+            'history_page', 'monitoring_lokasi_page', 'upload.handle_upload'
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
         if endpoint in admin_only_endpoints and user_role != 'admin':
-            return redirect(url_for('belum_bayar_page'))
+            # Jika petugas mencoba masuk ke menu Audit GPS, alihkan ke daftar tagihan
+            return redirect(url_for('tunggakan_berekor_page'))
 
     # --- 3. REGISTRASI BLUEPRINTS (SMART API SYSTEM) ---
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -103,14 +108,14 @@ def create_app():
     app.register_blueprint(belum_bayar_bp, url_prefix='/api/belum-bayar')
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     app.register_blueprint(collection_bp, url_prefix='/api/collection')
-    app.register_blueprint(wa_bp, url_prefix='/api/wa-gateway') # Integrasi WA Blast
+    app.register_blueprint(wa_bp, url_prefix='/api/wa-gateway') 
     
-    # Registrasi rute performa cerdas (Proyeksi & Analitik)
+    # Registrasi rute performa cerdas (Proyeksi Target & Analitik)
     register_pcez_routes(app, get_db_connection)
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
     
-    # LEVEL 1: DASHBOARD MONITORING (PUBLIK/SEMUA ROLE)
+    # [LEVEL 1: GLOBAL DASHBOARD]
     @app.route('/')
     def index(): 
         return render_template('index.html')
@@ -121,28 +126,34 @@ def create_app():
 
     @app.route('/login')
     def login_page(): 
-        # Autopilot Redirect: Jika sudah login, dilarang balik ke halaman login
+        # Autopilot Redirect: Jika sudah login, dilarang balik ke form login
         if 'role' in session: 
             return redirect(get_role_redirect(session['role']))
         return render_template('login.html')
 
-    # LEVEL 2: PENAGIHAN & LAPORAN (PETUGAS & ADMIN)
+    # [LEVEL 2: OPERASIONAL LAPANGAN]
+    @app.route('/tunggakan-berekor')
+    def tunggakan_berekor_page(): 
+        # Target Harian Petugas (Limit 20 & High Priority Kubik)
+        return render_template('tagihan_berekor.html')
+
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
         return render_template('belum_bayar.html')
-
-    @app.route('/tunggakan-berekor')
-    def tunggakan_berekor_page(): 
-        return render_template('tagihan_berekor.html')
 
     @app.route('/janji-bayar')
     def janji_bayar_page(): 
         return render_template('janji_bayar.html')
 
-    # LEVEL 3: ADMIN CONTROL CENTER (ADMIN ONLY)
+    # [LEVEL 3: ADMIN CONTROL & GPS AUDIT]
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
         return render_template('admin_dashboard.html')
+
+    @app.route('/admin/monitoring-lokasi')
+    def monitoring_lokasi_page():
+        """Halaman Khusus Audit Kejujuran Petugas (Verify Lat/Lng)"""
+        return render_template('monitoring_lokasi.html')
 
     @app.route('/performa')
     def performa_page(): 
@@ -156,17 +167,17 @@ def create_app():
     def wa_blast_page(): 
         return render_template('wa_blast.html')
 
-    # --- 5. FILE SERVING (SMART ASSETS) ---
+    # --- 5. FILE SERVING (STATIC ASSETS) ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
-        """Serving bukti foto lapangan agar bisa diaudit publik/admin."""
+        """Menyajikan foto bukti kunjungan untuk audit pimpinan."""
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
         return send_from_directory(folder, filename)
 
     return app
 
-# --- RUNNER SISTEM ---
+# --- SISTEM RUNNER ---
 if __name__ == '__main__':
-    # Host 0.0.0.0 agar aplikasi bisa diakses via Wifi oleh smartphone petugas
+    # Membuka host 0.0.0.0 agar smartphone petugas bisa mengakses server via Wifi/IP
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
