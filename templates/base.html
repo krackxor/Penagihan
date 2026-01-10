@@ -11,7 +11,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        /* VARIABEL TEMA: Memudahkan penggantian warna branding di seluruh aplikasi */
+        /* ========================================================================
+        [VARIABEL GLOBAL & TEMA]
+        Mendefinisikan skema warna dan standar visual aplikasi untuk sinergi brand.
+        ========================================================================
+        */
         :root { 
             --primary-bg: #f8fafc;
             --sunter-blue: #3b82f6;
@@ -24,10 +28,13 @@
             background-color: var(--primary-bg); 
             color: #1e293b; 
             overflow-x: hidden; 
-            -webkit-tap-highlight-color: transparent; /* Hapus overlay biru saat tap di mobile */
+            /* Menghapus highlight tap default pada perangkat WebKit (iOS/Android) */
+            -webkit-tap-highlight-color: transparent; 
         }
         
-        /* NAVBAR GLASSMORPHISM: Efek transparan modern yang menempel di atas */
+        /* [NAVBAR GLASSMORPHISM]
+        Implementasi desain modern dengan efek blur latar belakang dan transparansi.
+        */
         .navbar { 
             background: rgba(255, 255, 255, 0.8) !important; 
             backdrop-filter: blur(12px); 
@@ -37,10 +44,12 @@
             padding: 0.75rem 0;
         }
 
-        /* SIDEBAR (OFFCANVAS): Desain melengkung untuk menu navigasi kiri */
+        /* [SIDEBAR STYLING]
+        Kostumisasi Offcanvas Bootstrap agar selaras dengan estetika Sunter Pro.
+        */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; width: 285px !important; }
         
-        /* USER PROFILE BOX: Kartu identitas user di dalam sidebar */
+        /* Box profil user di dalam sidebar dengan efek bayangan (drop shadow) */
         .user-profile-box { 
             background: var(--accent-gradient); 
             border-radius: 20px; 
@@ -52,7 +61,9 @@
             box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
         }
 
-        /* MENU LINK: Gaya interaksi tombol menu */
+        /* [NAVIGASI CUSTOM]
+        Logika visual untuk elemen menu, mencakup transisi dan state hover.
+        */
         .nav-link-custom {
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             font-weight: 600;
@@ -69,7 +80,7 @@
         .nav-link-custom i { width: 24px; text-align: center; margin-right: 12px; font-size: 1.1rem; }
         .nav-link-custom:hover { background-color: #f8fafc !important; color: #3b82f6; }
 
-        /* ACTIVE MENU: Penanda halaman yang sedang dibuka */
+        /* State Aktif: Memberikan indikator visual pada menu yang sedang diakses */
         .active-menu {
             background-color: #eff6ff !important;
             color: #2563eb !important;
@@ -77,7 +88,9 @@
             border-left: 4px solid #2563eb !important;
         }
 
-        /* BOTTOM NAV MOBILE: Menu cepat gaya aplikasi mobile (khusus layar kecil) */
+        /* [BOTTOM NAVIGATION]
+        Navigasi khusus perangkat seluler untuk kemudahan akses (Thumb-Friendly UI).
+        */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(255, 255, 255, 0.95);
@@ -92,7 +105,7 @@
         .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 700; }
         .nav-item-link.active { color: var(--sunter-blue); }
 
-        /* Media Query: Sembunyikan bottom nav pada desktop */
+        /* Responsivitas: Menyembunyikan navigasi bawah pada layar desktop */
         @media (min-width: 768px) {
             .bottom-nav { display: none !important; }
             .main-content { padding-bottom: 40px; }
@@ -100,7 +113,6 @@
     </style>
 </head>
 <body>
-    {# LOGIKA ROLE: Normalisasi role ke lowercase untuk menjamin akurasi pengecekan menu #}
     {% set current_role = (session.get('role', 'guest')|string)|lower %}
 
     <nav class="navbar sticky-top">
@@ -234,8 +246,9 @@
     
     <script>
         /**
-         * [FUNGSI UI: Auto-Close Sidebar]
-         * Kegunaan: Menutup sidebar secara otomatis jika menu diklik pada mode mobile.
+         * [FUNGSI UTAMA UI: Auto-Close Navigation]
+         * Logika: Menutup panel navigasi (sidebar) secara otomatis setelah pengguna 
+         * memilih menu pada mode tampilan seluler untuk mengoptimalkan alur kerja.
          */
         document.addEventListener('DOMContentLoaded', function() {
             const offcanvasEl = document.getElementById('offcanvasNav');
@@ -243,7 +256,7 @@
                 const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
                 document.querySelectorAll('.nav-link-custom').forEach(link => {
                     link.addEventListener('click', () => {
-                        // Jika lebar layar kurang dari 992px (Mobile/Tablet), tutup sidebar setelah klik
+                        // Menutup sidebar jika lebar viewport di bawah ambang batas (breakpoint) 992px
                         if (window.innerWidth < 992) bsOffcanvas.hide();
                     });
                 });
