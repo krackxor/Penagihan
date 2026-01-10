@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4 animate__animated animate__fadeIn">
+    <div class="mb-4">
+        <h4 class="fw-bold text-dark mb-1">
+            <i class="fab fa-youtube me-2 text-danger"></i>Media Edukasi & Informasi
+        </h4>
+        <p class="text-muted small">Konten Video Terbaru dari YouTube Resmi @pamjaya_dki</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-5 overflow-hidden mb-4 text-white" style="background: linear-gradient(135deg, #cc0000 0%, #ff0000 100%);">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center flex-wrap gap-3">
+                <img src="https://ui-avatars.com/api/?name=PAM+JAYA&background=fff&color=cc0000&bold=true" class="rounded-circle shadow" style="width: 70px; height: 70px; border: 3px solid rgba(255,255,255,0.3);">
+                <div class="flex-grow-1">
+                    <h5 class="fw-bold mb-0">PAM JAYA DKI JAKARTA</h5>
+                    <p class="small mb-2 opacity-75">Saluran Informasi Pelayanan Air Minum Jakarta</p>
+                    <a href="https://www.youtube.com/@pamjaya_dki" target="_blank" class="btn btn-light btn-sm rounded-pill px-4 fw-bold text-danger shadow-sm">
+                        <i class="fab fa-youtube me-2"></i>KUNJUNGI CHANNEL
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white p-3">
+                <h6 class="fw-bold mb-3 small text-uppercase" style="letter-spacing: 1px;">Video Utama</h6>
+                <div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow-sm">
+                    <iframe src="https://www.youtube.com/embed?listType=user_uploads&list=pamjaya_dki" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-4 h-100">
+                <h6 class="fw-bold mb-3"><i class="fas fa-info-circle me-2 text-primary"></i>Tentang Media</h6>
+                <p class="small text-muted mb-4" style="line-height: 1.6;">
+                    Halaman ini menampilkan playlist otomatis dari channel YouTube resmi PAM JAYA. Informasi meliputi:
+                </p>
+                <ul class="list-unstyled small text-dark">
+                    <li class="mb-3 d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>Tutorial pembayaran via aplikasi.</span>
+                    </li>
+                    <li class="mb-3 d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>Informasi perbaikan pipa harian.</span>
+                    </li>
+                    <li class="mb-3 d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>Update proyek pembangunan SPAM.</span>
+                    </li>
+                </ul>
+                <div class="mt-auto pt-3 border-top">
+                    <div class="d-grid">
+                        <button class="btn btn-outline-danger rounded-pill fw-bold" onclick="location.reload()">
+                            <i class="fas fa-sync-alt me-2"></i>REFRESH KONTEN
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Custom Styling untuk Hover Effect */
+    .ratio-16x9 { border: 1px solid rgba(0,0,0,0.05); }
+    .card { transition: transform 0.3s ease; }
+    .card:hover { transform: translateY(-5px); }
+</style>
+{% endblock %}
