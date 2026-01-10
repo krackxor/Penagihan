@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
+        /* VARIABEL TEMA: Memudahkan penggantian warna branding di seluruh aplikasi */
         :root { 
             --primary-bg: #f8fafc;
             --sunter-blue: #3b82f6;
@@ -23,10 +24,10 @@
             background-color: var(--primary-bg); 
             color: #1e293b; 
             overflow-x: hidden; 
-            -webkit-tap-highlight-color: transparent;
+            -webkit-tap-highlight-color: transparent; /* Hapus overlay biru saat tap di mobile */
         }
         
-        /* Navbar Glassmorphism */
+        /* NAVBAR GLASSMORPHISM: Efek transparan modern yang menempel di atas */
         .navbar { 
             background: rgba(255, 255, 255, 0.8) !important; 
             backdrop-filter: blur(12px); 
@@ -36,9 +37,10 @@
             padding: 0.75rem 0;
         }
 
-        /* Sidebar Styling */
+        /* SIDEBAR (OFFCANVAS): Desain melengkung untuk menu navigasi kiri */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; width: 285px !important; }
         
+        /* USER PROFILE BOX: Kartu identitas user di dalam sidebar */
         .user-profile-box { 
             background: var(--accent-gradient); 
             border-radius: 20px; 
@@ -50,6 +52,7 @@
             box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
         }
 
+        /* MENU LINK: Gaya interaksi tombol menu */
         .nav-link-custom {
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             font-weight: 600;
@@ -66,6 +69,7 @@
         .nav-link-custom i { width: 24px; text-align: center; margin-right: 12px; font-size: 1.1rem; }
         .nav-link-custom:hover { background-color: #f8fafc !important; color: #3b82f6; }
 
+        /* ACTIVE MENU: Penanda halaman yang sedang dibuka */
         .active-menu {
             background-color: #eff6ff !important;
             color: #2563eb !important;
@@ -73,7 +77,7 @@
             border-left: 4px solid #2563eb !important;
         }
 
-        /* Bottom Nav Mobile */
+        /* BOTTOM NAV MOBILE: Menu cepat gaya aplikasi mobile (khusus layar kecil) */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(255, 255, 255, 0.95);
@@ -88,6 +92,7 @@
         .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 700; }
         .nav-item-link.active { color: var(--sunter-blue); }
 
+        /* Media Query: Sembunyikan bottom nav pada desktop */
         @media (min-width: 768px) {
             .bottom-nav { display: none !important; }
             .main-content { padding-bottom: 40px; }
@@ -95,7 +100,7 @@
     </style>
 </head>
 <body>
-    {# Normalisasi role ke lowercase untuk menjamin kecocokan logika navigasi #}
+    {# LOGIKA ROLE: Normalisasi role ke lowercase untuk menjamin akurasi pengecekan menu #}
     {% set current_role = (session.get('role', 'guest')|string)|lower %}
 
     <nav class="navbar sticky-top">
@@ -103,9 +108,11 @@
             <button class="btn btn-light shadow-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
                 <i class="fas fa-bars-staggered text-dark"></i>
             </button>
+            
             <a class="navbar-brand mx-auto" href="/">
                 <span class="text-primary"><i class="fas fa-bolt-lightning"></i></span> SUNTER PRO
             </a>
+
             {% if session.get('username') %}
             <div class="dropdown">
                 <button class="btn p-0 border-0" data-bs-toggle="dropdown">
@@ -173,6 +180,9 @@
                 {% if current_role == 'admin' %}
                 <div class="my-3 border-top opacity-25"></div>
                 <small class="text-muted text-uppercase fw-bold mb-2 ps-2 d-block" style="font-size: 0.65rem;">Pusat Kendali Admin</small>
+                <a href="/admin/monitoring-lokasi" class="nav-link-custom {% if request.path == '/admin/monitoring-lokasi' %}active-menu{% endif %}">
+                    <i class="fas fa-map-location-dot"></i>Audit Lokasi (GPS)
+                </a>
                 <a href="/performa" class="nav-link-custom {% if request.path == '/performa' %}active-menu{% endif %}">
                     <i class="fas fa-chart-line"></i>Performa PCEZ
                 </a>
@@ -183,7 +193,7 @@
                     <i class="fas fa-clock-rotate-left"></i>Log History
                 </a>
                 <a href="/admin/dashboard" class="nav-link-custom {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
-                    <i class="fas fa-shield-halved"></i>Pusat Kendali (User/Rute/Upload)
+                    <i class="fas fa-shield-halved"></i>Data Master & User
                 </a>
                 {% endif %}
             </div>
@@ -207,8 +217,8 @@
         <a href="/" class="nav-item-link {% if request.path == '/' %}active{% endif %}">
             <i class="fas fa-house-chimney d-block fa-lg mb-1"></i>Home
         </a>
-        <a href="/belum-bayar" class="nav-item-link {% if request.path == '/belum-bayar' %}active{% endif %}">
-            <i class="fas fa-file-invoice-dollar d-block fa-lg mb-1"></i>Tagihan
+        <a href="/tunggakan-berekor" class="nav-item-link {% if request.path == '/tunggakan-berekor' %}active{% endif %}">
+            <i class="fas fa-file-invoice-dollar d-block fa-lg mb-1"></i>Target 20
         </a>
         <a href="/janji-bayar" class="nav-item-link {% if request.path == '/janji-bayar' %}active{% endif %}">
             <i class="fas fa-calendar-check d-block fa-lg mb-1"></i>Janji
@@ -223,12 +233,17 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
+        /**
+         * [FUNGSI UI: Auto-Close Sidebar]
+         * Kegunaan: Menutup sidebar secara otomatis jika menu diklik pada mode mobile.
+         */
         document.addEventListener('DOMContentLoaded', function() {
             const offcanvasEl = document.getElementById('offcanvasNav');
             if (offcanvasEl) {
                 const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
                 document.querySelectorAll('.nav-link-custom').forEach(link => {
                     link.addEventListener('click', () => {
+                        // Jika lebar layar kurang dari 992px (Mobile/Tablet), tutup sidebar setelah klik
                         if (window.innerWidth < 992) bsOffcanvas.hide();
                     });
                 });
