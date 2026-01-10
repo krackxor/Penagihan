@@ -5,7 +5,7 @@
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h4 class="fw-bold mb-0 text-dark">Collection Monitor 📈</h4>
-            <p class="text-muted small mb-0">Tracking harian Rayon 34 & 35</p>
+            <p class="text-muted small mb-0">Tracking Realisasi Rayon 34 & 35</p>
         </div>
         <div class="d-flex gap-2">
             <input type="month" id="filter-periode" 
@@ -22,12 +22,12 @@
             <div class="card border-0 shadow-sm rounded-4 text-white position-relative overflow-hidden" 
                  style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
                 <div class="card-body p-4 text-center">
-                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI TOTAL GABUNGAN (MC + COLL)</small>
+                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI TOTAL GABUNGAN (SINERGI)</small>
                     <div class="d-flex justify-content-center align-items-end gap-2 mt-1">
                         <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
                         <div id="variance-area" class="mb-2"></div>
                     </div>
-                    <p class="small mb-0 opacity-75" id="sum-info">Sinkronisasi data rute...</p>
+                    <p class="small mb-0 opacity-75" id="sum-info">Mengkalkulasi rincian nominal...</p>
                 </div>
             </div>
         </div>
@@ -64,16 +64,16 @@
                         <th rowspan="2" class="align-middle px-3">TGL</th>
                         <th colspan="2" class="border-start">RAYON 34</th>
                         <th colspan="2" class="border-start bg-secondary">RAYON 35</th>
-                        <th colspan="3" class="border-start bg-primary">TOTAL (SINERGI)</th>
+                        <th colspan="3" class="border-start bg-primary">GABUNGAN TOTAL</th>
                     </tr>
                     <tr style="font-size: 0.55rem;">
-                        <th class="border-start">Rp Harian</th><th>% COLL</th>
-                        <th class="border-start">Rp Harian</th><th>% COLL</th>
-                        <th class="border-start">Rp Harian</th><th>Kumulatif</th><th>% TOTAL</th>
+                        <th class="border-start">Rupiah</th><th>% COLL</th>
+                        <th class="border-start">Rupiah</th><th>% COLL</th>
+                        <th class="border-start">Harian</th><th>Kumulatif</th><th>% TOTAL</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="8" class="py-5">Memuat data...</td></tr>
+                    <tr><td colspan="8" class="py-5">Sinkronisasi data server...</td></tr>
                 </tbody>
                 <tfoot class="bg-light fw-bold" id="table-footer"></tfoot>
             </table>
@@ -86,8 +86,8 @@
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header border-0 bg-light p-3">
                 <div>
-                    <h6 class="modal-title fw-bold mb-0" id="detailTitle">Rincian Pembayaran</h6>
-                    <small class="text-muted" style="font-size: 0.6rem;">Data harian sinkron dengan sistem billing</small>
+                    <h6 class="modal-title fw-bold mb-0" id="detailTitle">Rincian Lunas</h6>
+                    <small class="text-muted" style="font-size: 0.6rem;">Data harian sinkron dengan sistem bank & petugas</small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -95,8 +95,8 @@
                 <table class="table table-sm small mb-0">
                     <thead class="bg-white sticky-top shadow-sm">
                         <tr class="text-muted" style="font-size: 0.65rem;">
-                            <th class="ps-3 py-2">IDPEL / RUTE</th>
-                            <th class="py-2">NAMA PELANGGAN</th>
+                            <th class="ps-3 py-2">IDPEL / PCEZ</th>
+                            <th class="py-2">NAMA NASABAH</th>
                             <th class="text-end pe-3 py-2">NOMINAL</th>
                         </tr>
                     </thead>
@@ -112,6 +112,9 @@
     let myChart = null;
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
+    /**
+     * LOAD MONITOR: Mengambil data perkembangan collection harian dari Backend.
+     */
     async function loadMonitor() {
         const picker = document.getElementById('filter-periode').value;
         const icon = document.getElementById('sync-icon');
@@ -122,6 +125,7 @@
         const periode = `${month}-${year}`;
 
         try {
+            // Sinergi: Fetching data monitor harian yang sudah divalidasi pintu ganda
             const res = await fetch(`/api/collection/daily-monitor?periode=${periode}`);
             const result = await res.json();
             
@@ -131,12 +135,15 @@
                 renderChart(result.data);
             }
         } catch (e) {
-            console.error("Dashboard Load Failed:", e);
+            console.error("Monitor Load Error:", e);
         } finally {
             icon.classList.remove('fa-spin');
         }
     }
 
+    /**
+     * UPDATE UI: Memperbarui badge variance dan angka ringkasan di dashboard.
+     */
     function updateUI(res) {
         const s = res.summary;
         document.getElementById('sum-pct').innerText = (s.pct || 0).toFixed(2) + '%';
@@ -148,21 +155,26 @@
             document.getElementById('sum-r35').innerText = (lastRow.r35.pct || 0).toFixed(2) + '%';
         }
 
+        // Smart Variance Indicator: Menunjukkan pertumbuhan performa dibanding hari sebelumnya
         const varArea = document.getElementById('variance-area');
-        const isUp = (s.variance || 0) >= 0;
+        const variance = s.variance || 0;
+        const isUp = variance >= 0;
         varArea.innerHTML = `
             <span class="badge bg-white ${isUp ? 'text-success' : 'text-danger'} shadow-sm px-2 py-1 animate__animated animate__pulse animate__infinite" style="font-size: 0.7rem;">
-                <i class="fas fa-caret-${isUp ? 'up' : 'down'} me-1"></i> ${isUp ? '+' : ''}${(s.variance || 0).toFixed(2)}%
+                <i class="fas fa-caret-${isUp ? 'up' : 'down'} me-1"></i> ${isUp ? '+' : ''}${variance.toFixed(2)}%
             </span>
         `;
     }
 
+    /**
+     * RENDER TABLE: Membangun baris data harian yang interaktif.
+     */
     function renderTable(data, periode) {
         const body = document.getElementById('table-body');
         const footer = document.getElementById('table-footer');
         
         if (!data || data.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data belum tersedia untuk periode ini.</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data transaksi belum tersedia.</td></tr>';
             footer.innerHTML = '';
             return;
         }
@@ -171,16 +183,15 @@
             const tglDay = row.tgl.split('-')[2];
             return `
             <tr onclick="showDetail('${row.tgl}', '${periode}')" style="cursor: pointer;" class="clickable-row">
-                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-magnifying-glass-plus opacity-25 ms-1" style="font-size: 0.5rem;"></i></td>
+                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-search-plus opacity-25 ms-1" style="font-size: 0.5rem;"></i></td>
                 <td class="text-end border-start">Rp ${(row.r34.rp || 0).toLocaleString()}</td>
                 <td class="fw-bold text-primary">${(row.r34.pct || 0).toFixed(2)}%</td>
                 <td class="text-end border-start">Rp ${(row.r35.rp || 0).toLocaleString()}</td>
                 <td class="fw-bold text-info">${(row.r35.pct || 0).toFixed(2)}%</td>
-                <td class="text-end border-start bg-light">Rp ${(row.total.rp || 0).toLocaleString()}</td>
+                <td class="text-end border-start bg-light">Rp ${(row.total.rp_harian || 0).toLocaleString()}</td>
                 <td class="text-end bg-light" style="font-size: 0.6rem;">${toIDR(row.total.cum_all)}</td>
                 <td class="bg-primary text-white fw-bold">${(row.total.pct || 0).toFixed(2)}%</td>
-            </tr>
-            `;
+            </tr>`;
         }).join('');
 
         const last = data[data.length - 1];
@@ -197,10 +208,12 @@
                 <td class="text-end border-start bg-dark">Rp ${(totalRp34 + totalRp35).toLocaleString()}</td>
                 <td class="text-end bg-dark">${toIDR(last.total.cum_all)}</td>
                 <td class="bg-white text-dark">${(last.total.pct || 0).toFixed(2)}%</td>
-            </tr>
-        `;
+            </tr>`;
     }
 
+    /**
+     * SHOW DETAIL: Fungsi drill-down untuk melihat rincian nasabah per hari.
+     */
     async function showDetail(tgl, periode) {
         const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
         const body = document.getElementById('detail-body');
@@ -214,20 +227,22 @@
             const result = await res.json();
             
             body.innerHTML = result.data.map(d => `
-                <tr class="border-bottom animate__animated animate__fadeInSmall">
+                <tr class="border-bottom animate__animated animate__fadeIn animate__faster">
                     <td class="ps-3 py-2">
                         <div class="fw-bold text-dark" style="font-size: 0.75rem;">${d.nomen}</div>
-                        <div class="text-muted" style="font-size: 0.6rem;">Rute: ${d.pcez || '-'} | R${d.rayon}</div>
+                        <div class="text-muted" style="font-size: 0.6rem;">PCEZ: ${d.pcez || '-'} | R${d.rayon}</div>
                     </td>
-                    <td class="py-2"><div class="text-truncate text-uppercase" style="max-width: 140px; font-size: 0.75rem;">${d.nama || 'Pelanggan'}</div></td>
+                    <td class="py-2"><div class="text-truncate text-uppercase" style="max-width: 140px; font-size: 0.75rem;">${d.nama}</div></td>
                     <td class="text-end pe-3 py-2 fw-bold text-success" style="font-size: 0.75rem;">${(d.nominal || 0).toLocaleString()}</td>
-                </tr>
-            `).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted small">Tidak ada data rincian untuk tanggal ini.</td></tr>';
+                </tr>`).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted small">Tidak ada rincian nasabah.</td></tr>';
         } catch (e) {
-            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4 small">Gagal sinkron rincian data.</td></tr>';
+            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4 small">Gagal memuat rincian.</td></tr>';
         }
     }
 
+    /**
+     * RENDER CHART: Visualisasi data kumulatif menggunakan Chart.js.
+     */
     function renderChart(data) {
         const ctx = document.getElementById('collectionChart').getContext('2d');
         if (myChart) myChart.destroy();
@@ -239,8 +254,8 @@
                     label: 'Progres Gabungan (%)',
                     data: data.map(d => d.total.pct),
                     borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#fff', pointBorderWidth: 2
                 }]
             },
             options: {
@@ -254,6 +269,7 @@
         });
     }
 
+    // Autopilot Initialization
     document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -262,13 +278,12 @@
 </script>
 
 <style>
-    .clickable-row:hover { background-color: #f8fafc !important; }
+    /* Styling Sinergi Visual */
+    .clickable-row:hover { background-color: #f1f5f9 !important; transition: 0.2s; }
     .table-bordered td, .table-bordered th { border: 1px solid #e2e8f0 !important; }
     .sticky-top { position: sticky; top: 0; z-index: 1020; }
     #table-body td { font-size: 0.65rem; }
-    .bg-primary { background-color: #0d6efd !important; }
+    .bg-primary { background-color: #2563eb !important; }
     .btn-white { background: #fff; border: 1px solid #e2e8f0; }
-    @keyframes fadeInSmall { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    .animate__fadeInSmall { animation: fadeInSmall 0.3s ease forwards; }
 </style>
 {% endblock %}
