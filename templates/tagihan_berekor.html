@@ -3,13 +3,30 @@
 {% block content %}
 <div class="animate__animated animate__fadeIn">
     
-    <div class="px-2 mb-4 d-flex justify-content-between align-items-center mt-3">
+    <div class="px-2 mb-3 d-flex justify-content-between align-items-center mt-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark"><i class="fas fa-briefcase me-2 text-danger"></i>Penagihan Ardebt</h4>
-            <p class="text-muted small mb-0">Prioritas Kubik Tinggi (Kuota 20/Hari)</p>
+            <p class="text-muted small mb-0">Manajemen Prioritas (Kuota 20/Hari)</p>
         </div>
-        <div class="bg-danger text-white px-3 py-2 rounded-pill small fw-bold shadow-sm animate__animated animate__pulse animate__infinite" style="font-size: 0.6rem; letter-spacing: 1px;">
-            <i class="fas fa-shield-alt me-1"></i> SECURE MODE
+        <div id="status-badge">
+            <span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm animate__animated animate__pulse animate__infinite">
+                <i class="fas fa-shield-alt me-1"></i> SECURE MODE
+            </span>
+        </div>
+    </div>
+
+    <div class="px-2 mb-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="fw-bold text-muted"><i class="fas fa-chart-line me-1"></i> Progres Kerja Hari Ini</small>
+                    <small id="progress-text" class="fw-bold text-danger">0 / 20 Selesai</small>
+                </div>
+                <div class="progress rounded-pill" style="height: 12px; background-color: #f1f1f1;">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-danger" 
+                         role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -47,7 +64,7 @@
     <div id="list-container" class="px-2 pb-5">
         <div class="text-center py-5">
             <div class="spinner-border text-danger" role="status"></div>
-            <p class="mt-2 text-muted small">Sinkronisasi target prioritas...</p>
+            <p class="mt-2 text-muted small">Sinkronisasi data piutang...</p>
         </div>
     </div>
 </div>
@@ -74,6 +91,7 @@
                                 <th class="py-2 text-start ps-3">Periode</th>
                                 <th class="py-2">Kubik</th>
                                 <th class="py-2">Nominal</th>
+                                <th class="py-2">Tarif</th>
                                 <th class="py-2 pe-3">Status</th>
                             </tr>
                         </thead>
@@ -82,7 +100,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-bold" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-bold" data-bs-dismiss="modal">Tutup Riwayat</button>
             </div>
         </div>
     </div>
@@ -93,7 +111,7 @@
         <div class="modal-content border-0 shadow-lg rounded-4">
             <form id="formKunjungan">
                 <div class="modal-header border-0 bg-danger text-white p-3">
-                    <h6 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Formulir Laporan Lapangan</h6>
+                    <h6 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Formulir Kunjungan Lapangan</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -107,12 +125,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted"><i class="fas fa-phone-alt me-1"></i> No. Kontak Pelanggan *</label>
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-phone-alt me-1"></i> Kontak HP Pelanggan *</label>
                         <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 shadow-none border-light-subtle" placeholder="08..." required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted"><i class="fas fa-tasks me-1"></i> Hasil Koordinasi *</label>
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-tasks me-1"></i> Hasil Penagihan *</label>
                         <select id="modal-hasil" name="hasil" class="form-select rounded-3 fw-bold" required onchange="toggleJanjiInput()">
                             <option value="">-- Pilih Hasil --</option>
                             <option value="Sudah Bayar">💰 Sudah Bayar</option>
@@ -148,16 +166,24 @@
 </div>
 
 <script>
-    /* * [KOMENTAR TEKNIS] 
-     * Logika JavaScript V6.1: Integrasi NOMET, JCOUNT, & Daily Limit 20.
+    /**
+     * [VARIABEL GLOBAL] 
+     * Memudahkan akses modal dan target kuota harian.
      */
     let modalKunjungan, modalHistory;
+    const DAILY_TARGET = 20; 
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
+    /**
+     * [INIT DOM] 
+     * Dijalankan saat halaman selesai dimuat.
+     */
     document.addEventListener('DOMContentLoaded', () => {
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
         modalHistory = new bootstrap.Modal(document.getElementById('modalHistory'));
         loadArdebt();
+        
+        // Listener Form Kunjungan
         document.getElementById('formKunjungan').addEventListener('submit', (e) => { 
             e.preventDefault(); 
             simpanLaporan(); 
@@ -165,20 +191,35 @@
     });
 
     /**
-     * FUNGSI: loadArdebt()
-     * Menampilkan daftar target harian (Limit 20 & High Kubikasi).
-     * Sekarang menampilkan Nomor Seri Meter (NOMET) di dalam kartu.
+     * [FUNGSI: loadArdebt]
+     * Logika: Menarik data 20 target teratas dengan pemakaian kubik tertinggi (High Priority).
+     * Juga memproses update Progress Bar harian petugas.
      */
     async function loadArdebt() {
         const petugas = document.getElementById('filter-petugas').value;
         const container = document.getElementById('list-container');
+        
         try {
             const res = await fetch(`/api/ardebt?petugas=${encodeURIComponent(petugas)}`);
             const data = await res.json();
+            
+            // Hitung Progres Kerja (Maks 20/Hari)
+            const sisaTarget = data.length;
+            const selesai = Math.max(0, DAILY_TARGET - sisaTarget);
+            const persen = (selesai / DAILY_TARGET) * 100;
+            updateProgressBar(selesai, persen);
+
             if (data.length === 0) {
-                container.innerHTML = '<div class="text-center mt-5 text-muted small">Target harian selesai dikunjungi. 🎉</div>';
+                container.innerHTML = `
+                    <div class="text-center mt-5 py-5 animate__animated animate__fadeIn">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <h6 class="fw-bold">Target Selesai! 🎉</h6>
+                        <p class="text-muted small">Semua prioritas harian sudah dikunjungi.</p>
+                    </div>`;
                 return;
             }
+
+            // Render Kartu Pelanggan dengan info NOMET (Nomor Meter)
             container.innerHTML = data.map((item) => `
                 <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp" data-search="${item.nomen} ${item.nama}">
                     <div class="card-body p-3">
@@ -195,7 +236,7 @@
                         <p class="text-muted mb-2" style="font-size: 0.65rem;"><i class="fas fa-map-marker-alt me-1"></i>${item.alamat}</p>
                         <div class="d-flex justify-content-between align-items-center border-top pt-3">
                             <div>
-                                <small class="d-block text-muted fw-bold" style="font-size: 8px;">TOTAL TUNGGAKAN</small>
+                                <small class="d-block text-muted fw-bold" style="font-size: 8px;">TOTAL KEWAJIBAN</small>
                                 <span class="fw-bold text-danger" style="font-size: 1.1rem;">Rp ${formatIDR(item.nominal_mc + item.nominal_ardebt)}</span>
                             </div>
                             <div class="btn-group">
@@ -207,15 +248,38 @@
                 </div>
             `).join('');
             updateSummary(data);
-        } catch (err) { container.innerHTML = '<p class="text-center text-danger small">Koneksi Gagal.</p>'; }
+        } catch (err) { 
+            container.innerHTML = '<p class="text-center text-danger small py-5">Koneksi Server Gagal.</p>'; 
+        }
     }
 
     /**
-     * FUNGSI: showHistory()
-     * Logic: Menampilkan JCOUNT & Baris Merah jika piutang terverifikasi 3 arah.
+     * [FUNGSI: updateProgressBar]
+     * Visualisasi pencapaian target harian petugas di lapangan.
+     */
+    function updateProgressBar(selesai, persen) {
+        const bar = document.getElementById('progress-bar');
+        const text = document.getElementById('progress-text');
+        const badge = document.getElementById('status-badge');
+
+        bar.style.width = `${persen}%`;
+        text.innerText = `${selesai} / ${DAILY_TARGET} Selesai`;
+
+        if (persen === 100) {
+            bar.classList.replace('bg-danger', 'bg-success');
+            badge.innerHTML = `<span class="badge bg-success rounded-pill px-3 py-2 shadow-sm animate__animated animate__tada"><i class="fas fa-trophy me-1"></i> COMPLETED</span>`;
+        } else {
+            bar.classList.replace('bg-success', 'bg-danger');
+            badge.innerHTML = `<span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm animate__animated animate__pulse animate__infinite"><i class="fas fa-shield-alt me-1"></i> SECURE MODE</span>`;
+        }
+    }
+
+    /**
+     * [FUNGSI: showHistory]
+     * Logika: Menampilkan JCOUNT & Baris Merah jika piutang terverifikasi 3 arah (MC-MB-CH).
      */
     async function showHistory(nomen, nama) {
-        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Memproses data...</td></tr>';
+        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Memproses audit data...</td></tr>';
         document.getElementById('boxAnalisis').classList.add('d-none');
         modalHistory.show();
         try {
@@ -235,20 +299,22 @@
                         <td class="text-start ps-3">${h.periode}</td>
                         <td>${h.pemakaian_air} m³</td>
                         <td>Rp ${formatIDR(h.rupiah)}</td>
+                        <td>${h.tarif}</td>
                         <td class="pe-3"><span class="badge ${isLunas ? 'bg-success' : 'bg-danger'}">${isLunas ? 'LUNAS' : 'PIUTANG'}</span></td>
                     </tr>`;
                 });
                 document.querySelector('#tableHistoryContent').innerHTML = rows;
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Error History:", e); }
     }
 
     /**
-     * FUNGSI: simpanLaporan()
-     * Simpan kunjungan dan refresh list (Auto-Hide data yang sukses dilapor).
+     * [FUNGSI: simpanLaporan]
+     * Kegunaan: Eksekusi simpan ke database dan kirim template detail ke WA Share.
+     * Setelah sukses, data otomatis hilang dari daftar (Auto-Hide).
      */
     async function simpanLaporan() {
-        Swal.fire({ title: 'Menyimpan Laporan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+        Swal.fire({ title: 'Memproses Laporan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
         const form = document.getElementById('formKunjungan');
         const formData = new FormData(form);
         const petugasName = document.getElementById('filter-petugas').value;
@@ -257,18 +323,18 @@
             const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
             const result = await res.json();
             if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Laporan berhasil diarsipkan.' }).then(() => {
+                Swal.fire({ icon: 'success', title: 'Data Terverifikasi!', text: 'Laporan berhasil diarsipkan.' }).then(() => {
                     executeShareWA(result.wa_data);
                     modalKunjungan.hide();
-                    loadArdebt(); // Otomatis data menghilang dari list karena loadArdebt memanggil API filter NOT EXISTS
+                    loadArdebt(); // Me-refresh daftar agar data yang sudah dilaporkan menghilang
                 });
             } else { Swal.fire('Error!', result.message, 'error'); }
-        } catch (err) { Swal.fire('Gagal!', 'Error Server.', 'error'); }
+        } catch (err) { Swal.fire('Gagal!', 'Koneksi database terputus.', 'error'); }
     }
 
     /**
-     * FUNGSI: executeShareWA()
-     * Template Laporan Detail (Universal Share).
+     * [FUNGSI: executeShareWA]
+     * Template: Laporan sangat detail untuk Grup (Universal Share).
      */
     function executeShareWA(wa) {
         const waktu = new Date().toLocaleString('id-ID');
@@ -282,7 +348,7 @@
             `*DATA KONSUMEN:*%0A` +
             `👤 *Nama:* ${wa.nama}%0A` +
             `🆔 *IDPEL:* ${wa.nomen}%0A` +
-            `📞 *No HP:* ${wa.no_hp || '-'}%0A%0A` +
+            `📞 *HP Konsumen:* ${wa.no_hp || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
             `🚩 *Tunggakan:* ${wa.jcount} Bulan%0A` +
@@ -293,10 +359,15 @@
             `• *TOTAL TAGIHAN: Rp ${formatIDR(wa.total)}*%0A%0A` +
             `*DOKUMENTASI FOTO:*%0A` +
             `🖼️ Link: ${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
-            `-------------------------------------------`;
+            `-------------------------------------------` +
+            `_Laporan Otomatis Sunter Dashboard Pro_`;
         window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
     }
 
+    /**
+     * [FUNGSI: liveSearch]
+     * Memungkinkan petugas mencari data yang sudah tersembunyi (Global Search).
+     */
     function liveSearch() {
         const q = document.getElementById('searchBar').value.toLowerCase();
         document.querySelectorAll('.customer-card').forEach(c => {
@@ -304,6 +375,10 @@
         });
     }
 
+    /**
+     * [FUNGSI: openModal]
+     * Persiapan data snapshot untuk formulir laporan.
+     */
     function openModal(nomen, nama, total, no_hp) {
         document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nama').innerText = nama;
@@ -314,11 +389,19 @@
         modalKunjungan.show();
     }
 
+    /**
+     * [FUNGSI: toggleJanjiInput]
+     * Menampilkan input tanggal komitmen bayar.
+     */
     function toggleJanjiInput() {
         const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
         document.getElementById('group-janji').classList.toggle('d-none', !isJanji);
     }
 
+    /**
+     * [FUNGSI: updateSummary]
+     * Kalkulasi sisa target di layar.
+     */
     function updateSummary(data) {
         const total = data.reduce((acc, curr) => acc + (curr.nominal_mc + curr.nominal_ardebt), 0);
         document.getElementById('summary-area').innerHTML = `
@@ -330,10 +413,12 @@
 </script>
 
 <style>
+    /* STYLING BUSINESS PROFESSIONAL */
     .bg-danger-subtle { background-color: #fff5f5 !important; }
-    .customer-card { border: 1px solid #fecaca !important; transition: transform 0.2s; }
+    .customer-card { border-left: 4px solid #dc3545 !important; transition: transform 0.2s; }
     .customer-card:active { transform: scale(0.98); }
     .table-danger { --bs-table-bg: #ffebeb; --bs-table-color: #b30000; }
+    .progress-bar { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
     .modal-dialog-scrollable .modal-body { max-height: 70vh; }
 </style>
 {% endblock %}
