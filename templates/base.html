@@ -12,7 +12,7 @@
     
     <style>
         /* [VARIABEL TEMA & ROOT] 
-            Sentralisasi warna branding untuk konsistensi UI/UX di seluruh modul.
+           Sentralisasi skema warna branding untuk menjaga konsistensi visual di seluruh modul aplikasi.
         */
         :root { 
             --primary-bg: #f8fafc;
@@ -26,11 +26,13 @@
             background-color: var(--primary-bg); 
             color: #1e293b; 
             overflow-x: hidden; 
+            /* Optimasi UX Mobile: Menghapus highlight tap default pada browser berbasis WebKit */
             -webkit-tap-highlight-color: transparent; 
         }
         
         /* [NAVBAR GLASSMORPHISM] 
-            Efek blur latar belakang (backdrop-filter) untuk estetika dashboard modern.
+           Implementasi desain modern menggunakan efek blur latar belakang (backdrop-filter) 
+           untuk memberikan kedalaman visual pada bagian header.
         */
         .navbar { 
             background: rgba(255, 255, 255, 0.8) !important; 
@@ -41,7 +43,7 @@
             padding: 0.75rem 0;
         }
 
-        /* [SIDEBAR & PROFILE BOX] */
+        /* [SIDEBAR & PROFILE BOX CONFIGURATION] */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; width: 285px !important; }
         
         .user-profile-box { 
@@ -55,8 +57,8 @@
             box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
         }
 
-        /* [NAVIGASI CUSTOM] 
-            Logika interaksi menu: Transisi smooth dan indikator visual pada state aktif.
+        /* [NAVIGASI CUSTOM INTERACTION] 
+           Logika interaksi menu: Mengatur transisi halus dan indikator visual pada state aktif (selected).
         */
         .nav-link-custom {
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -74,6 +76,7 @@
         .nav-link-custom i { width: 24px; text-align: center; margin-right: 12px; font-size: 1.1rem; }
         .nav-link-custom:hover { background-color: #f8fafc !important; color: #3b82f6; }
 
+        /* Style Active Menu: Memberikan penanda tegas pada halaman yang sedang diakses oleh pengguna */
         .active-menu {
             background-color: #eff6ff !important;
             color: #2563eb !important;
@@ -82,7 +85,7 @@
         }
 
         /* [BOTTOM NAVIGATION MOBILE] 
-            Dioptimalkan untuk akses ibu jari (Thumb-friendly) pada perangkat seluler.
+           Dirancang khusus untuk ergonomi penggunaan satu tangan pada perangkat seluler (Thumb-friendly UI).
         */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -98,6 +101,7 @@
         .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 700; }
         .nav-item-link.active { color: var(--sunter-blue); }
 
+        /* Media Query: Menyembunyikan navigasi bawah pada layar komputer/desktop */
         @media (min-width: 768px) {
             .bottom-nav { display: none !important; }
             .main-content { padding-bottom: 40px; }
@@ -166,6 +170,9 @@
                 <a href="/youtube" class="nav-link-custom {% if request.path == '/youtube' %}active-menu{% endif %}">
                     <i class="fab fa-youtube"></i>YouTube PAM JAYA
                 </a>
+                <a href="/materi" class="nav-link-custom {% if request.path == '/materi' %}active-menu{% endif %}">
+                    <i class="fas fa-book-reader"></i>Pusat Materi Online
+                </a>
 
                 {% if current_role in ['petugas', 'admin'] %}
                 <div class="my-3 border-top opacity-25"></div>
@@ -209,7 +216,7 @@
         {% if session.get('username') %}
         <div class="offcanvas-footer p-3 border-top bg-light">
             <a href="/api/auth/logout" class="btn btn-outline-danger w-100 rounded-pill fw-bold btn-sm">
-                <i class="fas fa-power-off me-2"></i>Logout
+                <i class="fas fa-power-off me-2"></i>Keluar Aplikasi
             </a>
         </div>
         {% endif %}
@@ -222,10 +229,10 @@
     {% if current_role == 'petugas' %}
     <nav class="bottom-nav animate__animated animate__slideInUp">
         <a href="/" class="nav-item-link {% if request.path == '/' %}active{% endif %}">
-            <i class="fas fa-house-chimney d-block fa-lg mb-1"></i>Home
+            <i class="fas fa-house-chimney d-block fa-lg mb-1"></i>Beranda
         </a>
         <a href="/tunggakan-berekor" class="nav-item-link {% if request.path == '/tunggakan-berekor' %}active{% endif %}">
-            <i class="fas fa-file-invoice-dollar d-block fa-lg mb-1"></i>Target 20
+            <i class="fas fa-file-invoice-dollar d-block fa-lg mb-1"></i>Target
         </a>
         <a href="/janji-bayar" class="nav-item-link {% if request.path == '/janji-bayar' %}active{% endif %}">
             <i class="fas fa-calendar-check d-block fa-lg mb-1"></i>Janji
@@ -241,8 +248,9 @@
     
     <script>
         /**
-         * [FUNGSI UI: Auto-Close Sidebar]
-         * Kegunaan: Meningkatkan UX dengan menutup sidebar secara otomatis setelah navigasi dipilih pada mode mobile.
+         * [LOGIKA ANTARMUKA: Auto-Close Sidebar]
+         * Deskripsi: Mengoptimalkan ruang pandang pengguna dengan menutup panel navigasi 
+         * secara otomatis segera setelah elemen menu dipilih pada tampilan seluler.
          */
         document.addEventListener('DOMContentLoaded', function() {
             const offcanvasEl = document.getElementById('offcanvasNav');
@@ -250,7 +258,7 @@
                 const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
                 document.querySelectorAll('.nav-link-custom').forEach(link => {
                     link.addEventListener('click', () => {
-                        // Hanya aktifkan auto-close jika resolusi layar berada di bawah breakpoint 992px (Mobile/Tablet)
+                        // Logika: Hanya tutup jika resolusi layar berada di bawah ambang batas (breakpoint) 992px.
                         if (window.innerWidth < 992) bsOffcanvas.hide();
                     });
                 });
