@@ -6,9 +6,9 @@
             <h4 class="fw-bold mb-1 text-dark">Galeri Lapangan 📸</h4>
             <p class="text-muted small mb-0">
                 {% if session['role'] == 'admin' %}
-                    Audit dokumentasi seluruh tim petugas
+                    Audit dokumentasi seluruh tim petugas (Global)
                 {% else %}
-                    Dokumentasi rute {{ session['petugas_id'] }}
+                    Dokumentasi rute khusus {{ session['petugas_id'] }}
                 {% endif %}
             </p>
         </div>
@@ -21,7 +21,7 @@
         <div class="input-group bg-white rounded-4 shadow-sm border-0 border-start border-primary border-4">
             <span class="input-group-text border-0 bg-transparent ps-3"><i class="fas fa-search text-muted"></i></span>
             <input type="text" id="searchGaleri" class="form-control border-0 py-2 shadow-none" 
-                   placeholder="Cari Nama atau Keterangan..." onkeyup="filterGaleri()">
+                   placeholder="Cari Nama, IDPEL atau Hasil..." onkeyup="filterGaleri()">
         </div>
     </div>
 
@@ -52,68 +52,73 @@
 </div>
 
 <script>
-    let galeriData = [];
+    let galeriData = []; // State management untuk data foto
     const ROLE = "{{ session['role'] }}";
-    const PETUGAS_ID = "{{ session['petugas_id'] }}";
 
+    /**
+     * LOAD GALERI: Mengambil data foto dari API History Kunjungan.
+     * Logika Autopilot: Menyaring data yang tidak memiliki foto secara otomatis.
+     */
     async function loadGaleri() {
         const btn = document.getElementById('btn-refresh');
         const icon = btn.querySelector('i');
         const container = document.getElementById('galeri-container');
         
-        icon.classList.add('fa-spin');
-        container.innerHTML = '<div class="text-center py-5 col-12"><div class="spinner-border text-primary"></div><p class="small text-muted mt-2">Memuat Dokumentasi...</p></div>';
+        icon.classList.add('fa-spin'); // Animasi putar saat proses sinkronisasi
         
         try {
-            // Sinergi: Mengambil data dari endpoint riwayat kunjungan
+            // Sinergi: Menarik data history kunjungan terbaru
             const res = await fetch('/api/history/kunjungan');
             const result = await res.json();
             
-            // Filter hanya data yang benar-benar memiliki file foto (foto_path tidak '-' atau null)
+            // Filter cerdas: Hanya tampilkan baris yang memiliki file foto valid
             galeriData = (result.data || []).filter(item => item.foto_path && item.foto_path !== '-');
             
             if (galeriData.length === 0) {
                 container.innerHTML = `
                     <div class="text-center mt-5 py-5 col-12 animate__animated animate__fadeIn">
-                        <i class="fas fa-images fa-3x text-light mb-3"></i>
-                        <p class="text-muted small">Belum ada dokumentasi foto<br>yang diunggah petugas.</p>
+                        <i class="fas fa-images fa-3x text-light mb-3 opacity-25"></i>
+                        <p class="text-muted small">Belum ada dokumentasi foto<br>untuk periode ini.</p>
                     </div>`;
                 return;
             }
 
             renderGaleri(galeriData);
         } catch (e) {
-            console.error("Galeri Error:", e);
-            container.innerHTML = '<div class="alert alert-danger mx-2 small col-12 text-center">Gagal sinkronisasi galeri server.</div>';
+            console.error("Galeri Sync Failed:", e);
+            container.innerHTML = '<div class="alert alert-danger mx-2 small col-12 text-center">Gagal memuat arsip foto.</div>';
         } finally {
             icon.classList.remove('fa-spin');
         }
     }
 
+    /**
+     * RENDER GALERI: Menampilkan daftar foto dalam bentuk grid responsif.
+     * Logika Smart: Menambahkan delay animasi bertahap (staggered animation).
+     */
     function renderGaleri(data) {
         const container = document.getElementById('galeri-container');
         container.innerHTML = data.map((item, index) => {
-            // Sinergi: Nama file foto di server biasanya ada di static/uploads/kunjungan/
             const fotoUrl = `/static/uploads/kunjungan/${item.foto_path}`;
-            const labelWaktu = item.waktu ? item.waktu.split(' ')[0] : 'Hari ini';
+            const labelWaktu = item.waktu ? item.waktu.split(' ')[0] : '-';
             const labelJam = item.waktu ? item.waktu.split(' ')[1].substring(0, 5) : '--:--';
 
             return `
             <div class="col-6 col-md-4 mb-2 galeri-item animate__animated animate__zoomIn" 
-                 data-search="${item.nama} ${item.keterangan} ${item.petugas_name}" 
-                 style="animation-delay: ${index * 0.05}s">
+                 data-search="${item.nomen} ${item.nama} ${item.keterangan} ${item.petugas_name}" 
+                 style="animation-delay: ${index * 0.03}s">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
-                     onclick="zoomImage('${fotoUrl}', '${item.nama}', '${item.petugas_name}', '${item.keterangan}', '${labelWaktu} ${labelJam}')">
-                    <div class="img-wrapper" style="height: 160px; background: #eee; overflow: hidden;">
+                     onclick="zoomImage('${fotoUrl}', '${item.nama}', '${item.petugas_name}', '${item.keterangan}', '${labelWaktu} ${labelJam}', '${item.nomen}')">
+                    <div class="img-wrapper" style="height: 160px; background: #f1f5f9; overflow: hidden;">
                         <img src="${fotoUrl}" 
                              class="w-100 h-100 object-fit-cover"
-                             loading="lazy"
-                             onerror="this.src='https://placehold.co/400x600?text=Foto+Arsip'">
+                             loading="lazy" 
+                             onerror="this.src='https://placehold.co/400x600/e2e8f0/64748b?text=Foto+Rusak'">
                     </div>
                     <div class="card-body p-2">
                         <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.75rem;">${item.nama}</h6>
                         <div class="d-flex justify-content-between align-items-center mt-1">
-                            <small class="badge bg-primary-subtle text-primary fw-bold" style="font-size: 0.55rem;">
+                            <small class="badge bg-primary-subtle text-primary border-0 fw-bold" style="font-size: 0.55rem;">
                                 ${item.petugas_name.split(' ')[0]}
                             </small>
                             <small class="text-muted" style="font-size: 0.55rem;">
@@ -122,11 +127,13 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            `;
+            </div>`;
         }).join('');
     }
 
+    /**
+     * FILTER GALERI: Menyaring tampilan foto tanpa refresh halaman.
+     */
     function filterGaleri() {
         const query = document.getElementById('searchGaleri').value.toLowerCase();
         document.querySelectorAll('.galeri-item').forEach(item => {
@@ -135,29 +142,37 @@
         });
     }
 
-    function zoomImage(src, nama, petugas, ket, waktu) {
+    /**
+     * ZOOM IMAGE: Menampilkan foto ukuran besar beserta rincian laporannya.
+     */
+    function zoomImage(src, nama, petugas, ket, waktu, idpel) {
         document.getElementById('img-zoom').src = src;
         document.getElementById('zoom-caption').innerHTML = `
-            <div class="fw-bold text-uppercase" style="font-size: 0.9rem;">${nama}</div>
+            <div class="fw-bold text-uppercase" style="font-size: 0.9rem;">${nama} (${idpel})</div>
             <div class="small opacity-75">Oleh: ${petugas} • ${waktu}</div>
-            <div class="badge bg-primary mt-2" style="font-size: 0.65rem;">${ket}</div>
+            <div class="d-flex gap-2 mt-2">
+                <span class="badge bg-primary px-3 py-2" style="font-size: 0.7rem;">${ket}</span>
+            </div>
         `;
         const modal = new bootstrap.Modal(document.getElementById('modalZoom'));
         modal.show();
     }
 
+    // Inisialisasi otomatis saat halaman selesai dimuat
     document.addEventListener('DOMContentLoaded', loadGaleri);
 </script>
 
 <style>
-    .btn-white { background: white; border: none; }
-    .card { transition: all 0.2s ease; cursor: pointer; }
-    .card:active { transform: scale(0.95); }
+    /* SINERGI VISUAL STYLING */
+    .btn-white { background: white; border: 1px solid #edf2f7; }
+    .card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important; }
+    .card:active { transform: scale(0.96); }
     .object-fit-cover { object-fit: cover; }
     
     .zoom-card {
-        border: 4px solid white;
-        background-color: #1a1a1a;
+        border: 5px solid #2d3748;
+        background-color: #000;
     }
 
     #img-zoom {
@@ -165,14 +180,17 @@
         object-fit: contain;
     }
 
-    /* Grid Responsif Sinergi */
+    .bg-primary-subtle { background-color: #e0eaff !important; color: #1e40af !important; }
+
+    /* Responsivitas untuk layar HP petugas di lapangan */
     @media (max-width: 576px) {
-        .img-wrapper { height: 130px !important; }
+        .img-wrapper { height: 135px !important; }
         h6 { font-size: 0.7rem !important; }
     }
 
+    /* Animasi Halus */
     .animate__animated.animate__zoomIn {
-        animation-duration: 0.4s;
+        animation-duration: 0.5s;
     }
 </style>
 {% endblock %}
