@@ -4,7 +4,7 @@
     <div id="statusToast" class="toast align-items-center text-white bg-dark border-0 rounded-4 shadow-lg" role="alert">
         <div class="d-flex">
             <div class="toast-body">
-                <i class="fas fa-bell me-2 text-warning"></i> <span id="toastMessage">Memproses data...</span>
+                <i class="fas fa-bell me-2 text-warning"></i> <span id="toastMessage">Menghubungkan ke server...</span>
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
@@ -32,7 +32,7 @@
     <div id="list-janji-container">
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="text-muted small mt-2">Menyinkronkan data komitmen...</p>
+            <p class="text-muted small mt-2">Menganalisis sinkronisasi pelunasan...</p>
         </div>
     </div>
 </div>
@@ -41,6 +41,9 @@
     const USER_ROLE = "{{ session['role'] }}";
     const PETUGAS_ID = "{{ session['petugas_id'] }}";
 
+    /**
+     * NOTIFICATION HELPER: Menampilkan toast feedback kepada user.
+     */
     function showNotify(msg, type = 'dark') {
         const toastEl = document.getElementById('statusToast');
         const msgEl = document.getElementById('toastMessage');
@@ -50,11 +53,18 @@
         toast.show();
     }
 
+    /**
+     * INITIALIZER: Mengatur input periode ke bulan berjalan saat aplikasi dibuka.
+     */
     function initPicker() {
         const now = new Date();
         document.getElementById('filter-janji').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
+    /**
+     * LOAD DATA: Mengambil data janji bayar dari API Performance Reminders.
+     * Logika Autopilot: Backend sudah memvalidasi IDPEL terhadap tabel MB/Collection.
+     */
     async function loadJanjiBayar() {
         const pickerValue = document.getElementById('filter-janji').value;
         const container = document.getElementById('list-janji-container');
@@ -67,7 +77,7 @@
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary border-width-2"></div></div>';
 
         try {
-            // Sinergi: Mengambil data janji bayar yang sudah divalidasi backend terhadap status pelunasan terbaru
+            // Sinergi: Menghubungkan log kunjungan dengan status pelunasan real-time
             const res = await fetch(`/api/performance/reminders?periode=${periode}`);
             const data = await res.json();
             
@@ -76,34 +86,36 @@
                 container.innerHTML = `
                     <div class="text-center mt-5 py-5 animate__animated animate__fadeIn">
                         <i class="fas fa-calendar-check fa-3x text-light mb-3 opacity-25"></i>
-                        <p class="text-muted small">Tidak ada jadwal janji bayar<br>untuk periode terpilih.</p>
+                        <p class="text-muted small">Semua komitmen terjadwal<br>sudah selesai atau tidak ada.</p>
                     </div>`;
                 return;
             }
 
+            // Hitung Potensi Rupiah (Sinergi Statistik)
             const totalNominal = data.reduce((acc, curr) => acc + (Number(curr.nominal) || 0), 0);
             summary.innerHTML = `
                 <div class="bg-white rounded-4 p-3 shadow-sm d-flex justify-content-between align-items-center mx-1 border-start border-warning border-4">
                     <div>
-                        <small class="text-muted d-block" style="font-size: 0.65rem;">KOMITMEN TERDATA</small>
-                        <span class="fw-bold text-dark h5 mb-0">${data.length} Pelanggan</span>
+                        <small class="text-muted d-block" style="font-size: 0.65rem;">TOTAL KOMITMEN</small>
+                        <span class="fw-bold text-dark h5 mb-0">${data.length} Nasabah</span>
                     </div>
                     <div class="text-end">
-                        <small class="text-muted d-block" style="font-size: 0.65rem;">POTENSI RUPIAH</small>
+                        <small class="text-muted d-block" style="font-size: 0.65rem;">RUPIAH TERJADWAL</small>
                         <span class="fw-bold text-primary h5 mb-0">Rp ${totalNominal.toLocaleString('id-ID')}</span>
                     </div>
                 </div>`;
 
+            // Render Kartu Pelanggan (Smart Mapping UI)
             container.innerHTML = data.map((item, idx) => {
                 const dateObj = new Date(item.tanggal_janji);
                 const tglFormat = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
                 const waLink = item.no_hp ? `https://wa.me/${item.no_hp.replace(/[^0-9]/g, '')}` : '#';
                 
-                // SINERGI: Logika warna dan status berdasarkan pelunasan
+                // SINERGI STATUS: Cek apakah janji sudah dipenuhi (Lunas) atau masih tertunda (Pending)
                 const isLunas = item.status_bayar === 'LUNAS';
                 const statusBadge = isLunas ? 'bg-success' : 'bg-warning-subtle text-warning';
-                const statusIcon = isLunas ? 'fa-check-double' : 'fa-handshake-simple';
-                const labelStatus = isLunas ? 'SUDAH LUNAS' : `JANJI: ${tglFormat}`;
+                const statusIcon = isLunas ? 'fa-check-double' : 'fa-clock';
+                const labelStatus = isLunas ? 'SUDAH LUNAS' : `TAGIH ULANG: ${tglFormat}`;
 
                 return `
                 <div class="card border-0 shadow-sm rounded-4 mb-3 mx-1 border-start border-4 ${isLunas ? 'border-success' : 'border-warning'} animate__animated animate__fadeInUp" style="animation-delay: ${idx * 0.05}s">
@@ -124,32 +136,33 @@
 
                         <div class="bg-light p-2 rounded-3 mb-3 border border-light">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <small class="text-muted" style="font-size: 10px;"><i class="fas fa-user-edit me-1"></i>Petugas Pelapor:</small>
+                                <small class="text-muted" style="font-size: 10px;"><i class="fas fa-user-edit me-1"></i>Pelapor:</small>
                                 <small class="fw-bold text-dark" style="font-size: 10px;">${item.petugas_name}</small>
                             </div>
                             <div class="text-muted bg-white p-2 rounded-2 mt-1 border" style="font-size: 11px; font-style: italic;">
-                                <i class="fas fa-quote-left me-1 opacity-25"></i>${item.catatan || 'Tanpa catatan tambahan'}<i class="fas fa-quote-right ms-1 opacity-25"></i>
+                                <i class="fas fa-comment-dots me-1 opacity-50"></i>${item.catatan || 'Tidak ada catatan tambahan'}
                             </div>
                         </div>
 
                         <div class="d-grid">
                             <a href="${waLink}" target="_blank"
-                               class="btn ${isLunas ? 'btn-outline-success border-2' : 'btn-success'} rounded-pill fw-bold py-2 shadow-sm ${!item.no_hp ? 'disabled opacity-50' : ''}">
-                                <i class="fab fa-whatsapp me-2"></i> ${isLunas ? 'KONFIRMASI PELUNASAN' : 'FOLLOW UP PELANGGAN'}
+                               class="btn ${isLunas ? 'btn-outline-success' : 'btn-success'} rounded-pill fw-bold py-2 shadow-sm ${!item.no_hp ? 'disabled opacity-50' : ''}">
+                                <i class="fab fa-whatsapp me-2"></i> ${isLunas ? 'KIRIM KONFIRMASI LUNAS' : 'HUBUNGI NASABAH'}
                             </a>
                         </div>
                     </div>
                 </div>`;
             }).join('');
 
-            showNotify(`Sinkronisasi ${data.length} komitmen berhasil`, "success");
+            showNotify(`Berhasil menyinkronkan ${data.length} komitmen`, "success");
 
         } catch (e) {
-            console.error("Janji Bayar Error:", e);
-            container.innerHTML = '<div class="alert alert-danger mx-2 rounded-4 small">❌ Gagal memuat data. Periksa koneksi API Anda.</div>';
+            console.error("Janji Bayar Load Error:", e);
+            container.innerHTML = '<div class="alert alert-danger mx-2 rounded-4 small">❌ Kegagalan koneksi data. Harap muat ulang halaman.</div>';
         }
     }
 
+    // Eksekusi Autopilot saat halaman dimuat sempurna
     document.addEventListener('DOMContentLoaded', () => {
         initPicker();
         loadJanjiBayar();
@@ -157,11 +170,14 @@
 </script>
 
 <style>
-    .border-warning { border-color: #ffc107 !important; }
-    .border-success { border-color: #198754 !important; }
-    .bg-warning-subtle { background-color: #fff9e6 !important; color: #856404 !important; border: 1px solid #ffeeba; }
-    .spinner-border.border-width-2 { border-width: 0.15em; }
-    .card { transition: transform 0.2s; }
-    .card:active { transform: scale(0.98); }
+    /* Styling Sinergi Visual */
+    .border-warning { border-color: #f59e0b !important; }
+    .border-success { border-color: #10b981 !important; }
+    .bg-warning-subtle { background-color: #fffbeb !important; color: #b45309 !important; border: 1px solid #fef3c7; }
+    .card { transition: all 0.2s ease; cursor: pointer; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(0,0,0,0.05) !important; }
+    .card:active { transform: scale(0.97); }
+    .btn-success { background-color: #25d366; border: none; }
+    .btn-success:hover { background-color: #128c7e; }
 </style>
 {% endblock %}
