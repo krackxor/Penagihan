@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4 animate__animated animate__fadeIn">
+    
+    <div class="mb-4">
+        <h4 class="fw-bold text-dark mb-1">
+            <i class="fas fa-graduation-cap me-2 text-success"></i>Pusat Edukasi Online
+        </h4>
+        <p class="text-muted small">Materi hanya dapat dibaca secara online untuk menjaga keamanan data.</p>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+                <h6 class="fw-bold mb-3 px-2 small text-uppercase">Daftar Dokumen</h6>
+                <div class="list-group list-group-flush overflow-auto" style="max-height: 500px;">
+                    {% if files %}
+                        {% for file in files %}
+                        <button class="list-group-item list-group-item-action border-0 rounded-3 mb-2 d-flex align-items-center gap-3 materi-item" 
+                                onclick="viewDocument('{{ file }}')">
+                            <i class="fas {% if '.pdf' in file %}fa-file-pdf text-danger{% else %}fa-file-word text-primary{% endif %} fa-lg"></i>
+                            <div class="text-truncate">
+                                <div class="small fw-bold">{{ file }}</div>
+                                <small class="text-muted" style="font-size: 0.6rem;">Online View Only</small>
+                            </div>
+                        </button>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center text-muted small py-4">Belum ada materi diunggah.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-2 h-100" style="min-height: 600px;">
+                <div id="viewerEmpty" class="text-center py-5 mt-5">
+                    <i class="fas fa-file-invoice fa-4x text-light mb-3"></i>
+                    <h6 class="text-muted">Pilih dokumen untuk membaca</h6>
+                </div>
+                
+                <div id="viewerActive" class="d-none h-100 position-relative">
+                    <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+                        <span id="docTitle" class="small fw-bold text-dark"></span>
+                        <span class="badge bg-danger rounded-pill px-2" style="font-size: 0.6rem;">PROTECTED VIEW</span>
+                    </div>
+                    
+                    <iframe id="docFrame" 
+                            src="" 
+                            style="width:100%; height:700px; border: none; border-radius: 12px;" 
+                            oncontextmenu="return false;">
+                    </iframe>
+
+                    <div style="position:absolute; top:0; left:0; width:100%; height:50px; z-index:10;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Styling Item Materi */
+    .materi-item { transition: all 0.2s; border: 1px solid #f8fafc !important; }
+    .materi-item:hover { background-color: #f0fdf4; border-color: #dcfce7 !important; }
+    .materi-item.active { background-color: #dcfce7 !important; border-left: 4px solid #16a34a !important; }
+
+    /* Proteksi Cetak */
+    @media print {
+        body { display: none !important; }
+    }
+</style>
+
+<script>
+    /**
+     * [LOGIKA VIEWER: viewDocument]
+     * Menggunakan Google Docs Viewer API untuk merender PDF/Word.
+     * Kelebihan: Dokumen tidak terunduh ke direktori lokal user, hanya render visual.
+     */
+    function viewDocument(filename) {
+        const empty = document.getElementById('viewerEmpty');
+        const active = document.getElementById('viewerActive');
+        const frame = document.getElementById('docFrame');
+        const titleDisplay = document.getElementById('docTitle');
+        
+        // Membangun URL Absolut file
+        const fileUrl = window.location.origin + '/static/uploads/materi/' + filename;
+        
+        // Menggunakan Google Docs Viewer (Support PDF & Word)
+        // Parameter 'embedded=true' dan 'rm=minimal' meminimalkan UI viewer asli
+        frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+        
+        titleDisplay.innerText = filename;
+        empty.classList.add('d-none');
+        active.classList.remove('d-none');
+
+        // Update UI Active State pada list
+        document.querySelectorAll('.materi-item').forEach(item => {
+            item.classList.remove('active');
+            if(item.innerText.includes(filename)) item.classList.add('active');
+        });
+    }
+
+    /**
+     * [PROTEKSI: Keamanan Dasar Anti-Copy]
+     */
+    document.addEventListener('contextmenu', event => event.preventDefault()); // Disable Klik Kanan
+    
+    document.onkeydown = function(e) {
+        // Blokir Ctrl+U (Source Code), Ctrl+S (Save), Ctrl+P (Print)
+        if (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 80)) {
+            Swal.fire('Proteksi Materi', 'Dilarang menyimpan atau mencetak dokumen ini.', 'warning');
+            return false;
+        }
+    };
+</script>
+{% endblock %}
