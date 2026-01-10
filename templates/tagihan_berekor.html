@@ -2,7 +2,6 @@
 
 {% block content %}
 <div class="animate__animated animate__fadeIn">
-    
     <div class="px-2 mb-3 d-flex justify-content-between align-items-center mt-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark"><i class="fas fa-briefcase me-2 text-danger"></i>Penagihan Ardebt</h4>
@@ -83,7 +82,6 @@
                     <hr class="my-1 opacity-10">
                     <div id="txtTren" class="fw-bold text-danger" style="font-size: 0.8rem;"></div>
                 </div>
-
                 <div class="table-responsive rounded-3 shadow-sm bg-white">
                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                         <thead class="table-dark text-center">
@@ -149,7 +147,7 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted"><i class="fas fa-edit me-1"></i> Catatan Petugas</label>
-                        <textarea id="modal-keterangan" name="keterangan" class="form-control rounded-3 shadow-none" rows="2" placeholder="Informasi tambahan..."></textarea>
+                        <textarea id="modal-keterangan" name="catatan" class="form-control rounded-3 shadow-none" rows="2" placeholder="Informasi tambahan..."></textarea>
                     </div>
 
                     <div class="mb-0">
@@ -168,15 +166,19 @@
 </div>
 
 <script>
-    /* * [VARIABEL GLOBAL] 
-     * Memudahkan akses modal, target kuota harian, dan koordinat.
+    /**
+     * [KONFIGURASI & VARIABEL GLOBAL]
+     * DAILY_TARGET: Kuota minimal petugas per hari.
+     * localProgress: Melacak jumlah laporan secara instan tanpa refresh database.
      */
     let modalKunjungan, modalHistory;
+    let localProgress = 0;
     const DAILY_TARGET = 20; 
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    /* * [INIT DOM] 
-     * Dijalankan saat halaman selesai dimuat.
+    /**
+     * [FUNGSI: INIT DOM]
+     * Menginisialisasi Modal Bootstrap dan Listener Form saat halaman siap.
      */
     document.addEventListener('DOMContentLoaded', () => {
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
@@ -191,8 +193,8 @@
 
     /**
      * [FUNGSI: loadArdebt]
-     * Logika: Menarik data 20 target teratas dengan pemakaian kubik tinggi.
-     * Mengintegrasikan info NOMET (Nomor Meter) dan Update Progress Bar.
+     * Kegunaan: Menarik 20 data target prioritas (Kubikasi Tinggi).
+     * Sinergi: Menghitung progres berdasarkan jumlah data yang tersisa di list.
      */
     async function loadArdebt() {
         const petugas = document.getElementById('filter-petugas').value;
@@ -202,11 +204,10 @@
             const res = await fetch(`/api/ardebt?petugas=${encodeURIComponent(petugas)}`);
             const data = await res.json();
             
-            // Logika Performance Tracking (Progress Bar)
+            // Hitung progres (DAILY_TARGET dikurangi data yang belum dikerjakan)
             const sisaTarget = data.length;
-            const selesai = Math.max(0, DAILY_TARGET - sisaTarget);
-            const persen = (selesai / DAILY_TARGET) * 100;
-            updateProgressBar(selesai, persen);
+            localProgress = Math.max(0, DAILY_TARGET - sisaTarget);
+            updateProgressBar(localProgress);
 
             if (data.length === 0) {
                 container.innerHTML = `
@@ -218,20 +219,18 @@
                 return;
             }
 
-            // Render Kartu Pelanggan dengan info NOMET (Nomor Meter)
+            // Render Kartu Pelanggan (Target 20)
             container.innerHTML = data.map((item) => `
-                <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp" data-search="${item.nomen} ${item.nama}">
+                <div id="card-${item.nomen}" class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp" data-search="${item.nomen} ${item.nama}">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1" style="font-size: 9px;">ID: ${item.nomen}</span>
                             <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2 py-1 fw-bold" style="font-size: 9px;"><i class="fas fa-tint me-1"></i>${item.pemakaian_air} m³</span>
                         </div>
                         <h6 class="fw-bold mb-1 text-dark text-uppercase">${item.nama}</h6>
-                        
                         <div class="text-muted mb-2 fw-bold" style="font-size: 0.7rem;">
-                            <i class="fas fa-tachometer-alt me-1 text-danger"></i> No. Meter: ${item.no_seri_meter || '-'}
+                            <i class="fas fa-tachometer-alt me-1 text-danger"></i> No. Meter: ${item.nomet || '-'}
                         </div>
-
                         <p class="text-muted mb-2" style="font-size: 0.65rem;"><i class="fas fa-map-marker-alt me-1"></i>${item.alamat}</p>
                         <div class="d-flex justify-content-between align-items-center border-top pt-3">
                             <div>
@@ -248,40 +247,38 @@
             `).join('');
             updateSummary(data);
         } catch (err) { 
-            container.innerHTML = '<p class="text-center text-danger small py-5">Koneksi Server Gagal.</p>'; 
+            container.innerHTML = '<p class="text-center text-danger small py-5">Gagal memuat data target.</p>'; 
         }
     }
 
     /**
      * [FUNGSI: updateProgressBar]
-     * Visualisasi harian untuk memotivasi petugas di lapangan.
+     * Kegunaan: Update visual progres harian petugas secara halus (Smooth Animation).
      */
-    function updateProgressBar(selesai, persen) {
+    function updateProgressBar(selesai) {
         const bar = document.getElementById('progress-bar');
         const text = document.getElementById('progress-text');
-        const badge = document.getElementById('status-badge');
+        const persen = (selesai / DAILY_TARGET) * 100;
 
-        bar.style.width = `${persen}%`;
-        text.innerText = `${selesai} / ${DAILY_TARGET} Selesai`;
+        bar.style.width = `${Math.min(persen, 100)}%`;
+        text.innerText = `${Math.min(selesai, DAILY_TARGET)} / ${DAILY_TARGET} Selesai`;
 
-        if (persen === 100) {
+        if (persen >= 100) {
             bar.classList.replace('bg-danger', 'bg-success');
-            badge.innerHTML = `<span class="badge bg-success rounded-pill px-3 py-2 shadow-sm animate__animated animate__tada"><i class="fas fa-trophy me-1"></i> COMPLETED</span>`;
         } else {
             bar.classList.replace('bg-success', 'bg-danger');
-            badge.innerHTML = `<span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm animate__animated animate__pulse animate__infinite"><i class="fas fa-shield-alt me-1"></i> SECURE MODE</span>`;
         }
     }
 
     /**
-     * [FUNGSI SIMPAN: simpanLaporan]
-     * Logika V6.3: Integrasi GPS Geolocation.
-     * Minta izin GPS -> Ambil Koordinat -> Kirim Data -> Auto Hide List.
+     * [FUNGSI: simpanLaporan]
+     * Kegunaan: Memicu perizinan GPS Chrome dan validasi lokasi sebelum simpan data.
+     * Sinergi: Mencegah laporan palsu tanpa titik koordinat.
      */
     async function simpanLaporan() {
         Swal.fire({ 
-            title: 'Mendeteksi Lokasi...', 
-            text: 'Mengunci titik GPS petugas untuk validasi laporan.',
+            title: 'Memvalidasi Lokasi...', 
+            text: 'Memicu GPS Chrome sebagai bukti kunjungan.',
             allowOutsideClick: false, 
             didOpen: () => { Swal.showLoading(); }
         });
@@ -292,19 +289,27 @@
                 document.getElementById('modal-lng').value = position.coords.longitude;
                 await executeSubmit();
             }, (error) => {
-                Swal.fire('GPS Error', 'Akses lokasi wajib diaktifkan sebagai bukti kunjungan!', 'error');
-            }, { enableHighAccuracy: true });
+                // Notifikasi khusus jika GPS diblokir oleh User/Chrome
+                Swal.fire({
+                    icon: 'error',
+                    title: 'GPS DIBLOKIR!',
+                    html: 'Klik ikon <b>Gembok</b> di bar alamat browser, pilih <b>Site Settings</b>, lalu <b>Izinkan Lokasi</b>.',
+                    confirmButtonText: 'SAYA MENGERTI'
+                });
+            }, { enableHighAccuracy: true, timeout: 10000 });
         } else {
-            Swal.fire('Error', 'HP tidak mendukung GPS.', 'error');
+            Swal.fire('Error', 'Perangkat tidak mendukung GPS.', 'error');
         }
     }
 
     /**
-     * [FUNGSI HELPER: executeSubmit]
-     * Melakukan pengiriman data final ke API setelah GPS terkunci.
+     * [FUNGSI: executeSubmit]
+     * Kegunaan: Mengirimkan data form dan file foto ke API History.
+     * Sinergi: Melakukan update progres secara instan (No Reload) jika berhasil.
      */
     async function executeSubmit() {
         const form = document.getElementById('formKunjungan');
+        const idpel = document.getElementById('modal-idpel').value;
         const formData = new FormData(form);
         const petugasName = document.getElementById('filter-petugas').value;
         formData.append('petugas_name', petugasName);
@@ -312,60 +317,73 @@
         try {
             const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
             const result = await res.json();
+            
             if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'Data Terverifikasi!', text: 'Laporan & Lokasi berhasil diarsipkan.' }).then(() => {
+                Swal.fire({ icon: 'success', title: 'Laporan Diterima', text: 'Data snapshot & GPS berhasil dikunci.' }).then(() => {
                     executeShareWA(result.wa_data);
                     modalKunjungan.hide();
-                    loadArdebt(); // Refresh daftar (Auto-Hide yang sudah lapor)
+                    
+                    // Update Progres Secara Instan (Cerdas: Tanpa Refresh)
+                    const card = document.getElementById(`card-${idpel}`);
+                    if(card) {
+                        card.classList.add('animate__fadeOutRight');
+                        setTimeout(() => {
+                            card.remove();
+                            localProgress++;
+                            updateProgressBar(localProgress);
+                            // Jika sudah habis, muat ulang target berikutnya
+                            if(document.querySelectorAll('.customer-card').length === 0) loadArdebt();
+                        }, 500);
+                    }
                 });
-            } else { Swal.fire('Error!', result.message, 'error'); }
-        } catch (err) { Swal.fire('Gagal!', 'Koneksi database terputus.', 'error'); }
+            } else { 
+                Swal.fire('Gagal!', result.message || 'Cek kembali data Anda.', 'error'); 
+            }
+        } catch (err) { 
+            Swal.fire('Error Database!', 'Gagal sinkronisasi data.', 'error'); 
+        }
     }
 
     /**
-     * [FUNGSI SHARE: executeShareWA]
-     * Template Detail: Mencakup No HP Pelanggan & Link Google Maps Lokasi Petugas.
+     * [FUNGSI: executeShareWA]
+     * Kegunaan: Membuka WhatsApp dengan template laporan lengkap (Snapshot Data).
      */
     function executeShareWA(wa) {
-        const waktu = new Date().toLocaleString('id-ID');
+        const waktu = wa.waktu || new Date().toLocaleString('id-ID');
         const lat = document.getElementById('modal-lat').value;
         const lng = document.getElementById('modal-lng').value;
         const gmapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
 
         const pesanShare = 
             `*🚨 LAPORAN KUNJUNGAN LAPANGAN*%0A` +
-            `*(ANTREAN ARDEBT - PENGAWASAN)*%0A` +
+            `*(V6.9 SINERGI SNAPSHOT)*%0A` +
             `-------------------------------------------%0A` +
             `📅 *Waktu:* ${waktu}%0A` +
-            `👤 *Petugas:* ${wa.petugas}%0A` +
-            `-------------------------------------------%0A%0A` +
+            `👤 *Petugas:* ${wa.petugas}%0A%0A` +
             `*DATA KONSUMEN:*%0A` +
             `👤 *Nama:* ${wa.nama}%0A` +
             `🆔 *IDPEL:* ${wa.nomen}%0A` +
             `📟 *No Meter:* ${wa.nomet || '-'}%0A` +
-            `📞 *HP Konsumen:* ${wa.no_hp || '-'}%0A%0A` +
+            `📍 *Alamat:* ${wa.alamat || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
-            `🚩 *Tunggakan:* ${wa.jcount} Bulan%0A` +
-            `📝 *Catatan:* ${wa.catatan}%0A%0A` +
-            `📍 *LOKASI GPS (KOORDINAT):*%0A` +
+            `📝 *Catatan:* ${wa.catatan || '-'}%0A%0A` +
+            `📍 *LOKASI GPS:*%0A` +
             `${gmapsLink}%0A%0A` +
-            `*RINCIAN KEUANGAN:*%0A` +
-            `• *TOTAL WAJIB BAYAR: Rp ${formatIDR(wa.total)}*%0A%0A` +
+            `💰 *WAJIB BAYAR: Rp ${formatIDR(wa.total)}*%0A%0A` +
             `🖼️ *DOKUMENTASI FOTO:*%0A` +
             `${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
-            `-------------------------------------------` +
-            `_Laporan Otomatis Sunter Dashboard Pro_`;
+            `_Sunter Dashboard Pro Enterprise_`;
         
         window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
     }
 
     /**
      * [FUNGSI: showHistory]
-     * Logic: Menampilkan JCOUNT & Baris Merah jika piutang terverifikasi 3 arah.
+     * Kegunaan: Audit piutang 3 arah untuk meyakinkan petugas bahwa data valid.
      */
     async function showHistory(nomen, nama) {
-        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Memproses audit data...</td></tr>';
+        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Menganalisis data...</td></tr>';
         document.getElementById('boxAnalisis').classList.add('d-none');
         modalHistory.show();
         try {
@@ -376,7 +394,8 @@
                 box.classList.remove('d-none');
                 box.className = `alert alert-${resData.analysis.level} mb-3 shadow-sm border-start border-4`;
                 document.getElementById('txtSaran').innerText = resData.analysis.saran;
-                document.getElementById('txtTren').innerHTML = `<i class="fas fa-exclamation-circle"></i> ${resData.analysis.count_nunggak} Bulan Menunggak`;
+                document.getElementById('txtTren').innerHTML = `<i class="fas fa-exclamation-circle"></i> ${resData.analysis.count_nunggak} Bulan Piutang Terdeteksi`;
+                
                 let rows = '';
                 resData.history.forEach(h => {
                     const isLunas = h.status_lunas == 1;
@@ -391,9 +410,13 @@
                 });
                 document.querySelector('#tableHistoryContent').innerHTML = rows;
             }
-        } catch (e) { console.error("Error History:", e); }
+        } catch (e) { console.error("Err History:", e); }
     }
 
+    /**
+     * [FUNGSI: liveSearch]
+     * Kegunaan: Filter data pelanggan secara instan di layar HP.
+     */
     function liveSearch() {
         const q = document.getElementById('searchBar').value.toLowerCase();
         document.querySelectorAll('.customer-card').forEach(c => {
@@ -401,6 +424,10 @@
         });
     }
 
+    /**
+     * [FUNGSI: openModal]
+     * Kegunaan: Mengisi data modal sebelum form dibuka (Pre-populate).
+     */
     function openModal(nomen, nama, total, no_hp) {
         document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nama').innerText = nama;
@@ -411,11 +438,19 @@
         modalKunjungan.show();
     }
 
+    /**
+     * [FUNGSI: toggleJanjiInput]
+     * Kegunaan: Menampilkan input tanggal hanya jika hasil koordinasi adalah 'Janji Bayar'.
+     */
     function toggleJanjiInput() {
         const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
         document.getElementById('group-janji').classList.toggle('d-none', !isJanji);
     }
 
+    /**
+     * [FUNGSI: updateSummary]
+     * Kegunaan: Memberikan info potensi uang yang bisa ditagih hari ini.
+     */
     function updateSummary(data) {
         const total = data.reduce((acc, curr) => acc + (curr.nominal_mc + curr.nominal_ardebt), 0);
         document.getElementById('summary-area').innerHTML = `
@@ -432,6 +467,5 @@
     .customer-card:active { transform: scale(0.98); }
     .table-danger { --bs-table-bg: #ffebeb; --bs-table-color: #b30000; }
     .progress-bar { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-    .modal-dialog-scrollable .modal-body { max-height: 70vh; }
 </style>
 {% endblock %}
