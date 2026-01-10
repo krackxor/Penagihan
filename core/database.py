@@ -1,9 +1,9 @@
 """
-Core Database Module - Sunter Dashboard Pro (V7.0 Sinergi Final Edition)
+Core Database Module - Sunter Dashboard Pro (V7.1 Sinergi Final Edition)
 Sinergi & Smart Update:
 1. WAL Mode Autopilot: Optimasi konkurensi (Anti-Lock) untuk akses massal petugas.
 2. Self-Healing Migration V2: Perbaikan otomatis semua kolom (mc, ardebt, catatan, dll).
-3. Integrity Guard: Menjamin keamanan relasi antar tabel dengan Foreign Keys aktif.
+3. Performance Indexing: Menambahkan Index pada kolom krusial agar loading data secepat kilat.
 4. Smart Seeder: Menjamin ketersediaan akun admin pusat saat inisialisasi pertama.
 """
 
@@ -15,25 +15,25 @@ from werkzeug.security import generate_password_hash
 def get_db_connection():
     """
     [FUNGSI: KONEKSI DATABASE UTAMA]
-    Kegunaan: Membuka jalur komunikasi ke SQLite dengan proteksi 'Locked Database'.
-    Logika:
-    - WAL Mode: Agar proses baca dan tulis bisa berjalan bersamaan (Petugas lapor vs Admin upload).
-    - Synchronous Normal: Meningkatkan kecepatan tulis tanpa mengorbankan integritas data.
+    Kegunaan: Membuka jalur komunikasi ke file database SQLite.
+    Logika Cerdas:
+    - WAL Mode: Memungkinkan Admin upload Excel & Petugas lapor secara bersamaan tanpa 'Database Locked'.
+    - Row Factory: Mengubah hasil query menjadi format dictionary agar bisa dipanggil lewat nama kolom.
     """
     db_path = current_app.config.get('DATABASE')
     
-    # Fallback jika path di konfigurasi tidak ditemukan
+    # Menentukan lokasi file database secara otomatis
     if not db_path:
         db_path = os.path.join(os.getcwd(), 'penagihan.db')
     
     try:
         conn = sqlite3.connect(db_path, timeout=30)
-        conn.row_factory = sqlite3.Row # Memungkinkan akses data dengan nama kolom (contoh: row['nama'])
+        conn.row_factory = sqlite3.Row 
         
-        # --- BLOK OPTIMASI SINERGI KINERJA TINGGI ---
-        conn.execute('PRAGMA journal_mode=WAL;')       # Mencegah database terkunci saat akses bersamaan
-        conn.execute('PRAGMA synchronous=NORMAL;')     # Mengoptimalkan kecepatan transaksi
-        conn.execute('PRAGMA foreign_keys = ON;')      # Menjaga integritas relasi antar tabel
+        # --- BLOK OPTIMASI KINERJA TINGGI ---
+        conn.execute('PRAGMA journal_mode=WAL;')       # Aktifkan Write-Ahead Logging (Sangat penting untuk sinergi)
+        conn.execute('PRAGMA synchronous=NORMAL;')     # Mengurangi beban disk I/O untuk kecepatan maksimal
+        conn.execute('PRAGMA foreign_keys = ON;')      # Memastikan integritas data antar tabel terjaga
         
         return conn
     except sqlite3.Error as e:
@@ -42,9 +42,9 @@ def get_db_connection():
 
 def init_db(app):
     """
-    [FUNGSI: INISIALISASI & MIGRASI OTOMATIS]
-    Kegunaan: Menjalankan skema awal dan memperbaiki struktur tabel secara mandiri.
-    Alur: Schema.sql -> Check Tables -> Run Migration -> Seed Admin.
+    [FUNGSI: INISIALISASI OTOMATIS]
+    Kegunaan: Mempersiapkan infrastruktur database saat aplikasi pertama kali dijalankan.
+    Alur Kerja: Membaca skema -> Membuat tabel -> Migrasi kolom baru -> Optimasi Index.
     """
     with app.app_context():
         db = None
@@ -52,23 +52,26 @@ def init_db(app):
             db = get_db_connection()
             cursor = db.cursor()
             
-            # 1. Eksekusi Skema Dasar (Khusus untuk instalasi database baru)
+            # 1. Menjalankan skema SQL dasar jika tersedia
             schema_path = os.path.join(app.root_path, 'schema.sql')
             if os.path.exists(schema_path):
                 with open(schema_path, mode='r') as f:
                     cursor.executescript(f.read())
 
-            # 2. Verifikasi Keberadaan Tabel Inti
+            # 2. Verifikasi tabel-tabel utama agar tidak terjadi error 500
             check_and_create_tables(cursor)
 
-            # 3. JALANKAN SELF-HEALING (Solusi permanen untuk kolom mc, catatan, ardebt, dll)
+            # 3. Jalankan Migrasi Kolom (Snapshot, GPS, Saldo)
             run_smart_migration(cursor)
+            
+            # 4. Optimasi Performa (Membuat Index agar loading tidak lambat)
+            optimize_performance(cursor)
 
-            # 4. Pastikan Akun Administrator Selalu Tersedia
+            # 5. Siapkan akun Admin cadangan
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Sinergi V7.0: Database Berhasil Diperbarui & Siap Digunakan.")
+            print("✅ Sinergi V7.1: Database Siap & Performa Telah Dioptimasi.")
             
         except Exception as e:
             print(f"❌ Sinergi Database Error: {e}")
@@ -78,10 +81,10 @@ def init_db(app):
 
 def check_and_create_tables(cursor):
     """
-    [HELPER: VERIFIKASI STRUKTUR TABEL]
-    Kegunaan: Menjamin tabel minimal tersedia sebelum proses migrasi kolom dilakukan.
+    [HELPER: PENJAGA STRUKTUR TABEL]
+    Kegunaan: Menjamin tabel minimal tersedia agar aplikasi bisa 'start' dengan aman.
     """
-    # Pastikan tabel kunjungan petugas sudah ada
+    # Tabel Laporan Kunjungan Lapangan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,7 +94,7 @@ def check_and_create_tables(cursor):
         )
     """)
     
-    # Pastikan tabel riwayat upload admin sudah ada
+    # Tabel Audit Log untuk unggahan data admin
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS upload_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,59 +106,58 @@ def check_and_create_tables(cursor):
 
 def run_smart_migration(cursor):
     """
-    [HELPER: MIGRASI KOLOM DINAMIS]
-    Kegunaan: MENAMBAH KOLOM YANG KURANG SECARA OTOMATIS TANPA MERUSAK DATA LAMA.
-    Penting: Menangani error 'no such column' untuk mc, ardebt, dan catatan.
+    [HELPER: MEKANISME SELF-HEALING]
+    Kegunaan: MENAMBAH KOLOM BARU SECARA OTOMATIS tanpa merusak data yang sudah ada.
+    Logika: Mengecek list kolom, jika kolom (seperti 'mc' atau 'catatan') belum ada, maka ditambahkan.
     """
-    # --- 1. Audit Tabel kunjungan_petugas ---
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_cols = [row['name'] for row in cursor.fetchall()]
     
-    # Daftar kolom wajib untuk fitur Snapshot & GPS V7.0
+    # Daftar kolom Snapshot V7.1 (Pusat Data Kunjungan)
     new_columns = {
-        'mc': 'REAL DEFAULT 0',         # Saldo MC saat kunjungan
-        'ardebt': 'REAL DEFAULT 0',     # Saldo Piutang lama saat kunjungan
-        'catatan': 'TEXT',              # Komentar tambahan petugas
-        'keterangan': 'TEXT',           # Hasil koordinasi lapangan
-        'foto_path': 'TEXT',            # Nama file bukti foto
-        'nomet': 'TEXT',                # Snapshot Nomor Meter
+        'mc': 'REAL DEFAULT 0',         # Saldo Tagihan berjalan
+        'ardebt': 'REAL DEFAULT 0',     # Saldo Tunggakan berekor
+        'catatan': 'TEXT',              # Catatan/Komentar petugas
+        'keterangan': 'TEXT',           # Hasil koordinasi
+        'foto_path': 'TEXT',            # Nama file foto bukti
+        'nomet': 'TEXT',                # Snapshot No Meter
         'nama_snapshot': 'TEXT',        # Snapshot Nama Pelanggan
         'alamat_snapshot': 'TEXT',      # Snapshot Alamat Lengkap
-        'latitude': 'TEXT',             # Koordinat Lintang GPS
-        'longitude': 'TEXT',            # Koordinat Bujur GPS
-        'no_hp': 'TEXT',                # Snapshot No HP Pelanggan
-        'volume': 'REAL DEFAULT 0',     # Snapshot Angka Meter/Kubikasi
-        'periode': 'TEXT'               # Periode Laporan (MM-YYYY)
+        'latitude': 'TEXT',             # Data GPS (Lintang)
+        'longitude': 'TEXT',            # Data GPS (Bujur)
+        'no_hp': 'TEXT',                # No HP Konsumen
+        'volume': 'REAL DEFAULT 0',     # Snapshot angka meter
+        'periode': 'TEXT'               # Periode tagihan
     }
     
     for col, dtype in new_columns.items():
         if col not in existing_cols:
             try:
                 cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
-                print(f"🔧 Migrasi Sinergi: Kolom [{col}] berhasil ditambahkan otomatis.")
+                print(f"🔧 Migrasi: Kolom [{col}] ditambahkan otomatis.")
             except Exception as e:
-                print(f"⚠️ Gagal migrasi kolom {col}: {e}")
+                print(f"⚠️ Peringatan Migrasi: {e}")
 
-    # --- 2. Audit Tabel master_pelanggan ---
-    cursor.execute("PRAGMA table_info(master_pelanggan)")
-    existing_mc = [row['name'] for row in cursor.fetchall()]
-    
-    mc_updates = {
-        'alamat': 'TEXT', 
-        'nomet': 'TEXT', 
-        'kubik': 'REAL DEFAULT 0'
-    }
-    
-    for col, dtype in mc_updates.items():
-        if col not in existing_mc:
-            cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
-            print(f"🔧 Migrasi Sinergi: Kolom [{col}] ditambahkan ke master_pelanggan")
+def optimize_performance(cursor):
+    """
+    [HELPER: TURBO LOADING]
+    Kegunaan: Membuat INDEX pada kolom NOMEN.
+    Logika: Tanpa index, database mencari data seperti membaca buku dari halaman 1. 
+    Dengan index, database langsung menuju halaman yang tepat.
+    """
+    try:
+        # Index untuk mempercepat hitungan progres dan pencarian tagihan
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_master_nomen ON master_pelanggan (nomen)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_kunjungan_nomen ON kunjungan_petugas (nomen)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_kunjungan_periode ON kunjungan_petugas (periode)")
+        print("🚀 Performa: Indexing aktif (Loading akan lebih cepat).")
+    except Exception as e:
+        print(f"ℹ️ Info Performa: {e}")
 
 def seed_default_admin(cursor):
     """
-    [HELPER: PEMBUAT AKUN ADMIN OTOMATIS]
-    Kegunaan: Menjamin sistem tidak terkunci jika akun admin tidak sengaja terhapus.
-    Default: admin_sunter / admin123
+    [HELPER: PENGAMAN AKSES]
+    Kegunaan: Menjamin ada minimal 1 akun Admin jika database kosong.
     """
     username = 'admin_sunter'
     cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
@@ -165,12 +167,12 @@ def seed_default_admin(cursor):
             INSERT INTO users (username, password, role, petugas_id)
             VALUES (?, ?, ?, ?)
         """, (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
-        print(f"👤 Smart Seeder: Akun Administrator Default '{username}' siap.")
+        print(f"👤 Seeder: Akun Admin '{username}' siap (Pass: admin123).")
 
 def get_db():
     """
-    [HELPER: GLOBAL DATABASE ACCESS]
-    Kegunaan: Dipanggil di file lain untuk mendapatkan koneksi database aktif.
+    [HELPER: AKSES GLOBAL FLASK]
+    Kegunaan: Mengambil koneksi database yang sedang aktif dalam satu request.
     """
     if 'db' not in g:
         g.db = get_db_connection()
