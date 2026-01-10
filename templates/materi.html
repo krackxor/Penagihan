@@ -3,90 +3,54 @@
 {% block content %}
 <div class="container py-4 animate__animated animate__fadeIn">
     
-    <div class="row align-items-center mb-4 g-3">
-        <div class="col-md-6">
-            <h4 class="fw-bold text-dark mb-1">
-                <i class="fas fa-graduation-cap me-2 text-success"></i>Pusat Edukasi Online
-            </h4>
-            <p class="text-muted small mb-0">Manajemen Dokumen Edukasi (View Only Mode)</p>
-        </div>
-        <div class="col-md-6">
-            <div class="input-group shadow-sm rounded-pill overflow-hidden border-0">
-                <span class="input-group-text bg-white border-0 ps-3 text-muted">
-                    <i class="fas fa-search"></i>
-                </span>
-                <input type="text" id="searchMateri" class="form-control border-0 py-2 shadow-none" 
-                       placeholder="Cari judul materi..." onkeyup="filterMateri()">
-            </div>
-        </div>
+    <div class="mb-4">
+        <h4 class="fw-bold text-dark mb-1">
+            <i class="fas fa-graduation-cap me-2 text-success"></i>Pusat Edukasi Online
+        </h4>
+        <p class="text-muted small">Pilih materi di bawah ini untuk membaca secara langsung.</p>
     </div>
 
     <div class="row g-4">
-        <div class="col-md-4 col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 bg-white h-100">
-                <div class="card-header bg-transparent border-0 pt-3 pb-0">
-                    <h6 class="fw-bold small text-uppercase opacity-50" style="letter-spacing: 1px;">Katalog File</h6>
-                </div>
-                <div class="card-body px-2">
-                    <div class="list-group list-group-flush overflow-auto custom-scrollbar" style="max-height: 600px;" id="materiList">
-                        {% if files %}
-                            {% for file in files %}
-                            <button class="list-group-item list-group-item-action border-0 rounded-3 mb-2 d-flex align-items-center gap-3 materi-item animate__animated animate__fadeInUp" 
-                                    onclick="viewDocument('{{ file }}')" data-filename="{{ file|lower }}">
-                                <div class="icon-box rounded-3 p-2 d-flex align-items-center justify-content-center">
-                                    <i class="fas {% if '.pdf' in file %}fa-file-pdf text-danger{% else %}fa-file-word text-primary{% endif %} fa-lg"></i>
-                                </div>
-                                <div class="text-truncate">
-                                    <div class="small fw-bold text-dark">{{ file }}</div>
-                                    <small class="text-muted" style="font-size: 0.6rem;">Terverifikasi Online</small>
-                                </div>
-                            </button>
-                            {% endfor %}
-                        {% else %}
-                            <div class="text-center py-5">
-                                <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" style="width: 50px; opacity: 0.3;" class="mb-2">
-                                <p class="text-muted small">Folder materi kosong</p>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+                <h6 class="fw-bold mb-3 px-2 small text-uppercase">Daftar Dokumen</h6>
+                <div class="list-group list-group-flush overflow-auto" style="max-height: 500px;">
+                    {% if files %}
+                        {% for file in files %}
+                        <button class="list-group-item list-group-item-action border-0 rounded-3 mb-2 d-flex align-items-center gap-3 materi-item" 
+                                onclick="viewDocument('{{ file }}')"
+                                data-filename="{{ file }}">
+                            <i class="fas {% if '.pdf' in file|lower %}fa-file-pdf text-danger{% else %}fa-file-word text-primary{% endif %} fa-lg"></i>
+                            <div class="text-truncate">
+                                <div class="small fw-bold">{{ file }}</div>
+                                <small class="text-muted" style="font-size: 0.6rem;">Klik untuk membuka</small>
                             </div>
-                        {% endif %}
-                    </div>
+                        </button>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center text-muted small py-4">Belum ada materi diunggah.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
-        <div class="col-md-8 col-lg-9">
-            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden" style="min-height: 700px;">
-                <div id="viewerEmpty" class="text-center py-5 mt-5 animate__animated animate__pulse animate__infinite">
-                    <div class="bg-light rounded-circle d-inline-flex p-4 mb-4">
-                        <i class="fas fa-book-reader fa-4x text-success opacity-25"></i>
-                    </div>
-                    <h5 class="fw-bold text-dark">Siap Membaca?</h5>
-                    <p class="text-muted small">Pilih salah satu dokumen di katalog untuk membuka viewer.</p>
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-2 h-100" style="min-height: 700px;">
+                <div id="viewerEmpty" class="text-center py-5 mt-5">
+                    <i class="fas fa-file-reader fa-4x text-light mb-3"></i>
+                    <h6 class="text-muted">Silakan pilih dokumen di katalog sebelah kiri</h6>
                 </div>
                 
-                <div id="viewerActive" class="d-none h-100 flex-column">
-                    <div class="viewer-toolbar d-flex justify-content-between align-items-center p-3 bg-dark text-white">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="fas fa-lock text-warning small"></i>
-                            <span id="docTitle" class="small fw-bold text-truncate" style="max-width: 250px;"></span>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-outline-light rounded-pill border-opacity-25" onclick="location.reload()">
-                                <i class="fas fa-sync-alt me-1"></i> Reload
-                            </button>
-                            <span class="badge bg-danger rounded-pill px-3 py-2" style="font-size: 0.65rem;">PROTECTED VIEW</span>
-                        </div>
+                <div id="viewerActive" class="d-none h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+                        <span id="docTitle" class="small fw-bold text-dark"></span>
+                        <span class="badge bg-success rounded-pill px-2" style="font-size: 0.6rem;">PREVIEW MODE</span>
                     </div>
                     
-                    <div class="position-relative bg-secondary bg-opacity-10" style="height: 750px;">
-                        <iframe id="docFrame" 
-                                src="" 
-                                class="w-100 h-100 border-0"
-                                oncontextmenu="return false;">
-                        </iframe>
-
-                        <div class="shield-top"></div>
-                        <div class="shield-bottom"></div>
-                    </div>
+                    <iframe id="docFrame" 
+                            src="" 
+                            style="width:100%; height:750px; border: none; border-radius: 12px;">
+                    </iframe>
                 </div>
             </div>
         </div>
@@ -94,45 +58,19 @@
 </div>
 
 <style>
-    /* Styling Dasar & Scrollbar */
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-    
-    /* Item List Design */
-    .materi-item { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent !important; }
-    .materi-item .icon-box { background: #f8fafc; border: 1px solid #f1f5f9; }
-    .materi-item:hover { background-color: #f0fdf4; border-color: #dcfce7 !important; transform: translateX(5px); }
-    .materi-item.active { background-color: #dcfce7 !important; border-left: 4px solid #16a34a !important; }
-    .materi-item.active .icon-box { background: white; }
-
-    /* Shield Overlay (Keamanan) */
-    .shield-top { position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 10; cursor: default; }
-    .shield-bottom { position: absolute; bottom: 0; left: 0; width: 100%; height: 40px; z-index: 10; cursor: default; }
-
-    /* Proteksi Cetak */
-    @media print { body { display: none !important; } }
+    /* Styling List Materi */
+    .materi-item { transition: all 0.2s; border: 1px solid #f8fafc !important; }
+    .materi-item:hover { background-color: #f0fdf4; border-color: #dcfce7 !important; }
+    .materi-item.active { background-color: #dcfce7 !important; border-left: 4px solid #16a34a !important; color: #15803d !important; }
 </style>
-
-
 
 <script>
     /**
-     * [FUNGSI: filterMateri]
-     * Logika: Pencarian judul file secara real-time (Client-side filtering).
-     */
-    function filterMateri() {
-        const q = document.getElementById('searchMateri').value.toLowerCase();
-        document.querySelectorAll('.materi-item').forEach(item => {
-            const name = item.getAttribute('data-filename');
-            item.style.display = name.includes(q) ? 'flex' : 'none';
-        });
-    }
-
-    /**
      * [FUNGSI: viewDocument]
-     * Logika: Merender dokumen dengan sistem Double-Engine.
-     * 1. Browser Engine: Mencoba memuat langsung (Tercepat & Stabil).
-     * 2. Fallback: Jika gagal, gunakan Google Docs Viewer.
+     * Kegunaan: Memuat dokumen ke dalam iframe.
+     * Logika: 
+     * 1. PDF dimuat langsung (Native Browser) agar lancar di localhost/jaringan kantor.
+     * 2. Word (.docx) dimuat via Google Docs Viewer (Memerlukan internet).
      */
     function viewDocument(filename) {
         const empty = document.getElementById('viewerEmpty');
@@ -140,54 +78,36 @@
         const frame = document.getElementById('docFrame');
         const titleDisplay = document.getElementById('docTitle');
         
-        // Membangun URL absolut file
+        // Membangun path file yang mengarah ke route Flask serve_materi_file
         const fileUrl = window.location.origin + '/static/uploads/materi/' + filename;
         
-        // Gunakan loading indikator
-        Swal.fire({
-            title: 'Membuka Dokumen...',
-            timer: 800,
-            showConfirmButton: false,
-            didOpen: () => { Swal.showLoading(); }
-        });
-
-        // Tampilkan viewer
         titleDisplay.innerText = filename;
         empty.classList.add('d-none');
         active.classList.remove('d-none');
 
-        // Engine 1: Native Browser Render (Untuk PDF)
-        frame.src = fileUrl;
+        // Deteksi Ekstensi File
+        const isPDF = filename.toLowerCase().endsWith('.pdf');
 
-        // Fallback Engine: Jika file adalah Word (.doc/.docx), gunakan Google Viewer
-        if (filename.endsWith('.doc') || filename.endsWith('.docx')) {
+        if (isPDF) {
+            // Langsung arahkan src ke file (Browser akan otomatis menggunakan PDF viewer internal)
+            frame.src = fileUrl;
+        } else {
+            // Gunakan Google Viewer untuk format non-PDF (Hanya jalan jika website sudah ONLINE/Public)
             frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
         }
 
-        // Kelola status 'Active' pada sidebar
+        // Kelola status visual tombol 'Active' pada sidebar
         document.querySelectorAll('.materi-item').forEach(item => {
             item.classList.remove('active');
-            if(item.getAttribute('data-filename') === filename.toLowerCase()) item.classList.add('active');
+            if(item.getAttribute('data-filename') === filename) {
+                item.classList.add('active');
+            }
         });
-    }
 
-    /**
-     * [PROTEKSI SISTEM: Anti-Copy & Anti-Source]
-     */
-    document.addEventListener('contextmenu', event => event.preventDefault()); // Matikan Klik Kanan
-    
-    document.onkeydown = function(e) {
-        // Blokir: F12 (DevTools), Ctrl+U (Source), Ctrl+S (Save), Ctrl+P (Print)
-        if (e.keyCode == 123 || 
-           (e.ctrlKey && (e.keyCode == 85 || e.keyCode == 83 || e.keyCode == 80))) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Akses Dibatasi',
-                text: 'Dokumen ini dilindungi oleh hak cipta dan sistem keamanan.',
-                confirmButtonColor: '#198754'
-            });
-            return false;
+        // Scroll otomatis ke area viewer jika di tampilan mobile
+        if(window.innerWidth < 768) {
+            active.scrollIntoView({ behavior: 'smooth' });
         }
-    };
+    }
 </script>
 {% endblock %}
