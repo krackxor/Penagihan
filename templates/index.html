@@ -2,6 +2,7 @@
 
 {% block content %}
 <div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
+    
     <div class="pt-4 mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <div>
@@ -128,18 +129,24 @@
     const USER_ROLE = "{{ session.get('role', 'guest')|lower }}";
     const MY_PETUGAS_ID = "{{ session.get('petugas_id', 'ALL') }}";
 
+    // Formatter Rupiah Standar
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     
     document.addEventListener('DOMContentLoaded', () => { 
+        // Inisialisasi Tanggal Hari Ini
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         
+        // Autopilot: Set filter bulan ke bulan berjalan secara otomatis
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         
         refreshDashboard(); 
     });
 
+    /**
+     * REFRESH CORE DATA: Fungsi sentral sinkronisasi Frontend & Backend
+     */
     async function refreshDashboard() {
         const icon = document.getElementById('sync-icon');
         const rawPeriode = document.getElementById('filter-periode').value; 
@@ -150,11 +157,11 @@
         const periode = `${month}-${year}`; 
 
         try {
+            // Sinergi: Mengambil data dari API Full Stats yang sudah di-optimize
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
             
-            // SECURITY: Handle session expired
+            // Security Check: Jika sesi mati, arahkan ke login
             if (res.status === 401) {
-                console.warn("Session Expired - Redirect to login");
                 window.location.href = '/login?logout=expired';
                 return;
             }
@@ -164,7 +171,7 @@
 
             const g = result.global;
 
-            // Update UI
+            // 1. UPDATE SUMMARY CARDS
             document.getElementById('g-nomen-mc').innerText = (g.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc || 0);
             
@@ -172,8 +179,9 @@
             document.getElementById('stat-sisa-nom').innerText = toIDR((g.total_nominal_mc || 0) - totalLunasRp);
             document.getElementById('stat-sisa-nomen').innerText = (g.sisa_nomen || 0).toLocaleString();
             
+            // 2. UPDATE PROGRESS & PERCENTAGE
             const totalLunasCount = (g.total_lunas_mc || 0);
-            document.getElementById('stat-realisasi').innerText = `${totalLunasCount.toLocaleString()} Selesai / ${(g.total_nomen_mc || 0).toLocaleString()} Total`;
+            document.getElementById('stat-realisasi').innerText = `${totalLunasCount.toLocaleString()} Terbayar / ${(g.total_nomen_mc || 0).toLocaleString()} Unit`;
             
             document.getElementById('val-undue').innerText = (g.count_undue || 0).toLocaleString();
             document.getElementById('val-current').innerText = (g.count_current || 0).toLocaleString();
@@ -182,26 +190,32 @@
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
+            // 3. RENDER LEADERBOARD & CHART (ADMIN ONLY)
             renderLeaderboard(result.officers || []);
-            
             if (USER_ROLE === 'admin' && document.getElementById('performaChart')) {
                 renderChart(result.officers || []);
             }
 
+            // 4. UPDATE LIVE LOGS
             allLogs = result.log_petugas || [];
+            currentPage = 1; // Reset ke hal 1 setiap refresh
             renderLiveLogs();
 
         } catch (e) { 
-            console.error("Sinkronisasi Gagal:", e); 
+            console.error("Dashboard Sync Failed:", e); 
         } finally { 
             setTimeout(() => icon.classList.remove('fa-spin'), 1000); 
         }
     }
 
+    /**
+     * LEADERBOARD RENDERER: Menampilkan 5 petugas terbaik (Top Performers)
+     */
     function renderLeaderboard(officers) {
         const lb = document.getElementById('leaderboard-section');
         if (!lb) return;
 
+        // Sorting petugas berdasarkan nominal tertinggi (Collection Power)
         const sorted = [...officers].sort((a, b) => b.total_nominal - a.total_nominal);
         
         lb.innerHTML = sorted.slice(0, 5).map((o, i) => {
@@ -215,7 +229,7 @@
                         <div class="fw-bold text-center me-3" style="width: 25px;">${medal}</div>
                         <div>
                             <h6 class="fw-bold mb-0 text-dark small text-uppercase">${o.petugas} ${o.petugas === MY_PETUGAS_ID ? '<span class="badge bg-primary ms-1" style="font-size:0.5rem;">SAYA</span>' : ''}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Lunas • ${o.jml_janji} Janji</small>
+                            <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Lunas • ${o.total_dijalan} Kunjungan</small>
                         </div>
                     </div>
                     <span class="badge bg-success text-white rounded-pill" style="font-size: 0.65rem;">${toIDR(o.total_nominal)}</span>
@@ -224,6 +238,9 @@
         }).join('') || '<div class="text-center py-3 text-muted small">Belum ada aktivitas lapangan</div>';
     }
 
+    /**
+     * CHART ENGINE: Visualisasi grafik performa (Hanya muncul di Level Admin)
+     */
     function renderChart(officers) {
         const ctx = document.getElementById('performaChart').getContext('2d');
         if (myChart) myChart.destroy();
@@ -250,6 +267,9 @@
         });
     }
 
+    /**
+     * LIVE LOGS ENGINE: Rendering baris aktivitas petugas secara paginated
+     */
     function renderLiveLogs() {
         const container = document.getElementById('list-history-petugas');
         const start = (currentPage - 1) * logsPerPage;
@@ -263,7 +283,7 @@
                     <span class="fw-bold text-dark text-uppercase">${log.petugas}</span>
                     <span class="text-muted" style="font-size:0.6rem;">${log.waktu}</span>
                 </div>
-                <div class="small text-muted text-truncate mb-2" style="font-size:0.7rem;">ID: ${log.nomen} - ${log.nama}</div>
+                <div class="small text-muted text-truncate mb-2" style="font-size:0.7rem;">${log.nomen} - ${log.nama}</div>
                 <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                     <span class="badge ${labelClass} rounded-pill" style="font-size:0.55rem;">${log.keterangan}</span>
                     <span class="fw-bold text-primary" style="font-size:0.8rem;">${toIDR(log.nominal || 0)}</span>
@@ -271,6 +291,7 @@
             </div>`;
         }).join('') || '<div class="text-center py-4 text-muted small">Belum ada aktivitas lapangan</div>';
         
+        // Navigasi Halaman
         const totalPages = Math.ceil(allLogs.length / logsPerPage) || 1;
         document.getElementById('page-info').innerText = `Halaman ${currentPage} / ${totalPages}`;
         document.getElementById('btn-prev').disabled = currentPage === 1;
@@ -280,6 +301,7 @@
     function changePage(step) {
         currentPage += step;
         renderLiveLogs();
+        window.scrollTo({ top: document.getElementById('list-history-petugas').offsetTop - 100, behavior: 'smooth' });
     }
 </script>
 
@@ -290,5 +312,6 @@
     .bg-success-subtle { background-color: #dcfce7 !important; color: #15803d !important; }
     .bg-warning-subtle { background-color: #fef9c3 !important; color: #a16207 !important; }
     .progress-bar { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+    canvas { filter: drop-shadow(0px 10px 10px rgba(0,0,0,0.05)); }
 </style>
 {% endblock %}
