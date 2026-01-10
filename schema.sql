@@ -1,7 +1,7 @@
 -- Sunter Dashboard Pro - Database Schema (Smart Autopilot Edition)
--- Version: 3.5 (Enhanced Intelligence)
+-- Version: 3.6 (Final Stable - High Intelligence)
 -- Updated: 2026-01-10 
--- Sinergi: Automasi Ardebt, High-Value Target Filtering, & Dual-Path Validation
+-- Sinergi: Automasi Ardebt, High-Value Target Filtering, & Real-time Collection Sync
 
 -- =========================================================================
 -- 1. SISTEM AKSES & KEAMANAN (SMART AUTH)
@@ -65,6 +65,19 @@ CREATE TABLE IF NOT EXISTS master_bayar (
     UNIQUE(nomen, notagihan, periode)
 );
 
+-- Tabel Collection Harian: Pencatatan real-time setoran (Solusi Fix OperationalError)
+CREATE TABLE IF NOT EXISTS collection_harian (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nomen TEXT NOT NULL,
+    notag TEXT,
+    nominal REAL DEFAULT 0,
+    pay_dt TEXT,                    -- Tanggal transaksi/setoran
+    periode TEXT,                   -- Periode tagihan yang dibayar
+    petugas_input TEXT,             -- Audit: Siapa yang menginput
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(nomen, notag, periode)
+);
+
 -- Tabel Ardebt (Legacy/Manual): Penampung tunggakan berekor.
 CREATE TABLE IF NOT EXISTS ardebt (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,7 +89,7 @@ CREATE TABLE IF NOT EXISTS ardebt (
 );
 
 -- =========================================================================
--- 3. LOGGING AKTIVITAS & SNAPSHOT
+-- 3. LOGGING AKTIVITAS & AUDIT TRAIL
 -- =========================================================================
 
 -- Tabel Kunjungan Petugas: Log aktivitas dan bukti fisik lapangan.
@@ -91,9 +104,20 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     mc_snapshot REAL,               -- SMART SNAPSHOT: Nominal tagihan SAAT dikunjungi
     ardebt_snapshot REAL,           -- SMART SNAPSHOT: Nominal tunggakan SAAT dikunjungi
     foto_path TEXT,                 -- Nama file foto (Watermarked)
-    lat_long TEXT,                  -- GPS Coordinate (Sinergi Google Maps)
+    lat_long TEXT,                  -- GPS Coordinate
     periode TEXT,                   -- Periode pelaporan (MM-YYYY)
     status_audit TEXT DEFAULT 'OK',-- Untuk validasi Admin
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabel Upload History: Jejak audit pengunggahan file Excel (Solusi Fix 500 Error)
+CREATE TABLE IF NOT EXISTS upload_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_name TEXT,
+    file_type TEXT,                -- MC, MB, ARDEBT, RUTE
+    periode TEXT,
+    row_count INTEGER,
+    status TEXT,                   -- SUCCESS / FAILED
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -101,7 +125,8 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
 -- 4. SMART TRIGGER (LOGIKA AUTOPILOT)
 -- =========================================================================
 
--- Trigger untuk Menandai High-Value Target secara otomatis saat data diinsert
+-- TRIGGER 1: Autopilot Prioritas
+-- Otomatis menandai nasabah sebagai 'Prioritas' jika tagihan >= 300rb saat insert.
 CREATE TRIGGER IF NOT EXISTS trg_autopilot_priority
 AFTER INSERT ON master_pelanggan
 FOR EACH ROW
@@ -111,7 +136,8 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- Trigger Sinergi Lunas: Mengupdate status_lunas di master_pelanggan saat data MB diupload
+-- TRIGGER 2: Sinergi Lunas Otomatis
+-- Ketika data MB (Bank) masuk, otomatis ubah status di tabel MC (Master Pelanggan).
 CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas
 AFTER INSERT ON master_bayar
 FOR EACH ROW
@@ -121,12 +147,25 @@ BEGIN
     WHERE nomen = NEW.nomen AND periode = NEW.periode;
 END;
 
+-- TRIGGER 3: Autopilot Lunas via Collection Harian
+-- Ketika petugas input setoran di lapangan, otomatis tandai pelanggan sebagai lunas.
+CREATE TRIGGER IF NOT EXISTS trg_autopilot_coll_lunas
+AFTER INSERT ON collection_harian
+FOR EACH ROW
+BEGIN
+    UPDATE master_pelanggan 
+    SET status_lunas = 1, tgl_lunas = NEW.pay_dt
+    WHERE nomen = NEW.nomen AND periode = NEW.periode;
+END;
+
 -- =========================================================================
 -- 5. OPTIMASI INDEX (SMART PERFORMANCE)
 -- =========================================================================
 
+-- Indexing krusial agar pencarian ribuan data tetap secepat kilat.
 CREATE INDEX IF NOT EXISTS idx_mc_nomen_notag ON master_pelanggan(nomen, notagihan);
 CREATE INDEX IF NOT EXISTS idx_mc_filter_smart ON master_pelanggan(periode, nominal, pcez);
 CREATE INDEX IF NOT EXISTS idx_mc_status ON master_pelanggan(status_lunas, is_prioritas);
 CREATE INDEX IF NOT EXISTS idx_rute_mapping ON rute_petugas(petugas, pcez);
 CREATE INDEX IF NOT EXISTS idx_kunjungan_nomen ON kunjungan_petugas(nomen, periode);
+CREATE INDEX IF NOT EXISTS idx_coll_periode ON collection_harian(periode, petugas_input);
