@@ -3,30 +3,35 @@
 {% block content %}
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 text-center">
-        <h4 class="fw-bold mb-1 text-dark">Analisis Riwayat Bayar 📊</h4>
-        <p class="text-muted small">Tren pembayaran 3 bulan terakhir & intelijen penagihan</p>
+        <h4 class="fw-bold mb-1 text-dark">Analisis Riwayat 📊</h4>
+        <p class="text-muted small">Tren pelunasan & intelijen risiko pelanggan</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-3 mx-1 bg-white">
+        <div class="card-body p-2">
+            <div class="input-group bg-light rounded-3 px-2 border-0">
+                <span class="input-group-text border-0 bg-transparent text-muted"><i class="fas fa-search"></i></span>
+                <input type="text" id="globalSearch" class="form-control border-0 bg-transparent py-2 shadow-none small" 
+                       placeholder="Cari IDPEL atau Nama di semua kategori..." onkeyup="smartFilter()">
+            </div>
+        </div>
     </div>
 
     <div class="bg-white p-1 rounded-4 shadow-sm mb-4 border mx-1">
         <ul class="nav nav-pills nav-fill" id="historyTab" role="tablist">
             <li class="nav-item">
                 <button class="nav-link active rounded-3 fw-bold small py-2" id="undue-tab" data-bs-toggle="tab" data-bs-target="#undue-pane" type="button">
-                    <i class="fas fa-history me-1"></i> UNDUE
+                    <i class="fas fa-university me-1"></i> BANK
                 </button>
             </li>
             <li class="nav-item">
                 <button class="nav-link rounded-3 fw-bold small py-2" id="current-tab" data-bs-toggle="tab" data-bs-target="#current-pane" type="button">
-                    <i class="fas fa-bolt me-1 text-warning"></i> CURRENT
+                    <i class="fas fa-mobile-alt me-1 text-warning"></i> APP
                 </button>
             </li>
             <li class="nav-item">
-                <button class="nav-link rounded-3 fw-bold small py-2" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit-pane" type="button">
-                    <i class="fas fa-user-check me-1 text-primary"></i> AUDIT
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link rounded-3 fw-bold small py-2 text-danger" id="macet-tab" data-bs-toggle="tab" data-bs-target="#macet-pane" type="button">
-                    <i class="fas fa-satellite-dish me-1"></i> RADAR
+                <button class="nav-link rounded-3 fw-bold small py-2 text-danger font-monospace" id="macet-tab" data-bs-toggle="tab" data-bs-target="#macet-pane" type="button">
+                    <i class="fas fa-dragon me-1"></i> RADAR
                 </button>
             </li>
         </ul>
@@ -34,37 +39,55 @@
 
     <div class="tab-content" id="historyTabContent">
         <div class="tab-pane fade show active" id="undue-pane" role="tabpanel">
-            <div id="list-undue"><div class="text-center py-5"><div class="spinner-border text-primary"></div></div></div>
+            <div id="list-undue" class="pane-container">
+                <div class="text-center py-5"><div class="spinner-border text-primary border-width-2"></div></div>
+            </div>
         </div>
 
         <div class="tab-pane fade" id="current-pane" role="tabpanel">
-            <div id="list-current"><div class="text-center py-5"><div class="spinner-border text-warning"></div></div></div>
-        </div>
-
-        <div class="tab-pane fade" id="audit-pane" role="tabpanel">
-            <div id="list-audit"><div class="text-center py-5"><div class="spinner-border text-primary"></div></div></div>
+            <div id="list-current" class="pane-container">
+                <div class="text-center py-5"><div class="spinner-border text-warning border-width-2"></div></div>
+            </div>
         </div>
 
         <div class="tab-pane fade" id="macet-pane" role="tabpanel">
             <div class="alert alert-danger mx-1 rounded-4 border-0 shadow-sm mb-3">
-                <div class="d-flex">
-                    <i class="fas fa-triangle-exclamation me-2 mt-1"></i>
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-radiation-alt me-2 animate__animated animate__flash animate__infinite"></i>
                     <div>
-                        <small class="fw-bold d-block">RADAR MACET AKTIF</small>
-                        <small style="font-size: 0.7rem;">Analisis pelanggan dengan akumulasi tunggakan Ardebt bulan berjalan.</small>
+                        <small class="fw-bold d-block">PRIORITAS PENYEGELAN</small>
+                        <small style="font-size: 0.65rem;">Daftar nasabah yang menunggak di atas 2 periode.</small>
                     </div>
                 </div>
             </div>
-            <div id="list-macet"><div class="text-center py-5"><div class="spinner-border text-danger"></div></div></div>
+            <div id="list-macet" class="pane-container">
+                <div class="text-center py-5"><div class="spinner-border text-danger border-width-2"></div></div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
+    // Utils: Formatter Angka
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    // 1. Load Data Analisis Tren (Undue & Current)
-    async function loadAnalisis() {
+    /**
+     * SMART FILTER: Mencari nasabah secara instan di tab yang sedang aktif.
+     */
+    function smartFilter() {
+        const q = document.getElementById('globalSearch').value.toLowerCase();
+        const cards = document.querySelectorAll('.pane-container .card');
+        cards.forEach(card => {
+            const text = card.getAttribute('data-search').toLowerCase();
+            card.style.display = text.includes(q) ? 'block' : 'none';
+        });
+    }
+
+    /**
+     * LOAD TREND: Mengambil data histori 3 bulan terakhir.
+     * Logika Autopilot: Membagi data otomatis ke tab Bank (Undue) dan App (Current).
+     */
+    async function loadHistoryAnalysis() {
         try {
             const res = await fetch('/api/history/analisis-bayar');
             const result = await res.json();
@@ -73,136 +96,112 @@
             const undueData = data.filter(d => d.tipe_pembayaran === 'Undue');
             const currentData = data.filter(d => d.tipe_pembayaran === 'Current');
 
-            renderHistory(undueData, 'list-undue', 'bg-info');
-            renderHistory(currentData, 'list-current', 'bg-warning');
+            renderCards(undueData, 'list-undue', 'border-primary', 'BANK');
+            renderCards(currentData, 'list-current', 'border-warning', 'PETUGAS');
         } catch (e) {
-            console.error("Gagal memuat tren bayar:", e);
+            console.error("Gagal sinkronisasi histori.");
         }
     }
 
-    function renderHistory(data, elementId, accentClass) {
+    /**
+     * RENDER CARDS: Membangun kartu riwayat lunas.
+     */
+    function renderCards(data, elementId, borderClass, sourceLabel) {
         const container = document.getElementById(elementId);
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ada riwayat pembayaran terbaru.</div>';
+        if (!data.length) {
+            container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada jejak transaksi.</div>';
             return;
         }
 
         container.innerHTML = data.map(item => `
-            <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 border-start border-4 ${accentClass.replace('bg-', 'border-')} animate__animated animate__fadeInUp">
+            <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 border-start border-4 ${borderClass} animate__animated animate__fadeInUp" 
+                 data-search="${item.nomen} ${item.nama || ''} ${item.periode}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
                             <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">${item.nomen}</h6>
-                            <small class="text-muted" style="font-size: 0.7rem;">Tagihan: <b>${item.periode}</b></small>
+                            <small class="text-muted" style="font-size: 0.7rem;">Periode: <b>${item.periode}</b></small>
                         </div>
-                        <span class="badge ${accentClass} text-dark rounded-pill" style="font-size: 0.6rem;">${item.termin}</span>
+                        <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.55rem;">
+                             ${sourceLabel}
+                        </span>
                     </div>
                     <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
-                        <small class="text-muted small"><i class="far fa-calendar-check me-1"></i>Lunas: ${item.tgl_bayar}</small>
-                        <small class="badge bg-light text-dark border fw-normal" style="font-size: 0.6rem;">3bln Terakhir</small>
+                        <small class="text-muted small" style="font-size: 0.65rem;">Lunas: ${item.tgl_bayar}</small>
+                        <small class="fw-bold text-success" style="font-size: 0.75rem;">${toIDR(item.nominal || 0)}</small>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            </div>`).join('');
     }
 
-    // 2. Load Data Radar Macet
-    async function loadNomenMacet() {
+    /**
+     * LOAD RADAR MACET: Logika intelijen untuk deteksi tunggakan lama.
+     */
+    async function loadRadarMacet() {
         const container = document.getElementById('list-macet');
         try {
             const res = await fetch('/api/history/nomen-macet');
             const result = await res.json();
             const data = result.data || [];
 
-            if (data.length === 0) {
-                container.innerHTML = '<div class="text-center py-5 text-muted small">Alhamdulillah, tidak ada indikasi macet.</div>';
+            if (!data.length) {
+                container.innerHTML = '<div class="text-center py-5 text-muted small">Radar Bersih: Tidak ada risiko macet.</div>';
                 return;
             }
 
             container.innerHTML = data.map(item => `
-                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 animate__animated animate__fadeInUp border-start border-4 border-danger">
+                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 border-start border-4 border-danger animate__animated animate__shakeX"
+                     data-search="${item.nomen} ${item.nama}">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-danger text-white rounded-pill px-2" style="font-size: 0.65rem;">
-                                <i class="fas fa-clock me-1"></i>${item.record_bulan_macet} BULAN MENUNGGAK
+                            <span class="badge bg-danger text-white rounded-pill px-2" style="font-size: 0.6rem;">
+                                <i class="fas fa-exclamation-circle me-1"></i>${item.record_bulan_macet} BULAN TUNGGAKAN
                             </span>
-                            <small class="fw-bold text-muted">${item.nomen}</small>
+                            <small class="fw-bold text-muted" style="font-size: 0.65rem;">${item.nomen}</small>
                         </div>
-                        <h6 class="fw-bold mb-1 text-dark text-uppercase" style="font-size: 0.9rem;">${item.nama}</h6>
-                        <small class="text-muted d-block mb-2">PCEZ: ${item.pcez || '-'}</small>
+                        <h6 class="fw-bold mb-1 text-dark text-uppercase" style="font-size: 0.85rem;">${item.nama}</h6>
                         <div class="row g-0 mt-2 pt-2 border-top">
                             <div class="col-6">
-                                <small class="text-muted d-block" style="font-size: 0.6rem;">TAGIHAN TERBARU</small>
+                                <small class="text-muted d-block" style="font-size: 0.55rem;">MC TERAKHIR</small>
                                 <b class="small text-dark">${toIDR(item.nominal_terakhir)}</b>
                             </div>
                             <div class="col-6 text-end">
-                                <small class="text-danger d-block" style="font-size: 0.6rem;">TOTAL TUNGGAKAN</small>
+                                <small class="text-danger d-block" style="font-size: 0.55rem;">TOTAL PIUTANG</small>
                                 <b class="small text-danger">${toIDR(item.total_tunggakan_akumulasi)}</b>
                             </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                </div>`).join('');
         } catch (e) {
-            container.innerHTML = '<div class="text-center py-5 text-danger small">Gagal sinkronisasi Radar Macet.</div>';
+            container.innerHTML = '<div class="text-center py-5 text-danger small">Gagal memuat Radar.</div>';
         }
     }
 
-    // 3. Load Audit Kunjungan (Intelijen Sinergi)
-    async function loadAuditKunjungan() {
-        const container = document.getElementById('list-audit');
-        try {
-            const res = await fetch('/api/history/kunjungan');
-            const result = await res.json();
-            const data = result.data || [];
-
-            if (data.length === 0) {
-                container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada aktivitas lapangan tercatat.</div>';
-                return;
-            }
-
-            container.innerHTML = data.map(item => `
-                <div class="card border-0 shadow-sm rounded-4 mb-2 mx-1 animate__animated animate__fadeInUp">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <small class="text-primary fw-bold"><i class="fas fa-user-circle me-1"></i>${item.petugas_name}</small>
-                            <small class="text-muted" style="font-size: 0.65rem;">${item.waktu}</small>
-                        </div>
-                        <h6 class="fw-bold mb-1" style="font-size: 0.85rem;">${item.nama} <small class="text-muted">(${item.nomen})</small></h6>
-                        <div class="d-flex justify-content-between mt-2 pt-2 border-top border-light">
-                            <span class="badge ${item.keterangan.includes('Sudah') ? 'bg-success' : 'bg-primary'} rounded-pill" style="font-size: 0.65rem;">${item.keterangan}</span>
-                            <small class="text-dark fw-bold" style="font-size: 0.75rem;">Tagihan: ${toIDR(item.mc + item.ardebt)}</small>
-                        </div>
-                        ${item.catatan ? `<div class="mt-2 p-2 bg-light rounded-3 small text-muted italic" style="font-size: 0.7rem;">"${item.catatan}"</div>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        } catch (e) {
-            container.innerHTML = '<div class="text-center py-5 text-muted small">Gagal memuat log intelijen.</div>';
-        }
-    }
-
-    // Inisialisasi Sinergi
+    /**
+     * INITIALIZATION: Smart Lazy Loading saat tab di-klik.
+     */
     document.addEventListener('DOMContentLoaded', () => {
-        loadAnalisis();
-        // Sinergi: Data hanya dimuat saat tab aktif untuk menghemat data internet petugas
-        document.getElementById('macet-tab').addEventListener('shown.bs.tab', loadNomenMacet);
-        document.getElementById('audit-tab').addEventListener('shown.bs.tab', loadAuditKunjungan);
+        loadHistoryAnalysis(); 
+        
+        // Sinergi: Data Radar hanya dimuat saat user membuka tab Radar (Hemat Resource)
+        document.getElementById('macet-tab').addEventListener('shown.bs.tab', () => {
+            if (document.getElementById('list-macet').innerHTML.includes('spinner')) {
+                loadRadarMacet();
+            }
+        });
     });
 </script>
 
 <style>
-    /* Styling Sinergi Tab */
-    .nav-pills .nav-link { color: #6c757d; border: 1px solid transparent; transition: 0.3s; }
-    .nav-pills .nav-link.active { background-color: #0d6efd; color: white !important; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2); }
-    .nav-item:last-child .nav-link.active { background-color: #dc3545 !important; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2); }
+    /* SINERGI UI STYLING */
+    .nav-pills .nav-link { color: #64748b; background: #fff; transition: 0.3s; margin: 0 2px; border: 1px solid #f1f5f9; }
+    .nav-pills .nav-link.active { background-color: #0f172a; color: white !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    #macet-tab.active { background-color: #dc3545 !important; }
     
-    /* Card Hover Effects */
-    .card { transition: transform 0.2s ease; }
-    .card:active { transform: scale(0.97); }
+    .pane-container { min-height: 200px; }
+    .spinner-border.border-width-2 { border-width: 0.15em; width: 1.5rem; height: 1.5rem; }
     
-    .border-info { border-color: #0dcaf0 !important; }
-    .border-warning { border-color: #ffc107 !important; }
-    .animate__animated { --animate-duration: 0.4s; }
+    .card { transition: transform 0.1s ease; border: 1px solid #f1f5f9 !important; }
+    .card:active { transform: scale(0.98); }
 </style>
 {% endblock %}
