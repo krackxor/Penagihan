@@ -1,11 +1,11 @@
 """
-Flask Application - Sunter Dashboard Pro (V6.5 Enterprise Edition)
-Updated: 2026-01-11 (Smart Tracking & Sinergi Version)
+Flask Application - Sunter Dashboard Pro (V7.0 Enterprise Edition)
+Updated: 2026-01-11 (Smart Tracking, Sinergi & Materi Online Edition)
 
 LOGIKA SINERGI AKSES (Security Matrix):
-1. Level 1 (Publik/Guest): Statistik Global & Dashboard Realisasi.
-2. Level 2 (Petugas): Fokus Target Harian (20 Data), Penagihan, & GPS Reporting.
-3. Level 3 (Admin): Audit Lokasi (GPS), Kendali Data Master, Management User.
+1. Level 1 (Publik/Guest): Statistik Global, Dashboard Realisasi, & Youtube Media.
+2. Level 2 (Petugas): Fokus Target Harian (20 Data), Penagihan, GPS Reporting, & Materi Edukasi.
+3. Level 3 (Admin): Audit Lokasi (GPS), Pusat Materi, Kendali Data Master, Management User.
 """
 
 import os
@@ -31,8 +31,8 @@ from api.wa_gateway import wa_bp
 def create_app():
     """
     [FUNGSI UTAMA: create_app]
-    Kegunaan: Engine utama untuk inisialisasi Flask, Middleware, dan registrasi Route.
-    Alur: Load Config -> Init Database -> Create Folders -> Register Routes.
+    Kegunaan: Engine utama untuk inisialisasi Flask, Middleware, dan registrasi Route UI/API.
+    Alur: Load Config -> Init Database -> Infrastruktur Folder -> Middleware -> Register Blueprint.
     """
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -42,25 +42,25 @@ def create_app():
 
     # --- 1. STARTUP AUTOPILOT: Inisialisasi Infrastruktur ---
     with app.app_context():
-        # [DB INITIALIZE]: Menjalankan Auto-Migration untuk tabel GPS, NOMET, dan Profiling
+        # [DB INITIALIZE]: Menjalankan Auto-Migration untuk tabel GPS, NOMET, dan Snapshot Profiling
         init_db(app) 
         
-        # [FOLDER SYNC]: Memastikan storage storage foto bukti & temp data selalu tersedia
+        # [FOLDER SYNC]: Menjamin ketersediaan direktori penyimpanan file (Foto & Materi PDF)
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
-            os.path.join(app.root_path, 'static', 'uploads', 'temp')
+            os.path.join(app.root_path, 'static', 'uploads', 'temp'),
+            os.path.join(app.root_path, 'static', 'uploads', 'materi')
         ]
         for folder in folders:
             if not os.path.exists(folder):
                 os.makedirs(folder, exist_ok=True)
-                print(f"🚀 Infrastruktur V6.5 Ready -> {folder}")
+                print(f"🚀 Infrastruktur V7.0 Ready -> {folder}")
 
     @app.teardown_appcontext
     def close_connection(exception):
         """
         [FUNGSI: close_connection]
-        Kegunaan: Menutup koneksi database setiap request berakhir.
-        Tujuan: Mencegah 'Database Locked' pada SQLite saat diakses massal oleh petugas.
+        Kegunaan: Menutup koneksi database setiap kali request berakhir untuk mencegah 'Database Locked'.
         """
         db = g.pop('db', None)
         if db is not None:
@@ -71,10 +71,10 @@ def create_app():
     def security_layer():
         """
         [FUNGSI: security_layer]
-        Kegunaan: Penjaga gerbang (Middleware) untuk memvalidasi hak akses user.
-        Logika: Memisahkan endpoint publik, proteksi login, dan proteksi role Admin.
+        Kegunaan: Middleware penjaga gerbang akses berdasarkan Role & Session.
+        Logika: Membedakan akses Publik, Petugas, dan Admin.
         """
-        # [WHITELIST]: Endpoint yang diizinkan untuk akses umum (Publik)
+        # [WHITELIST]: Halaman yang bisa diakses tanpa login (Publik)
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 
@@ -84,18 +84,18 @@ def create_app():
         
         endpoint = request.endpoint
         
-        # Izinkan akses jika endpoint masuk dalam whitelist atau rute tidak ditemukan (404)
+        # Izinkan jika endpoint publik atau request ke file statis
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # [SESSION CHECK]: Validasi apakah user sudah login atau belum
+        # [SESSION CHECK]: Jika user belum login
         if 'role' not in session:
-            # Sinergi AJAX: Jika request berasal dari sistem (API), kirim JSON 401 (Unauthorized)
+            # Handle request API agar memberikan response JSON 401 (Bukan redirect HTML)
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Sesi Berakhir. Silakan Login Ulang."}), 401
             return redirect(url_for('login_page'))
         
-        # [ROLE CHECK]: Membatasi fitur eksklusif Administrator (Audit GPS & Data Master)
+        # [ROLE CHECK]: Membatasi fitur Administrator (Audit & Data Master)
         admin_only_endpoints = [
             'admin_dashboard', 'performa_page', 'wa_blast_page', 
             'history_page', 'monitoring_lokasi_page', 'upload.handle_upload'
@@ -103,7 +103,6 @@ def create_app():
         
         user_role = str(session.get('role', 'petugas')).lower()
         if endpoint in admin_only_endpoints and user_role != 'admin':
-            # Jika petugas mencoba bypass URL admin, alihkan paksa ke halaman operasional
             return redirect(url_for('tunggakan_berekor_page'))
 
     # --- 3. REGISTRASI BLUEPRINTS (SMART API SYSTEM) ---
@@ -116,87 +115,98 @@ def create_app():
     app.register_blueprint(collection_bp, url_prefix='/api/collection')
     app.register_blueprint(wa_bp, url_prefix='/api/wa-gateway') 
     
-    # [PERFORMA API]: Registrasi rute performa cerdas (Proyeksi Target & Analitik)
+    # [PERFORMA API]: Registrasi rute analitik cerdas
     register_pcez_routes(app, get_db_connection)
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
     
-    # [LEVEL 1: DASHBOARD UMUM]
+    # [LEVEL 1: DASHBOARD UMUM & MEDIA]
     @app.route('/')
     def index(): 
-        """Menampilkan Dashboard Utama Realisasi Global."""
+        """Menampilkan Dashboard Realisasi Capaian Global."""
         return render_template('index.html')
 
     @app.route('/monitoring-collection')
     def monitoring_collection_page(): 
-        """Menampilkan Monitoring Realisasi Collection Harian."""
+        """Menampilkan Monitoring Realisasi Collection Harian Petugas."""
         return render_template('monitoring_collection.html')
 
     @app.route('/youtube')
     def youtube_page():
-        """Halaman publik untuk konten edukasi/media YouTube PAM JAYA."""
+        """Pusat Edukasi Video: Memuat konten dinamis YouTube PAM JAYA."""
         return render_template('youtube.html')
 
     @app.route('/login')
     def login_page(): 
-        """
-        Halaman Login.
-        Logic: Jika sudah login, sistem auto-redirect ke dashboard masing-masing role.
-        """
+        """Halaman Login dengan Autopilot Redirect (Jika sudah ada sesi)."""
         if 'role' in session: 
             return redirect(get_role_redirect(session['role']))
         return render_template('login.html')
 
-    # [LEVEL 2: OPERASIONAL LAPANGAN - PETUGAS & ADMIN]
+    # [LEVEL 2: OPERASIONAL LAPANGAN]
     @app.route('/tunggakan-berekor')
     def tunggakan_berekor_page(): 
-        """Fokus Kerja Harian: Target 20 Data & Prioritas Kubik Tinggi."""
+        """Halaman Fokus Kerja: Menampilkan 20 Target prioritas harian."""
         return render_template('tagihan_berekor.html')
 
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
-        """Daftar penagihan rutin bulanan (Current)."""
+        """Daftar penagihan tagihan rutin (Current)."""
         return render_template('belum_bayar.html')
 
     @app.route('/janji-bayar')
     def janji_bayar_page(): 
-        """Monitoring komitmen pembayaran nasabah di lapangan."""
+        """Monitoring komitmen tanggal bayar hasil koordinasi lapangan."""
         return render_template('janji_bayar.html')
 
-    # [LEVEL 3: ADMINISTRASI & AUDIT - KHUSUS ADMIN]
+    @app.route('/materi')
+    def materi_page():
+        """
+        [FUNGSI: materi_page]
+        Kegunaan: Menampilkan dokumen PDF/Word secara online (Protected View).
+        Logika: Scan folder static/uploads/materi dan kirim daftar file ke frontend.
+        """
+        materi_dir = os.path.join(app.root_path, 'static', 'uploads', 'materi')
+        files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
+        return render_template('materi.html', files=files)
+
+    # [LEVEL 3: ADMINISTRASI & AUDIT GPS]
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
-        """Pusat kendali data master, upload excel, dan management user."""
+        """Pusat kendali database, mapping rute, dan kelola akun user."""
         return render_template('admin_dashboard.html')
 
     @app.route('/admin/monitoring-lokasi')
     def monitoring_lokasi_page():
-        """Fitur Intelijen: Verifikasi lokasi GPS petugas (Verify Lat/Lng)."""
+        """Audit Lokasi: Verifikasi titik koordinat GPS petugas secara real-time."""
         return render_template('monitoring_lokasi.html')
 
     @app.route('/performa')
     def performa_page(): 
-        """Analitik Performa Penagihan per PCEZ/Wilayah."""
+        """Analitik Performa Penagihan Berdasarkan Wilayah (PCEZ)."""
         return render_template('performa.html')
 
     @app.route('/history')
     def history_page(): 
-        """Log audit aktivitas sistem dan transaksi."""
+        """Log Audit: Rekam jejak seluruh transaksi dan aktivitas sistem."""
         return render_template('history.html')
 
     @app.route('/wa-blast')
     def wa_blast_page(): 
-        """Pusat kendali pengiriman pesan massal WhatsApp Gateway."""
+        """WA Gateway: Mengirimkan pengingat tagihan massal via WhatsApp."""
         return render_template('wa_blast.html')
 
-    # --- 5. FILE SERVING (STATIC ASSETS) ---
+    # --- 5. FILE SERVING & ASSETS ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
-        """
-        [FUNGSI: serve_kunjungan_photo]
-        Kegunaan: Menyajikan file gambar bukti kunjungan untuk kebutuhan audit.
-        """
+        """Menyajikan foto bukti koordinasi lapangan."""
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
+        return send_from_directory(folder, filename)
+
+    @app.route('/static/uploads/materi/<filename>')
+    def serve_materi_file(filename):
+        """Menyajikan file materi edukasi untuk viewer online."""
+        folder = os.path.join(app.root_path, 'static', 'uploads', 'materi')
         return send_from_directory(folder, filename)
 
     return app
@@ -204,9 +214,8 @@ def create_app():
 # --- SISTEM RUNNER ---
 if __name__ == '__main__':
     """
-    Runner Utama:
-    Host 0.0.0.0 memungkinkan akses server dari perangkat lain dalam satu jaringan WiFi.
-    Port 5000 adalah port standar Flask.
+    Runner Sinergi:
+    Host 0.0.0.0 agar aplikasi bisa diakses oleh HP Petugas di jaringan yang sama.
     """
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
