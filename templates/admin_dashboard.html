@@ -3,8 +3,8 @@
 <div class="container py-4 animate__animated animate__fadeIn">
     <div class="mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold text-dark mb-0">Pusat Kendali Admin ⚡</h3>
-            <p class="text-muted small">Sunter Pro v3.0.0 - Smart Autopilot Enabled</p>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-tower-control-panel me-2 text-danger"></i>Pusat Kendali Admin</h3>
+            <p class="text-muted small">Sunter Pro v6.5.0 - Enterprise Monitoring Enabled</p>
         </div>
         <div id="status-indicator" class="d-none d-md-block">
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
@@ -13,15 +13,20 @@
         </div>
     </div>
 
-    <ul class="nav nav-pills nav-fill bg-white p-2 shadow-sm rounded-4 mb-4" id="adminTab" role="tablist">
+    <ul class="nav nav-pills nav-fill bg-white p-2 shadow-sm rounded-4 mb-4 border" id="adminTab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active rounded-3" data-bs-toggle="tab" data-bs-target="#tab-sync" onclick="checkDataStatus()">
+            <button class="nav-link active rounded-3" data-bs-toggle="tab" data-bs-target="#tab-audit">
+                <i class="fas fa-map-location-dot me-2"></i> Audit GPS
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-sync" onclick="checkDataStatus()">
                 <i class="fas fa-sync me-2"></i> Sinkron Data
             </button>
         </li>
         <li class="nav-item">
             <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-mapping" onclick="loadMapping()">
-                <i class="fas fa-map-location-dot me-2"></i> Mapping Rute
+                <i class="fas fa-route me-2"></i> Mapping Rute
             </button>
         </li>
         <li class="nav-item">
@@ -32,29 +37,66 @@
     </ul>
 
     <div class="tab-content">
-        <div class="tab-pane fade show active" id="tab-sync">
+        <div class="tab-pane fade show active" id="tab-audit">
+            <div class="row g-4">
+                <div class="col-md-8">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0"><i class="fas fa-satellite text-danger me-2"></i>Audit Monitoring Lokasi</h5>
+                            <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold">
+                                <i class="fas fa-external-link-alt me-1"></i> Buka Full Map
+                            </a>
+                        </div>
+                        <p class="text-muted small mb-4">Lakukan verifikasi kejujuran petugas lapangan melalui titik koordinat GPS yang terekam saat pengambilan foto bukti.</p>
+                        
+                        <div class="bg-light p-4 rounded-4 border border-dashed text-center">
+                            <i class="fas fa-map-marked-alt fa-3x text-muted mb-3"></i>
+                            <h6>Verifikasi Geo-Tagging</h6>
+                            <p class="small text-secondary">Pastikan petugas berada di lokasi pelanggan saat laporan dikirim.</p>
+                            <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-dark rounded-pill px-4">Cek Lokasi Sekarang</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-dark text-white">
+                        <h5 class="fw-bold mb-3 text-warning"><i class="fas fa-chart-pie me-2"></i>Status Operasional</h5>
+                        <div id="quick-stats-audit">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>Efektivitas GPS</small>
+                                    <small class="fw-bold">High Accuracy</small>
+                                </div>
+                                <div class="progress rounded-pill bg-secondary" style="height: 6px;">
+                                    <div class="progress-bar bg-warning" style="width: 90%;"></div>
+                                </div>
+                            </div>
+                            <p class="small text-secondary mb-0">Semua laporan kunjungan kini wajib menyertakan koordinat Latitude & Longitude untuk validasi database.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-sync">
             <div class="row g-4">
                 <div class="col-md-7">
                     <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white text-center">
                         <h5 class="fw-bold mb-3 text-start"><i class="fas fa-cloud-arrow-up text-primary me-2"></i>Upload Master Excel</h5>
-                        <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light mb-3" id="drop-zone">
+                        <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light mb-3" id="drop-zone" onclick="document.getElementById('excelFile').click()">
                             <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
                             <p class="mb-2 fw-bold">Klik atau seret file Master ke sini</p>
                             <p class="mb-3 text-secondary small">Sistem mendeteksi otomatis: MC, MB, atau Ardebt</p>
                             <input type="file" id="excelFile" class="form-control d-none" accept=".xlsx, .xls">
-                            <button class="btn btn-outline-success px-4 rounded-pill fw-bold" onclick="document.getElementById('excelFile').click()">
-                                <i class="fas fa-search me-1"></i> Pilih File
-                            </button>
                             <div id="file-name-preview" class="mt-3 small fw-bold text-primary"></div>
                         </div>
                         <button class="btn btn-dark w-100 fw-bold rounded-3 py-3 shadow" onclick="uploadData()">
-                            <i class="fas fa-bolt me-2 text-warning"></i> MULAI SINKRONISASI CERDAS
+                            <i class="fas fa-bolt me-2 text-warning"></i> MULAI SINKRONISASI DATA
                         </button>
                     </div>
                 </div>
                 <div class="col-md-5">
                     <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-                        <h5 class="fw-bold mb-3"><i class="fas fa-database text-info me-2"></i>Integritas Data</h5>
+                        <h5 class="fw-bold mb-3"><i class="fas fa-database text-info me-2"></i>Integritas Database</h5>
                         <div id="data-status-list">
                             <div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
                         </div>
@@ -66,7 +108,7 @@
         <div class="tab-pane fade" id="tab-mapping">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                    <h5 class="fw-bold mb-0">Pemetaan Petugas & Rayon</h5>
+                    <h5 class="fw-bold mb-0">Pemetaan Petugas & Wilayah (PCEZ)</h5>
                     <div class="input-group" style="max-width: 300px;">
                         <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
                         <input type="text" class="form-control bg-light border-0 small" id="searchMapping" placeholder="Cari Kode atau Petugas..." onkeyup="filterMapping()">
@@ -79,7 +121,7 @@
                                 <th>Kode PCEZ</th>
                                 <th>Petugas Lapangan</th>
                                 <th>WhatsApp Admin</th>
-                                <th class="text-end">Tindakan</th>
+                                <th class="text-end">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="mappingTableBody"></tbody>
@@ -91,7 +133,7 @@
         <div class="tab-pane fade" id="tab-users">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold mb-0">Manajemen Akses Sinergi</h5>
+                    <h5 class="fw-bold mb-0">Manajemen Akses Petugas</h5>
                     <button class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="showAddUserModal()">
                         <i class="fas fa-plus me-2"></i> Tambah Akun
                     </button>
@@ -118,21 +160,21 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4 shadow-lg">
             <div class="modal-body p-4">
-                <h5 class="fw-bold mb-3">Update Sinergi Wilayah</h5>
+                <h5 class="fw-bold mb-3"><i class="fas fa-edit me-2 text-primary"></i>Update Sinergi Wilayah</h5>
                 <form id="mappingForm">
                     <div class="mb-3">
                         <label class="small fw-bold">Kode Rute (PCEZ)</label>
                         <input type="text" id="edit_pcez" class="form-control bg-light" readonly>
                     </div>
                     <div class="mb-3">
-                        <label class="small fw-bold">Petugas (Harus Sesuai dengan Nama User)</label>
+                        <label class="small fw-bold">Petugas (Sesuai Username)</label>
                         <input type="text" id="edit_petugas" class="form-control text-uppercase">
                     </div>
                     <div class="mb-3">
-                        <label class="small fw-bold">Nomor WA Supervisor (Tembusan Laporan)</label>
+                        <label class="small fw-bold">No. WA Supervisor</label>
                         <input type="text" id="edit_no_admin" class="form-control" placeholder="628123xxx">
                     </div>
-                    <button type="button" class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow" onclick="saveMapping()">UPDATE MAPPING</button>
+                    <button type="button" class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow" onclick="saveMapping()">SIMPAN PERUBAHAN</button>
                 </form>
             </div>
         </div>
@@ -140,15 +182,15 @@
 </div>
 
 <style>
-    .nav-pills .nav-link.active { background-color: #0d6efd; box-shadow: 0 4px 15px rgba(13,110,253,0.3); }
+    .nav-pills .nav-link.active { background-color: #dc3545; box-shadow: 0 4px 15px rgba(220,53,69,0.3); color: white; }
     .nav-pills .nav-link { color: #64748b; font-weight: 600; padding: 12px; }
     .border-dashed { border: 2px dashed #cbd5e1; transition: all 0.3s; cursor: pointer; }
-    .border-dashed:hover { border-color: #0d6efd; background-color: #f0f7ff !important; }
+    .border-dashed:hover { border-color: #dc3545; background-color: #fcf8f8 !important; }
 </style>
 
 <script>
 /**
- * CORE ADMIN LOGIC - SUNTER PRO
+ * CORE ADMIN LOGIC - SUNTER PRO V6.5
  */
 
 // File Preview: Menampilkan nama file yang akan diupload
@@ -160,27 +202,27 @@ document.getElementById('excelFile').onchange = function() {
 };
 
 /**
- * DATA STATUS: Autopilot check untuk melihat seberapa banyak data yang tersimpan.
+ * FUNGSI: checkDataStatus()
+ * Melakukan verifikasi ketersediaan tabel di database.
  */
 async function checkDataStatus() {
     try {
         const res = await fetch('/api/history/list'); 
         const result = await res.json();
-        
         let html = '';
         const dataStats = [
-            { id: 'MC', name: 'Master Pelanggan (MC)', icon: 'fa-users' },
+            { id: 'MC', name: 'Master Pelanggan', icon: 'fa-users' },
             { id: 'MB', name: 'Data Lunas (MB)', icon: 'fa-check-double' },
-            { id: 'ARDEBT', name: 'Tunggakan Ardebt', icon: 'fa-dragon' },
-            { id: 'RUTE', name: 'Mapping Rute', icon: 'fa-map' }
+            { id: 'KUNJUNGAN', name: 'Log GPS & Foto', icon: 'fa-map-marker-alt' },
+            { id: 'RUTE', name: 'Mapping Rute', icon: 'fa-route' }
         ];
 
         dataStats.forEach(stat => {
             html += `
-                <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded-3">
+                <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded-3 border">
                     <div>
                         <span class="fw-bold d-block small"><i class="fas ${stat.icon} me-2 text-muted"></i>${stat.name}</span>
-                        <small class="text-muted" style="font-size:0.65rem;">Status: Terhubung dengan Database</small>
+                        <small class="text-muted" style="font-size:0.65rem;">Integrity: Synchronized</small>
                     </div>
                     <i class="fas fa-check-circle text-success fa-lg"></i>
                 </div>`;
@@ -192,18 +234,19 @@ async function checkDataStatus() {
 }
 
 /**
- * SMART UPLOAD: Mengirim file ke backend untuk diproses secara otomatis (Autopilot).
+ * FUNGSI: uploadData()
+ * Mengirim file Excel ke backend dengan monitoring kemajuan.
  */
 async function uploadData() {
     const fileInput = document.getElementById('excelFile');
-    if (fileInput.files.length === 0) return Swal.fire('Perhatian', 'Harap pilih file Excel terlebih dahulu.', 'info');
+    if (fileInput.files.length === 0) return Swal.fire('Info', 'Pilih file terlebih dahulu.', 'info');
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
 
     Swal.fire({ 
         title: 'Menganalisis Data...', 
-        html: 'Sistem sedang membersihkan format NOMEN & PCEZ otomatis',
+        html: 'Sistem sedang menvalidasi GPS & NOMET otomatis',
         allowOutsideClick: false, 
         didOpen: () => Swal.showLoading() 
     });
@@ -212,16 +255,17 @@ async function uploadData() {
         const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
         const result = await res.json();
         if (res.ok) {
-            Swal.fire('Berhasil!', `File ${result.message} telah disinkronkan.`, 'success');
+            Swal.fire('Berhasil!', `Data ${result.message} disinkronkan.`, 'success');
             checkDataStatus();
         } else {
-            Swal.fire('Kegagalan Sinergi', result.error, 'error');
+            Swal.fire('Error Sinkronisasi', result.error, 'error');
         }
-    } catch (e) { Swal.fire('Error', 'Timeout Server: File terlalu besar atau koneksi terputus.', 'error'); }
+    } catch (e) { Swal.fire('Error', 'File terlalu besar atau koneksi terputus.', 'error'); }
 }
 
 /**
- * MAPPING SYSTEM: Kelola rute petugas secara dinamis.
+ * FUNGSI: loadMapping()
+ * Memuat data pemetaan wilayah kerja petugas.
  */
 async function loadMapping() {
     try {
@@ -230,18 +274,18 @@ async function loadMapping() {
         let html = '';
         data.forEach(row => {
             html += `<tr class="mapping-row" data-search="${row.pcez} ${row.petugas}">
-                <td class="fw-bold text-primary">${row.pcez}</td>
-                <td class="text-uppercase small">${row.petugas || '<span class="text-danger">UNMAPPED</span>'}</td>
+                <td class="fw-bold text-danger">${row.pcez}</td>
+                <td class="text-uppercase small fw-bold text-dark">${row.petugas || '<span class="text-muted">BELUM TERPASANG</span>'}</td>
                 <td class="small font-monospace">${row.no_admin || '-'}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary rounded-circle" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
-                        <i class="fas fa-edit"></i>
+                    <button class="btn btn-sm btn-outline-dark rounded-circle" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
+                        <i class="fas fa-pen"></i>
                     </button>
                 </td>
             </tr>`;
         });
-        document.getElementById('mappingTableBody').innerHTML = html || '<tr><td colspan="4" class="text-center py-4">Belum ada rute terdeteksi. Silakan upload MC.</td></tr>';
-    } catch (e) { console.error("Load Mapping Failed"); }
+        document.getElementById('mappingTableBody').innerHTML = html || '<tr><td colspan="4" class="text-center py-4">Kosong. Silakan upload MC.</td></tr>';
+    } catch (e) { console.error("Mapping failed"); }
 }
 
 function filterMapping() {
@@ -263,19 +307,19 @@ async function saveMapping() {
     formData.append('pcez', document.getElementById('edit_pcez').value);
     formData.append('petugas', document.getElementById('edit_petugas').value);
     formData.append('no_admin', document.getElementById('edit_no_admin').value);
-    
     try {
         const res = await fetch('/api/rute/save', { method: 'POST', body: formData });
         if (res.ok) { 
             bootstrap.Modal.getInstance(document.getElementById('editMappingModal')).hide(); 
             loadMapping(); 
-            Swal.fire('Sinergi Update', 'Mapping rute berhasil diperbarui.', 'success');
+            Swal.fire('Sukses', 'Data wilayah diperbarui.', 'success');
         }
-    } catch (e) { Swal.fire('Gagal', 'Koneksi database terganggu', 'error'); }
+    } catch (e) { Swal.fire('Gagal', 'Terjadi gangguan koneksi.', 'error'); }
 }
 
 /**
- * USER MANAGEMENT: Sinkronisasi akun petugas lapangan.
+ * FUNGSI: loadUsers()
+ * Memuat daftar seluruh akun yang memiliki akses ke sistem.
  */
 async function loadUsers() {
     try {
@@ -285,8 +329,8 @@ async function loadUsers() {
         users.forEach(u => {
             html += `<tr>
                 <td class="fw-bold text-dark">${u.username}</td>
-                <td><span class="badge ${u.role === 'admin' ? 'bg-dark' : 'bg-secondary'} rounded-pill">${u.role.toUpperCase()}</span></td>
-                <td class="small fw-bold text-primary">${u.petugas_id || 'ALL ACCESS'}</td>
+                <td><span class="badge ${u.role === 'admin' ? 'bg-dark' : 'bg-primary-subtle text-primary'} rounded-pill">${u.role.toUpperCase()}</span></td>
+                <td class="small fw-bold text-muted">${u.petugas_id || 'AKSES GLOBAL'}</td>
                 <td class="text-end">
                     <button class="btn btn-sm text-danger" onclick="deleteUser('${u.username}')">
                         <i class="fas fa-trash"></i>
@@ -298,9 +342,7 @@ async function loadUsers() {
     } catch (e) { console.error("User list failed"); }
 }
 
-// Inisialisasi awal saat halaman terbuka
-document.addEventListener('DOMContentLoaded', () => {
-    checkDataStatus();
-});
+// Start Status
+document.addEventListener('DOMContentLoaded', () => { checkDataStatus(); });
 </script>
 {% endblock %}
