@@ -79,7 +79,7 @@ def create_app():
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 
             'auth.check_session', 'get_full_stats', 'get_reminders', 
-            'collection.daily_monitor', 'youtube_page'
+            'collection.daily_monitor', 'youtube_page', 'materi_page'
         ]
         
         endpoint = request.endpoint
