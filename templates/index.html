@@ -122,6 +122,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    /**
+     * [VARIABEL GLOBAL]
+     * Menyimpan state dashboard untuk manajemen data di sisi Client.
+     */
     let currentPage = 1; 
     let allLogs = []; 
     const logsPerPage = 10; 
@@ -129,15 +133,18 @@
     const USER_ROLE = "{{ session.get('role', 'guest')|lower }}";
     const MY_PETUGAS_ID = "{{ session.get('petugas_id', 'ALL') }}";
 
-    // Formatter Rupiah Standar
+    // Formatter Rupiah Standar (Indonesia)
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     
+    /**
+     * [FUNGSI: DOMContentLoaded]
+     * Menjalankan inisialisasi default saat halaman selesai dimuat.
+     */
     document.addEventListener('DOMContentLoaded', () => { 
-        // Inisialisasi Tanggal Hari Ini
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         
-        // Autopilot: Set filter bulan ke bulan berjalan secara otomatis
+        // Auto-set filter bulan ke periode berjalan (YYYY-MM)
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         
@@ -145,7 +152,9 @@
     });
 
     /**
-     * REFRESH CORE DATA: Fungsi sentral sinkronisasi Frontend & Backend
+     * [FUNGSI: refreshDashboard]
+     * Kegunaan: Mengambil data performa terbaru dari API Backend.
+     * Alur: Memutar ikon sync -> Fetching data -> Update UI (Summary, Progress, Ranking, Logs).
      */
     async function refreshDashboard() {
         const icon = document.getElementById('sync-icon');
@@ -157,10 +166,9 @@
         const periode = `${month}-${year}`; 
 
         try {
-            // Sinergi: Mengambil data dari API Full Stats yang sudah di-optimize
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
             
-            // Security Check: Jika sesi mati, arahkan ke login
+            // Proteksi: Jika sesi berakhir (Unauthorized), arahkan ke halaman login
             if (res.status === 401) {
                 window.location.href = '/login?logout=expired';
                 return;
@@ -171,18 +179,18 @@
 
             const g = result.global;
 
-            // 1. UPDATE SUMMARY CARDS
+            // 1. UPDATE SUMMARY CARDS (Unit Master vs Rupiah Master)
             document.getElementById('g-nomen-mc').innerText = (g.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc || 0);
             
+            // 2. HITUNG SISA PIUTANG (Total Master dikurangi Realisasi Lunas)
             const totalLunasRp = (g.nom_terbayar || 0);
             document.getElementById('stat-sisa-nom').innerText = toIDR((g.total_nominal_mc || 0) - totalLunasRp);
             document.getElementById('stat-sisa-nomen').innerText = (g.sisa_nomen || 0).toLocaleString();
             
-            // 2. UPDATE PROGRESS & PERCENTAGE
+            // 3. UPDATE PERCENTAGE & PROGRESS BAR (Total Lunas vs Total Target)
             const totalLunasCount = (g.total_lunas_mc || 0);
             document.getElementById('stat-realisasi').innerText = `${totalLunasCount.toLocaleString()} Terbayar / ${(g.total_nomen_mc || 0).toLocaleString()} Unit`;
-            
             document.getElementById('val-undue').innerText = (g.count_undue || 0).toLocaleString();
             document.getElementById('val-current').innerText = (g.count_current || 0).toLocaleString();
 
@@ -190,32 +198,35 @@
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            // 3. RENDER LEADERBOARD & CHART (ADMIN ONLY)
+            // 4. RENDER RANKING (Leaderboard) & CHART (Khusus Admin)
             renderLeaderboard(result.officers || []);
             if (USER_ROLE === 'admin' && document.getElementById('performaChart')) {
                 renderChart(result.officers || []);
             }
 
-            // 4. UPDATE LIVE LOGS
+            // 5. UPDATE FEED LOGS (Aktivitas Petugas)
             allLogs = result.log_petugas || [];
-            currentPage = 1; // Reset ke hal 1 setiap refresh
+            currentPage = 1; 
             renderLiveLogs();
 
         } catch (e) { 
-            console.error("Dashboard Sync Failed:", e); 
+            console.error("Dashboard Sync Error:", e); 
         } finally { 
+            // Hentikan putaran ikon refresh setelah 1 detik
             setTimeout(() => icon.classList.remove('fa-spin'), 1000); 
         }
     }
 
     /**
-     * LEADERBOARD RENDERER: Menampilkan 5 petugas terbaik (Top Performers)
+     * [FUNGSI: renderLeaderboard]
+     * Kegunaan: Menampilkan daftar petugas berdasarkan pencapaian tertinggi (Ranking).
+     * Sinergi: Menandai baris "SAYA" untuk petugas yang sedang login.
      */
     function renderLeaderboard(officers) {
         const lb = document.getElementById('leaderboard-section');
         if (!lb) return;
 
-        // Sorting petugas berdasarkan nominal tertinggi (Collection Power)
+        // Sorting petugas berdasarkan Nominal Collection (Desceding)
         const sorted = [...officers].sort((a, b) => b.total_nominal - a.total_nominal);
         
         lb.innerHTML = sorted.slice(0, 5).map((o, i) => {
@@ -229,21 +240,23 @@
                         <div class="fw-bold text-center me-3" style="width: 25px;">${medal}</div>
                         <div>
                             <h6 class="fw-bold mb-0 text-dark small text-uppercase">${o.petugas} ${o.petugas === MY_PETUGAS_ID ? '<span class="badge bg-primary ms-1" style="font-size:0.5rem;">SAYA</span>' : ''}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Lunas • ${o.total_dijalan} Kunjungan</small>
+                            <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Unit Lunas • ${o.total_dijalan} Kunjungan</small>
                         </div>
                     </div>
                     <span class="badge bg-success text-white rounded-pill" style="font-size: 0.65rem;">${toIDR(o.total_nominal)}</span>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada aktivitas lapangan</div>';
+        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada aktivitas di periode ini</div>';
     }
 
     /**
-     * CHART ENGINE: Visualisasi grafik performa (Hanya muncul di Level Admin)
+     * [FUNGSI: renderChart]
+     * Kegunaan: Visualisasi grafik batang untuk perbandingan performa antar petugas.
+     * Alur: Membangun objek Chart.js dengan data nominal collection.
      */
     function renderChart(officers) {
         const ctx = document.getElementById('performaChart').getContext('2d');
-        if (myChart) myChart.destroy();
+        if (myChart) myChart.destroy(); // Hancurkan chart lama sebelum membuat yang baru
         myChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -268,7 +281,9 @@
     }
 
     /**
-     * LIVE LOGS ENGINE: Rendering baris aktivitas petugas secara paginated
+     * [FUNGSI: renderLiveLogs]
+     * Kegunaan: Rendering daftar aktivitas lapangan (Pagination Logic).
+     * Alur: Slice data dari array allLogs berdasarkan currentPage.
      */
     function renderLiveLogs() {
         const container = document.getElementById('list-history-petugas');
@@ -276,6 +291,7 @@
         const currentLogs = allLogs.slice(start, start + logsPerPage);
         
         container.innerHTML = currentLogs.map(log => {
+            // Memberikan warna berbeda berdasarkan status koordinasi petugas
             let labelClass = log.keterangan.includes('Sudah') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
             return `
             <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
@@ -289,25 +305,32 @@
                     <span class="fw-bold text-primary" style="font-size:0.8rem;">${toIDR(log.nominal || 0)}</span>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-center py-4 text-muted small">Belum ada aktivitas lapangan</div>';
+        }).join('') || '<div class="text-center py-4 text-muted small">Log aktivitas kosong</div>';
         
-        // Navigasi Halaman
+        // Perhitungan navigasi halaman (Prev/Next)
         const totalPages = Math.ceil(allLogs.length / logsPerPage) || 1;
         document.getElementById('page-info').innerText = `Halaman ${currentPage} / ${totalPages}`;
         document.getElementById('btn-prev').disabled = currentPage === 1;
         document.getElementById('btn-next').disabled = currentPage === totalPages || allLogs.length === 0;
     }
 
+    /**
+     * [FUNGSI: changePage]
+     * Kegunaan: Mengganti halaman log dan melakukan auto-scroll ke atas list.
+     */
     function changePage(step) {
         currentPage += step;
         renderLiveLogs();
+        // Efek smooth scroll ke awal daftar log
         window.scrollTo({ top: document.getElementById('list-history-petugas').offsetTop - 100, behavior: 'smooth' });
     }
 </script>
 
 <style>
+    /* Animasi Titik Real-time (Pulse Red) */
     .realtime-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: pulse-red 1.5s infinite; }
     @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    
     .btn-white { background: white; border: 1px solid #e2e8f0; }
     .bg-success-subtle { background-color: #dcfce7 !important; color: #15803d !important; }
     .bg-warning-subtle { background-color: #fef9c3 !important; color: #a16207 !important; }
