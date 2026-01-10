@@ -1,20 +1,22 @@
--- Sunter Dashboard Pro - Database Schema (Smart Autopilot Edition)
--- Version: 3.6 (Final Stable - High Intelligence)
+-- =========================================================================
+-- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V3.8 SINERGI STRICT EDITION)
 -- Updated: 2026-01-10 
 -- Sinergi: Automasi Ardebt, High-Value Target Filtering, & Real-time Collection Sync
+-- =========================================================================
 
 -- =========================================================================
 -- 1. SISTEM AKSES & KEAMANAN (SMART AUTH)
 -- =========================================================================
 
--- Tabel User: Standarisasi level akses untuk keamanan data personal nasabah.
+-- Tabel User: Standarisasi level akses. 
+-- Link petugas_id harus sinkron dengan tabel rute_petugas.
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,      -- ID Login petugas (Case Sensitive)
-    password TEXT NOT NULL,              -- Hash password (BCrypt/PBKDF2)
+    username TEXT UNIQUE NOT NULL,      -- Username login petugas
+    password TEXT NOT NULL,              -- Password terenkripsi
     role TEXT NOT NULL,                  -- 'admin', 'petugas', 'guest'
-    petugas_id TEXT,                     -- SINERGI: Harus SAMA dengan rute_petugas.petugas
-    no_hp TEXT,                          -- WhatsApp petugas untuk notifikasi sistem
+    petugas_id TEXT,                     -- ID Petugas untuk filter data lapangan
+    no_hp TEXT,                          -- WhatsApp petugas untuk notifikasi
     last_login TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -24,67 +26,79 @@ CREATE TABLE IF NOT EXISTS users (
 -- =========================================================================
 
 -- Tabel Master Pelanggan (MC): Inti dari target penagihan bulanan.
+-- Dilengkapi dengan pemecahan komponen ZONA_NOVAK (PC, EZ, BLOK).
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT NOT NULL,           -- SMART CAST: Selalu simpan sebagai TEXT untuk cegah IDPEL ilmiah (3.5E+08)
+    nomen TEXT NOT NULL,           -- ID Pelanggan (Disimpan sebagai TEXT untuk proteksi format)
+    nama TEXT,                     -- Diambil dari kolom NAMA_PEL
+    alamat TEXT,                   -- Gabungan Sinergi dari ALM1_PEL, ALM2_PEL, ALM3_PEL
+    kd_pos TEXT,                   -- Kode Pos Pelanggan
+    pcez TEXT,                     -- Kode Rute Standar (Hasil Slicing ZONA_NOVAK: PC/EZ)
+    rayon TEXT,                    -- Hasil Slicing ZONA_NOVAK (Digit 1-2)
+    pc TEXT,                       -- Hasil Slicing ZONA_NOVAK (Digit 3-5)
+    ez TEXT,                       -- Hasil Slicing ZONA_NOVAK (Digit 6-7)
+    blok TEXT,                     -- Hasil Slicing ZONA_NOVAK (Digit 8-9)
+    notagihan TEXT,                -- Nomor Tagihan (Kunci Pintu Ganda 1)
     nomet TEXT,                    -- Nomor Meter pelanggan
-    notagihan TEXT,                -- Kunci Pintu Ganda 1 (Link Utama ke MB & Collection)
-    nama TEXT,                     -- Nama Pelanggan
-    pcez TEXT,                     -- Kode Rute (Standard: XXX/XX)
-    rayon TEXT,                    -- SMART AUTO: '34' atau '35' (Terisi otomatis saat upload)
-    nominal REAL DEFAULT 0,        -- Rupiah Tagihan Bulan Berjalan
-    volume REAL DEFAULT 0,         -- Kubikasi penggunaan air
-    periode TEXT,                  -- SMART PERIOD: Format MM-YYYY (Contoh: '01-2026')
-    is_prioritas INTEGER DEFAULT 0, -- AUTOPILOT: Set 1 otomatis jika nominal >= 300.000
-    no_hp TEXT,                    -- SINERGI: Nomor HP Konsumen (untuk WA Blast)
-    status_lunas INTEGER DEFAULT 0, -- SMART STATUS: 0=Belum, 1=Lunas
-    tgl_lunas TEXT,                -- Sinkronisasi dari Master Bayar
+    tarif TEXT,                    -- Golongan Tarif (Wajib MC)
+    tgl_catat TEXT,                -- Tanggal pembacaan meter
+    stan_awal REAL DEFAULT 0,      -- Angka meter awal
+    stan_akir REAL DEFAULT 0,      -- Angka meter akhir
+    kubik REAL DEFAULT 0,          -- Selisih stan (KUBIK)
+    nominal REAL DEFAULT 0,        -- Total Rupiah (NOMINAL)
+    cust_type TEXT,                -- Tipe Pelanggan
+    tipe TEXT DEFAULT 'MC',        -- Kategori data (MC)
+    periode TEXT,                  -- Format MM-YYYY
+    is_prioritas INTEGER DEFAULT 0, -- Auto-set 1 jika nominal >= 300.000
+    status_lunas INTEGER DEFAULT 0, -- 0=Belum, 1=Lunas
+    tgl_lunas TEXT,                -- Tanggal pelunasan (Sync MB/Collection)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, notagihan, periode) 
 );
 
 -- Tabel Mapping Rute (SINERGI WILAYAH): Menghubungkan rute dengan penanggung jawab.
 CREATE TABLE IF NOT EXISTS rute_petugas (
-    pcez TEXT PRIMARY KEY,         -- Kode Rute unik (Key Utama)
-    petugas TEXT NOT NULL,         -- Nama Petugas (Link ke users.petugas_id)
-    no_admin TEXT,                 -- SINERGI WA: Nomor WA Admin/Supervisor wilayah (Tembusan Laporan)
-    target_rupiah REAL DEFAULT 0,  -- Akumulasi target per rute
+    pcez TEXT PRIMARY KEY,         -- Kode Rute (Contoh: 096/02)
+    petugas TEXT NOT NULL,         -- Nama Petugas Lapangan
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Master Bayar (MB): Data lunas resmi dari kantor/bank.
+-- Tabel Master Bayar (MB): Data lunas resmi hasil sinkronisasi kantor.
 CREATE TABLE IF NOT EXISTS master_bayar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT NOT NULL,
-    notagihan TEXT,
-    nominal REAL DEFAULT 0,
-    tgl_bayar TEXT,
-    periode TEXT,                  -- Link sinkronisasi ke periode MC
-    lks_bayar TEXT,                -- Lokasi Bayar (Bank/ATM/Loket)
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    nomen TEXT NOT NULL,           -- ID Pelanggan
+    bulan_rek TEXT,                -- Bulan Rekening (Wajib MB)
+    notagihan TEXT,                -- No Tagihan (Wajib MB)
+    tgl_bayar TEXT,                -- Tanggal Bayar di Bank/Loket
+    nominal REAL DEFAULT 0,        -- Nominal yang dibayar
+    periode TEXT,                  -- Periode sistem saat sinkronisasi
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, notagihan, periode)
 );
 
--- Tabel Collection Harian: Pencatatan real-time setoran (Solusi Fix OperationalError)
+-- Tabel Collection Harian: Pencatatan setoran harian (Lengkap sesuai permintaan).
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT NOT NULL,
-    notag TEXT,
-    nominal REAL DEFAULT 0,
-    pay_dt TEXT,                    -- Tanggal transaksi/setoran
-    periode TEXT,                   -- Periode tagihan yang dibayar
-    petugas_input TEXT,             -- Audit: Siapa yang menginput
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    nomen TEXT NOT NULL,           -- ID Pelanggan
+    notag TEXT,                    -- No Tagihan (Wajib Collection)
+    bill_period TEXT,              -- Periode Tagihan (Wajib Collection)
+    bill_reason TEXT,              -- Alasan Penagihan (Wajib Collection)
+    nominal REAL DEFAULT 0,        -- Nominal yang disetor
+    pay_dt TEXT,                   -- Tanggal bayar petugas
+    freeze_dttm TEXT,              -- Waktu pembekuan data (Wajib Collection)
+    vol_collect REAL DEFAULT 0,    -- Volume yang tertagih (Wajib Collection)
+    periode TEXT,                  -- Periode laporan harian
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, notag, periode)
 );
 
--- Tabel Ardebt (Legacy/Manual): Penampung tunggakan berekor.
+-- Tabel Ardebt: Penampung data tunggakan piutang lama (Berekor).
 CREATE TABLE IF NOT EXISTS ardebt (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nomen TEXT NOT NULL,
-    jumlah REAL DEFAULT 0,
-    volume REAL DEFAULT 0,
-    periode_bill TEXT,             -- Keterangan bulan-bulan yang menunggak
+    nomen TEXT NOT NULL,           -- ID Pelanggan
+    periode_bill TEXT,             -- Keterangan bulan menunggak (Wajib Ardebt)
+    jumlah REAL DEFAULT 0,         -- Total Rupiah Tunggakan
+    volume REAL DEFAULT 0,         -- Total Kubik Tunggakan
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -92,30 +106,23 @@ CREATE TABLE IF NOT EXISTS ardebt (
 -- 3. LOGGING AKTIVITAS & AUDIT TRAIL
 -- =========================================================================
 
--- Tabel Kunjungan Petugas: Log aktivitas dan bukti fisik lapangan.
+-- Tabel Kunjungan Petugas: Dokumentasi visual dan status lapangan.
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    petugas_name TEXT,              -- Nama pelapor
-    keterangan TEXT,                -- Status: (Janji Bayar, Sudah Bayar, Rumah Kosong, dll)
-    no_hp_update TEXT,              -- Update No HP pelanggan terbaru
-    catatan TEXT,                   -- Detail percakapan/kondisi meter
-    janji_bayar_dt TEXT,            -- SMART REMINDER: Tanggal janji bayar
-    mc_snapshot REAL,               -- SMART SNAPSHOT: Nominal tagihan SAAT dikunjungi
-    ardebt_snapshot REAL,           -- SMART SNAPSHOT: Nominal tunggakan SAAT dikunjungi
-    foto_path TEXT,                 -- Nama file foto (Watermarked)
-    lat_long TEXT,                  -- GPS Coordinate
-    periode TEXT,                   -- Periode pelaporan (MM-YYYY)
-    status_audit TEXT DEFAULT 'OK',-- Untuk validasi Admin
+    petugas_name TEXT,             -- Pelapor
+    keterangan TEXT,               -- Status (Rumah Kosong, Janji Bayar, dll)
+    foto_path TEXT,                -- Link file foto
+    lat_long TEXT,                 -- Koordinat GPS
+    periode TEXT,                  -- Bulan pelaporan
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Upload History: Jejak audit pengunggahan file Excel (Solusi Fix 500 Error)
+-- Tabel Upload History: Audit trail pengunggahan Excel Admin.
 CREATE TABLE IF NOT EXISTS upload_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_name TEXT,
-    file_type TEXT,                -- MC, MB, ARDEBT, RUTE
-    periode TEXT,
+    file_type TEXT,                -- MC, MB, ARDEBT, COLLECTION, RUTE
     row_count INTEGER,
     status TEXT,                   -- SUCCESS / FAILED
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -125,8 +132,7 @@ CREATE TABLE IF NOT EXISTS upload_history (
 -- 4. SMART TRIGGER (LOGIKA AUTOPILOT)
 -- =========================================================================
 
--- TRIGGER 1: Autopilot Prioritas
--- Otomatis menandai nasabah sebagai 'Prioritas' jika tagihan >= 300rb saat insert.
+-- TRIGGER 1: Autopilot Prioritas. Menandai High-Value Target secara otomatis.
 CREATE TRIGGER IF NOT EXISTS trg_autopilot_priority
 AFTER INSERT ON master_pelanggan
 FOR EACH ROW
@@ -136,9 +142,8 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- TRIGGER 2: Sinergi Lunas Otomatis
--- Ketika data MB (Bank) masuk, otomatis ubah status di tabel MC (Master Pelanggan).
-CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas
+-- TRIGGER 2: Sinergi Pintu Ganda (MB). Update lunas otomatis via data kantor.
+CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
 AFTER INSERT ON master_bayar
 FOR EACH ROW
 BEGIN
@@ -147,9 +152,8 @@ BEGIN
     WHERE nomen = NEW.nomen AND periode = NEW.periode;
 END;
 
--- TRIGGER 3: Autopilot Lunas via Collection Harian
--- Ketika petugas input setoran di lapangan, otomatis tandai pelanggan sebagai lunas.
-CREATE TRIGGER IF NOT EXISTS trg_autopilot_coll_lunas
+-- TRIGGER 3: Sinergi Pintu Ganda (Collection). Update lunas otomatis via setoran petugas.
+CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_coll
 AFTER INSERT ON collection_harian
 FOR EACH ROW
 BEGIN
@@ -162,10 +166,8 @@ END;
 -- 5. OPTIMASI INDEX (SMART PERFORMANCE)
 -- =========================================================================
 
--- Indexing krusial agar pencarian ribuan data tetap secepat kilat.
-CREATE INDEX IF NOT EXISTS idx_mc_nomen_notag ON master_pelanggan(nomen, notagihan);
-CREATE INDEX IF NOT EXISTS idx_mc_filter_smart ON master_pelanggan(periode, nominal, pcez);
+-- Indeks krusial untuk mempercepat pencarian data di antara puluhan ribu baris.
+CREATE INDEX IF NOT EXISTS idx_mc_main ON master_pelanggan(nomen, pcez, periode);
 CREATE INDEX IF NOT EXISTS idx_mc_status ON master_pelanggan(status_lunas, is_prioritas);
-CREATE INDEX IF NOT EXISTS idx_rute_mapping ON rute_petugas(petugas, pcez);
-CREATE INDEX IF NOT EXISTS idx_kunjungan_nomen ON kunjungan_petugas(nomen, periode);
-CREATE INDEX IF NOT EXISTS idx_coll_periode ON collection_harian(periode, petugas_input);
+CREATE INDEX IF NOT EXISTS idx_mb_nomen ON master_bayar(nomen, periode);
+CREATE INDEX IF NOT EXISTS idx_coll_nomen ON collection_harian(nomen, periode);
