@@ -6,7 +6,7 @@
     <div class="px-2 mb-4 d-flex justify-content-between align-items-center mt-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark"><i class="fas fa-briefcase me-2 text-danger"></i>Penagihan Ardebt</h4>
-            <p class="text-muted small mb-0">Manajemen Prioritas Piutang Berekor</p>
+            <p class="text-muted small mb-0">Prioritas Kubik Tinggi (Kuota 20/Hari)</p>
         </div>
         <div class="bg-danger text-white px-3 py-2 rounded-pill small fw-bold shadow-sm animate__animated animate__pulse animate__infinite" style="font-size: 0.6rem; letter-spacing: 1px;">
             <i class="fas fa-shield-alt me-1"></i> SECURE MODE
@@ -47,7 +47,7 @@
     <div id="list-container" class="px-2 pb-5">
         <div class="text-center py-5">
             <div class="spinner-border text-danger" role="status"></div>
-            <p class="mt-2 text-muted small">Sinkronisasi data piutang...</p>
+            <p class="mt-2 text-muted small">Sinkronisasi target prioritas...</p>
         </div>
     </div>
 </div>
@@ -74,7 +74,6 @@
                                 <th class="py-2 text-start ps-3">Periode</th>
                                 <th class="py-2">Kubik</th>
                                 <th class="py-2">Nominal</th>
-                                <th class="py-2">Tarif</th>
                                 <th class="py-2 pe-3">Status</th>
                             </tr>
                         </thead>
@@ -83,7 +82,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-bold" data-bs-dismiss="modal">Tutup Riwayat</button>
+                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-bold" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
@@ -94,26 +93,26 @@
         <div class="modal-content border-0 shadow-lg rounded-4">
             <form id="formKunjungan">
                 <div class="modal-header border-0 bg-danger text-white p-3">
-                    <h6 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Formulir Kunjungan Lapangan</h6>
+                    <h6 class="modal-title fw-bold"><i class="fas fa-clipboard-check me-2"></i>Formulir Laporan Lapangan</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="modal-idpel" name="idpel">
                     <input type="hidden" id="modal-nominal-val" name="nominal_display">
                     
-                    <div class="bg-danger-subtle p-3 rounded-4 mb-3 border border-danger-subtle">
-                        <small class="text-danger fw-bold text-uppercase d-block mb-1" style="font-size: 0.6rem;">Konfirmasi Tagihan</small>
+                    <div class="bg-danger-subtle p-3 rounded-4 mb-3 border border-danger-subtle text-center">
+                        <i class="fas fa-id-card-alt fa-2x text-danger mb-2"></i>
                         <h6 id="modal-nama" class="fw-bold mb-1 text-dark text-uppercase"></h6>
                         <small id="modal-sub-info" class="text-muted fw-bold d-block" style="font-size: 0.7rem;"></small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Kontak HP Pelanggan *</label>
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-phone-alt me-1"></i> No. Kontak Pelanggan *</label>
                         <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 shadow-none border-light-subtle" placeholder="08..." required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Hasil Penagihan *</label>
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-tasks me-1"></i> Hasil Koordinasi *</label>
                         <select id="modal-hasil" name="hasil" class="form-select rounded-3 fw-bold" required onchange="toggleJanjiInput()">
                             <option value="">-- Pilih Hasil --</option>
                             <option value="Sudah Bayar">💰 Sudah Bayar</option>
@@ -129,12 +128,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Catatan Petugas</label>
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-edit me-1"></i> Catatan Petugas</label>
                         <textarea id="modal-keterangan" name="keterangan" class="form-control rounded-3 shadow-none" rows="2" placeholder="Informasi tambahan..."></textarea>
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label small fw-bold">Lampiran Foto Bukti *</label>
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-camera me-1"></i> Lampiran Foto Bukti *</label>
                         <input type="file" id="modal-foto" name="foto" class="form-control rounded-3" accept="image/*" capture="camera" required>
                     </div>
                 </div>
@@ -150,8 +149,7 @@
 
 <script>
     /* * [KOMENTAR TEKNIS] 
-     * Logika JavaScript tetap sama dengan V5.2 (Skakmat Logic) 
-     * namun dengan penamaan variabel yang lebih profesional.
+     * Logika JavaScript V6.1: Integrasi NOMET, JCOUNT, & Daily Limit 20.
      */
     let modalKunjungan, modalHistory;
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
@@ -167,8 +165,9 @@
     });
 
     /**
-     * FUNGSI: loadArdebt
-     * Menampilkan daftar piutang dengan kartu profesional.
+     * FUNGSI: loadArdebt()
+     * Menampilkan daftar target harian (Limit 20 & High Kubikasi).
+     * Sekarang menampilkan Nomor Seri Meter (NOMET) di dalam kartu.
      */
     async function loadArdebt() {
         const petugas = document.getElementById('filter-petugas').value;
@@ -177,7 +176,7 @@
             const res = await fetch(`/api/ardebt?petugas=${encodeURIComponent(petugas)}`);
             const data = await res.json();
             if (data.length === 0) {
-                container.innerHTML = '<div class="text-center mt-5 text-muted small">Semua tagihan sudah terproses.</div>';
+                container.innerHTML = '<div class="text-center mt-5 text-muted small">Target harian selesai dikunjungi. 🎉</div>';
                 return;
             }
             container.innerHTML = data.map((item) => `
@@ -188,10 +187,15 @@
                             <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2 py-1 fw-bold" style="font-size: 9px;"><i class="fas fa-tint me-1"></i>${item.pemakaian_air} m³</span>
                         </div>
                         <h6 class="fw-bold mb-1 text-dark text-uppercase">${item.nama}</h6>
+                        
+                        <div class="text-muted mb-2 fw-bold" style="font-size: 0.7rem;">
+                            <i class="fas fa-tachometer-alt me-1"></i> No. Meter: ${item.no_seri_meter || '-'}
+                        </div>
+
                         <p class="text-muted mb-2" style="font-size: 0.65rem;"><i class="fas fa-map-marker-alt me-1"></i>${item.alamat}</p>
                         <div class="d-flex justify-content-between align-items-center border-top pt-3">
                             <div>
-                                <small class="d-block text-muted fw-bold" style="font-size: 8px;">TOTAL KEWAJIBAN</small>
+                                <small class="d-block text-muted fw-bold" style="font-size: 8px;">TOTAL TUNGGAKAN</small>
                                 <span class="fw-bold text-danger" style="font-size: 1.1rem;">Rp ${formatIDR(item.nominal_mc + item.nominal_ardebt)}</span>
                             </div>
                             <div class="btn-group">
@@ -203,15 +207,15 @@
                 </div>
             `).join('');
             updateSummary(data);
-        } catch (err) { container.innerHTML = '<p class="text-center text-danger small">Koneksi Server Gagal.</p>'; }
+        } catch (err) { container.innerHTML = '<p class="text-center text-danger small">Koneksi Gagal.</p>'; }
     }
 
     /**
-     * FUNGSI: showHistory
-     * Audit 3 arah (MC, MB, CH) dengan tampilan baris merah untuk piutang.
+     * FUNGSI: showHistory()
+     * Logic: Menampilkan JCOUNT & Baris Merah jika piutang terverifikasi 3 arah.
      */
     async function showHistory(nomen, nama) {
-        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Memproses audit data...</td></tr>';
+        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Memproses data...</td></tr>';
         document.getElementById('boxAnalisis').classList.add('d-none');
         modalHistory.show();
         try {
@@ -231,7 +235,6 @@
                         <td class="text-start ps-3">${h.periode}</td>
                         <td>${h.pemakaian_air} m³</td>
                         <td>Rp ${formatIDR(h.rupiah)}</td>
-                        <td>${h.tarif}</td>
                         <td class="pe-3"><span class="badge ${isLunas ? 'bg-success' : 'bg-danger'}">${isLunas ? 'LUNAS' : 'PIUTANG'}</span></td>
                     </tr>`;
                 });
@@ -241,11 +244,11 @@
     }
 
     /**
-     * FUNGSI: simpanLaporan
-     * Menyimpan data kunjungan secara permanen.
+     * FUNGSI: simpanLaporan()
+     * Simpan kunjungan dan refresh list (Auto-Hide data yang sukses dilapor).
      */
     async function simpanLaporan() {
-        Swal.fire({ title: 'Memproses Laporan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+        Swal.fire({ title: 'Menyimpan Laporan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
         const form = document.getElementById('formKunjungan');
         const formData = new FormData(form);
         const petugasName = document.getElementById('filter-petugas').value;
@@ -254,23 +257,23 @@
             const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
             const result = await res.json();
             if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'Data Terverifikasi!', text: 'Laporan berhasil diarsipkan.' }).then(() => {
+                Swal.fire({ icon: 'success', title: 'Tersimpan!', text: 'Laporan berhasil diarsipkan.' }).then(() => {
                     executeShareWA(result.wa_data);
                     modalKunjungan.hide();
-                    loadArdebt();
+                    loadArdebt(); // Otomatis data menghilang dari list karena loadArdebt memanggil API filter NOT EXISTS
                 });
             } else { Swal.fire('Error!', result.message, 'error'); }
-        } catch (err) { Swal.fire('Gagal!', 'Koneksi database terputus.', 'error'); }
+        } catch (err) { Swal.fire('Gagal!', 'Error Server.', 'error'); }
     }
 
     /**
-     * FUNGSI: executeShareWA
-     * Laporan Detail Kerja (Universal Share).
+     * FUNGSI: executeShareWA()
+     * Template Laporan Detail (Universal Share).
      */
     function executeShareWA(wa) {
         const waktu = new Date().toLocaleString('id-ID');
         const pesanShare = 
-            `*🚨 LAPORAN AKTIVITAS PENAGIHAN*%0A` +
+            `*🚨 LAPORAN KUNJUNGAN LAPANGAN*%0A` +
             `*(ANTREAN ARDEBT - PENGAWASAN)*%0A` +
             `-------------------------------------------%0A` +
             `📅 *Waktu:* ${waktu}%0A` +
@@ -279,7 +282,7 @@
             `*DATA KONSUMEN:*%0A` +
             `👤 *Nama:* ${wa.nama}%0A` +
             `🆔 *IDPEL:* ${wa.nomen}%0A` +
-            `📞 *HP Konsumen:* ${wa.no_hp || '-'}%0A%0A` +
+            `📞 *No HP:* ${wa.no_hp || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
             `🚩 *Tunggakan:* ${wa.jcount} Bulan%0A` +
@@ -290,8 +293,7 @@
             `• *TOTAL TAGIHAN: Rp ${formatIDR(wa.total)}*%0A%0A` +
             `*DOKUMENTASI FOTO:*%0A` +
             `🖼️ Link: ${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
-            `-------------------------------------------%0A` +
-            `_Laporan Otomatis Sunter Dashboard Pro_`;
+            `-------------------------------------------`;
         window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
     }
 
@@ -321,7 +323,7 @@
         const total = data.reduce((acc, curr) => acc + (curr.nominal_mc + curr.nominal_ardebt), 0);
         document.getElementById('summary-area').innerHTML = `
             <div class="bg-danger shadow-sm rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn">
-                <div><div class="opacity-75" style="font-size: 0.65rem;">SASARAN PENAGIHAN</div><div class="fw-bold h5 mb-0">${data.length} <small style="font-size: 0.6rem;">UNIT</small></div></div>
+                <div><div class="opacity-75" style="font-size: 0.65rem;">SISA TARGET PRIORITAS</div><div class="fw-bold h5 mb-0">${data.length} <small style="font-size: 0.6rem;">UNIT</small></div></div>
                 <div class="text-end"><div class="opacity-75" style="font-size: 0.65rem;">POTENSI PENCAIRAN</div><div class="fw-bold h5 mb-0">Rp ${formatIDR(total)}</div></div>
             </div>`;
     }
