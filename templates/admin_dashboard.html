@@ -193,7 +193,7 @@
  * CORE ADMIN LOGIC - SUNTER PRO V6.5
  */
 
-// File Preview: Menampilkan nama file yang akan diupload
+// Preview Nama File: Menampilkan info saat file excel dipilih
 document.getElementById('excelFile').onchange = function() {
     if(this.files[0]) {
         document.getElementById('file-name-preview').innerHTML = 
@@ -202,8 +202,9 @@ document.getElementById('excelFile').onchange = function() {
 };
 
 /**
- * FUNGSI: checkDataStatus()
- * Melakukan verifikasi ketersediaan tabel di database.
+ * [FUNGSI: checkDataStatus]
+ * Logika: Memanggil API list history untuk memastikan database sinkron.
+ * Kegunaan: Menjamin integritas data sebelum operasional dimulai.
  */
 async function checkDataStatus() {
     try {
@@ -234,8 +235,9 @@ async function checkDataStatus() {
 }
 
 /**
- * FUNGSI: uploadData()
- * Mengirim file Excel ke backend dengan monitoring kemajuan.
+ * [FUNGSI: uploadData]
+ * Logika: Mengirim file ke API upload.py.
+ * Kegunaan: Memasukkan data baru (Excel) ke database SQLite secara autopilot.
  */
 async function uploadData() {
     const fileInput = document.getElementById('excelFile');
@@ -244,9 +246,10 @@ async function uploadData() {
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
 
+    // Loading overlay agar admin tidak klik ganda saat proses insert database berlangsung
     Swal.fire({ 
         title: 'Menganalisis Data...', 
-        html: 'Sistem sedang menvalidasi GPS & NOMET otomatis',
+        html: 'Sistem sedang memvalidasi GPS & NOMET otomatis',
         allowOutsideClick: false, 
         didOpen: () => Swal.showLoading() 
     });
@@ -256,7 +259,7 @@ async function uploadData() {
         const result = await res.json();
         if (res.ok) {
             Swal.fire('Berhasil!', `Data ${result.message} disinkronkan.`, 'success');
-            checkDataStatus();
+            checkDataStatus(); // Refresh status setelah upload berhasil
         } else {
             Swal.fire('Error Sinkronisasi', result.error, 'error');
         }
@@ -264,8 +267,9 @@ async function uploadData() {
 }
 
 /**
- * FUNGSI: loadMapping()
- * Memuat data pemetaan wilayah kerja petugas.
+ * [FUNGSI: loadMapping]
+ * Logika: Menarik data relasi antara PCEZ dan Petugas dari database.
+ * Kegunaan: Mengatur pembagian wilayah kerja petugas agar target muncul dengan benar di HP petugas.
  */
 async function loadMapping() {
     try {
@@ -285,9 +289,14 @@ async function loadMapping() {
             </tr>`;
         });
         document.getElementById('mappingTableBody').innerHTML = html || '<tr><td colspan="4" class="text-center py-4">Kosong. Silakan upload MC.</td></tr>';
-    } catch (e) { console.error("Mapping failed"); }
+    } catch (e) { console.error("Mapping load failed"); }
 }
 
+/**
+ * [FUNGSI: filterMapping]
+ * Logika: Mencocokkan input keyboard dengan teks di baris tabel.
+ * Kegunaan: Fitur Live Search agar admin cepat menemukan kode PCEZ tertentu.
+ */
 function filterMapping() {
     const q = document.getElementById('searchMapping').value.toLowerCase();
     document.querySelectorAll('.mapping-row').forEach(row => {
@@ -295,6 +304,10 @@ function filterMapping() {
     });
 }
 
+/**
+ * [FUNGSI: editMapping]
+ * Logika: Memindahkan data baris ke dalam form input modal.
+ */
 function editMapping(pcez, petugas, no_admin) {
     document.getElementById('edit_pcez').value = pcez;
     document.getElementById('edit_petugas').value = petugas === 'UNMAPPED' ? '' : petugas;
@@ -302,6 +315,10 @@ function editMapping(pcez, petugas, no_admin) {
     new bootstrap.Modal(document.getElementById('editMappingModal')).show();
 }
 
+/**
+ * [FUNGSI: saveMapping]
+ * Logika: Mengirim data update rute ke rute.py API.
+ */
 async function saveMapping() {
     const formData = new FormData();
     formData.append('pcez', document.getElementById('edit_pcez').value);
@@ -318,8 +335,8 @@ async function saveMapping() {
 }
 
 /**
- * FUNGSI: loadUsers()
- * Memuat daftar seluruh akun yang memiliki akses ke sistem.
+ * [FUNGSI: loadUsers]
+ * Logika: Menarik daftar akun yang terdaftar di tabel Users.
  */
 async function loadUsers() {
     try {
@@ -342,7 +359,7 @@ async function loadUsers() {
     } catch (e) { console.error("User list failed"); }
 }
 
-// Start Status
+// Inisialisasi awal saat halaman admin dibuka: memuat status database
 document.addEventListener('DOMContentLoaded', () => { checkDataStatus(); });
 </script>
 {% endblock %}
