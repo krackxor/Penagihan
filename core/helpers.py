@@ -1,9 +1,9 @@
 """
 Core Helpers - Sunter Dashboard Pro
-Standardized API Response Handler, Data Formatter & Input Sanitizer
+Sinergi: API Handler, Data Formatter, & Autopilot Role Redirect
 
 Author: Sunter Team
-Updated: 2026-01-09 (Sinergi Level 3)
+Updated: 2026-01-10 (Sinergi Level 3 - Fix ImportError)
 """
 
 import re
@@ -17,10 +17,7 @@ class APIResponse:
     
     @staticmethod
     def success(data=None, message="Success", code=200):
-        """
-        Mengirim respons sukses yang terstandarisasi.
-        :param data: Data hasil query (list atau dict), default ke list kosong jika None
-        """
+        """Mengirim respons sukses yang terstandarisasi."""
         response = {
             "status": "success",
             "message": message,
@@ -30,19 +27,29 @@ class APIResponse:
 
     @staticmethod
     def error(message="Error", code=400, details=None):
-        """
-        Mengirim respons gagal/error yang aman bagi pengguna.
-        """
+        """Mengirim respons gagal/error yang aman bagi pengguna."""
         response = {
             "status": "error",
             "message": message
         }
-        
-        # Detail hanya ditambahkan jika ada (biasanya untuk debugging backend)
         if details:
             response["details"] = str(details)
-            
         return jsonify(response), code
+
+def get_role_redirect(role):
+    """
+    FUNGSI AUTOPILOT REDIRECT (FIX):
+    Menentukan rute navigasi otomatis berdasarkan peran pengguna.
+    PENTING: Nama fungsi ini harus SAMA dengan yang di-import di app.py.
+    """
+    role_map = {
+        'admin': 'admin_dashboard',
+        'petugas': 'belum_bayar_page',
+        'publik': 'index',
+        'guest': 'index'
+    }
+    # Mengambil rute berdasarkan role, default ke 'index' jika tidak ditemukan
+    return role_map.get(str(role).lower(), 'index')
 
 def format_idr(nominal):
     """
@@ -53,60 +60,54 @@ def format_idr(nominal):
         return "Rp 0"
     
     try:
-        # Jika string, bersihkan simbol Rp, spasi, dan titik ribuan
         if isinstance(nominal, str):
-            # Hapus semua kecuali angka dan titik/koma desimal
             nominal = re.sub(r'[^\d,.]', '', nominal)
-            # Jika menggunakan koma sebagai desimal (Standard Indo), ganti ke titik
             if ',' in nominal and '.' not in nominal:
                 nominal = nominal.replace(',', '.')
             
         val = float(nominal)
-        # Format ribuan dengan koma, lalu ganti koma menjadi titik (ID Standard)
         return f"Rp {val:,.0f}".replace(',', '.')
     except (ValueError, TypeError):
         return "Rp 0"
 
 def clean_nomen(value):
     """
-    Sanitasi ID Pelanggan (Nomen). 
-    PENTING: Mencegah Nomen berubah jadi '1.23E+11' saat diupload via Excel.
+    Sanitasi ID Pelanggan (Nomen) - AUTOPILOT CLEANING: 
+    Mencegah IDPEL berubah jadi format ilmiah (1.23E+11) saat diproses Python.
     """
     if value is None or str(value).strip().upper() in ('NAN', 'NULL', ''):
         return ""
     
     val_str = str(value).strip()
     
-    # Tangani format scientific dari Excel
+    # Tangani format scientific (E+) yang sering merusak data IDPEL
     if 'E+' in val_str.upper():
         try:
             return "{:.0f}".format(float(val_str))
-        except:
+        except (ValueError, TypeError):
             return val_str
             
-    # Hapus spasi dan bagian desimal jika ada (.0)
+    # Hapus spasi dan bagian desimal jika ada (.0 dari Excel)
     return val_str.split('.')[0].replace(' ', '')
 
 def clean_phone(phone):
     """
-    Sanitasi nomor HP untuk Sinergi WA Blast.
-    Mengonversi 0812... atau +62812... menjadi 62812...
+    Sanitasi nomor HP untuk Sinergi WA Blast Gratis.
+    Konversi otomatis: 08x atau 8x -> 628x.
     """
     if phone is None or str(phone).strip() in ('', '-', '0'):
         return ""
     
-    # Ambil angka saja
+    # Ambil angka saja (Filter Karakter Sampah)
     cleaned = re.sub(r'\D', '', str(phone))
     
     if not cleaned:
         return ""
     
-    # Jika diawali 0, ganti ke 62
+    # Autopilot: Ubah prefix nomor ke standar Internasional (62)
     if cleaned.startswith('0'):
         cleaned = '62' + cleaned[1:]
-    
-    # Jika diawali 8 (misal 812...), tambahkan 62
-    if cleaned.startswith('8'):
+    elif cleaned.startswith('8'):
         cleaned = '62' + cleaned
         
     return cleaned
