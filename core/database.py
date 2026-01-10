@@ -1,8 +1,8 @@
 """
-Core Database Module - Sunter Dashboard Pro (V6.8 Sinergi Snapshot Edition)
+Core Database Module - Sunter Dashboard Pro (V6.9 Sinergi Fix Edition)
 Sinergi & Smart Update:
 1. WAL Mode Autopilot: Optimasi konkurensi (Anti-Lock) untuk akses massal petugas.
-2. Self-Healing Migration: Otomatis menambah kolom Snapshot (Nomet, Nama, Alamat) & GPS.
+2. Self-Healing Migration: Perbaikan otomatis kolom 'catatan' dan Snapshot GPS.
 3. Integrity Guard: Menjamin keamanan relasi antar tabel dengan Foreign Keys aktif.
 4. Smart Seeder: Menjamin ketersediaan akun admin pusat saat inisialisasi pertama.
 """
@@ -14,11 +14,8 @@ from werkzeug.security import generate_password_hash
 
 def get_db_connection():
     """
-    FUNGSI: Membuka koneksi ke Database SQLite dengan Optimasi Server.
-    LOGIKA: 
-    - WAL Mode: Memungkinkan Admin upload Excel sambil Petugas lapor di lapangan secara bersamaan.
-    - row_factory: Memungkinkan akses data menggunakan nama kolom (contoh: row['nama']).
-    - Timeout: Memberikan toleransi 30 detik agar tidak terjadi 'Database Locked'.
+    [FUNGSI: KONEKSI DATABASE]
+    Kegunaan: Membuka jalur komunikasi ke SQLite dengan proteksi 'Locked Database'.
     """
     db_path = current_app.config.get('DATABASE')
     
@@ -30,9 +27,9 @@ def get_db_connection():
         conn.row_factory = sqlite3.Row 
         
         # --- BLOK OPTIMASI SINERGI KINERJA TINGGI ---
-        conn.execute('PRAGMA journal_mode=WAL;')       # Anti-Macet saat banyak user
-        conn.execute('PRAGMA synchronous=NORMAL;')     # Kecepatan tulis maksimal
-        conn.execute('PRAGMA foreign_keys = ON;')      # Validasi relasi antar tabel
+        conn.execute('PRAGMA journal_mode=WAL;')       # Anti-Macet (Write Ahead Logging)
+        conn.execute('PRAGMA synchronous=NORMAL;')     # Keseimbangan kecepatan & keamanan
+        conn.execute('PRAGMA foreign_keys = ON;')      # Aktifkan proteksi relasi tabel
         
         return conn
     except sqlite3.Error as e:
@@ -41,8 +38,8 @@ def get_db_connection():
 
 def init_db(app):
     """
-    FUNGSI: Inisialisasi Otomatis & Auto-Migration (Autopilot).
-    LOGIKA: Menjalankan urutan pembuatan tabel, migrasi kolom baru, dan seeder admin.
+    [FUNGSI: INISIALISASI & MIGRASI]
+    Kegunaan: Menjalankan skema dasar dan memperbaiki struktur tabel yang tertinggal (Autopilot).
     """
     with app.app_context():
         db = None
@@ -50,23 +47,23 @@ def init_db(app):
             db = get_db_connection()
             cursor = db.cursor()
             
-            # 1. Jalankan Skema Dasar (Jika file ada)
+            # 1. Jalankan Skema Dasar (Jika database masih nol/kosong)
             schema_path = os.path.join(app.root_path, 'schema.sql')
             if os.path.exists(schema_path):
                 with open(schema_path, mode='r') as f:
                     cursor.executescript(f.read())
 
-            # 2. Pastikan Tabel Inti Tersedia
+            # 2. Periksa dan buat tabel inti jika belum ada
             check_and_create_tables(cursor)
 
-            # 3. JALANKAN MIGRASI SMART (Penambahan Kolom Snapshot & GPS)
+            # 3. JALANKAN SELF-HEALING (Menambah kolom catatan, nomet, gps secara otomatis)
             run_smart_migration(cursor)
 
-            # 4. Buat Akun Admin Default
+            # 4. Siapkan Akun Administrator
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Sinergi V6.8: Database Autopilot Siap Digunakan.")
+            print("✅ Sinergi V6.9: Database Autopilot Siap & Kolom Telah Diperbaiki.")
             
         except Exception as e:
             print(f"❌ Sinergi Database Error: {e}")
@@ -76,16 +73,16 @@ def init_db(app):
 
 def check_and_create_tables(cursor):
     """
-    HELPER: Memastikan tabel-tabel krusial selalu tersedia di database.
+    [HELPER: VERIFIKASI TABEL]
+    Kegunaan: Menjamin tabel minimal tersedia sebelum aplikasi memproses data.
     """
-    # Tabel History Laporan Kunjungan (Pusat Data Lapangan)
+    # Tabel Kunjungan Petugas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nomen TEXT NOT NULL,
             petugas_name TEXT,
             keterangan TEXT,
-            catatan TEXT,
             foto_path TEXT,
             mc REAL DEFAULT 0,
             ardebt REAL DEFAULT 0,
@@ -94,7 +91,7 @@ def check_and_create_tables(cursor):
         )
     """)
     
-    # Tabel Upload History (Audit Log Admin)
+    # Tabel Riwayat Upload
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS upload_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,30 +103,34 @@ def check_and_create_tables(cursor):
 
 def run_smart_migration(cursor):
     """
-    HELPER: Mekanisme Self-Healing untuk menambah kolom baru tanpa merusak data.
-    PENTING: Menambahkan kolom Snapshot (Nomet, Nama, Alamat) dan GPS (Lat, Lng).
+    [HELPER: MIGRASI OTOMATIS]
+    Kegunaan: MENAMBAH KOLOM YANG HILANG (Catatan, GPS, Snapshot) TANPA MENGHAPUS DATA.
     """
-    # --- 1. Migrasi Tabel kunjungan_petugas (Fitur Snapshot & GPS) ---
+    # --- 1. Perbaikan Tabel kunjungan_petugas ---
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_cols = [row['name'] for row in cursor.fetchall()]
     
-    # Daftar kolom baru untuk V6.8
+    # Daftar kolom yang sering menyebabkan error jika tidak ada
     new_columns = {
+        'catatan': 'TEXT',              # <-- SOLUSI ERROR 'NO SUCH COLUMN: CATATAN'
         'nomet': 'TEXT',                # Snapshot No Meter
-        'nama_snapshot': 'TEXT',        # Snapshot Nama Pelanggan
-        'alamat_snapshot': 'TEXT',      # Snapshot Alamat Pelanggan
+        'nama_snapshot': 'TEXT',        # Snapshot Nama
+        'alamat_snapshot': 'TEXT',      # Snapshot Alamat
         'latitude': 'TEXT',             # Koordinat GPS Lat
         'longitude': 'TEXT',            # Koordinat GPS Lng
-        'no_hp': 'TEXT',                # Snapshot HP Pelanggan
-        'volume': 'REAL DEFAULT 0'      # Snapshot Pemakaian Air
+        'no_hp': 'TEXT',                # Snapshot No HP
+        'volume': 'REAL DEFAULT 0'      # Snapshot Kubikasi
     }
     
     for col, dtype in new_columns.items():
         if col not in existing_cols:
-            cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
-            print(f"🔧 Migrasi Sinergi: Kolom [{col}] ditambahkan ke kunjungan_petugas")
+            try:
+                cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
+                print(f"🔧 Migrasi: Kolom [{col}] berhasil ditambahkan otomatis.")
+            except Exception as e:
+                print(f"⚠️ Gagal migrasi kolom {col}: {e}")
 
-    # --- 2. Migrasi Tabel master_pelanggan ---
+    # --- 2. Perbaikan Tabel master_pelanggan ---
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_mc = [row['name'] for row in cursor.fetchall()]
     
@@ -142,12 +143,12 @@ def run_smart_migration(cursor):
     for col, dtype in mc_updates.items():
         if col not in existing_mc:
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
-            print(f"🔧 Migrasi Sinergi: Kolom [{col}] ditambahkan ke master_pelanggan")
+            print(f"🔧 Migrasi: Kolom [{col}] ditambahkan ke master_pelanggan")
 
 def seed_default_admin(cursor):
     """
-    HELPER: Pintu Darurat - Menjamin akun admin pusat selalu ada.
-    Default: admin_sunter / admin123
+    [HELPER: ADMIN SEEDER]
+    Kegunaan: Menjamin ada akses masuk saat database baru dibuat.
     """
     username = 'admin_sunter'
     cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
@@ -157,11 +158,11 @@ def seed_default_admin(cursor):
             INSERT INTO users (username, password, role, petugas_id)
             VALUES (?, ?, ?, ?)
         """, (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
-        print(f"👤 Smart Seeder: Akun Admin '{username}' siap.")
+        print(f"👤 Smart Seeder: Akun Admin '{username}' siap digunakan.")
 
 def get_db():
     """
-    HELPER: Global Flask Database Access.
+    [HELPER: AKSES GLOBAL]
     """
     if 'db' not in g:
         g.db = get_db_connection()
