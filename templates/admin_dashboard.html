@@ -164,7 +164,7 @@ document.getElementById('excelFile').onchange = function() {
  */
 async function checkDataStatus() {
     try {
-        const res = await fetch('/api/history/list'); // Menggunakan endpoint history yang sudah diperbarui
+        const res = await fetch('/api/history/list'); 
         const result = await res.json();
         
         let html = '';
@@ -272,6 +272,30 @@ async function saveMapping() {
             Swal.fire('Sinergi Update', 'Mapping rute berhasil diperbarui.', 'success');
         }
     } catch (e) { Swal.fire('Gagal', 'Koneksi database terganggu', 'error'); }
+}
+
+/**
+ * USER MANAGEMENT: Sinkronisasi akun petugas lapangan.
+ */
+async function loadUsers() {
+    try {
+        const res = await fetch('/api/auth/users');
+        const users = await res.json();
+        let html = '';
+        users.forEach(u => {
+            html += `<tr>
+                <td class="fw-bold text-dark">${u.username}</td>
+                <td><span class="badge ${u.role === 'admin' ? 'bg-dark' : 'bg-secondary'} rounded-pill">${u.role.toUpperCase()}</span></td>
+                <td class="small fw-bold text-primary">${u.petugas_id || 'ALL ACCESS'}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm text-danger" onclick="deleteUser('${u.username}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+        document.getElementById('userListBody').innerHTML = html;
+    } catch (e) { console.error("User list failed"); }
 }
 
 // Inisialisasi awal saat halaman terbuka
