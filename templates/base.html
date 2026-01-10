@@ -11,10 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        /* ========================================================================
-        [VARIABEL GLOBAL & TEMA]
-        Mendefinisikan skema warna dan standar visual aplikasi untuk sinergi brand.
-        ========================================================================
+        /* [VARIABEL TEMA & ROOT] 
+            Sentralisasi warna branding untuk konsistensi UI/UX di seluruh modul.
         */
         :root { 
             --primary-bg: #f8fafc;
@@ -28,12 +26,11 @@
             background-color: var(--primary-bg); 
             color: #1e293b; 
             overflow-x: hidden; 
-            /* Menghapus highlight tap default pada perangkat WebKit (iOS/Android) */
             -webkit-tap-highlight-color: transparent; 
         }
         
-        /* [NAVBAR GLASSMORPHISM]
-        Implementasi desain modern dengan efek blur latar belakang dan transparansi.
+        /* [NAVBAR GLASSMORPHISM] 
+            Efek blur latar belakang (backdrop-filter) untuk estetika dashboard modern.
         */
         .navbar { 
             background: rgba(255, 255, 255, 0.8) !important; 
@@ -44,12 +41,9 @@
             padding: 0.75rem 0;
         }
 
-        /* [SIDEBAR STYLING]
-        Kostumisasi Offcanvas Bootstrap agar selaras dengan estetika Sunter Pro.
-        */
+        /* [SIDEBAR & PROFILE BOX] */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; width: 285px !important; }
         
-        /* Box profil user di dalam sidebar dengan efek bayangan (drop shadow) */
         .user-profile-box { 
             background: var(--accent-gradient); 
             border-radius: 20px; 
@@ -61,8 +55,8 @@
             box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
         }
 
-        /* [NAVIGASI CUSTOM]
-        Logika visual untuk elemen menu, mencakup transisi dan state hover.
+        /* [NAVIGASI CUSTOM] 
+            Logika interaksi menu: Transisi smooth dan indikator visual pada state aktif.
         */
         .nav-link-custom {
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -80,7 +74,6 @@
         .nav-link-custom i { width: 24px; text-align: center; margin-right: 12px; font-size: 1.1rem; }
         .nav-link-custom:hover { background-color: #f8fafc !important; color: #3b82f6; }
 
-        /* State Aktif: Memberikan indikator visual pada menu yang sedang diakses */
         .active-menu {
             background-color: #eff6ff !important;
             color: #2563eb !important;
@@ -88,8 +81,8 @@
             border-left: 4px solid #2563eb !important;
         }
 
-        /* [BOTTOM NAVIGATION]
-        Navigasi khusus perangkat seluler untuk kemudahan akses (Thumb-Friendly UI).
+        /* [BOTTOM NAVIGATION MOBILE] 
+            Dioptimalkan untuk akses ibu jari (Thumb-friendly) pada perangkat seluler.
         */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -105,7 +98,6 @@
         .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 700; }
         .nav-item-link.active { color: var(--sunter-blue); }
 
-        /* Responsivitas: Menyembunyikan navigasi bawah pada layar desktop */
         @media (min-width: 768px) {
             .bottom-nav { display: none !important; }
             .main-content { padding-bottom: 40px; }
@@ -171,6 +163,9 @@
                 <a href="/monitoring-collection" class="nav-link-custom {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
                     <i class="fas fa-gauge-high"></i>Monitoring Harian
                 </a>
+                <a href="/youtube" class="nav-link-custom {% if request.path == '/youtube' %}active-menu{% endif %}">
+                    <i class="fab fa-youtube"></i>YouTube PAM JAYA
+                </a>
 
                 {% if current_role in ['petugas', 'admin'] %}
                 <div class="my-3 border-top opacity-25"></div>
@@ -179,7 +174,7 @@
                     <i class="fas fa-hand-holding-dollar"></i>Penagihan Current
                 </a>
                 <a href="/tunggakan-berekor" class="nav-link-custom {% if request.path == '/tunggakan-berekor' %}active-menu{% endif %}">
-                    <i class="fas fa-file-invoice-dollar"></i>Tunggakan Ardebt
+                    <i class="fas fa-file-invoice-dollar"></i>Target 20 (Ardebt)
                 </a>
                 <a href="/janji-bayar" class="nav-link-custom {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
                     <i class="fas fa-calendar-check"></i>Daftar Janji Bayar
@@ -246,9 +241,8 @@
     
     <script>
         /**
-         * [FUNGSI UTAMA UI: Auto-Close Navigation]
-         * Logika: Menutup panel navigasi (sidebar) secara otomatis setelah pengguna 
-         * memilih menu pada mode tampilan seluler untuk mengoptimalkan alur kerja.
+         * [FUNGSI UI: Auto-Close Sidebar]
+         * Kegunaan: Meningkatkan UX dengan menutup sidebar secara otomatis setelah navigasi dipilih pada mode mobile.
          */
         document.addEventListener('DOMContentLoaded', function() {
             const offcanvasEl = document.getElementById('offcanvasNav');
@@ -256,7 +250,7 @@
                 const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
                 document.querySelectorAll('.nav-link-custom').forEach(link => {
                     link.addEventListener('click', () => {
-                        // Menutup sidebar jika lebar viewport di bawah ambang batas (breakpoint) 992px
+                        // Hanya aktifkan auto-close jika resolusi layar berada di bawah breakpoint 992px (Mobile/Tablet)
                         if (window.innerWidth < 992) bsOffcanvas.hide();
                     });
                 });
