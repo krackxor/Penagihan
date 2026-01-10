@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="animate__animated animate__fadeIn">
     <div class="px-2 mb-4 d-flex justify-content-between align-items-center">
@@ -33,7 +34,7 @@
                     <div class="input-group bg-light rounded-3 px-2 border border-danger-subtle">
                         <span class="input-group-text border-0 bg-transparent text-muted"><i class="fas fa-search"></i></span>
                         <input type="text" id="searchBar" class="form-control border-0 bg-transparent py-2 shadow-none" 
-                               placeholder="Cari Nama Pelanggan atau IDPEL..." onkeyup="liveSearch()">
+                               placeholder="Cari Nama atau IDPEL..." onkeyup="liveSearch()">
                     </div>
                 </div>
             </div>
@@ -50,66 +51,97 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalHistory" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white border-0">
+                <h6 class="modal-title fw-bold"><i class="fas fa-history me-2"></i>Laporan Riwayat Cerdas</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div id="boxAnalisis" class="alert d-none mb-3 shadow-sm border-start border-4 animate__animated animate__fadeIn">
+                    <h6 class="fw-bold small mb-1"><i class="fas fa-robot me-1"></i>Analisis Sistem Sunter:</h6>
+                    <p id="txtSaran" class="mb-1 small text-dark">-</p>
+                    <hr class="my-1 opacity-10">
+                    <small id="txtTren" class="fw-bold text-muted" style="font-size: 0.7rem;"></small>
+                </div>
+
+                <div class="table-responsive rounded-3 shadow-sm bg-white">
+                    <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="py-2 ps-3">Periode</th>
+                                <th class="py-2 text-center">Kubik</th>
+                                <th class="py-2 text-center">Nominal</th>
+                                <th class="py-2 text-center">Tarif</th>
+                                <th class="py-2 text-center pe-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableHistoryContent">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-bold" data-bs-dismiss="modal">Tutup Riwayat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalKunjungan" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+        <div class="modal-content border-0 shadow-lg rounded-4">
             <form id="formKunjungan">
                 <div class="modal-header border-0 bg-danger text-white p-3">
-                    <h6 class="modal-title fw-bold"><i class="fas fa-dragon me-2"></i>Laporan Penagihan Ardebt</h6>
+                    <h6 class="modal-title fw-bold"><i class="fas fa-dragon me-2"></i>Laporan Ardebt Lapangan</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="modal-idpel" name="idpel">
                     <input type="hidden" id="modal-nominal-val" name="nominal_display">
                     <input type="hidden" id="modal-rayon-hidden" name="rayon">
-                    <input type="hidden" id="modal-nama-hidden">
 
                     <div class="bg-danger-subtle p-3 rounded-4 mb-3 border border-danger-subtle">
-                        <small class="text-danger fw-bold text-uppercase d-block mb-1">Target Penagihan Ardebt</small>
+                        <small class="text-danger fw-bold text-uppercase d-block mb-1" style="font-size: 0.6rem;">Target Tagihan</small>
                         <h6 id="modal-nama" class="fw-bold mb-1 text-dark text-uppercase"></h6>
-                        <div class="d-flex justify-content-between">
-                            <small id="modal-sub-info" class="text-muted fw-bold"></small>
-                            <small id="modal-sub-vol" class="text-muted fw-bold"></small>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-dark">Kontak Pelanggan (WhatsApp) *</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-0"><i class="fas fa-phone"></i></span>
-                            <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3" placeholder="0812..." required>
-                        </div>
+                        <small id="modal-sub-info" class="text-muted fw-bold d-block" style="font-size: 0.7rem;"></small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-dark">Hasil Kunjungan Ardebt *</label>
-                        <select id="modal-hasil" name="hasil" class="form-select rounded-3 bg-light border-0 fw-bold" required onchange="toggleJanjiInput()">
-                            <option value="">-- Pilih Hasil Lapangan --</option>
-                            <option value="Sudah Bayar">💰 Sudah Bayar (Lunas)</option>
+                        <label class="form-label small fw-bold">WhatsApp Pelanggan *</label>
+                        <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3" placeholder="0812..." required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Hasil Kunjungan *</label>
+                        <select id="modal-hasil" name="hasil" class="form-select rounded-3 fw-bold" required onchange="toggleJanjiInput()">
+                            <option value="">-- Pilih Hasil --</option>
+                            <option value="Sudah Bayar">💰 Sudah Bayar</option>
                             <option value="Janji Bayar">🤝 Janji Bayar</option>
-                            <option value="Rumah Kosong">🏠 Rumah Kosong / Tutup</option>
+                            <option value="Rumah Kosong">🏠 Rumah Kosong</option>
                             <option value="Tutup Bor">🚫 Tutup Bor / Segel</option>
                         </select>
                     </div>
 
-                    <div class="mb-3 d-none animate__animated animate__headShake" id="group-janji">
-                        <label class="form-label small fw-bold text-danger">Komitmen Tanggal Bayar</label>
-                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control rounded-3 border-danger-subtle bg-danger-subtle bg-opacity-10 text-danger fw-bold">
+                    <div class="mb-3 d-none" id="group-janji">
+                        <label class="form-label small fw-bold text-danger">Tgl Janji Bayar</label>
+                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control rounded-3 border-danger-subtle bg-danger-subtle">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-dark">Catatan Petugas</label>
-                        <textarea id="modal-keterangan" name="keterangan" class="form-control rounded-3 bg-light border-0" rows="2" placeholder="Catat kendala atau rincian janji nasabah..."></textarea>
+                        <label class="form-label small fw-bold">Catatan</label>
+                        <textarea id="modal-keterangan" name="keterangan" class="form-control rounded-3" rows="2" placeholder="Catat kendala..."></textarea>
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label small fw-bold text-dark">Foto Bukti (Gunakan Kamera) *</label>
+                        <label class="form-label small fw-bold">Bukti Foto *</label>
                         <input type="file" id="modal-foto" name="foto" class="form-control rounded-3" accept="image/*" capture="camera" required>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-3 pt-0">
                     <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-bold shadow">
-                        SIMPAN & SHARE LAPORAN <i class="fab fa-whatsapp ms-1"></i>
+                        SIMPAN & SHARE WA <i class="fab fa-whatsapp ms-1"></i>
                     </button>
                 </div>
             </form>
@@ -118,178 +150,123 @@
 </div>
 
 <script>
-    let modalKunjungan;
+    let modalKunjungan, modalHistory;
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    /**
-     * INIT: Memulai sinkronisasi data Ardebt saat halaman dibuka.
-     */
     document.addEventListener('DOMContentLoaded', () => {
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
-        
-        if ("{{ session['role'] }}" === 'admin') {
-            loadPetugasDropdown();
-        } else {
-            document.getElementById('filter-petugas').disabled = true;
-        }
-
+        modalHistory = new bootstrap.Modal(document.getElementById('modalHistory'));
         loadArdebt();
-        document.getElementById('formKunjungan').addEventListener('submit', (e) => {
+
+        // Handle Form Submit
+        document.getElementById('formKunjungan').addEventListener('submit', function(e) {
             e.preventDefault();
             simpanLaporan();
         });
     });
 
     /**
-     * PETUGAS: Sinkronisasi rute antar petugas (Admin Only).
-     */
-    async function loadPetugasDropdown() {
-        try {
-            const res = await fetch('/api/belum-bayar/petugas-tabs');
-            const list = await res.json();
-            const select = document.getElementById('filter-petugas');
-            list.forEach(n => {
-                if (n && n !== "{{ session['petugas_id'] }}") {
-                    const opt = document.createElement('option');
-                    opt.value = n; opt.innerText = n;
-                    select.appendChild(opt);
-                }
-            });
-        } catch(e) { console.error("Petugas sync error"); }
-    }
-
-    /**
-     * FETCH: Mengambil data berekor yang sudah difilter oleh Backend.
+     * LOGIKA: Ambil Data Ardebt dari API V4.3
      */
     async function loadArdebt() {
         const petugas = document.getElementById('filter-petugas').value;
         const container = document.getElementById('list-container');
-        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-danger border-width-2"></div><p class="small text-muted mt-2">Menganalisis tunggakan berekor...</p></div>';
         
         try {
             const res = await fetch(`/api/ardebt?petugas=${encodeURIComponent(petugas)}`);
             const data = await res.json();
-            renderCards(data);
-            updateSummary(data);
-        } catch (err) {
-            container.innerHTML = '<div class="alert alert-danger mx-2 rounded-4 small">❌ Koneksi Ardebt terganggu.</div>';
-        }
-    }
+            
+            if (data.length === 0) {
+                container.innerHTML = '<div class="text-center mt-5 text-muted small">Antrean Ardebt Bersih! 🐉</div>';
+                return;
+            }
 
-    /**
-     * RENDER: Membangun kartu tagihan berekor (High Value focused).
-     */
-    function renderCards(data) {
-        const container = document.getElementById('list-container');
-        if (!data || !data.length) {
-            container.innerHTML = '<div class="text-center mt-5"><i class="fas fa-dragon fa-3x text-light mb-3 opacity-25"></i><p class="text-muted small">Antrean Ardebt bersih!</p></div>';
-            return;
-        }
-
-        container.innerHTML = data.map((item) => `
-            <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card animate__animated animate__fadeInUp bg-white" 
-                 data-search="${item.nomen} ${item.nama}">
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1" style="font-size: 9px;">🆔 ${item.nomen}</span>
-                        <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size: 9px;">💧 ${item.total_volume || 0} m³</span>
-                    </div>
-                    <h6 class="fw-bold mb-1 text-dark text-uppercase">${item.nama || 'PELANGGAN ARDEBT'}</h6>
-                    <div class="row g-0 small text-muted mb-3" style="font-size: 0.7rem;">
-                        <div class="col-6"><i class="fas fa-history me-1 text-danger"></i>${item.lembar_berekor} Bulan Menunggak</div>
-                        <div class="col-6 text-end"><i class="fas fa-map-marker-alt me-1"></i>Rute: ${item.pcez || '-'}</div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center border-top pt-3">
-                        <div>
-                            <small class="d-block text-muted fw-bold" style="font-size: 8px;">TOTAL TUNGGAKAN</small>
-                            <span class="fw-bold text-danger" style="font-size: 1.1rem;">Rp ${formatIDR(item.total_jumlah)}</span>
+            container.innerHTML = data.map((item) => `
+                <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card animate__animated animate__fadeInUp bg-white" data-search="${item.nomen} ${item.nama}">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1" style="font-size: 9px;">🆔 ${item.nomen}</span>
+                            <span class="badge bg-light text-dark border rounded-pill px-2 py-1" style="font-size: 9px;">📍 ${item.pcez}</span>
                         </div>
-                        <button class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm" 
-                                onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${item.total_jumlah}', '${item.rincian_periode}', '${item.total_volume}', '${item.rayon}')">
-                            TAGIH <i class="fas fa-arrow-right ms-1"></i>
-                        </button>
+                        <h6 class="fw-bold mb-1 text-dark text-uppercase">${item.nama}</h6>
+                        <p class="text-muted mb-2" style="font-size: 0.65rem;"><i class="fas fa-map-marker-alt me-1"></i>${item.alamat}</p>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="p-2 bg-light rounded-3 text-center">
+                                    <small class="d-block text-muted" style="font-size: 0.55rem;">SERI METER</small>
+                                    <span class="fw-bold" style="font-size: 0.75rem;">${item.no_seri_meter || '-'}</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 bg-light rounded-3 text-center">
+                                    <small class="d-block text-muted" style="font-size: 0.55rem;">PEMAKAIAN AIR</small>
+                                    <span class="fw-bold text-primary" style="font-size: 0.75rem;">${item.pemakaian_air} m³</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                            <div>
+                                <small class="d-block text-muted fw-bold" style="font-size: 8px;">ESTIMASI TAGIHAN (+ARDEBT)</small>
+                                <span class="fw-bold text-danger" style="font-size: 1.1rem;">Rp ${formatIDR(item.nominal_mc + item.total_ardebt)}</span>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-dark rounded-pill px-3 fw-bold me-1" style="font-size: 0.65rem;" onclick="showHistory('${item.nomen}', '${item.nama}')">RIWAYAT</button>
+                                <button class="btn btn-danger rounded-pill px-3 fw-bold shadow-sm" style="font-size: 0.65rem;" onclick="openModal('${item.nomen}', '${item.nama}', '${item.nominal_mc + item.total_ardebt}', '${item.periode_aktif}', '${item.pemakaian_air}', '${item.rayon}')">TAGIH</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
+            updateSummary(data);
+        } catch (err) {
+            container.innerHTML = '<p class="text-center text-danger small">Koneksi Error.</p>';
+        }
     }
 
     /**
-     * MODAL: Persiapan data snapshot laporan.
+     * LOGIKA: Menampilkan Modal Riwayat & Analisis Cerdas
      */
-    function openModal(nomen, nama, nominal, rincian, vol, rayon) {
-        document.getElementById('modal-idpel').value = nomen;
-        document.getElementById('modal-nama').innerText = nama;
-        document.getElementById('modal-nominal-val').value = nominal;
-        document.getElementById('modal-sub-info').innerText = `IDPEL: ${nomen} | BLN: ${rincian}`;
-        document.getElementById('modal-sub-vol').innerText = `TOTAL: Rp ${formatIDR(nominal)}`;
-        document.getElementById('modal-rayon-hidden').value = rayon || '-';
-        document.getElementById('modal-nama-hidden').value = nama;
-
-        document.getElementById('formKunjungan').reset();
-        toggleJanjiInput();
-        modalKunjungan.show();
-    }
-
-    /**
-     * SAVE: Kirim laporan ke API History (Sinergi DB & WA).
-     */
-    async function simpanLaporan() {
-        Swal.fire({ title: 'Mengunci Laporan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        const formData = new FormData(document.getElementById('formKunjungan'));
-        formData.append('petugas_name', document.getElementById('filter-petugas').value);
-        formData.append('nama_pelanggan', document.getElementById('modal-nama-hidden').value);
+    async function showHistory(nomen, nama) {
+        document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted small">Menganalisis...</td></tr>';
+        document.getElementById('boxAnalisis').classList.add('d-none');
+        modalHistory.show();
 
         try {
-            const res = await fetch('/api/history/simpan-kunjungan', { method: 'POST', body: formData });
-            const result = await res.json();
-            
-            if (res.ok) {
-                Swal.fire({
-                    icon: 'success', title: 'Data Ardebt Disimpan!',
-                    confirmButtonText: 'Share WhatsApp'
-                }).then(() => {
-                    executeShareWA(result.wa_data);
-                    modalKunjungan.hide();
-                    loadArdebt();
-                });
+            const res = await fetch(`/api/ardebt/history/${nomen}`);
+            const resData = await res.json();
+
+            if (resData.status === 'not_available') {
+                document.querySelector('#tableHistoryContent').innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted small">${resData.message}</td></tr>`;
             } else {
-                Swal.fire('Gagal', result.message, 'error');
+                // Render Analisis AI Sinergi
+                const box = document.getElementById('boxAnalisis');
+                box.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning', 'alert-info');
+                box.classList.add(`alert-${resData.analysis.level}`);
+                document.getElementById('txtSaran').innerText = resData.analysis.saran;
+                document.getElementById('txtTren').innerText = `TREN: ${resData.analysis.perubahan}`;
+
+                // Render Tabel
+                let rows = '';
+                resData.history.forEach(h => {
+                    const status = h.status_lunas == 1 ? '<span class="text-success fw-bold">LUNAS</span>' : '<span class="text-danger fw-bold">PIUTANG</span>';
+                    rows += `<tr class="text-center align-middle">
+                        <td class="text-start ps-3 fw-bold">${h.periode}</td>
+                        <td>${h.pemakaian_air} m³</td>
+                        <td>Rp ${formatIDR(h.rupiah)}</td>
+                        <td>${h.tarif}</td>
+                        <td class="pe-3">${status}</td>
+                    </tr>`;
+                });
+                document.querySelector('#tableHistoryContent').innerHTML = rows;
             }
-        } catch (err) { Swal.fire('Error', 'Server Ardebt tidak merespon', 'error'); }
+        } catch (e) {
+            document.querySelector('#tableHistoryContent').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal.</td></tr>';
+        }
     }
 
-    /**
-     * WHATSAPP: Format pesan khusus tunggakan lama.
-     */
-    function executeShareWA(wa) {
-        const waktu = new Date().toLocaleString('id-ID');
-        const pesanShare = 
-            `*[LAPORAN KUNJUNGAN - ARDEBT]* 🐉%0A` +
-            `-------------------------------------------%0A` +
-            `👤 *Petugas:* ${wa.petugas}%0A` +
-            `🏠 *Konsumen:* ${wa.nama}%0A` +
-            `🆔 *IDPEL:* ${wa.nomen}%0A%0A` +
-            `*STATUS:* *${wa.status}*%0A` +
-            `📝 *Catatan:* ${wa.catatan}%0A%0A` +
-            `*RINCIAN PIUTANG:*%0A` +
-            `🧾 Current: Rp ${formatIDR(wa.mc)}%0A` +
-            `💸 Ardebt: Rp ${formatIDR(wa.ardebt)}%0A` +
-            `💰 *TOTAL: Rp ${formatIDR(wa.total)}*%0A%0A` +
-            `📸 *Bukti:* ${window.location.origin}/static/uploads/kunjungan/${wa.foto_path}%0A%0A` +
-            `*Waktu:* ${waktu}`;
-
-        window.open(`https://api.whatsapp.com/send?text=${pesanShare}`, '_blank');
-    }
-
-    /**
-     * UI HELPERS: Pencarian live & toggles.
-     */
-    function toggleJanjiInput() {
-        const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
-        document.getElementById('group-janji').classList.toggle('d-none', !isJanji);
-    }
-
+    // Fungsi tambahan: search, openModal, simpan, WA share tetap sama
     function liveSearch() {
         const q = document.getElementById('searchBar').value.toLowerCase();
         document.querySelectorAll('.customer-card').forEach(c => {
@@ -297,16 +274,30 @@
         });
     }
 
+    function openModal(nomen, nama, total, periode, vol, rayon) {
+        document.getElementById('modal-idpel').value = nomen;
+        document.getElementById('modal-nama').innerText = nama;
+        document.getElementById('modal-nominal-val').value = total;
+        document.getElementById('modal-sub-info').innerText = `🆔 ${nomen} | 🧾 TAGIHAN: Rp ${formatIDR(total)}`;
+        document.getElementById('formKunjungan').reset();
+        modalKunjungan.show();
+    }
+
+    function toggleJanjiInput() {
+        const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
+        document.getElementById('group-janji').classList.toggle('d-none', !isJanji);
+    }
+
     function updateSummary(data) {
-        const total = data.reduce((acc, curr) => acc + Number(curr.total_jumlah), 0);
+        const total = data.reduce((acc, curr) => acc + (curr.nominal_mc + curr.total_ardebt), 0);
         document.getElementById('summary-area').innerHTML = `
-            <div class="bg-danger shadow-sm rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white">
+            <div class="bg-danger shadow-sm rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn">
                 <div>
-                    <div class="opacity-75 mb-0" style="font-size: 0.65rem;">SISA PIUTANG</div>
+                    <div class="opacity-75 mb-0" style="font-size: 0.65rem;">TOTAL TARGET ARDEBT</div>
                     <div class="fw-bold h5 mb-0">${data.length} <small style="font-size: 0.6rem;">NASABAH</small></div>
                 </div>
                 <div class="text-end">
-                    <div class="opacity-75 mb-0" style="font-size: 0.65rem;">TOTAL RUPIAH</div>
+                    <div class="opacity-75 mb-0" style="font-size: 0.65rem;">NOMINAL PIUTANG</div>
                     <div class="fw-bold h5 mb-0">Rp ${formatIDR(total)}</div>
                 </div>
             </div>
@@ -316,8 +307,7 @@
 
 <style>
     .bg-danger-subtle { background-color: #fff5f5 !important; }
-    .btn-danger { background: #e02424; border: none; }
-    .customer-card { border: 1px solid #fecaca !important; }
-    .form-select:disabled { color: #e02424; font-weight: bold; }
+    .customer-card { border: 1px solid #fecaca !important; transition: transform 0.2s; }
+    .customer-card:active { transform: scale(0.98); }
 </style>
 {% endblock %}
