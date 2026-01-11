@@ -1,10 +1,10 @@
 """
-Collection API - Sunter Dashboard Pro (V7.2 Sinergi Ultra-Fast)
+Collection API - Sunter Dashboard Pro (V8.2 Sinergi Intelligence)
 Sinergi & Smart Update:
-1. Simple Billing Logic: Sinkronisasi target & realisasi murni berdasarkan Bulan-Tahun.
-2. Ultra-Fast Join: Menghapus CAST() agar database menggunakan INDEX secara maksimal.
-3. NOMEN Integrity: Mengunci relasi antar tabel secara instan menggunakan tipe data TEXT.
-4. Multi-Rayon Analytics: Breakdown performa otomatis untuk Rayon 34 & 35.
+1. Pusat Kendali ⚡: Monitoring Nomen & Nominal (MC, Undue, Current, Belum Bayar).
+2. Daily Monitor: Grafik laju progres harian kumulatif (Realisasi vs Target).
+3. Leaderboard: Peringkat produktivitas petugas berdasarkan % Realisasi Nomen.
+4. Ultra-Fast Join: Menghapus CAST() untuk akses instan via Database INDEX.
 """
 
 import os
@@ -17,141 +17,145 @@ collection_bp = Blueprint('collection', __name__)
 
 def get_latest_period(cursor):
     """FUNGSI AUTOPILOT: Mendapatkan periode terakhir yang tersedia di database."""
-    # Mengambil periode terbaru dari Master Pelanggan sebagai acuan target aktif
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
-@collection_bp.route('/daily-monitor', methods=['GET'])
-def daily_monitor():
-    """Fungsi monitoring harian cerdas. Menghitung laju progres (Current) vs saldo awal (Undue)."""
-    
+# =========================================================================
+# 1. PUSAT KENDALI AREA SERVICE (INTELLIGENCE & ANALYTICS)
+# =========================================================================
+
+@collection_bp.route('/pusat-kendali', methods=['GET'])
+def pusat_kendali():
+    """
+    ENDPOINT UTAMA: Memantau Jumlah Nomen & Nominal MC.
+    Breakdown by Rayon, PCEZ, dan Petugas untuk Grafik Dinamis.
+    """
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        
-        # --- 1. LOGIKA AUTOPILOT PERIODE ---
-        # Mengambil periode dari request atau otomatis ke periode master terbaru (MM-YYYY)
-        periode_req = request.args.get('periode')
-        if not periode_req:
-            periode_req = get_latest_period(cursor)
+        periode_req = request.args.get('periode') or get_latest_period(cursor)
 
-        # --- 2. AMBIL TARGET MC (Penyebut Utama) ---
+        # A. RINGKASAN DATA (NOMEN VS NOMINAL)
         cursor.execute("""
             SELECT 
-                COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
-                COALESCE(SUM(CASE WHEN rayon = '35' THEN nominal ELSE 0 END), 0) as target_35,
-                COALESCE(SUM(nominal), 0) as target_total
+                COUNT(nomen) as total_nomen,
+                SUM(nominal) as total_rp_mc,
+                SUM(CASE WHEN status_lunas = 1 THEN 1 ELSE 0 END) as qty_bayar,
+                SUM(CASE WHEN status_lunas = 0 THEN 1 ELSE 0 END) as qty_belum,
+                SUM(CASE WHEN status_lunas = 1 THEN nominal ELSE 0 END) as rp_lunas,
+                SUM(CASE WHEN status_lunas = 0 THEN nominal ELSE 0 END) as rp_sisa
             FROM master_pelanggan WHERE periode = ?
         """, (periode_req,))
-        target = dict(cursor.fetchone())
+        summary = dict(cursor.fetchone())
 
-        # --- 3. AMBIL REALISASI UNDUE (LUNAS MB) ---
-        # Logika: Data MB yang memiliki label periode Bulan-Tahun yang sama dengan MC.
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
-                COALESCE(SUM(CASE WHEN p.rayon = '35' THEN mb.nominal ELSE 0 END), 0) as undue_35,
-                COALESCE(SUM(mb.nominal), 0) as undue_total
-            FROM master_bayar mb
-            INNER JOIN master_pelanggan p ON mb.nomen = p.nomen 
-                                         AND mb.notagihan = p.notagihan
-            WHERE p.periode = ? AND mb.periode = ?
-        """, (periode_req, periode_req))
-        undue = dict(cursor.fetchone())
+        # B. ANALISIS REALISASI (UNDUE VS CURRENT)
+        # Undue: Dari Master Bayar | Current: Dari Collection Harian
+        cursor.execute("SELECT SUM(nominal) FROM master_bayar WHERE periode = ?", (periode_req,))
+        undue_val = cursor.fetchone()[0] or 0
+        current_val = (summary['rp_lunas'] or 0) - undue_val
 
-        # --- 4. AMBIL REALISASI CURRENT (SETORAN COLLECTION) ---
-        # Logika: Progres harian berdasarkan PAY_DT yang masuk di periode yang sama.
+        # C. DATA BY AREA & PETUGAS (UNTUK GRAFIK DINAMIS)
         cursor.execute("""
-            SELECT 
-                c.pay_dt as tgl,
-                COALESCE(SUM(CASE WHEN p.rayon = '34' THEN c.nominal ELSE 0 END), 0) as rp_34,
-                COALESCE(SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END), 0) as rp_35
+            SELECT p.rayon, p.pcez, r.petugas,
+                COUNT(p.nomen) as qty,
+                SUM(p.nominal) as target,
+                SUM(CASE WHEN p.status_lunas = 1 THEN p.nominal ELSE 0 END) as realisasi
+            FROM master_pelanggan p
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            WHERE p.periode = ?
+            GROUP BY p.pcez, r.petugas
+        """, (periode_req,))
+        analytics = [dict(row) for row in cursor.fetchall()]
+
+        # D. PERINGKAT PRODUKTIVITAS (LEADERBOARD)
+        cursor.execute("""
+            SELECT r.petugas, 
+                COUNT(p.nomen) as target_nomen,
+                SUM(CASE WHEN p.status_lunas = 1 THEN 1 ELSE 0 END) as lunas_nomen,
+                ROUND(SUM(CASE WHEN p.status_lunas = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(p.nomen), 2) as pct
+            FROM master_pelanggan p
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            WHERE p.periode = ?
+            GROUP BY r.petugas ORDER BY pct DESC
+        """, (periode_req,))
+        leaderboard = [dict(row) for row in cursor.fetchall()]
+
+        # E. LOG AKTIVITAS TERAKHIR
+        cursor.execute("""
+            SELECT petugas_name, nomen, keterangan, created_at 
+            FROM kunjungan_petugas WHERE periode = ? 
+            ORDER BY created_at DESC LIMIT 10
+        """, (periode_req,))
+        logs = [dict(row) for row in cursor.fetchall()]
+
+        return jsonify({
+            "status": "success",
+            "periode": periode_req,
+            "summary": {
+                "nomen": { "total": summary['total_nomen'], "lunas": summary['qty_bayar'], "sisa": summary['qty_belum'] },
+                "nominal": { "mc": summary['total_rp_mc'], "undue": undue_val, "current": current_val, "sisa": summary['rp_sisa'] }
+            },
+            "analytics": analytics,
+            "leaderboard": leaderboard,
+            "logs": logs
+        })
+    finally:
+        conn.close()
+
+# =========================================================================
+# 2. MONITORING REALISASI HARIAN (DAILY MONITOR)
+# =========================================================================
+
+@collection_bp.route('/daily-monitor', methods=['GET'])
+def daily_monitor():
+    """Fungsi monitoring harian cerdas. Menghitung laju progres (Current) vs saldo awal (Undue)."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        periode_req = request.args.get('periode') or get_latest_period(cursor)
+
+        # AMBIL TARGET TOTAL
+        cursor.execute("SELECT SUM(nominal) FROM master_pelanggan WHERE periode = ?", (periode_req,))
+        target_total = cursor.fetchone()[0] or 0
+
+        # AMBIL REALISASI AWAL (UNDUE)
+        cursor.execute("SELECT SUM(nominal) FROM master_bayar WHERE periode = ?", (periode_req,))
+        undue_total = cursor.fetchone()[0] or 0
+
+        # AMBIL LAJU HARIAN (COLLECTION)
+        cursor.execute("""
+            SELECT c.pay_dt as tgl, SUM(c.nominal) as rp_hari
             FROM collection_harian c
-            INNER JOIN master_pelanggan p ON c.nomen = p.nomen
-                                         AND c.notag = p.notagihan
+            INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND c.notag = p.notagihan
             WHERE p.periode = ? AND c.periode = ?
             GROUP BY c.pay_dt 
             ORDER BY substr(c.pay_dt,7,4), substr(c.pay_dt,4,2), substr(c.pay_dt,1,2) ASC
         """, (periode_req, periode_req))
         rows = cursor.fetchall()
 
-        # --- 5. KALKULASI KUMULATIF & VARIANCE ---
         results = []
-        cum_34 = 0; cum_35 = 0
-        base_34 = undue['undue_34']; base_35 = undue['undue_35']; base_total = undue['undue_total']
-        
-        # Persentase awal didasarkan pada Undue (Lunas MB)
-        prev_pct = (base_total / target['target_total'] * 100) if target['target_total'] > 0 else 0
-
+        running_total = undue_total
         for r in rows:
-            cum_34 += r['rp_34']
-            cum_35 += r['rp_35']
-            
-            p_34 = ((cum_34 + base_34) / target['target_34'] * 100) if target['target_34'] > 0 else 0
-            p_35 = ((cum_35 + base_35) / target['target_35'] * 100) if target['target_35'] > 0 else 0
-            
-            total_current_rp = cum_34 + cum_35 + base_total
-            p_total = (total_current_rp / target['target_total'] * 100) if target['target_total'] > 0 else 0
-
+            running_total += r['rp_hari']
+            pct = (running_total / target_total * 100) if target_total > 0 else 0
             results.append({
                 "tgl": r['tgl'],
-                "r34": {"rp": r['rp_34'], "pct": round(p_34, 2)},
-                "r35": {"rp": r['rp_35'], "pct": round(p_35, 2)},
-                "total": {
-                    "rp_harian": r['rp_34'] + r['rp_35'],
-                    "cum_all": total_current_rp,
-                    "pct": round(p_total, 2),
-                    "variance": round(p_total - prev_pct, 2)
-                }
+                "rp_hari": r['rp_hari'],
+                "kumulatif": running_total,
+                "pct": round(pct, 2)
             })
-            prev_pct = p_total
-
-        # Summary Akhir untuk Dashboard Cards
-        last_cum = results[-1]['total']['cum_all'] if results else base_total
-        last_pct = results[-1]['total']['pct'] if results else round(prev_pct, 2)
 
         return jsonify({
-            "status": "success", 
-            "periode_aktif": periode_req,
-            "data": results, 
+            "status": "success",
+            "periode": periode_req,
+            "data": results,
             "summary": {
-                "target": target['target_total'],
-                "realisasi": last_cum,
-                "pct": last_pct,
-                "undue_mb": base_total,
-                "current_coll": (last_cum - base_total)
+                "target": target_total,
+                "undue": undue_total,
+                "current": running_total - undue_total,
+                "total_realisasi": running_total
             }
         })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        conn.close()
-
-@collection_bp.route('/daily-detail', methods=['GET'])
-def daily_detail():
-    """Rincian audit: List nasabah yang melakukan pembayaran pada tanggal tertentu."""
-    if 'role' not in session:
-        return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
-
-    tgl = request.args.get('tgl') 
-    periode = request.args.get('periode') 
-    
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT 
-                c.nomen, p.nama, p.pcez, p.rayon, c.nominal
-            FROM collection_harian c
-            INNER JOIN master_pelanggan p ON c.nomen = p.nomen
-                                         AND c.notag = p.notagihan
-            WHERE c.pay_dt = ? AND p.periode = ? AND c.periode = ?
-            ORDER BY c.nominal DESC
-        """, (tgl, periode, periode))
-        
-        return jsonify({"status": "success", "data": [dict(row) for row in cursor.fetchall()]})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
