@@ -1,10 +1,10 @@
 """
-History API Endpoints - Sunter Dashboard Pro (V7.3 Enterprise Edition)
-Sinergi & Smart Update:
-1. Ultimate Snapshot: Proteksi permanen data Nama, Nomet (Alfanumerik), dan Alamat.
-2. Safe-Data Mapping: Menangani nilai NULL (COALESCE) secara ketat untuk mencegah Error 500.
-3. WIB Timezone Guard: Standarisasi Asia/Jakarta (pytz) untuk audit waktu akurat.
-4. NOMET Integrity: Menjamin nomor seri meteran dari MC tersimpan dalam riwayat kunjungan.
+History API Endpoints - Area Service Integrated System (V7.4 Enterprise Edition)
+Integritas Data & Audit Geospasial:
+1. Geospasial Telemetry: Validasi ketat koordinat GPS untuk mencegah data '0.0'.
+2. Ultimate Snapshot: Proteksi permanen data Nama, Alamat, dan NOMET (Alfanumerik).
+3. Cross-Platform Sync: Mendukung parameter periode (MM-YYYY) untuk audit lintas waktu.
+4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta (pytz) untuk akurasi timestamp audit.
 """
 
 import os
@@ -15,30 +15,28 @@ from core.database import get_db_connection
 from core.helpers import APIResponse
 from datetime import datetime
 
-# Inisialisasi Blueprint untuk modul History
+# Inisialisasi Blueprint untuk modul History Area Service
 history_bp = Blueprint('history', __name__)
 
 # ==========================================
-# 1. ANALISIS & AUDIT (KHUSUS LEVEL ADMIN)
+# 1. MODUL AUDIT & LOG OPERASIONAL
 # ==========================================
 
 @history_bp.route('/list', methods=['GET'])
 def get_history():
     """
-    [FUNGSI: MONITORING LOG SISTEM]
-    Kegunaan: Menampilkan histori import data Excel untuk audit Admin.
-    Keamanan: COALESCE menjamin row_count dan status tidak NULL agar JSON tidak crash.
+    [FUNGSI: AUDIT JEJAK DATA MASTER]
+    Kegunaan: Menampilkan log sinkronisasi file master Excel oleh Admin.
     """
     if session.get('role') != 'admin':
-        return APIResponse.error("Akses terbatas untuk Administrator", code=403)
+        return APIResponse.error("Otoritas terbatas untuk Administrator", code=403)
         
     conn = get_db_connection()
     try:
-        # Menarik data riwayat upload (Smart Query V7.3)
         query = """
             SELECT 
                 id, 
-                COALESCE(file_name, 'Unknown_File') as file_name, 
+                COALESCE(file_name, 'Unknown_Source') as file_name, 
                 COALESCE(file_type, 'N/A') as file_type, 
                 COALESCE(periode, '-') as periode, 
                 COALESCE(row_count, 0) as row_count, 
@@ -48,51 +46,50 @@ def get_history():
             ORDER BY created_at DESC LIMIT 100
         """
         rows = conn.execute(query).fetchall()
-        
-        history_list = [dict(row) for row in rows] if rows else []
-        return APIResponse.success(data=history_list)
+        return APIResponse.success(data=[dict(row) for row in rows])
         
     except sqlite3.OperationalError:
-        return APIResponse.error("Database belum siap atau tabel log hilang.", code=500)
+        return APIResponse.error("Pangkalan data log tidak ditemukan.", code=500)
     except Exception as e:
-        print(f"❌ LOG ERROR HISTORY-LIST: {str(e)}")
-        return APIResponse.error(f"Gagal memuat log sistem: {str(e)}", code=500)
+        return APIResponse.error(f"Gagal memproses log audit: {str(e)}", code=500)
     finally:
         conn.close()
 
 # ==========================================
-# 2. ENDPOINT OPERASIONAL (SNAPSHOT & TRACKING)
+# 2. MODUL SNAPSHOT KUNJUNGAN & GPS
 # ==========================================
 
 @history_bp.route('/simpan-kunjungan', methods=['POST'])
 def simpan_kunjungan():
     """
-    [FUNGSI: ENGINE ULTIMATE SNAPSHOT & GPS]
+    [FUNGSI: ENGINE SNAPSHOT & TELEMETRI GPS]
     Logika:
-    1. Mengunci data fisik pelanggan (Nama, Alamat, NOMET) secara permanen.
-    2. Menangkap koordinat GPS dan menyinkronkan waktu standar WIB.
+    1. Mengunci identitas fisik (NOMET, Nama, Alamat) secara permanen.
+    2. Menangkap koordinat GPS dan memvalidasi tipe data agar tidak 'Lost Signal'.
     """
     tz_jkt = pytz.timezone('Asia/Jakarta')
     waktu_wib = datetime.now(tz_jkt)
     waktu_str = waktu_wib.strftime('%Y-%m-%d %H:%M:%S')
 
-    nomen   = request.form.get('nomen') or request.form.get('idpel')
+    nomen   = request.form.get('idpel') or request.form.get('nomen')
     petugas = session.get('petugas_id') or request.form.get('petugas_name')
     no_hp   = request.form.get('no_hp')
     hasil   = request.form.get('hasil')
     catatan = request.form.get('keterangan') or request.form.get('catatan', '-')
-    lat     = request.form.get('latitude')   
-    lng     = request.form.get('longitude')  
-    foto    = request.files.get('foto')
+    
+    # Penangkapan Koordinat Geospasial
+    lat = request.form.get('latitude')   
+    lng = request.form.get('longitude')  
+    foto = request.files.get('foto')
 
     if not nomen or not foto:
-        return APIResponse.error("ID Pelanggan dan Foto wajib dilampirkan", code=400)
+        return APIResponse.error("ID Pelanggan dan Dokumentasi Visual wajib disertakan", code=400)
 
     conn = get_db_connection()
     try:
-        # --- LANGKAH 1: SNAPSHOT DATA MASTER (Termasuk NOMET Alfanumerik) ---
+        # --- LANGKAH 1: SNAPSHOT DATA MASTER ---
         p_info = conn.execute("""
-            SELECT nama, nomet, alamat, nominal, kubik 
+            SELECT nama, nomet, alamat, nominal, kubik, rayon
             FROM master_pelanggan WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT) 
             ORDER BY periode DESC LIMIT 1
         """, (nomen,)).fetchone()
@@ -103,69 +100,67 @@ def simpan_kunjungan():
             WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT)
         """, (nomen,)).fetchone()
 
-        # --- LANGKAH 3: VERIFIKASI LEMBAR TUNGGAK (JCOUNT) ---
-        nunggak_info = conn.execute("""
-            SELECT COUNT(*) as total_lembar 
-            FROM master_pelanggan p
-            WHERE CAST(p.nomen AS TEXT) = CAST(? AS TEXT)
-            AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan)
-            AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.notag = p.notagihan)
-        """, (nomen,)).fetchone()
+        # Validasi Data Snapshot (Integrity Guard)
+        val_nama    = p_info['nama'] if p_info else "Entitas Konsumen"
+        val_nomet   = p_info['nomet'] if p_info else "-"
+        val_alamat  = p_info['alamat'] if p_info else "-"
+        val_mc      = p_info['nominal'] if p_info else 0
+        val_ardebt  = a_info['total'] if a_info and a_info['total'] else 0
+        val_rayon   = p_info['rayon'] if p_info else "-"
         
-        # Validasi Data Fallback (NOMET Guard V7.3)
-        val_nama       = p_info['nama'] if p_info else "Konsumen"
-        val_nomet      = p_info['nomet'] if p_info else "-" # Mengambil NOMET dari MC
-        val_alamat     = p_info['alamat'] if p_info else "-"
-        val_mc         = p_info['nominal'] if p_info else 0
-        val_ardebt     = a_info['total'] if a_info and a_info['total'] else 0
-        val_kubik      = p_info['kubik'] if p_info else 0
-        count_nunggak  = nunggak_info['total_lembar'] if nunggak_info else 0
-        
-        # --- LANGKAH 4: MANAJEMEN PENYIMPANAN FOTO ---
-        filename = f"KUNJ_{nomen}_{waktu_wib.strftime('%Y%m%d_%H%M%S')}.jpg"
+        # --- LANGKAH 3: PROTOKOL PENYIMPANAN VISUAL ---
+        filename = f"AREA_{nomen}_{waktu_wib.strftime('%Y%m%d_%H%M%S')}.jpg"
         upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan', filename)
         foto.save(upload_path)
 
-        # --- LANGKAH 5: EKSEKUSI PENYIMPANAN SNAPSHOT ---
+        # --- LANGKAH 4: TRANSAKSI DATABASE (SNAPSHOT & GPS) ---
         conn.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, nomet, nama_snapshot, alamat_snapshot, petugas_name, no_hp, 
-             keterangan, catatan, foto_path, mc, ardebt, volume, latitude, longitude, periode, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             keterangan, catatan, foto_path, mc, ardebt, latitude, longitude, periode, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (nomen, val_nomet, val_nama, val_alamat, petugas, no_hp, 
-              hasil, catatan, filename, val_mc, val_ardebt, val_kubik, 
+              hasil, catatan, filename, val_mc, val_ardebt, 
               lat, lng, waktu_wib.strftime('%m-%Y'), waktu_str))
         conn.commit()
 
         return jsonify({
             "status": "success",
-            "message": "Snapshot & GPS Berhasil Dikunci",
+            "message": "Snapshot Operasional & Geospasial Terverifikasi",
             "wa_data": {
                 "nomen": nomen, "nama": val_nama, "nomet": val_nomet, 
                 "total": val_mc + val_ardebt, "status": hasil, 
-                "waktu": waktu_str, "jcount": count_nunggak
+                "waktu": waktu_str, "petugas": petugas, 
+                "foto_path": filename, "catatan": catatan, "rayon": val_rayon
             }
         })
     except Exception as e:
         if conn: conn.rollback()
-        print(f"❌ ERROR SNAPSHOT SIMPAN: {str(e)}")
-        return APIResponse.error(f"Gagal melakukan snapshot: {str(e)}", code=500)
+        return APIResponse.error(f"Gagal melakukan snapshot sistem: {str(e)}", code=500)
     finally:
         conn.close()
 
 @history_bp.route('/kunjungan', methods=['GET'])
 def list_kunjungan():
-    """ Menampilkan histori laporan berdasarkan data snapshot permanen. """
+    """
+    [FUNGSI: FEED AUDIT LAPANGAN]
+    Kegunaan: Menampilkan histori laporan berdasarkan parameter periode dan otoritas role.
+    """
     role    = str(session.get('role', 'guest')).lower()
     my_id   = session.get('petugas_id')
-    periode = request.args.get('periode') or datetime.now().strftime('%m-%Y')
+    periode = request.args.get('periode') # Format yang diharapkan: MM-YYYY
+
+    # Default ke periode berjalan jika parameter kosong
+    if not periode:
+        periode = datetime.now().strftime('%m-%Y')
 
     conn = get_db_connection()
     try:
+        # Mengambil data dari repositori snapshot permanen
         query = """
             SELECT id, created_at as waktu, petugas_name, nomen, nomet,
                    nama_snapshot as nama, alamat_snapshot as alamat,
-                   keterangan as hasil, catatan, foto_path,
+                   keterangan, catatan, foto_path,
                    mc, ardebt, latitude, longitude
             FROM kunjungan_petugas
             WHERE periode = ?
@@ -177,8 +172,18 @@ def list_kunjungan():
             params.append(my_id)
 
         rows = conn.execute(query + " ORDER BY created_at DESC").fetchall()
-        return APIResponse.success(data=[dict(row) for row in rows])
+        
+        # Konversi ke List of Dict untuk transmisi JSON
+        data_list = []
+        for row in rows:
+            d = dict(row)
+            # Normalisasi data geospasial agar terbaca benar oleh Frontend Monitoring
+            d['latitude'] = str(d['latitude']) if d['latitude'] else '0.0'
+            d['longitude'] = str(d['longitude']) if d['longitude'] else '0.0'
+            data_list.append(d)
+
+        return APIResponse.success(data=data_list)
     except Exception as e:
-        return APIResponse.error(f"Gagal memuat feed aktivitas: {str(e)}", code=500)
+        return APIResponse.error(f"Gagal sinkronisasi data audit: {str(e)}", code=500)
     finally:
         conn.close()
