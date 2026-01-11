@@ -3,16 +3,16 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-end">
         <div>
-            <h4 class="fw-bold mb-1 text-dark">Galeri Lapangan 📸</h4>
+            <h4 class="fw-bold mb-1 text-dark"><i class="fas fa-camera-retro me-2 text-primary"></i>Arsip Visual Area Service</h4>
             <p class="text-muted small mb-0">
                 {% if session['role'] == 'admin' %}
-                    Audit dokumentasi seluruh tim petugas (Global)
+                    Audit dokumentasi operasional lintas personel (Global)
                 {% else %}
-                    Dokumentasi rute khusus {{ session['petugas_id'] }}
+                    Repositori aktivitas lapangan rute {{ session['petugas_id'] }}
                 {% endif %}
             </p>
         </div>
-        <button class="btn btn-white shadow-sm rounded-circle p-2" onclick="loadGaleri()" id="btn-refresh">
+        <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="loadGaleri()" id="btn-refresh">
             <i class="fas fa-sync-alt text-primary"></i>
         </button>
     </div>
@@ -21,14 +21,14 @@
         <div class="input-group bg-white rounded-4 shadow-sm border-0 border-start border-primary border-4">
             <span class="input-group-text border-0 bg-transparent ps-3"><i class="fas fa-search text-muted"></i></span>
             <input type="text" id="searchGaleri" class="form-control border-0 py-2 shadow-none" 
-                   placeholder="Cari Nama, IDPEL atau Hasil..." onkeyup="filterGaleri()">
+                   placeholder="Cari berdasarkan Nama, IDPEL atau Klasifikasi Hasil..." onkeyup="filterGaleri()">
         </div>
     </div>
 
     <div id="galeri-container" class="row g-2">
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted small">Sinkronisasi arsip foto...</p>
+            <p class="mt-2 text-muted small">Sinkronisasi pangkalan data visual...</p>
         </div>
     </div>
 </div>
@@ -39,8 +39,8 @@
             <div class="modal-body p-0 text-center position-relative">
                 <div class="zoom-card shadow-lg rounded-5 overflow-hidden bg-dark">
                     <img src="" id="img-zoom" class="img-fluid w-100">
-                    <div id="zoom-caption" class="p-3 text-white text-start" 
-                         style="background: linear-gradient(transparent, rgba(0,0,0,0.9)); position: absolute; bottom: 0; width: 100%;">
+                    <div id="zoom-caption" class="p-4 text-white text-start" 
+                         style="background: linear-gradient(transparent, rgba(0,0,0,0.95)); position: absolute; bottom: 0; width: 100%;">
                     </div>
                 </div>
                 <button type="button" class="btn btn-light rounded-circle position-absolute top-0 end-0 m-3 shadow" data-bs-dismiss="modal">
@@ -52,49 +52,46 @@
 </div>
 
 <script>
-    let galeriData = []; // State management untuk data foto
+    let galeriData = []; 
     const ROLE = "{{ session['role'] }}";
 
     /**
-     * LOAD GALERI: Mengambil data foto dari API History Kunjungan.
-     * Logika Autopilot: Menyaring data yang tidak memiliki foto secara otomatis.
+     * LOAD GALERI: Sinkronisasi arsip foto dari API Area Service.
      */
     async function loadGaleri() {
         const btn = document.getElementById('btn-refresh');
         const icon = btn.querySelector('i');
         const container = document.getElementById('galeri-container');
         
-        icon.classList.add('fa-spin'); // Animasi putar saat proses sinkronisasi
+        icon.classList.add('fa-spin'); 
         
         try {
-            // Sinergi: Menarik data history kunjungan terbaru
             const res = await fetch('/api/history/kunjungan');
             const result = await res.json();
             
-            // Filter cerdas: Hanya tampilkan baris yang memiliki file foto valid
+            // Filter: Hanya menampilkan data yang memiliki metadata foto valid
             galeriData = (result.data || []).filter(item => item.foto_path && item.foto_path !== '-');
             
             if (galeriData.length === 0) {
                 container.innerHTML = `
                     <div class="text-center mt-5 py-5 col-12 animate__animated animate__fadeIn">
-                        <i class="fas fa-images fa-3x text-light mb-3 opacity-25"></i>
-                        <p class="text-muted small">Belum ada dokumentasi foto<br>untuk periode ini.</p>
+                        <i class="fas fa-folder-open fa-3x text-light mb-3 opacity-50"></i>
+                        <p class="text-muted small fw-bold">Tidak ditemukan dokumentasi visual<br>pada periode operasional ini.</p>
                     </div>`;
                 return;
             }
 
             renderGaleri(galeriData);
         } catch (e) {
-            console.error("Galeri Sync Failed:", e);
-            container.innerHTML = '<div class="alert alert-danger mx-2 small col-12 text-center">Gagal memuat arsip foto.</div>';
+            console.error("Critical: Galeri Sync Failed", e);
+            container.innerHTML = '<div class="alert alert-danger mx-2 small col-12 text-center">Gagal menyambungkan ke server dokumentasi.</div>';
         } finally {
-            icon.classList.remove('fa-spin');
+            setTimeout(() => icon.classList.remove('fa-spin'), 600);
         }
     }
 
     /**
-     * RENDER GALERI: Menampilkan daftar foto dalam bentuk grid responsif.
-     * Logika Smart: Menambahkan delay animasi bertahap (staggered animation).
+     * RENDER GALERI: Visualisasi grid dokumentasi operasional.
      */
     function renderGaleri(data) {
         const container = document.getElementById('galeri-container');
@@ -106,23 +103,23 @@
             return `
             <div class="col-6 col-md-4 mb-2 galeri-item animate__animated animate__zoomIn" 
                  data-search="${item.nomen} ${item.nama} ${item.keterangan} ${item.petugas_name}" 
-                 style="animation-delay: ${index * 0.03}s">
+                 style="animation-delay: ${index * 0.02}s">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
                      onclick="zoomImage('${fotoUrl}', '${item.nama}', '${item.petugas_name}', '${item.keterangan}', '${labelWaktu} ${labelJam}', '${item.nomen}')">
-                    <div class="img-wrapper" style="height: 160px; background: #f1f5f9; overflow: hidden;">
+                    <div class="img-wrapper" style="height: 160px; background: #e2e8f0; overflow: hidden;">
                         <img src="${fotoUrl}" 
-                             class="w-100 h-100 object-fit-cover"
+                             class="w-100 h-100 object-fit-cover transition-img"
                              loading="lazy" 
-                             onerror="this.src='https://placehold.co/400x600/e2e8f0/64748b?text=Foto+Rusak'">
+                             onerror="this.src='https://placehold.co/400x600/cbd5e1/475569?text=Image+Unavailable'">
                     </div>
                     <div class="card-body p-2">
-                        <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.75rem;">${item.nama}</h6>
+                        <h6 class="fw-bold mb-0 text-truncate text-dark small text-uppercase" style="letter-spacing: 0.3px;">${item.nama}</h6>
                         <div class="d-flex justify-content-between align-items-center mt-1">
-                            <small class="badge bg-primary-subtle text-primary border-0 fw-bold" style="font-size: 0.55rem;">
-                                ${item.petugas_name.split(' ')[0]}
-                            </small>
-                            <small class="text-muted" style="font-size: 0.55rem;">
-                                <i class="far fa-clock me-1"></i>${labelJam}
+                            <span class="badge bg-primary-subtle text-primary border-0 fw-bold" style="font-size: 0.55rem;">
+                                <i class="fas fa-user-circle me-1"></i>${item.petugas_name.split(' ')[0]}
+                            </span>
+                            <small class="text-muted font-monospace" style="font-size: 0.55rem;">
+                                ${labelJam}
                             </small>
                         </div>
                     </div>
@@ -131,9 +128,6 @@
         }).join('');
     }
 
-    /**
-     * FILTER GALERI: Menyaring tampilan foto tanpa refresh halaman.
-     */
     function filterGaleri() {
         const query = document.getElementById('searchGaleri').value.toLowerCase();
         document.querySelectorAll('.galeri-item').forEach(item => {
@@ -143,54 +137,51 @@
     }
 
     /**
-     * ZOOM IMAGE: Menampilkan foto ukuran besar beserta rincian laporannya.
+     * ZOOM IMAGE: Proyeksi visual detail laporan untuk kebutuhan audit.
      */
     function zoomImage(src, nama, petugas, ket, waktu, idpel) {
         document.getElementById('img-zoom').src = src;
         document.getElementById('zoom-caption').innerHTML = `
-            <div class="fw-bold text-uppercase" style="font-size: 0.9rem;">${nama} (${idpel})</div>
-            <div class="small opacity-75">Oleh: ${petugas} • ${waktu}</div>
-            <div class="d-flex gap-2 mt-2">
-                <span class="badge bg-primary px-3 py-2" style="font-size: 0.7rem;">${ket}</span>
+            <div class="d-flex justify-content-between align-items-end">
+                <div>
+                    <small class="text-uppercase fw-bold text-info" style="font-size: 0.65rem; letter-spacing: 1px;">Entitas Pelanggan</small>
+                    <h6 class="fw-bold text-white mb-0 text-uppercase">${nama}</h6>
+                    <small class="opacity-75 font-monospace">IDPEL: ${idpel}</small>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-primary rounded-pill px-3 py-2 mb-1" style="font-size: 0.7rem;">${ket}</span>
+                    <div class="small opacity-50" style="font-size: 0.6rem;">Transmisi: ${waktu}</div>
+                </div>
             </div>
+            <hr class="my-2 opacity-25">
+            <div class="small fw-bold"><i class="fas fa-id-badge me-1 text-info"></i>Pelaksana: ${petugas}</div>
         `;
         const modal = new bootstrap.Modal(document.getElementById('modalZoom'));
         modal.show();
     }
 
-    // Inisialisasi otomatis saat halaman selesai dimuat
     document.addEventListener('DOMContentLoaded', loadGaleri);
 </script>
 
 <style>
-    /* SINERGI VISUAL STYLING */
-    .btn-white { background: white; border: 1px solid #edf2f7; }
-    .card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important; }
-    .card:active { transform: scale(0.96); }
-    .object-fit-cover { object-fit: cover; }
+    /* STYLING ENTERPRISE - AREA SERVICE */
+    .btn-white { background: white; border: 1px solid #e2e8f0; }
+    .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid transparent !important; }
+    .card:hover { transform: translateY(-4px); border-color: #cbd5e1 !important; box-shadow: 0 12px 24px rgba(0,0,0,0.1) !important; }
+    .transition-img { transition: transform 0.5s ease; }
+    .card:hover .transition-img { transform: scale(1.08); }
     
-    .zoom-card {
-        border: 5px solid #2d3748;
-        background-color: #000;
-    }
+    .zoom-card { border: 2px solid rgba(255,255,255,0.1); background-color: #000; }
+    #img-zoom { max-height: 75vh; object-fit: contain; }
 
-    #img-zoom {
-        max-height: 80vh;
-        object-fit: contain;
-    }
+    .bg-primary-subtle { background-color: #eff6ff !important; color: #2563eb !important; }
 
-    .bg-primary-subtle { background-color: #e0eaff !important; color: #1e40af !important; }
-
-    /* Responsivitas untuk layar HP petugas di lapangan */
+    /* Adaptasi perangkat seluler operasional */
     @media (max-width: 576px) {
-        .img-wrapper { height: 135px !important; }
-        h6 { font-size: 0.7rem !important; }
+        .img-wrapper { height: 130px !important; }
+        h6 { font-size: 0.65rem !important; }
     }
 
-    /* Animasi Halus */
-    .animate__animated.animate__zoomIn {
-        animation-duration: 0.5s;
-    }
+    .animate__animated.animate__zoomIn { animation-duration: 0.4s; }
 </style>
 {% endblock %}
