@@ -104,12 +104,8 @@ def handle_upload():
             for _, r in df.iterrows():
                 z = autopilot_extract_zona(r['ZONA_NOVAK'])
                 if not z: continue
-                
                 full_addr = f"{r['ALM1_PEL']} {r['ALM2_PEL']} {r['ALM3_PEL']}".strip()
-                
-                # NOMET Guard: Membersihkan karakter tersembunyi pada nomor meter alfanumerik
                 val_nomet = str(r['NOMET']).strip() if r['NOMET'] else "-"
-                
                 db.execute("""
                     INSERT INTO master_pelanggan (nomen, nama, alamat, kd_pos, pcez, rayon, pc, ez, blok, 
                     notagihan, nomet, tarif, tgl_catat, stan_awal, stan_akir, kubik, nominal, cust_type, tipe, periode)
@@ -119,14 +115,31 @@ def handle_upload():
                       safe_float(r['KUBIK']), safe_float(r['NOMINAL']), r['CUST_TYPE'], current_month))
                 row_count += 1
 
+        # --- LOGIKA EKSEKUSI MB (Master Bayar) ---
+        elif file_type == 'MB':
+            for _, r in df.iterrows():
+                db.execute("""
+                    INSERT OR REPLACE INTO master_bayar (nomen, bulan_rek, notagihan, tgl_bayar, nominal, periode)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], safe_float(r['NOMINAL']), current_month))
+                row_count += 1
+
+        # --- LOGIKA EKSEKUSI COLLECTION (Harian Petugas) ---
+        elif file_type == 'COLLECTION':
+            for _, r in df.iterrows():
+                db.execute("""
+                    INSERT OR REPLACE INTO collection_harian (nomen, notag, bill_period, bill_reason, nominal, pay_dt, freeze_dttm, vol_collect, periode)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (clean_nomen(r['NOMEN']), r['NOTAG'], r['BILL_PERIOD'], r['BILL_REASON'], 
+                      safe_float(r['NOMINAL']), r['PAY_DT'], r['FREEZE_DTTM'], safe_float(r['VOL_COLLECT']), current_month))
+                row_count += 1
+
         # --- LOGIKA EKSEKUSI RUTE (Mapping Petugas) ---
         elif file_type == 'RUTE':
             for _, r in df.iterrows():
-                # Standarisasi Petugas: UPPER dan TRIM agar sinkron dengan tabel Ardebt & User
                 nama_petugas = str(r['PETUGAS']).strip().upper()
                 kode_pcez = str(r['PCEZ']).strip()
                 no_admin = str(r.get('NO_ADMIN', '628123456789')).strip()
-                
                 db.execute("""
                     INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -154,7 +167,6 @@ def handle_upload():
 
     except Exception as e:
         if db: db.rollback()
-        # Mencatat kegagalan dengan parameter aman untuk mencegah Error 500 di halaman History
         try:
             db.execute("INSERT INTO upload_history (file_name, status, row_count) VALUES (?, ?, ?)", (file_name, 'FAILED', 0))
             db.commit()
