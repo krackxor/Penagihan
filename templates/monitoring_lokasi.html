@@ -4,11 +4,11 @@
 <div class="animate__animated animate__fadeIn">
     <div class="px-2 mb-4 d-flex justify-content-between align-items-center mt-3">
         <div>
-            <h4 class="fw-bold mb-1 text-dark"><i class="fas fa-map-marked-alt me-2 text-danger"></i>Audit Lokasi Petugas</h4>
-            <p class="text-muted small mb-0">Verifikasi Koordinat GPS Kunjungan Lapangan</p>
+            <h4 class="fw-bold mb-1 text-dark"><i class="fas fa-location-crosshairs me-2 text-primary"></i>Audit Geospasial Personel</h4>
+            <p class="text-muted small mb-0">Verifikasi Telemetri GPS & Integritas Kunjungan Lapangan</p>
         </div>
-        <div class="bg-dark text-white px-3 py-2 rounded-pill small fw-bold shadow-sm">
-            <i class="fas fa-satellite me-1 text-info"></i> LIVE GPS
+        <div class="bg-dark text-white px-3 py-2 rounded-pill small fw-bold shadow-sm border border-secondary">
+            <i class="fas fa-satellite me-1 text-info"></i> LIVE TELEMETRY
         </div>
     </div>
 
@@ -16,12 +16,14 @@
         <div class="card-body p-3">
             <div class="row g-2">
                 <div class="col-7">
+                    <label class="small fw-bold text-muted mb-1">Entitas Personel</label>
                     <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 shadow-none fw-bold" onchange="loadMonitoring()">
-                        <option value="all">-- Semua Petugas --</option>
-                        </select>
+                        <option value="all">-- Seluruh Personel --</option>
+                    </select>
                 </div>
                 <div class="col-5">
-                    <input type="month" id="filter-periode" class="form-control border-0 bg-light rounded-3 shadow-none fw-bold text-danger" 
+                    <label class="small fw-bold text-muted mb-1">Periode Audit</label>
+                    <input type="month" id="filter-periode" class="form-control border-0 bg-light rounded-3 shadow-none fw-bold text-primary" 
                            onchange="loadMonitoring()">
                 </div>
             </div>
@@ -33,11 +35,11 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
                     <thead class="table-dark">
-                        <tr>
-                            <th class="py-3 ps-3">WAKTU / PETUGAS</th>
-                            <th>PELANGGAN</th>
-                            <th>STATUS</th>
-                            <th class="text-center pe-3">LOKASI</th>
+                        <tr class="text-uppercase" style="letter-spacing: 0.5px;">
+                            <th class="py-3 ps-3">Timestamp / Pelaksana</th>
+                            <th>Entitas Konsumen</th>
+                            <th>Klasifikasi Hasil</th>
+                            <th class="text-center pe-3">Verifikasi Lokasi</th>
                         </tr>
                     </thead>
                     <tbody id="monitoring-content">
@@ -49,82 +51,118 @@
 </div>
 
 <script>
+    /**
+     * INITIALIZATION: Sinkronisasi Default Periode Area Service
+     */
     document.addEventListener('DOMContentLoaded', () => {
-        // Set default periode ke bulan ini
         const now = new Date();
         const month = ("0" + (now.getMonth() + 1)).slice(-2);
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${month}`;
+        
+        // Memuat daftar petugas untuk parameter audit
+        fetchPetugasList();
         loadMonitoring();
     });
 
+    /**
+     * FETCH PETUGAS: Menarik daftar personel penanggung jawab wilayah
+     */
+    async function fetchPetugasList() {
+        try {
+            const res = await fetch('/api/ardebt/petugas');
+            const list = await res.json();
+            const select = document.getElementById('filter-petugas');
+            list.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                select.appendChild(opt);
+            });
+        } catch (e) { console.error("Gagal sinkronisasi daftar personel."); }
+    }
+
+    /**
+     * LOAD MONITORING: Ekstraksi data telemetri dari repositori snapshot
+     */
     async function loadMonitoring() {
         const petugas = document.getElementById('filter-petugas').value;
-        const periodeInput = document.getElementById('filter-periode').value; // YYYY-MM
+        const periodeInput = document.getElementById('filter-periode').value; 
         const container = document.getElementById('monitoring-content');
         
-        // Konversi YYYY-MM ke MM-YYYY untuk API
         const p = periodeInput.split('-');
         const periodeFormat = `${p[1]}-${p[0]}`;
 
-        container.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border spinner-border-sm text-danger"></div></td></tr>';
+        container.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border spinner-border-sm text-primary"></div><br><small class="text-muted mt-2 d-block">Mendekripsi data koordinat...</small></td></tr>';
 
         try {
             const res = await fetch(`/api/history/kunjungan?periode=${periodeFormat}`);
             const result = await res.json();
-            const data = result.data;
+            let data = result.data;
+
+            // Filter Client-Side jika petugas dispesifikkan
+            if (petugas !== 'all') {
+                data = data.filter(i => i.petugas_name === petugas);
+            }
 
             if (data.length === 0) {
-                container.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">Belum ada laporan kunjungan periode ini.</td></tr>';
+                container.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted fw-bold italic">Tidak ditemukan rekaman kunjungan pada parameter ini.</td></tr>';
                 return;
             }
 
             container.innerHTML = data.map(item => {
-                // Link Google Maps
+                // Konstruksi Link Verifikasi Google Maps
                 const gmapsUrl = (item.latitude && item.latitude !== '0.0') 
                     ? `https://www.google.com/maps?q=${item.latitude},${item.longitude}` 
                     : null;
 
                 return `
-                <tr>
-                    <td class="ps-3">
-                        <div class="fw-bold text-dark">${item.waktu.split(' ')[1]}</div>
-                        <div class="text-muted" style="font-size: 0.65rem;">${item.petugas_name}</div>
+                <tr class="animate__animated animate__fadeIn">
+                    <td class="ps-3 border-start border-4 ${item.latitude ? 'border-success' : 'border-danger'}">
+                        <div class="fw-bold text-dark font-monospace" style="font-size: 0.8rem;">${item.waktu.split(' ')[1]}</div>
+                        <div class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">${item.petugas_name}</div>
                     </td>
                     <td>
-                        <div class="fw-bold text-uppercase">${item.nama}</div>
-                        <div class="text-danger" style="font-size: 0.65rem;">ID: ${item.nomen}</div>
+                        <div class="fw-bold text-uppercase text-dark" style="letter-spacing: 0.3px;">${item.nama}</div>
+                        <div class="text-primary fw-bold" style="font-size: 0.65rem;">IDPEL: ${item.nomen}</div>
                     </td>
                     <td>
-                        <span class="badge ${getStatusClass(item.keterangan)} rounded-pill" style="font-size: 0.6rem;">
-                            ${item.keterangan}
+                        <span class="badge ${getStatusClass(item.keterangan)} rounded-pill px-3" style="font-size: 0.6rem; letter-spacing: 0.3px;">
+                            ${item.keterangan.toUpperCase()}
                         </span>
                     </td>
                     <td class="text-center pe-3">
                         ${gmapsUrl ? 
-                            `<a href="${gmapsUrl}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold" style="font-size: 0.6rem;">
-                                <i class="fas fa-map-marker-alt me-1"></i> LIHAT MAPS
+                            `<a href="${gmapsUrl}" target="_blank" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" style="font-size: 0.6rem;">
+                                <i class="fas fa-map-location-dot me-1"></i> VERIFIKASI POSISI
                              </a>` : 
-                            `<span class="text-muted small italic">No GPS Data</span>`
+                            `<span class="badge bg-light text-danger small border border-danger-subtle"><i class="fas fa-ban me-1"></i> NO GPS SIGNAL</span>`
                         }
                     </td>
                 </tr>`;
             }).join('');
 
         } catch (err) {
-            container.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-danger">Gagal memuat data monitoring.</td></tr>';
+            container.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-danger fw-bold">Kegagalan transmisi data monitoring geospasial.</td></tr>';
         }
     }
 
+    /**
+     * MAPPING VISUAL STATUS
+     */
     function getStatusClass(status) {
         if (status === 'Sudah Bayar') return 'bg-success';
-        if (status === 'Janji Bayar') return 'bg-warning text-dark';
-        if (status === 'Rumah Kosong') return 'bg-info text-dark';
+        if (status === 'Janji Bayar') return 'bg-info text-dark';
+        if (status === 'Rumah Kosong') return 'bg-secondary';
         return 'bg-danger';
     }
 </script>
 
 <style>
-    .table thead th { border: none; letter-spacing: 0.5px; }
-    .table tbody td { border-bottom: 1px solid #f8f9fa; padding: 12px 8px; }
+    /* AREA SERVICE CORPORATE STYLING */
+    .table thead th { border: none; font-size: 0.65rem; background-color: #0f172a; color: #f8fafc; }
+    .table tbody td { border-bottom: 1px solid #eff2f7; padding: 14px 10px; }
+    .btn-primary { background-color: #2563eb; border: none; transition: 0.3s; }
+    .btn-primary:hover { background-color: #1e40af; transform: translateY(-1px); }
+    .italic { font-style: italic; }
 </style>
 {% endblock %}
