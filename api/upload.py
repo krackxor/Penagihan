@@ -1,10 +1,10 @@
 """
-Upload API - Sunter Dashboard Pro (V4.6 Sinergi Intelligence)
+Upload API - Sunter Dashboard Pro (V4.7 Sinergi Intelligence)
 Sinergi & Smart Update:
 1. Float Guard: Otomatis menangani sel Excel kosong ('') menjadi angka 0 agar tidak error.
-2. Strict Validation: Wajib menyertakan kolom spesifik untuk MC, MB, ARDEBT, dan COLLECTION.
+2. Strict Validation: Wajib menyertakan kolom spesifik untuk MC, MB, ARDEBT, RUTE, dan COLLECTION.
 3. ZONA_NOVAK Intelligence: Ekstraksi otomatis Rayon, PC, EZ, PCEZ, dan Blok.
-4. Maintenance Friendly: Komentar teknis detail di setiap fungsi untuk kemudahan edit.
+4. Audit Trail Integrity: Mencatat log sukses/gagal ke tabel upload_history untuk audit Admin.
 """
 
 import os
@@ -31,7 +31,7 @@ REQUIRED_COLS = {
         'NOMEN', 'NOTAG', 'BILL_PERIOD', 'BILL_REASON', 
         'NOMINAL', 'PAY_DT', 'FREEZE_DTTM', 'VOL_COLLECT'
     ],
-    'RUTE': ['PCEZ', 'PETUGAS']
+    'RUTE': ['PCEZ', 'PETUGAS'] # Sinergi V4.7: Bisa ditambahkan NO_ADMIN di Excel
 }
 
 # =========================================================================
@@ -39,28 +39,17 @@ REQUIRED_COLS = {
 # =========================================================================
 
 def safe_float(val):
-    """
-    FUNGSI: Sinergi Float Guard.
-    KEGUNAAN: Mengonversi data Excel (string/kosong) menjadi angka aman.
-    LOGIKA: Jika data kosong (''), spasi, atau bukan angka, paksa menjadi 0.0.
-    """
+    """ Mengonversi data Excel menjadi angka aman (Float Guard). """
     try:
         if pd.isna(val) or str(val).strip() == '':
             return 0.0
-        # Menangani format ribuan Indonesia (1.000,00) menjadi standar Python (1000.00)
         clean_val = str(val).replace('.', '').replace(',', '.')
         return float(clean_val)
     except (ValueError, TypeError):
         return 0.0
 
 def autopilot_extract_zona(val):
-    """
-    FUNGSI: Membedah string ZONA_NOVAK (Contoh: 350960217).
-    LOGIKA EKSTRAKSI:
-    - RAYON: 2 Digit pertama
-    - PC/EZ: Digit 3 s/d 7
-    - BLOK: 2 Digit terakhir
-    """
+    """ Membedah string ZONA_NOVAK menjadi komponen rute. """
     if pd.isna(val) or str(val).strip() == '':
         return None
     s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
@@ -78,9 +67,9 @@ def autopilot_extract_zona(val):
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
-    """
-    ENDPOINT: Memproses file Excel dan mendistribusikannya ke tabel database yang tepat.
-    ALUR: Validasi Admin -> Deteksi Header -> Iterasi Baris -> Simpan Data.
+    """ 
+    ENDPOINT: Memproses file Excel dan mendistribusikannya ke database. 
+    V4.7: Menambahkan pencatatan riwayat otomatis ke tabel upload_history.
     """
     if session.get('role') != 'admin':
         return jsonify({"error": "Akses Ditolak: Hanya Admin yang bisa upload data."}), 403
@@ -89,6 +78,7 @@ def handle_upload():
         return jsonify({"error": "Sistem tidak mendeteksi adanya file."}), 400
     
     file = request.files['file']
+    file_name = file.filename
     db = get_db_connection()
     
     try:
@@ -101,13 +91,12 @@ def handle_upload():
         file_type = next((t for t, req in REQUIRED_COLS.items() if all(k in cols for k in req)), None)
 
         if not file_type:
-            return jsonify({"error": "Kolom Wajib Tidak Lengkap!", "detail": "Header Excel tidak sesuai standar."}), 400
+            return jsonify({"error": "Header Excel tidak sesuai standar."}), 400
 
         row_count = 0
         current_month = datetime.now().strftime('%m-%Y')
 
-        # --- EKSEKUSI BERDASARKAN TIPE ---
-
+        # --- EKSEKUSI DATA MASTER (MC) ---
         if file_type == 'MC':
             db.execute("DELETE FROM master_pelanggan WHERE periode = ? AND tipe = 'MC'", (current_month,))
             for _, r in df.iterrows():
@@ -123,6 +112,7 @@ def handle_upload():
                       safe_float(r['KUBIK']), safe_float(r['NOMINAL']), r['CUST_TYPE'], current_month))
                 row_count += 1
 
+        # --- EKSEKUSI DATA BAYAR (MB) ---
         elif file_type == 'MB':
             for _, r in df.iterrows():
                 db.execute("""
@@ -131,8 +121,8 @@ def handle_upload():
                 """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], safe_float(r['NOMINAL']), current_month))
                 row_count += 1
 
+        # --- EKSEKUSI TUNGGAKAN (ARDEBT) ---
         elif file_type == 'ARDEBT':
-            # FIX: Float Guard aktif untuk mencegah error 'could not convert string to float'
             db.execute("DELETE FROM ardebt")
             for _, r in df.iterrows():
                 db.execute("""
@@ -141,6 +131,7 @@ def handle_upload():
                 """, (clean_nomen(r['NOMEN']), r['PERIODE_BILL'], safe_float(r['JUMLAH']), safe_float(r['VOLUME'])))
                 row_count += 1
 
+        # --- EKSEKUSI SETORAN (COLLECTION) ---
         elif file_type == 'COLLECTION':
             for _, r in df.iterrows():
                 db.execute("""
@@ -150,17 +141,33 @@ def handle_upload():
                       r['PAY_DT'], r['FREEZE_DTTM'], safe_float(r['VOL_COLLECT']), current_month))
                 row_count += 1
 
+        # --- EKSEKUSI MAPPING RUTE ---
         elif file_type == 'RUTE':
             for _, r in df.iterrows():
-                db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-                           (r['PCEZ'].strip(), r['PETUGAS'].upper().strip()))
+                # V4.7: Mendukung kolom NO_ADMIN jika tersedia di Excel
+                no_admin = r.get('NO_ADMIN', '628123456789').strip()
+                db.execute("""
+                    INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                """, (r['PCEZ'].strip(), r['PETUGAS'].upper().strip(), no_admin))
                 row_count += 1
+
+        # --- CATAT RIWAYAT KE LOG AUDIT ---
+        db.execute("""
+            INSERT INTO upload_history (file_name, file_type, periode, row_count, status)
+            VALUES (?, ?, ?, ?, ?)
+        """, (file_name, file_type, current_month, row_count, 'SUCCESS'))
 
         db.commit()
         return jsonify({"status": "success", "message": f"Sinergi {file_type} Berhasil!", "rows": row_count})
 
     except Exception as e:
         if db: db.rollback()
+        # Mencatat kegagalan ke histori jika memungkinkan
+        try:
+            db.execute("INSERT INTO upload_history (file_name, status) VALUES (?, ?)", (file_name, 'FAILED'))
+            db.commit()
+        except: pass
         return jsonify({"error": f"Kegagalan Sistem: {str(e)}"}), 500
     finally:
         if db: db.close()
