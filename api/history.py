@@ -1,10 +1,10 @@
 """
-History API Endpoints - Area Service Integrated System (V7.4 Enterprise Edition)
+History API Endpoints - Area Service Integrated System (V7.5 Enterprise Edition)
 Integritas Data & Audit Geospasial:
-1. Geospasial Telemetry: Validasi ketat koordinat GPS untuk mencegah data '0.0'.
-2. Ultimate Snapshot: Proteksi permanen data Nama, Alamat, dan NOMET (Alfanumerik).
-3. Cross-Platform Sync: Mendukung parameter periode (MM-YYYY) untuk audit lintas waktu.
-4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta (pytz) untuk akurasi timestamp audit.
+1. Smart Periode Parser: Konversi otomatis format YYYY-MM (HTML5) ke MM-YYYY (DB Standard).
+2. Geospasial Telemetry: Validasi ketat koordinat GPS untuk mencegah data '0.0' atau NULL.
+3. Ultimate Snapshot: Proteksi permanen data Nama, Alamat, dan NOMET (Alfanumerik).
+4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta untuk akurasi audit.
 """
 
 import os
@@ -24,10 +24,7 @@ history_bp = Blueprint('history', __name__)
 
 @history_bp.route('/list', methods=['GET'])
 def get_history():
-    """
-    [FUNGSI: AUDIT JEJAK DATA MASTER]
-    Kegunaan: Menampilkan log sinkronisasi file master Excel oleh Admin.
-    """
+    """ Menampilkan log sinkronisasi file master Excel oleh Admin. """
     if session.get('role') != 'admin':
         return APIResponse.error("Otoritas terbatas untuk Administrator", code=403)
         
@@ -61,12 +58,7 @@ def get_history():
 
 @history_bp.route('/simpan-kunjungan', methods=['POST'])
 def simpan_kunjungan():
-    """
-    [FUNGSI: ENGINE SNAPSHOT & TELEMETRI GPS]
-    Logika:
-    1. Mengunci identitas fisik (NOMET, Nama, Alamat) secara permanen.
-    2. Menangkap koordinat GPS dan memvalidasi tipe data agar tidak 'Lost Signal'.
-    """
+    """ [FUNGSI: ENGINE SNAPSHOT & TELEMETRI GPS] """
     tz_jkt = pytz.timezone('Asia/Jakarta')
     waktu_wib = datetime.now(tz_jkt)
     waktu_str = waktu_wib.strftime('%Y-%m-%d %H:%M:%S')
@@ -77,9 +69,9 @@ def simpan_kunjungan():
     hasil   = request.form.get('hasil')
     catatan = request.form.get('keterangan') or request.form.get('catatan', '-')
     
-    # Penangkapan Koordinat Geospasial
-    lat = request.form.get('latitude')   
-    lng = request.form.get('longitude')  
+    # Penangkapan Koordinat Geospasial (Default ke 0.0 jika transmisi gagal)
+    lat = request.form.get('latitude') or '0.0'
+    lng = request.form.get('longitude') or '0.0'
     foto = request.files.get('foto')
 
     if not nomen or not foto:
@@ -87,9 +79,9 @@ def simpan_kunjungan():
 
     conn = get_db_connection()
     try:
-        # --- LANGKAH 1: SNAPSHOT DATA MASTER ---
+        # --- LANGKAH 1: SNAPSHOT DATA MASTER (Proteksi Data Fisik) ---
         p_info = conn.execute("""
-            SELECT nama, nomet, alamat, nominal, kubik, rayon
+            SELECT nama, nomet, alamat, nominal, kubik, rayon, pcez
             FROM master_pelanggan WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT) 
             ORDER BY periode DESC LIMIT 1
         """, (nomen,)).fetchone()
@@ -100,20 +92,20 @@ def simpan_kunjungan():
             WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT)
         """, (nomen,)).fetchone()
 
-        # Validasi Data Snapshot (Integrity Guard)
+        # Validasi Data Snapshot (Integrity Mapping)
         val_nama    = p_info['nama'] if p_info else "Entitas Konsumen"
         val_nomet   = p_info['nomet'] if p_info else "-"
         val_alamat  = p_info['alamat'] if p_info else "-"
         val_mc      = p_info['nominal'] if p_info else 0
         val_ardebt  = a_info['total'] if a_info and a_info['total'] else 0
-        val_rayon   = p_info['rayon'] if p_info else "-"
+        val_pcez    = p_info['pcez'] if p_info else "-"
         
         # --- LANGKAH 3: PROTOKOL PENYIMPANAN VISUAL ---
         filename = f"AREA_{nomen}_{waktu_wib.strftime('%Y%m%d_%H%M%S')}.jpg"
         upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan', filename)
         foto.save(upload_path)
 
-        # --- LANGKAH 4: TRANSAKSI DATABASE (SNAPSHOT & GPS) ---
+        # --- LANGKAH 4: TRANSAKSI DATABASE ---
         conn.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, nomet, nama_snapshot, alamat_snapshot, petugas_name, no_hp, 
@@ -130,8 +122,8 @@ def simpan_kunjungan():
             "wa_data": {
                 "nomen": nomen, "nama": val_nama, "nomet": val_nomet, 
                 "total": val_mc + val_ardebt, "status": hasil, 
-                "waktu": waktu_str, "petugas": petugas, 
-                "foto_path": filename, "catatan": catatan, "rayon": val_rayon
+                "waktu": waktu_str, "petugas": petugas, "pcez": val_pcez,
+                "latitude": lat, "longitude": lng
             }
         })
     except Exception as e:
@@ -142,21 +134,24 @@ def simpan_kunjungan():
 
 @history_bp.route('/kunjungan', methods=['GET'])
 def list_kunjungan():
-    """
-    [FUNGSI: FEED AUDIT LAPANGAN]
-    Kegunaan: Menampilkan histori laporan berdasarkan parameter periode dan otoritas role.
-    """
+    """ [FUNGSI: FEED AUDIT LAPANGAN DENGAN SMART PERIODE PARSER] """
     role    = str(session.get('role', 'guest')).lower()
     my_id   = session.get('petugas_id')
-    periode = request.args.get('periode') # Format yang diharapkan: MM-YYYY
+    periode_raw = request.args.get('periode') # Input bisa YYYY-MM (Web) atau MM-YYYY (Manual)
 
-    # Default ke periode berjalan jika parameter kosong
-    if not periode:
+    # --- LOGIKA SINKRONISASI PERIODE ---
+    if periode_raw and "-" in periode_raw:
+        parts = periode_raw.split('-')
+        # Jika format YYYY-MM (Kalender HTML5), ubah menjadi MM-YYYY untuk DB
+        if len(parts[0]) == 4:
+            periode = f"{parts[1]}-{parts[0]}"
+        else:
+            periode = periode_raw
+    else:
         periode = datetime.now().strftime('%m-%Y')
 
     conn = get_db_connection()
     try:
-        # Mengambil data dari repositori snapshot permanen
         query = """
             SELECT id, created_at as waktu, petugas_name, nomen, nomet,
                    nama_snapshot as nama, alamat_snapshot as alamat,
@@ -173,13 +168,13 @@ def list_kunjungan():
 
         rows = conn.execute(query + " ORDER BY created_at DESC").fetchall()
         
-        # Konversi ke List of Dict untuk transmisi JSON
+        # --- NORMALISASI DATA UNTUK FRONTEND ---
         data_list = []
         for row in rows:
             d = dict(row)
-            # Normalisasi data geospasial agar terbaca benar oleh Frontend Monitoring
-            d['latitude'] = str(d['latitude']) if d['latitude'] else '0.0'
-            d['longitude'] = str(d['longitude']) if d['longitude'] else '0.0'
+            # Menjamin koordinat selalu valid untuk JavaScript (mencegah Kegagalan Transmisi)
+            d['latitude'] = str(d['latitude']) if (d['latitude'] and d['latitude'] != 'None') else '0.0'
+            d['longitude'] = str(d['longitude']) if (d['longitude'] and d['longitude'] != 'None') else '0.0'
             data_list.append(d)
 
         return APIResponse.success(data=data_list)
