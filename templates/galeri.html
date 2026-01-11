@@ -17,11 +17,16 @@
         </button>
     </div>
 
-    <div class="mb-3 px-1">
-        <div class="input-group bg-white rounded-4 shadow-sm border-0 border-start border-primary border-4">
-            <span class="input-group-text border-0 bg-transparent ps-3"><i class="fas fa-search text-muted"></i></span>
-            <input type="text" id="searchGaleri" class="form-control border-0 py-2 shadow-none" 
-                   placeholder="Cari berdasarkan Nama, IDPEL atau Klasifikasi Hasil..." onkeyup="filterGaleri()">
+    <div class="row g-2 mb-3 px-1">
+        <div class="col-5">
+            <input type="month" id="filter-periode" class="form-control border-0 shadow-sm rounded-4 py-2 small fw-bold text-primary" onchange="loadGaleri()">
+        </div>
+        <div class="col-7">
+            <div class="input-group bg-white rounded-4 shadow-sm border-0 border-start border-primary border-4">
+                <span class="input-group-text border-0 bg-transparent ps-2"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="searchGaleri" class="form-control border-0 py-2 shadow-none small" 
+                       placeholder="Cari Nama/IDPEL..." onkeyup="filterGaleri()">
+            </div>
         </div>
     </div>
 
@@ -56,27 +61,44 @@
     const ROLE = "{{ session['role'] }}";
 
     /**
-     * LOAD GALERI: Sinkronisasi arsip foto dari API Area Service.
+     * INITIALIZER: Set default periode ke bulan berjalan (Format YYYY-MM untuk HTML5)
+     */
+    document.addEventListener('DOMContentLoaded', () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('filter-periode').value = `${year}-${month}`;
+        loadGaleri();
+    });
+
+    /**
+     * LOAD GALERI: Sinkronisasi arsip foto dengan Smart Periode Parsing.
      */
     async function loadGaleri() {
         const btn = document.getElementById('btn-refresh');
         const icon = btn.querySelector('i');
         const container = document.getElementById('galeri-container');
+        const rawPeriode = document.getElementById('filter-periode').value;
         
+        if (!rawPeriode) return;
         icon.classList.add('fa-spin'); 
+
+        // SMART PARSER: Ubah YYYY-MM menjadi MM-YYYY untuk query database
+        const parts = rawPeriode.split('-');
+        const formattedPeriode = `${parts[1]}-${parts[0]}`;
         
         try {
-            const res = await fetch('/api/history/kunjungan');
+            const res = await fetch(`/api/history/kunjungan?periode=${formattedPeriode}`);
             const result = await res.json();
             
-            // Filter: Hanya menampilkan data yang memiliki metadata foto valid
+            // Filter: Hanya menampilkan data yang memiliki file foto valid
             galeriData = (result.data || []).filter(item => item.foto_path && item.foto_path !== '-');
             
             if (galeriData.length === 0) {
                 container.innerHTML = `
                     <div class="text-center mt-5 py-5 col-12 animate__animated animate__fadeIn">
                         <i class="fas fa-folder-open fa-3x text-light mb-3 opacity-50"></i>
-                        <p class="text-muted small fw-bold">Tidak ditemukan dokumentasi visual<br>pada periode operasional ini.</p>
+                        <p class="text-muted small fw-bold">Tidak ditemukan dokumentasi visual<br>pada periode ${formattedPeriode}.</p>
                     </div>`;
                 return;
             }
@@ -97,7 +119,6 @@
         const container = document.getElementById('galeri-container');
         container.innerHTML = data.map((item, index) => {
             const fotoUrl = `/static/uploads/kunjungan/${item.foto_path}`;
-            const labelWaktu = item.waktu ? item.waktu.split(' ')[0] : '-';
             const labelJam = item.waktu ? item.waktu.split(' ')[1].substring(0, 5) : '--:--';
 
             return `
@@ -105,22 +126,20 @@
                  data-search="${item.nomen} ${item.nama} ${item.keterangan} ${item.petugas_name}" 
                  style="animation-delay: ${index * 0.02}s">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
-                     onclick="zoomImage('${fotoUrl}', '${item.nama}', '${item.petugas_name}', '${item.keterangan}', '${labelWaktu} ${labelJam}', '${item.nomen}')">
-                    <div class="img-wrapper" style="height: 160px; background: #e2e8f0; overflow: hidden;">
+                     onclick="zoomImage('${fotoUrl}', '${item.nama}', '${item.petugas_name}', '${item.keterangan}', '${item.waktu}', '${item.nomen}')">
+                    <div class="img-wrapper" style="height: 140px; background: #e2e8f0; overflow: hidden;">
                         <img src="${fotoUrl}" 
                              class="w-100 h-100 object-fit-cover transition-img"
                              loading="lazy" 
-                             onerror="this.src='https://placehold.co/400x600/cbd5e1/475569?text=Image+Unavailable'">
+                             onerror="this.src='https://placehold.co/400x600/cbd5e1/475569?text=Error+Loading'">
                     </div>
                     <div class="card-body p-2">
-                        <h6 class="fw-bold mb-0 text-truncate text-dark small text-uppercase" style="letter-spacing: 0.3px;">${item.nama}</h6>
+                        <h6 class="fw-bold mb-0 text-truncate text-dark small text-uppercase" style="letter-spacing: 0.3px; font-size: 0.7rem;">${item.nama}</h6>
                         <div class="d-flex justify-content-between align-items-center mt-1">
                             <span class="badge bg-primary-subtle text-primary border-0 fw-bold" style="font-size: 0.55rem;">
-                                <i class="fas fa-user-circle me-1"></i>${item.petugas_name.split(' ')[0]}
+                                <i class="fas fa-user me-1"></i>${item.petugas_name.split(' ')[0]}
                             </span>
-                            <small class="text-muted font-monospace" style="font-size: 0.55rem;">
-                                ${labelJam}
-                            </small>
+                            <small class="text-muted font-monospace" style="font-size: 0.55rem;">${labelJam}</small>
                         </div>
                     </div>
                 </div>
@@ -136,9 +155,6 @@
         });
     }
 
-    /**
-     * ZOOM IMAGE: Proyeksi visual detail laporan untuk kebutuhan audit.
-     */
     function zoomImage(src, nama, petugas, ket, waktu, idpel) {
         document.getElementById('img-zoom').src = src;
         document.getElementById('zoom-caption').innerHTML = `
@@ -159,29 +175,21 @@
         const modal = new bootstrap.Modal(document.getElementById('modalZoom'));
         modal.show();
     }
-
-    document.addEventListener('DOMContentLoaded', loadGaleri);
 </script>
 
 <style>
-    /* STYLING ENTERPRISE - AREA SERVICE */
     .btn-white { background: white; border: 1px solid #e2e8f0; }
     .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid transparent !important; }
     .card:hover { transform: translateY(-4px); border-color: #cbd5e1 !important; box-shadow: 0 12px 24px rgba(0,0,0,0.1) !important; }
     .transition-img { transition: transform 0.5s ease; }
     .card:hover .transition-img { transform: scale(1.08); }
-    
     .zoom-card { border: 2px solid rgba(255,255,255,0.1); background-color: #000; }
     #img-zoom { max-height: 75vh; object-fit: contain; }
-
     .bg-primary-subtle { background-color: #eff6ff !important; color: #2563eb !important; }
+    .object-fit-cover { object-fit: cover; }
 
-    /* Adaptasi perangkat seluler operasional */
     @media (max-width: 576px) {
-        .img-wrapper { height: 130px !important; }
-        h6 { font-size: 0.65rem !important; }
+        .img-wrapper { height: 110px !important; }
     }
-
-    .animate__animated.animate__zoomIn { animation-duration: 0.4s; }
 </style>
 {% endblock %}
