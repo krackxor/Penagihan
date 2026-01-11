@@ -1,10 +1,10 @@
 """
 Upload API - Sunter Dashboard Pro (V5.0 Sinergi Intelligence)
 Sinergi & Smart Update:
-1. Auto-Period Logic: MC/MB > tanggal 25 otomatis masuk periode bulan depan (N+1).
-2. Dynamic Collection Period: Menentukan periode langsung dari PAY_DT baris per baris.
-3. NOMET Guard+: Memastikan nomor meter alfanumerik tersimpan akurat.
-4. Float Guard: Otomatis menangani sel kosong menjadi angka 0.0.
+1. Auto-Period Logic: MC/MB > date 25 automatically enters the next month's period (N+1).
+2. Dynamic Collection Period: Determines the period directly from PAY_DT row by row.
+3. NOMET Guard+: Ensures alphanumeric meter numbers are stored accurately.
+4. Float Guard: Automatically handles empty cells as 0.0.
 """
 
 import os
@@ -17,7 +17,7 @@ from core.helpers import clean_nomen
 upload_bp = Blueprint('upload', __name__)
 
 # =========================================================================
-# 1. KONFIGURASI KOLOM WAJIB
+# 1. REQUIRED COLUMNS CONFIGURATION
 # =========================================================================
 REQUIRED_COLS = {
     'MC': [
@@ -35,39 +35,40 @@ REQUIRED_COLS = {
 }
 
 # =========================================================================
-# 2. LOGIKA AUTO-PERIODE (SMART PARSER)
+# 2. HELPER FUNCTIONS (AUTO-PERIOD & DATA GUARDS)
 # =========================================================================
 
 def get_dynamic_period(date_str, file_type):
     """
-    Logika Penentuan Periode Otomatis:
-    - MC & MB: Jika tgl > 25, maka periode = Bulan Depan (N+1).
-    - COLLECTION: Periode sesuai bulan pada PAY_DT.
+    Automatic Period Determination Logic:
+    - MC & MB: If date > 25, period = Next Month (N+1).
+    - COLLECTION: Period follows the month in PAY_DT.
     """
     try:
-        # Normalisasi format tanggal yang berbeda-beda
+        # Normalize various date formats
         if '-' in str(date_str):
             dt = pd.to_datetime(date_str, dayfirst=True)
         else:
-            # Menangani format serial Excel atau format tanpa pemisah
+            # Handle Excel serial formats or strings without separators
             dt = pd.to_datetime(date_str)
 
         if file_type in ['MC', 'MB']:
-            # Logika N+1 jika melewati tanggal 25
+            # N+1 logic if date exceeds the 25th
             if dt.day > 25:
-                # Tambah 1 bulan
+                # Advance to next month
                 target_dt = dt.replace(day=1) + timedelta(days=32)
                 return target_dt.strftime('%m-%Y')
             return dt.strftime('%m-%Y')
         
         elif file_type == 'COLLECTION':
-            # Collection langsung mengikuti bulan bayar
+            # Collection follows the payment month directly
             return dt.strftime('%m-%Y')
             
     except:
         return datetime.now().strftime('%m-%Y')
 
 def safe_float(val):
+    """Excel Data Guard: Converts string/empty to safe float."""
     try:
         if pd.isna(val) or str(val).strip() == '': return 0.0
         clean_val = str(val).replace('.', '').replace(',', '.')
@@ -75,6 +76,7 @@ def safe_float(val):
     except: return 0.0
 
 def autopilot_extract_zona(val):
+    """Slices ZONA_NOVAK into route components."""
     if pd.isna(val) or str(val).strip() == '': return None
     s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
     return {
@@ -83,35 +85,35 @@ def autopilot_extract_zona(val):
     }
 
 # =========================================================================
-# 3. ROUTE UTAMA
+# 3. MAIN UPLOAD ROUTE
 # =========================================================================
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
     if session.get('role') != 'admin':
-        return jsonify({"error": "Akses Ditolak"}), 403
+        return jsonify({"error": "Access Denied"}), 403
 
     if 'file' not in request.files:
-        return jsonify({"error": "File tidak ditemukan"}), 400
+        return jsonify({"error": "No file found"}), 400
     
     file = request.files['file']
     file_name = file.filename
     db = get_db_connection()
     
     try:
-        # Load data
+        # Load data as string to protect alphanumeric formats (NOMET)
         df = pd.read_excel(file, dtype=str).fillna('')
         df.columns = [str(c).upper().strip() for c in df.columns]
         cols = df.columns.tolist()
 
         file_type = next((t for t, req in REQUIRED_COLS.items() if all(k in cols for k in req)), None)
         if not file_type:
-            return jsonify({"error": "Format Header tidak dikenali."}), 400
+            return jsonify({"error": "Excel Header format not recognized."}), 400
 
         row_count = 0
         last_detected_period = datetime.now().strftime('%m-%Y')
 
-        # --- LOGIKA MC ---
+        # --- MC EXECUTION LOGIC (Master Pelanggan) ---
         if file_type == 'MC':
             for _, r in df.iterrows():
                 row_period = get_dynamic_period(r['TGL_CATAT'], 'MC')
@@ -131,7 +133,7 @@ def handle_upload():
                       safe_float(r['KUBIK']), safe_float(r['NOMINAL']), r['CUST_TYPE'], row_period))
                 row_count += 1
 
-        # --- LOGIKA MB ---
+        # --- MB EXECUTION LOGIC (Master Bayar) ---
         elif file_type == 'MB':
             for _, r in df.iterrows():
                 row_period = get_dynamic_period(r['TGL_BAYAR'], 'MB')
@@ -142,7 +144,7 @@ def handle_upload():
                 """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], safe_float(r['NOMINAL']), row_period))
                 row_count += 1
 
-        # --- LOGIKA COLLECTION ---
+        # --- COLLECTION EXECUTION LOGIC (Harian Petugas) ---
         elif file_type == 'COLLECTION':
             for _, r in df.iterrows():
                 row_period = get_dynamic_period(r['PAY_DT'], 'COLLECTION')
@@ -154,7 +156,7 @@ def handle_upload():
                       safe_float(r['NOMINAL']), r['PAY_DT'], r['FREEZE_DTTM'], safe_float(r['VOL_COLLECT']), row_period))
                 row_count += 1
 
-        # --- LOGIKA RUTE ---
+        # --- RUTE EXECUTION LOGIC ---
         elif file_type == 'RUTE':
             for _, r in df.iterrows():
                 db.execute("""
@@ -163,7 +165,7 @@ def handle_upload():
                 """, (str(r['PCEZ']).strip(), str(r['PETUGAS']).strip().upper(), str(r.get('NO_ADMIN', ''))))
                 row_count += 1
 
-        # --- LOGIKA ARDEBT ---
+        # --- ARDEBT EXECUTION LOGIC ---
         elif file_type == 'ARDEBT':
             db.execute("DELETE FROM ardebt")
             for _, r in df.iterrows():
@@ -171,12 +173,17 @@ def handle_upload():
                           (clean_nomen(r['NOMEN']), r['PERIODE_BILL'], safe_float(r['JUMLAH']), safe_float(r['VOLUME'])))
                 row_count += 1
 
-        # Audit History
+        # Audit history with detected period
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)",
                   (file_name, file_type, last_detected_period, row_count, 'SUCCESS'))
 
         db.commit()
-        return jsonify({"status": "success", "message": f"Sinkronisasi {file_type} Berhasil!", "rows": row_count, "period": last_detected_period})
+        return jsonify({
+            "status": "success", 
+            "message": f"{file_type} Sync Successful!", 
+            "rows": row_count, 
+            "period": last_detected_period
+        })
 
     except Exception as e:
         if db: db.rollback()
