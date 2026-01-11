@@ -1,10 +1,10 @@
 """
-Ardebt (Tagihan Berekor) API - V6.6 (Sunter Dashboard Pro - Ultra Fast)
+Ardebt (Tagihan Berekor) API - V6.7 (Sunter Dashboard Pro - Ultra Fast)
 Sinergi & Smart Update:
 1. Ultra-Fast Join: Menghapus CAST() agar database menggunakan INDEX secara maksimal.
-2. NOMET Guard+: Memastikan sinkronisasi Nomor Meter alfanumerik terdeteksi akurat.
-3. Auto-Period Sync: Menyesuaikan target harian dengan periode terbaru di Master.
-4. High-Value Priority: Mengurutkan otomatis berdasarkan Kubik (pemakaian air) tertinggi.
+2. Simple Period Logic: Sinkronisasi target harian murni berdasarkan Bulan-Tahun (MM-YYYY).
+3. High-Value Priority: Mengurutkan otomatis berdasarkan Kubik (pemakaian air) tertinggi.
+4. Smart Auto-Hide: Data otomatis hilang dari daftar kerja jika sudah dikunjungi pada periode berjalan.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -16,7 +16,7 @@ from datetime import datetime
 ardebt_bp = Blueprint('ardebt', __name__)
 
 def get_latest_periode_available(cursor):
-    """ Mencari periode terbaru di Master Pelanggan untuk menentukan daftar target aktif. """
+    """ Mencari periode terbaru (MM-YYYY) di Master Pelanggan sebagai acuan target aktif. """
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
@@ -46,7 +46,7 @@ def get_customer_full_intelligence(nomen):
     try:
         cursor = conn.cursor()
         
-        # Verifikasi Tiga Arah: Langsung menggunakan Index pada nomen & notagihan
+        # Verifikasi Tiga Arah: Langsung menggunakan Index pada nomen (TEXT)
         cursor.execute("""
             SELECT 
                 p.periode, p.kubik as pemakaian_air, p.nominal as rupiah, p.tarif, 
@@ -72,7 +72,7 @@ def get_customer_full_intelligence(nomen):
         if len(all_history) <= 1:
             return jsonify({"status": "not_available", "history": all_history})
 
-        # Analisis Tren
+        # Analisis Tren Pemakaian
         curr, prev = all_history[0], all_history[1]
         diff_kubik = curr['pemakaian_air'] - prev['pemakaian_air']
         count_nunggak = sum(1 for item in all_history if item['status_lunas'] == 0)
@@ -110,7 +110,7 @@ def get_tunggakan_berekor():
         cursor = conn.cursor()
         curr_period = get_latest_periode_available(cursor)
 
-        # Query Utama: Join cepat menggunakan Index MC_LOOKUP
+        # Query Utama: Join cepat menggunakan Index MC_LOOKUP & MC_PCEZ
         query = """
             SELECT 
                 a.nomen, a.periode_bill as rincian_periode, 
@@ -126,14 +126,14 @@ def get_tunggakan_berekor():
         """
         params = [curr_period]
 
-        # Smart Auto-Hide (Jika bukan pencarian, sembunyikan yang sudah dikunjungi)
+        # Smart Auto-Hide (Menggunakan INDEX idx_kunjungan_nomen_periode agar instan)
         if not search_query:
             query += """ AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = p.nomen AND k.periode = p.periode
             )"""
 
-        # Filter Role & Petugas
+        # Filter Role (Petugas hanya melihat areanya sendiri)
         if user_role == 'petugas':
             query += " AND UPPER(TRIM(r.petugas)) = UPPER(TRIM(?))"
             params.append(user_petugas_id)
@@ -141,13 +141,13 @@ def get_tunggakan_berekor():
             query += " AND UPPER(TRIM(r.petugas)) = UPPER(TRIM(?))"
             params.append(petugas_filter)
 
-        # Urutan & Limitasi (Penentu Kecepatan)
+        # Pengurutan Berbasis Nilai Prioritas (Kubikasi)
         if search_query:
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
             query += " ORDER BY p.kubik DESC"
         else:
-            # Menggunakan LIMIT agar server tidak terbebani data ribuan baris sekaligus
+            # LIMIT 50 untuk menjaga kecepatan render di browser HP petugas
             query += " ORDER BY p.kubik DESC LIMIT 50"
         
         cursor.execute(query, params)
