@@ -1,14 +1,13 @@
 -- =========================================================================
--- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V3.9 SINERGI STRICT EDITION)
+-- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V3.9.1 HIGH-PERFORMANCE EDITION)
 -- Updated: 2026-01-11 
--- Sinergi: Snapshot Persistence, Geo-Tracking, & Automated Admin Messaging
+-- Sinergi: Snapshot Persistence, Geo-Tracking, & Ultra-Fast Indexing
 -- =========================================================================
 
 -- =========================================================================
 -- 1. SISTEM AKSES & KEAMANAN (SMART AUTH)
 -- =========================================================================
 
--- Tabel User: Standarisasi level akses.
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,      -- Username login petugas
@@ -24,7 +23,6 @@ CREATE TABLE IF NOT EXISTS users (
 -- 2. DATA MASTER & AUTOPILOT ENGINE
 -- =========================================================================
 
--- Tabel Master Pelanggan (MC): Inti data bulanan.
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,           -- ID Pelanggan (String untuk menjaga format nol di depan)
@@ -51,15 +49,13 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     UNIQUE(nomen, notagihan, periode) 
 );
 
--- Tabel Mapping Rute (SINERGI WILAYAH)
 CREATE TABLE IF NOT EXISTS rute_petugas (
     pcez TEXT PRIMARY KEY,         -- Kode Rute
     petugas TEXT NOT NULL,         -- Penanggung jawab lapangan
-    no_admin TEXT,                 -- [UPDATE V3.9]: No WA Admin Wilayah untuk laporan otomatis
+    no_admin TEXT,                 -- No WA Admin Wilayah untuk laporan otomatis
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Master Bayar (MB): Data lunas resmi kantor.
 CREATE TABLE IF NOT EXISTS master_bayar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
@@ -72,7 +68,6 @@ CREATE TABLE IF NOT EXISTS master_bayar (
     UNIQUE(nomen, notagihan, periode)
 );
 
--- Tabel Collection Harian: Pencatatan setoran petugas.
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
@@ -88,7 +83,6 @@ CREATE TABLE IF NOT EXISTS collection_harian (
     UNIQUE(nomen, notag, periode)
 );
 
--- Tabel Ardebt: Tunggakan lama (Berekor).
 CREATE TABLE IF NOT EXISTS ardebt (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
@@ -102,13 +96,12 @@ CREATE TABLE IF NOT EXISTS ardebt (
 -- 3. LOGGING AKTIVITAS & ULTIMATE SNAPSHOT
 -- =========================================================================
 
--- Tabel Kunjungan Petugas: Dokumentasi visual permanen.
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
     petugas_name TEXT,
-    nama_snapshot TEXT,            -- [UPDATE V3.9]: Nama saat dikunjungi
-    alamat_snapshot TEXT,          -- [UPDATE V3.9]: Alamat saat dikunjungi
+    nama_snapshot TEXT,            -- Nama saat dikunjungi
+    alamat_snapshot TEXT,          -- Alamat saat dikunjungi
     nomet TEXT,                    -- No Meter saat dikunjungi
     mc REAL DEFAULT 0,             -- Saldo Tagihan berjalan
     ardebt REAL DEFAULT 0,         -- Saldo Tunggakan berekor
@@ -116,20 +109,19 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     keterangan TEXT,               -- Hasil koordinasi (Janji Bayar, dll)
     catatan TEXT,                  -- Tambahan info petugas
     foto_path TEXT,                -- Link file foto
-    latitude TEXT,                 -- [UPDATE V3.9]: Koordinat Lintang
-    longitude TEXT,                -- [UPDATE V3.9]: Koordinat Bujur
+    latitude TEXT,                 -- Koordinat Lintang
+    longitude TEXT,                -- Koordinat Bujur
     no_hp TEXT,                    -- Kontak konsumen
     periode TEXT,                  -- Bulan pelaporan
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Upload History: Audit trail Admin.
 CREATE TABLE IF NOT EXISTS upload_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_name TEXT,
     file_type TEXT,                -- MC, MB, ARDEBT, COLLECTION, RUTE
     periode TEXT,
-    row_count INTEGER DEFAULT 0,   --
+    row_count INTEGER DEFAULT 0,   
     status TEXT,                   -- SUCCESS / FAILED / ERROR
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -138,7 +130,6 @@ CREATE TABLE IF NOT EXISTS upload_history (
 -- 4. SMART TRIGGER (LOGIKA AUTOPILOT)
 -- =========================================================================
 
--- TRIGGER 1: Autopilot Prioritas Tagihan Tinggi.
 CREATE TRIGGER IF NOT EXISTS trg_autopilot_priority
 AFTER INSERT ON master_pelanggan
 FOR EACH ROW
@@ -148,7 +139,6 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- TRIGGER 2: Sinergi Pelunasan otomatis via MB.
 CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
 AFTER INSERT ON master_bayar
 FOR EACH ROW
@@ -158,7 +148,6 @@ BEGIN
     WHERE nomen = NEW.nomen AND periode = NEW.periode;
 END;
 
--- TRIGGER 3: Sinergi Pelunasan otomatis via Collection Petugas.
 CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_coll
 AFTER INSERT ON collection_harian
 FOR EACH ROW
@@ -169,11 +158,18 @@ BEGIN
 END;
 
 -- =========================================================================
--- 5. OPTIMASI INDEX (SMART PERFORMANCE)
+-- 5. OPTIMASI INDEX (HIGH-PERFORMANCE LOOKUP) - DIPERBARUI
 -- =========================================================================
 
-CREATE INDEX IF NOT EXISTS idx_mc_main ON master_pelanggan(nomen, pcez, periode);
-CREATE INDEX IF NOT EXISTS idx_mc_status ON master_pelanggan(status_lunas, is_prioritas);
-CREATE INDEX IF NOT EXISTS idx_mb_nomen ON master_bayar(nomen, periode);
-CREATE INDEX IF NOT EXISTS idx_coll_nomen ON collection_harian(nomen, periode);
-CREATE INDEX IF NOT EXISTS idx_kunjungan_nomen ON kunjungan_petugas(nomen, periode);
+-- Indeks Utama untuk Query Monitoring Dashboard (Mempercepat Join Lintas Tabel)
+CREATE INDEX IF NOT EXISTS idx_mc_lookup ON master_pelanggan(periode, nomen, notagihan);
+CREATE INDEX IF NOT EXISTS idx_mb_lookup ON master_bayar(periode, nomen, notagihan);
+CREATE INDEX IF NOT EXISTS idx_coll_lookup ON collection_harian(periode, nomen, notag);
+
+-- Indeks untuk Filter Wilayah dan Status (Mempercepat Pusat Kendali)
+CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan(pcez, status_lunas);
+CREATE INDEX IF NOT EXISTS idx_mc_prioritas ON master_pelanggan(is_prioritas, kubik);
+
+-- Indeks untuk Audit Sejarah
+CREATE INDEX IF NOT EXISTS idx_kunjungan_audit ON kunjungan_petugas(nomen, periode);
+CREATE INDEX IF NOT EXISTS idx_upload_history_sort ON upload_history(created_at DESC);
