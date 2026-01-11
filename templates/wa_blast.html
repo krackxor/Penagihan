@@ -4,12 +4,12 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1 text-dark">WA Blast Cerdas 🚀</h4>
-            <p class="text-muted small mb-0">Prioritas: Notifikasi Penagihan Otomatis</p>
+            <h4 class="fw-bold mb-1 text-dark"><i class="fab fa-whatsapp me-2 text-success"></i>Komunikasi Massal</h4>
+            <p class="text-muted small mb-0">Otomatisasi Notifikasi & Edukasi Konsumen</p>
         </div>
         <div id="status-koneksi">
             <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 border border-success-subtle">
-                <i class="fas fa-microchip me-1 animate__animated animate__pulse animate__infinite"></i> Engine Ready
+                <i class="fas fa-microchip me-1 animate__animated animate__pulse animate__infinite"></i> Gateway Active
             </span>
         </div>
     </div>
@@ -18,54 +18,54 @@
         <div class="card-body p-3">
             <div class="d-flex align-items-center mb-3">
                 <div class="bg-primary-subtle text-primary rounded-3 p-2 me-2">
-                    <i class="fas fa-robot"></i>
+                    <i class="fas fa-sliders-h"></i>
                 </div>
-                <h6 class="fw-bold mb-0 small">Sinergi Konfigurasi Autopilot</h6>
+                <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;">Konfigurasi Protokol Blast</h6>
             </div>
             
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Kategori Target Blast</label>
+                <label class="form-label small fw-bold text-muted">Parameter Target Konsumen</label>
                 <select id="target-filter" class="form-select border-0 bg-light rounded-3 shadow-none py-2 fw-bold text-dark" onchange="resetPreview()">
-                    <option value="current">Current MC (Tagihan Bulan Berjalan)</option>
-                    <option value="ardebt">Ardebt (Tunggakan Berekor / Piutang)</option>
+                    <option value="current">Realisasi Berjalan (Current Period)</option>
+                    <option value="ardebt">Prioritas Piutang (Ardebt / Outstanding)</option>
                 </select>
-                <small class="text-muted mt-1 d-block" style="font-size: 10px;">* Sistem hanya mengambil nasabah dengan nomor WhatsApp terverifikasi.</small>
+                <small class="text-muted mt-2 d-block" style="font-size: 10px;">* Sistem secara otomatis melakukan validasi terhadap entitas dengan nomor kontak terverifikasi.</small>
             </div>
 
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Template Pesan Dinamis</label>
+                <label class="form-label small fw-bold text-muted">Struktur Narasi Pesan (Dinamis)</label>
                 <textarea id="msg-template" class="form-control border-0 bg-light rounded-3 small py-3 shadow-none" rows="6">
-Yth. Pelanggan *{nama}*,
-Kami menginformasikan tagihan IDPEL: *{nomen}*.
-Total kewajiban anda adalah: *Rp {nominal}*.
-Mohon segera selesaikan pembayaran melalui loket resmi atau Alfamart/Indomaret.
+Yth. Pelanggan Area Service *{nama}*,
+Informasi tagihan air IDPEL: *{nomen}*.
+Total kewajiban terhutang: *Rp {nominal}*.
+Mohon melakukan pelunasan segera melalui kanal resmi Bank atau Merchant (Alfamart/Indomaret).
 
-Info Rute: *{pcez}*
-Abaikan pesan ini jika sudah lunas. Terima kasih.</textarea>
+Kode Wilayah: *{pcez}*
+Abaikan jika kewajiban telah diselesaikan. Terima kasih.</textarea>
                 <div class="mt-2 d-flex flex-wrap gap-1">
-                    <span class="badge bg-white text-muted border" style="font-size: 0.6rem;">{nama}</span>
-                    <span class="badge bg-white text-muted border" style="font-size: 0.6rem;">{nomen}</span>
-                    <span class="badge bg-white text-muted border" style="font-size: 0.6rem;">{nominal}</span>
-                    <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.6rem;">{petugas}</span>
+                    <span class="badge bg-white text-muted border px-2 py-1" style="font-size: 0.6rem;">{nama}</span>
+                    <span class="badge bg-white text-muted border px-2 py-1" style="font-size: 0.6rem;">{nomen}</span>
+                    <span class="badge bg-white text-muted border px-2 py-1" style="font-size: 0.6rem;">{nominal}</span>
+                    <span class="badge bg-primary-subtle text-primary border px-2 py-1" style="font-size: 0.6rem;">{petugas}</span>
                 </div>
             </div>
 
-            <button onclick="previewBlast()" class="btn btn-primary w-100 rounded-3 fw-bold py-2 shadow-sm">
-                <i class="fas fa-search-dollar me-2"></i> ANALISIS TARGET & KONTAK
+            <button onclick="previewBlast()" class="btn btn-primary w-100 rounded-pill fw-bold py-3 shadow-sm">
+                <i class="fas fa-microchip me-2"></i> ANALISIS ENTITAS & VALIDASI KONTAK
             </button>
         </div>
     </div>
 
     <div id="preview-section" class="d-none animate__animated animate__fadeInUp">
-        <div class="card border-0 shadow-sm rounded-4 mb-3 border-start border-warning border-4 bg-white">
+        <div class="card border-0 shadow-sm rounded-4 mb-3 border-start border-primary border-4 bg-white">
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h2 class="fw-bold mb-0 text-dark" id="target-count">0</h2>
-                        <small class="text-muted fw-bold" style="font-size: 0.7rem;">ANTREAN TERVALIDASI</small>
+                        <h2 class="fw-bold mb-0 text-dark font-monospace" id="target-count">0</h2>
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Antrean Terverifikasi</small>
                     </div>
-                    <button onclick="startBlast()" id="btn-start" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm py-2">
-                        EKSEKUSI <i class="fas fa-paper-plane ms-2"></i>
+                    <button onclick="startBlast()" id="btn-start" class="btn btn-success rounded-pill px-5 fw-bold shadow-sm py-2">
+                        TRANSMISI <i class="fas fa-paper-plane ms-2"></i>
                     </button>
                 </div>
             </div>
@@ -73,15 +73,15 @@ Abaikan pesan ini jika sudah lunas. Terima kasih.</textarea>
 
         <div class="card border-0 shadow-lg rounded-4 bg-dark overflow-hidden">
             <div class="card-header bg-transparent border-0 pt-3 px-3 d-flex justify-content-between align-items-center">
-                <h6 class="text-white-50 fw-bold mb-0 small" style="letter-spacing: 1px;">AUTOPILOT ENGINE LOG</h6>
-                <div id="blast-percent-text" class="text-success fw-bold small">0%</div>
+                <h6 class="text-white-50 fw-bold mb-0 small" style="letter-spacing: 1px;">ENGINE TRANSMISSION LOG</h6>
+                <div id="blast-percent-text" class="text-success fw-bold small font-monospace">0%</div>
             </div>
             <div class="card-body pt-2">
                 <div class="progress mb-3 bg-secondary bg-opacity-25" style="height: 6px; border-radius: 10px;">
                     <div id="blast-progress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                 </div>
-                <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-3 bg-black bg-opacity-25" style="max-height: 200px; font-family: 'Courier New', Courier, monospace; line-height: 1.6; font-size: 0.65rem;">
-                    <span class="text-warning">> Menunggu instruksi sinkronisasi...</span>
+                <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-3 bg-black bg-opacity-50" style="max-height: 220px; font-family: 'Courier New', Courier, monospace; line-height: 1.6; font-size: 0.65rem;">
+                    <span class="text-info">> System Idle: Menunggu inisialisasi sinkronisasi parameter...</span>
                 </div>
             </div>
         </div>
@@ -89,12 +89,8 @@ Abaikan pesan ini jika sudah lunas. Terima kasih.</textarea>
 </div>
 
 <script>
-let targetList = []; // Array penampung target autopilot
+let targetList = []; 
 
-/**
- * RESET PREVIEW:
- * Membersihkan tampilan jika kategori target diubah agar data tidak tercampur.
- */
 function resetPreview() {
     document.getElementById('preview-section').classList.add('d-none');
     targetList = [];
@@ -103,42 +99,39 @@ function resetPreview() {
 }
 
 /**
- * PREVIEW BLAST:
- * Menganalisis database dan menyaring kontak valid secara otomatis (Autopilot).
+ * ANALISIS TARGET: Sinkronisasi basis data Area Service untuk penyaringan kontak.
  */
 async function previewBlast() {
     const filter = document.getElementById('target-filter').value;
     const logList = document.getElementById('log-list');
     
     Swal.fire({ 
-        title: 'Menganalisis...', 
-        html: 'Menghubungkan sinergi database nasabah',
+        title: 'Menganalisis Parameter...', 
+        html: 'Menghubungkan integrasi basis data Area Service',
         allowOutsideClick: false,
         didOpen: () => { Swal.showLoading(); } 
     });
 
     try {
-        // Autopilot Route: Mengambil data dari API yang sesuai dengan filter
         const endpoint = filter === 'ardebt' ? '/api/ardebt?petugas=all' : '/api/belum-bayar?petugas=all';
         const res = await fetch(endpoint);
         const data = await res.json();
         
-        // Smart Validation: Filter nomor HP yang layak (minimal 9 digit & bukan placeholder)
+        // Smart Filtering: Minimal 9 digit dan metadata kontak valid
         targetList = data.filter(item => item.no_hp && item.no_hp !== '-' && item.no_hp.length > 8);
         
         document.getElementById('target-count').innerText = targetList.length;
         document.getElementById('preview-section').classList.remove('d-none');
-        logList.innerHTML = `<div class="text-success fw-bold">> [DATA SYNC] Berhasil menarik ${targetList.length} nasabah dari kategori ${filter.toUpperCase()}.</div>`;
+        logList.innerHTML = `<div class="text-success fw-bold">> [INTEGRITY SYNC] Berhasil memvalidasi ${targetList.length} entitas konsumen dari kategori ${filter.toUpperCase()}.</div>`;
         
         Swal.close();
     } catch (e) {
-        Swal.fire('Error', 'Sistem gagal menyinkronkan data target', 'error');
+        Swal.fire('Integrasi Gagal', 'Sistem tidak mampu menyinkronkan pangkalan data.', 'error');
     }
 }
 
 /**
- * START BLAST:
- * Eksekusi pengiriman pesan simulasi/API secara berurutan.
+ * EKSEKUSI TRANSMISI: Protokol pengiriman data berurutan (Sequential Transmission).
  */
 async function startBlast() {
     const btn = document.getElementById('btn-start');
@@ -150,69 +143,70 @@ async function startBlast() {
     if(targetList.length === 0) return;
 
     const confirm = await Swal.fire({
-        title: 'Konfirmasi Blast',
-        text: `Kirim notifikasi ke ${targetList.length} pelanggan? Pastikan koneksi stabil.`,
+        title: 'Otorisasi Transmisi',
+        text: `Kirim notifikasi kepada ${targetList.length} entitas? Protokol ini akan berjalan otomatis.`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Jalankan Autopilot'
+        confirmButtonText: 'Konfirmasi Otorisasi'
     });
 
     if (!confirm.isConfirmed) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>PROSES...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>TRANSMITTING...';
 
     for (let i = 0; i < targetList.length; i++) {
         const item = targetList[i];
         
-        // Sinergi Variabel: Mapping data backend ke template frontend secara dinamis
-        const namaVal = item.nama || "Pelanggan";
+        const namaVal = item.nama || "Konsumen";
         const nomenVal = item.nomen || "-";
-        const nominalVal = item.nominal || item.total_jumlah || 0; // Mendukung MC dan Ardebt
-        const petugasVal = item.petugas || "Wilayah Sunter";
+        const nominalVal = item.nominal || item.nominal_ardebt || item.jumlah || 0; 
+        const petugasVal = item.nama_petugas || item.petugas || "Admin Area Service";
 
         let message = template
             .replace(/{nama}/g, namaVal)
             .replace(/{nomen}/g, nomenVal)
             .replace(/{nominal}/g, Number(nominalVal).toLocaleString('id-ID'))
-            .replace(/{petugas}/g, petugasVal);
+            .replace(/{petugas}/g, petugasVal)
+            .replace(/{pcez}/g, item.pcez || '-');
 
-        // Terminal Log Entry
         const logEntry = document.createElement('div');
         logEntry.className = "mb-1";
-        logEntry.innerHTML = `<span class="text-info">[${i+1}/${targetList.length}]</span> Meneruskan ke ${namaVal} (${item.no_hp})... `;
+        logEntry.innerHTML = `<span class="text-warning">[TRANSMIT ${i+1}/${targetList.length}]</span> Mengirim ke ${namaVal} (${item.no_hp})... `;
         logList.prepend(logEntry);
 
-        // UI Progress Update
         const percent = Math.round(((i + 1) / targetList.length) * 100);
         progressBar.style.width = percent + '%';
         progressText.innerText = percent + '%';
 
-        // AUTOPILOT DELAY: Simulasi jeda pengiriman (3 detik) untuk keamanan
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // PROTOKOL DELAY: Jeda transmisi untuk menjaga stabilitas koneksi
+        await new Promise(resolve => setTimeout(resolve, 3500));
         
-        logEntry.innerHTML += '<span class="text-success">TERKIRIM ✓</span>';
+        logEntry.innerHTML += '<span class="text-success fw-bold">DELIVERED ✓</span>';
     }
 
     Swal.fire({
         icon: 'success',
-        title: 'Proses Selesai',
-        text: `Berhasil memproses antrean ${targetList.length} nasabah.`,
-        confirmButtonColor: '#198754'
+        title: 'Transmisi Selesai',
+        text: `Protokol komunikasi massal untuk ${targetList.length} entitas telah dieksekusi.`,
+        confirmButtonColor: '#2563eb'
     });
     
-    btn.innerHTML = 'BLAST COMPLETED';
+    btn.innerHTML = 'PROTOKOL SELESAI';
     btn.className = 'btn btn-secondary rounded-pill px-4 fw-bold py-2';
 }
 </script>
 
 <style>
-    /* Styling Sinergi Dashboard WA */
-    .bg-primary-subtle { background-color: #e8f2ff !important; }
-    .progress-bar { transition: width 0.5s ease-in-out; }
+    /* STYLING AREA SERVICE COMMUNICATION MODULE */
+    .bg-primary-subtle { background-color: #eff6ff !important; }
+    .bg-success-subtle { background-color: #f0fdf4 !important; }
+    .progress-bar { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
     #log-list::-webkit-scrollbar { width: 4px; }
-    #log-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-    .btn-success { background-color: #22c55e; border: none; }
-    .btn-success:hover { background-color: #16a34a; }
+    #log-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    .btn-primary { background-color: #2563eb; border: none; }
+    .btn-primary:hover { background-color: #1e40af; }
+    .btn-success { background-color: #16a34a; border: none; }
+    .btn-success:hover { background-color: #15803d; }
 </style>
 {% endblock %}
