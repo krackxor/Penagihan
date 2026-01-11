@@ -1,10 +1,10 @@
 """
-Upload API - Sunter Dashboard Pro (V4.8 Sinergi Intelligence)
+Upload API - Sunter Dashboard Pro (V4.9 Sinergi Intelligence)
 Sinergi & Smart Update:
-1. NOMET Guard: Memastikan data nomor meter (NOMET) dari Excel MC tersimpan sempurna.
-2. Float Guard: Otomatis menangani sel Excel kosong ('') menjadi angka 0 agar tidak error.
-3. Strict Validation: Wajib menyertakan kolom spesifik untuk MC, MB, ARDEBT, RUTE, dan COLLECTION.
-4. Audit Trail Integrity: Mencatat log sukses/gagal dengan default value untuk mencegah Error 500.
+1. NOMET Guard+: Memastikan nomor meter alfanumerik (I19R...) tersimpan tanpa karakter sampah.
+2. Case-Insensitive Rute: Standarisasi UPPER(TRIM()) pada petugas untuk sinkronisasi Ardebt & User.
+3. Float Guard: Otomatis menangani sel Excel kosong ('') menjadi angka 0.0 agar tidak error.
+4. Audit Trail V2: Mencatat log sukses/gagal dengan proteksi nilai NULL untuk mencegah Error 500.
 """
 
 import os
@@ -43,16 +43,17 @@ def safe_float(val):
     try:
         if pd.isna(val) or str(val).strip() == '':
             return 0.0
-        # Menangani format ribuan Indonesia
+        # Menangani format ribuan Indonesia (1.000,00 -> 1000.00)
         clean_val = str(val).replace('.', '').replace(',', '.')
         return float(clean_val)
     except (ValueError, TypeError):
         return 0.0
 
 def autopilot_extract_zona(val):
-    """ Membedah string ZONA_NOVAK menjadi komponen rute. """
+    """ Membedah string ZONA_NOVAK menjadi komponen rute (Rayon, PC, EZ, Blok). """
     if pd.isna(val) or str(val).strip() == '':
         return None
+    # Ekstraksi angka saja dan padding 9 digit
     s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
     return {
         'rayon': s[0:2],
@@ -70,62 +71,69 @@ def autopilot_extract_zona(val):
 def handle_upload():
     """ 
     ENDPOINT: Memproses file Excel dan mendistribusikannya ke database. 
-    V4.8: Perbaikan mapping NOMET dan penguncian row_count history.
+    V4.9: Perbaikan sinkronisasi NOMET alfanumerik dan standarisasi PETUGAS.
     """
     if session.get('role') != 'admin':
-        return jsonify({"error": "Akses Ditolak: Hanya Admin yang bisa upload data."}), 403
+        return jsonify({"error": "Akses Ditolak: Membutuhkan Level Administrator."}), 403
 
     if 'file' not in request.files:
-        return jsonify({"error": "Sistem tidak mendeteksi adanya file."}), 400
+        return jsonify({"error": "File tidak ditemukan dalam request."}), 400
     
     file = request.files['file']
     file_name = file.filename
     db = get_db_connection()
     
     try:
-        # Load Excel sebagai string untuk melindungi format ID Pelanggan (Nomen)
-        # Sesuai data user: NOMET berisi alfanumerik (I19R...)
+        # Load Excel sebagai string untuk melindungi format alfanumerik (NOMET: I19R...)
         df = pd.read_excel(file, dtype=str).fillna('')
         df.columns = [str(c).upper().strip() for c in df.columns]
         cols = df.columns.tolist()
 
-        # Identifikasi Tipe File
+        # Deteksi Tipe File berdasarkan Header
         file_type = next((t for t, req in REQUIRED_COLS.items() if all(k in cols for k in req)), None)
 
         if not file_type:
-            return jsonify({"error": "Header Excel tidak sesuai standar Sunter Pro."}), 400
+            return jsonify({"error": "Format Header Excel tidak dikenali sistem Sunter Pro."}), 400
 
         row_count = 0
         current_month = datetime.now().strftime('%m-%Y')
 
-        # --- EKSEKUSI DATA MASTER (MC) ---
+        # --- LOGIKA EKSEKUSI MC (Master Pelanggan) ---
         if file_type == 'MC':
             db.execute("DELETE FROM master_pelanggan WHERE periode = ? AND tipe = 'MC'", (current_month,))
             for _, r in df.iterrows():
                 z = autopilot_extract_zona(r['ZONA_NOVAK'])
                 if not z: continue
+                
                 full_addr = f"{r['ALM1_PEL']} {r['ALM2_PEL']} {r['ALM3_PEL']}".strip()
                 
-                # Injeksi data NOMET secara eksplisit
+                # NOMET Guard: Membersihkan karakter tersembunyi pada nomor meter alfanumerik
+                val_nomet = str(r['NOMET']).strip() if r['NOMET'] else "-"
+                
                 db.execute("""
                     INSERT INTO master_pelanggan (nomen, nama, alamat, kd_pos, pcez, rayon, pc, ez, blok, 
                     notagihan, nomet, tarif, tgl_catat, stan_awal, stan_akir, kubik, nominal, cust_type, tipe, periode)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'MC',?)
                 """, (clean_nomen(r['NOMEN']), r['NAMA_PEL'], full_addr, r['KD_POS'], z['pcez'], z['rayon'], z['pc'], z['ez'], z['blok'],
-                      r['NOTAGIHAN'], str(r['NOMET']).strip(), r['TARIF'], r['TGL_CATAT'], safe_float(r['STAN_AWAL']), safe_float(r['STAN_AKIR']), 
+                      r['NOTAGIHAN'], val_nomet, r['TARIF'], r['TGL_CATAT'], safe_float(r['STAN_AWAL']), safe_float(r['STAN_AKIR']), 
                       safe_float(r['KUBIK']), safe_float(r['NOMINAL']), r['CUST_TYPE'], current_month))
                 row_count += 1
 
-        # --- EKSEKUSI DATA BAYAR (MB) ---
-        elif file_type == 'MB':
+        # --- LOGIKA EKSEKUSI RUTE (Mapping Petugas) ---
+        elif file_type == 'RUTE':
             for _, r in df.iterrows():
+                # Standarisasi Petugas: UPPER dan TRIM agar sinkron dengan tabel Ardebt & User
+                nama_petugas = str(r['PETUGAS']).strip().upper()
+                kode_pcez = str(r['PCEZ']).strip()
+                no_admin = str(r.get('NO_ADMIN', '628123456789')).strip()
+                
                 db.execute("""
-                    INSERT OR REPLACE INTO master_bayar (nomen, bulan_rek, notagihan, tgl_bayar, nominal, periode)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], safe_float(r['NOMINAL']), current_month))
+                    INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                """, (kode_pcez, nama_petugas, no_admin))
                 row_count += 1
 
-        # --- EKSEKUSI TUNGGAKAN (ARDEBT) ---
+        # --- EKSEKUSI ARDEBT ---
         elif file_type == 'ARDEBT':
             db.execute("DELETE FROM ardebt")
             for _, r in df.iterrows():
@@ -135,32 +143,23 @@ def handle_upload():
                 """, (clean_nomen(r['NOMEN']), r['PERIODE_BILL'], safe_float(r['JUMLAH']), safe_float(r['VOLUME'])))
                 row_count += 1
 
-        # --- EKSEKUSI MAPPING RUTE ---
-        elif file_type == 'RUTE':
-            for _, r in df.iterrows():
-                no_admin = r.get('NO_ADMIN', '628123456789').strip()
-                db.execute("""
-                    INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                """, (r['PCEZ'].strip(), r['PETUGAS'].upper().strip(), no_admin))
-                row_count += 1
-
-        # --- CATAT RIWAYAT KE LOG AUDIT (Mencegah Error 500) ---
+        # --- CATAT RIWAYAT (Audit Trail Integrity) ---
         db.execute("""
             INSERT INTO upload_history (file_name, file_type, periode, row_count, status)
             VALUES (?, ?, ?, ?, ?)
         """, (file_name, file_type, current_month, row_count, 'SUCCESS'))
 
         db.commit()
-        return jsonify({"status": "success", "message": f"Upload {file_type} Berhasil!", "rows": row_count})
+        return jsonify({"status": "success", "message": f"Sinkronisasi {file_type} Berhasil!", "rows": row_count})
 
     except Exception as e:
         if db: db.rollback()
-        # Mencatat kegagalan dengan aman
+        # Mencatat kegagalan dengan parameter aman untuk mencegah Error 500 di halaman History
         try:
             db.execute("INSERT INTO upload_history (file_name, status, row_count) VALUES (?, ?, ?)", (file_name, 'FAILED', 0))
             db.commit()
         except: pass
+        print(f"❌ Upload Error: {str(e)}")
         return jsonify({"error": f"Kegagalan Sistem: {str(e)}"}), 500
     finally:
         if db: db.close()
