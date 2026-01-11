@@ -1,9 +1,9 @@
 """
-Collection API - Sunter Dashboard Pro (V7.1 Sinergi Ultra-Fast)
+Collection API - Sunter Dashboard Pro (V7.2 Sinergi Ultra-Fast)
 Sinergi & Smart Update:
-1. Ultra-Fast Join: Menghapus CAST() agar database menggunakan INDEX secara maksimal.
-2. NOMEN Integrity: Mengunci relasi antar tabel secara instan menggunakan tipe data TEXT murni.
-3. Cross-Period Sync: Menghubungkan realisasi harian dengan target periode yang sesuai secara akurat.
+1. Simple Billing Logic: Sinkronisasi target & realisasi murni berdasarkan Bulan-Tahun.
+2. Ultra-Fast Join: Menghapus CAST() agar database menggunakan INDEX secara maksimal.
+3. NOMEN Integrity: Mengunci relasi antar tabel secara instan menggunakan tipe data TEXT.
 4. Multi-Rayon Analytics: Breakdown performa otomatis untuk Rayon 34 & 35.
 """
 
@@ -24,13 +24,14 @@ def get_latest_period(cursor):
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Fungsi monitoring harian cerdas. Menghitung laju progres vs target bulanan."""
+    """Fungsi monitoring harian cerdas. Menghitung laju progres (Current) vs saldo awal (Undue)."""
     
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         
         # --- 1. LOGIKA AUTOPILOT PERIODE ---
+        # Mengambil periode dari request atau otomatis ke periode master terbaru (MM-YYYY)
         periode_req = request.args.get('periode')
         if not periode_req:
             periode_req = get_latest_period(cursor)
@@ -45,8 +46,8 @@ def daily_monitor():
         """, (periode_req,))
         target = dict(cursor.fetchone())
 
-        # --- 3. AMBIL REALISASI MB (LUNAS KANTOR) ---
-        # Optimasi: Menggunakan perbandingan TEXT langsung (Tanpa CAST) agar secepat kilat.
+        # --- 3. AMBIL REALISASI UNDUE (LUNAS MB) ---
+        # Logika: Data MB yang memiliki label periode Bulan-Tahun yang sama dengan MC.
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
@@ -59,8 +60,8 @@ def daily_monitor():
         """, (periode_req, periode_req))
         undue = dict(cursor.fetchone())
 
-        # --- 4. AMBIL REALISASI COLLECTION (SETORAN HARIAN) ---
-        # Optimasi: Menggunakan perbandingan TEXT langsung agar INDEX aktif.
+        # --- 4. AMBIL REALISASI CURRENT (SETORAN COLLECTION) ---
+        # Logika: Progres harian berdasarkan PAY_DT yang masuk di periode yang sama.
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -80,6 +81,7 @@ def daily_monitor():
         cum_34 = 0; cum_35 = 0
         base_34 = undue['undue_34']; base_35 = undue['undue_35']; base_total = undue['undue_total']
         
+        # Persentase awal didasarkan pada Undue (Lunas MB)
         prev_pct = (base_total / target['target_total'] * 100) if target['target_total'] > 0 else 0
 
         for r in rows:
@@ -105,6 +107,7 @@ def daily_monitor():
             })
             prev_pct = p_total
 
+        # Summary Akhir untuk Dashboard Cards
         last_cum = results[-1]['total']['cum_all'] if results else base_total
         last_pct = results[-1]['total']['pct'] if results else round(prev_pct, 2)
 
@@ -116,7 +119,8 @@ def daily_monitor():
                 "target": target['target_total'],
                 "realisasi": last_cum,
                 "pct": last_pct,
-                "undue_mb": base_total
+                "undue_mb": base_total,
+                "current_coll": (last_cum - base_total)
             }
         })
     except Exception as e:
@@ -136,7 +140,6 @@ def daily_detail():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Optimasi: Menghapus CAST agar pencarian detail menjadi instan.
         cursor.execute("""
             SELECT 
                 c.nomen, p.nama, p.pcez, p.rayon, c.nominal
