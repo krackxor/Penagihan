@@ -1,9 +1,9 @@
 """
-Ardebt (Tagihan Berekor) API - V6.3 (Smart Routing & Sinergi Edition)
+Ardebt (Tagihan Berekor) API - V6.4 (Sunter Dashboard Pro)
 Sinergi & Smart Update:
 1. High Priority: Mengurutkan data berdasarkan pemakaian air (Kubik) tertinggi.
-2. NOMET Guard: Memastikan sinkronisasi Nomor Meter (Nomet) terdeteksi secara akurat dari Master.
-3. Sync Petugas: Pengambilan daftar petugas yang lebih stabil melalui LEFT JOIN rute_petugas.
+2. NOMET Guard+: Memastikan sinkronisasi Nomor Meter alfanumerik (I19R...) terdeteksi akurat dari Master.
+3. Sync Petugas V2: Standarisasi UPPER(TRIM()) untuk deteksi petugas yang lebih stabil dari mapping rute.
 4. Smart Auto-Hide: Data otomatis hilang dari daftar kerja jika sudah dikunjungi pada periode berjalan.
 """
 
@@ -26,13 +26,13 @@ def get_list_petugas_ardebt():
     """
     [FUNGSI: SYNC PETUGAS ARDEBT]
     Kegunaan: Menampilkan daftar petugas yang memiliki tanggung jawab wilayah rute.
-    Sinergi: Mengambil data langsung dari rute_petugas untuk validasi filter.
+    Sinergi: Standarisasi UPPER dan TRIM agar sinkron dengan data login dan file rute.
     """
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Mengambil nama petugas unik dari mapping rute yang sudah diupload
-        query = "SELECT DISTINCT petugas FROM rute_petugas WHERE petugas != 'UNMAPPED' ORDER BY petugas ASC"
+        # Mengambil nama petugas unik dengan standarisasi agar tidak ada duplikasi karena beda case.
+        query = "SELECT DISTINCT UPPER(TRIM(petugas)) as petugas FROM rute_petugas WHERE petugas != 'UNMAPPED' ORDER BY petugas ASC"
         cursor.execute(query)
         rows = cursor.fetchall()
         return jsonify([row['petugas'] for row in rows])
@@ -51,7 +51,7 @@ def get_customer_full_intelligence(nomen):
     try:
         cursor = conn.cursor()
         
-        # Query Verifikasi Tiga Arah: Bank (MB) dan Setoran Lapangan (CH)
+        # Query Verifikasi Tiga Arah: Bank (MB) dan Setoran Lapangan (CH).
         cursor.execute("""
             SELECT 
                 p.periode, 
@@ -75,7 +75,7 @@ def get_customer_full_intelligence(nomen):
         if len(all_history) <= 1:
             return jsonify({"status": "not_available", "history": all_history})
 
-        # Analisis Tren & J-Count
+        # Analisis Tren & J-Count.
         curr, prev = all_history[0], all_history[1]
         diff_kubik = curr['pemakaian_air'] - prev['pemakaian_air']
         count_nunggak = sum(1 for item in all_history if item['status_lunas'] == 0)
@@ -104,7 +104,7 @@ def get_customer_full_intelligence(nomen):
 def get_tunggakan_berekor():
     """
     [ENDPOINT UTAMA: DAFTAR TARGET HARIAN PETUGAS]
-    Logika Sinergi: Filter Kubik > 0, Auto-Hide kunjungan, dan sinkronisasi NOMET/PETUGAS.
+    Logika Sinergi: Menjamin NOMET alfanumerik (I19R...) dan PETUGAS terdeteksi dengan TRIM pada JOIN.
     """
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id')
@@ -116,25 +116,25 @@ def get_tunggakan_berekor():
         cursor = conn.cursor()
         curr_period = get_latest_periode_available(cursor)
 
-        # Query Utama dengan JOIN eksplisit untuk menarik NOMET dan PETUGAS
+        # Query Utama: Menggunakan TRIM pada pcez agar mapping file rute ke master akurat.
         query = """
             SELECT 
                 a.nomen, a.periode_bill as rincian_periode, 
                 a.jumlah as nominal_ardebt, a.volume as volume_ardebt,
                 p.nama, p.alamat, 
-                COALESCE(p.nomet, '-') as no_seri_meter, 
+                COALESCE(TRIM(p.nomet), '-') as no_seri_meter, 
                 p.tarif,
                 p.kubik as pemakaian_air, p.pcez, p.pc, p.ez, p.blok,
                 COALESCE(p.nominal, 0) as nominal_mc,
-                COALESCE(r.petugas, 'UNMAPPED') as nama_petugas
+                COALESCE(UPPER(TRIM(r.petugas)), 'UNMAPPED') as nama_petugas
             FROM ardebt a
             INNER JOIN master_pelanggan p ON CAST(a.nomen AS TEXT) = CAST(p.nomen AS TEXT)
-            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            LEFT JOIN rute_petugas r ON TRIM(p.pcez) = TRIM(r.pcez)
             WHERE p.periode = ? AND p.kubik > 0 AND p.status_lunas = 0
         """
         params = [curr_period]
 
-        # Logika Smart Auto-Hide
+        # Logika Smart Auto-Hide.
         if not search_query:
             query += """ AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
@@ -142,12 +142,12 @@ def get_tunggakan_berekor():
                 AND k.periode = p.periode
             )"""
 
-        # Filter Keamanan Role & Petugas
+        # Filter Keamanan Role & Standarisasi Petugas Filter.
         if user_role == 'petugas':
-            query += " AND UPPER(r.petugas) = UPPER(?)"
+            query += " AND UPPER(TRIM(r.petugas)) = UPPER(TRIM(?))"
             params.append(user_petugas_id)
         elif petugas_filter != 'all':
-            query += " AND UPPER(r.petugas) = UPPER(?)"
+            query += " AND UPPER(TRIM(r.petugas)) = UPPER(TRIM(?))"
             params.append(petugas_filter)
 
         if search_query:
@@ -160,5 +160,8 @@ def get_tunggakan_berekor():
         cursor.execute(query, params)
         rows = cursor.fetchall()
         return jsonify([dict(row) for row in rows])
+    except Exception as e:
+        print(f"❌ Error Ardebt List: {str(e)}")
+        return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
