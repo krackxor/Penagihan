@@ -3,8 +3,8 @@
 {% block content %}
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 text-center">
-        <h4 class="fw-bold mb-1 text-dark">Analisis Riwayat 📊</h4>
-        <p class="text-muted small">Tren pelunasan & intelijen risiko pelanggan</p>
+        <h4 class="fw-bold mb-1 text-dark"><i class="fas fa-chart-line me-2 text-primary"></i>Analisis Jejak Pelunasan</h4>
+        <p class="text-muted small">Audit tren likuiditas & intelijen risiko piutang konsumen</p>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-3 mx-1 bg-white">
@@ -12,7 +12,7 @@
             <div class="input-group bg-light rounded-3 px-2 border-0">
                 <span class="input-group-text border-0 bg-transparent text-muted"><i class="fas fa-search"></i></span>
                 <input type="text" id="globalSearch" class="form-control border-0 bg-transparent py-2 shadow-none small" 
-                       placeholder="Cari IDPEL atau Nama di semua kategori..." onkeyup="smartFilter()">
+                       placeholder="Cari berdasarkan IDPEL atau Nama di seluruh parameter..." onkeyup="smartFilter()">
             </div>
         </div>
     </div>
@@ -21,17 +21,17 @@
         <ul class="nav nav-pills nav-fill" id="historyTab" role="tablist">
             <li class="nav-item">
                 <button class="nav-link active rounded-3 fw-bold small py-2" id="undue-tab" data-bs-toggle="tab" data-bs-target="#undue-pane" type="button">
-                    <i class="fas fa-university me-1"></i> BANK
+                    <i class="fas fa-university me-1"></i> SETTLED BANK
                 </button>
             </li>
             <li class="nav-item">
                 <button class="nav-link rounded-3 fw-bold small py-2" id="current-tab" data-bs-toggle="tab" data-bs-target="#current-pane" type="button">
-                    <i class="fas fa-mobile-alt me-1 text-warning"></i> APP
+                    <i class="fas fa-mobile-screen me-1 text-warning"></i> AREA SERVICE
                 </button>
             </li>
             <li class="nav-item">
                 <button class="nav-link rounded-3 fw-bold small py-2 text-danger font-monospace" id="macet-tab" data-bs-toggle="tab" data-bs-target="#macet-pane" type="button">
-                    <i class="fas fa-dragon me-1"></i> RADAR
+                    <i class="fas fa-shield-virus me-1"></i> RISK RADAR
                 </button>
             </li>
         </ul>
@@ -51,12 +51,12 @@
         </div>
 
         <div class="tab-pane fade" id="macet-pane" role="tabpanel">
-            <div class="alert alert-danger mx-1 rounded-4 border-0 shadow-sm mb-3">
+            <div class="alert alert-danger mx-1 rounded-4 border-0 shadow-sm mb-3 bg-danger bg-opacity-10 border-start border-4 border-danger">
                 <div class="d-flex align-items-center">
-                    <i class="fas fa-radiation-alt me-2 animate__animated animate__flash animate__infinite"></i>
+                    <i class="fas fa-exclamation-triangle me-3 text-danger animate__animated animate__flash animate__infinite"></i>
                     <div>
-                        <small class="fw-bold d-block">PRIORITAS PENYEGELAN</small>
-                        <small style="font-size: 0.65rem;">Daftar nasabah yang menunggak di atas 2 periode.</small>
+                        <small class="fw-bold d-block text-danger">PRIORITAS TINDAKAN OPERASIONAL</small>
+                        <small class="text-dark" style="font-size: 0.65rem;">Identifikasi konsumen dengan eksposur tunggakan kritis (lebih dari 2 periode).</small>
                     </div>
                 </div>
             </div>
@@ -68,11 +68,13 @@
 </div>
 
 <script>
-    // Utils: Formatter Angka
+    /**
+     * UTILS AREA SERVICE
+     */
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
     /**
-     * SMART FILTER: Mencari nasabah secara instan di tab yang sedang aktif.
+     * SMART FILTER: Eksekusi pencarian asinkron pada elemen DOM aktif.
      */
     function smartFilter() {
         const q = document.getElementById('globalSearch').value.toLowerCase();
@@ -84,8 +86,7 @@
     }
 
     /**
-     * LOAD TREND: Mengambil data histori 3 bulan terakhir.
-     * Logika Autopilot: Membagi data otomatis ke tab Bank (Undue) dan App (Current).
+     * LOAD TREND: Sinkronisasi data realisasi 3 siklus periode terakhir.
      */
     async function loadHistoryAnalysis() {
         try {
@@ -96,20 +97,20 @@
             const undueData = data.filter(d => d.tipe_pembayaran === 'Undue');
             const currentData = data.filter(d => d.tipe_pembayaran === 'Current');
 
-            renderCards(undueData, 'list-undue', 'border-primary', 'BANK');
-            renderCards(currentData, 'list-current', 'border-warning', 'PETUGAS');
+            renderCards(undueData, 'list-undue', 'border-primary', 'BANK SETTLED');
+            renderCards(currentData, 'list-current', 'border-warning', 'FIELD COLLECT');
         } catch (e) {
-            console.error("Gagal sinkronisasi histori.");
+            console.error("Gagal sinkronisasi data audit.");
         }
     }
 
     /**
-     * RENDER CARDS: Membangun kartu riwayat lunas.
+     * RENDER CARDS: Konstruksi visual riwayat transaksi.
      */
     function renderCards(data, elementId, borderClass, sourceLabel) {
         const container = document.getElementById(elementId);
         if (!data.length) {
-            container.innerHTML = '<div class="text-center py-5 text-muted small">Belum ada jejak transaksi.</div>';
+            container.innerHTML = '<div class="text-center py-5 text-muted small">Tidak ditemukan catatan transaksi aktif.</div>';
             return;
         }
 
@@ -119,23 +120,23 @@
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">${item.nomen}</h6>
-                            <small class="text-muted" style="font-size: 0.7rem;">Periode: <b>${item.periode}</b></small>
+                            <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.85rem;">IDPEL: ${item.nomen}</h6>
+                            <small class="text-muted" style="font-size: 0.7rem;">Periode Penagihan: <b>${item.periode}</b></small>
                         </div>
-                        <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.55rem;">
+                        <span class="badge bg-light text-primary border rounded-pill fw-bold" style="font-size: 0.55rem; letter-spacing:0.5px;">
                              ${sourceLabel}
                         </span>
                     </div>
                     <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
-                        <small class="text-muted small" style="font-size: 0.65rem;">Lunas: ${item.tgl_bayar}</small>
-                        <small class="fw-bold text-success" style="font-size: 0.75rem;">${toIDR(item.nominal || 0)}</small>
+                        <small class="text-muted" style="font-size: 0.65rem;"><i class="far fa-calendar-check me-1"></i>Tanggal: ${item.tgl_bayar}</small>
+                        <small class="fw-bold text-success" style="font-size: 0.8rem;">${toIDR(item.nominal || 0)}</small>
                     </div>
                 </div>
             </div>`).join('');
     }
 
     /**
-     * LOAD RADAR MACET: Logika intelijen untuk deteksi tunggakan lama.
+     * LOAD RISK RADAR: Analisis mendalam terhadap piutang tertahan.
      */
     async function loadRadarMacet() {
         const container = document.getElementById('list-macet');
@@ -145,7 +146,7 @@
             const data = result.data || [];
 
             if (!data.length) {
-                container.innerHTML = '<div class="text-center py-5 text-muted small">Radar Bersih: Tidak ada risiko macet.</div>';
+                container.innerHTML = '<div class="text-center py-5 text-muted small"><i class="fas fa-check-circle text-success d-block fa-2x mb-2"></i>Status Aman: Tidak terdeteksi risiko piutang kritis.</div>';
                 return;
             }
 
@@ -154,36 +155,36 @@
                      data-search="${item.nomen} ${item.nama}">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-danger text-white rounded-pill px-2" style="font-size: 0.6rem;">
-                                <i class="fas fa-exclamation-circle me-1"></i>${item.record_bulan_macet} BULAN TUNGGAKAN
+                            <span class="badge bg-danger text-white rounded-pill px-2 py-1" style="font-size: 0.6rem;">
+                                <i class="fas fa-clock me-1"></i>OUTSTANDING: ${item.record_bulan_macet} BULAN
                             </span>
-                            <small class="fw-bold text-muted" style="font-size: 0.65rem;">${item.nomen}</small>
+                            <small class="fw-bold text-muted font-monospace" style="font-size: 0.65rem;">${item.nomen}</small>
                         </div>
-                        <h6 class="fw-bold mb-1 text-dark text-uppercase" style="font-size: 0.85rem;">${item.nama}</h6>
+                        <h6 class="fw-bold mb-1 text-dark text-uppercase small" style="letter-spacing:0.3px;">${item.nama}</h6>
                         <div class="row g-0 mt-2 pt-2 border-top">
                             <div class="col-6">
-                                <small class="text-muted d-block" style="font-size: 0.55rem;">MC TERAKHIR</small>
+                                <small class="text-muted d-block" style="font-size: 0.55rem;">BILL TERAKHIR</small>
                                 <b class="small text-dark">${toIDR(item.nominal_terakhir)}</b>
                             </div>
                             <div class="col-6 text-end">
-                                <small class="text-danger d-block" style="font-size: 0.55rem;">TOTAL PIUTANG</small>
+                                <small class="text-danger d-block fw-bold" style="font-size: 0.55rem;">AKUMULASI PIUTANG</small>
                                 <b class="small text-danger">${toIDR(item.total_tunggakan_akumulasi)}</b>
                             </div>
                         </div>
                     </div>
                 </div>`).join('');
         } catch (e) {
-            container.innerHTML = '<div class="text-center py-5 text-danger small">Gagal memuat Radar.</div>';
+            container.innerHTML = '<div class="text-center py-5 text-danger small">Kesalahan transmisi data Radar.</div>';
         }
     }
 
     /**
-     * INITIALIZATION: Smart Lazy Loading saat tab di-klik.
+     * INITIALIZATION: Manajemen pemuatan data (Lazy Loading).
      */
     document.addEventListener('DOMContentLoaded', () => {
         loadHistoryAnalysis(); 
         
-        // Sinergi: Data Radar hanya dimuat saat user membuka tab Radar (Hemat Resource)
+        // Sinergi: Modul Risk Radar hanya dimuat saat tab diakses untuk efisiensi resource.
         document.getElementById('macet-tab').addEventListener('shown.bs.tab', () => {
             if (document.getElementById('list-macet').innerHTML.includes('spinner')) {
                 loadRadarMacet();
@@ -193,15 +194,16 @@
 </script>
 
 <style>
-    /* SINERGI UI STYLING */
+    /* STYLING AREA SERVICE INTELLIGENCE */
     .nav-pills .nav-link { color: #64748b; background: #fff; transition: 0.3s; margin: 0 2px; border: 1px solid #f1f5f9; }
-    .nav-pills .nav-link.active { background-color: #0f172a; color: white !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    #macet-tab.active { background-color: #dc3545 !important; }
+    .nav-pills .nav-link.active { background-color: #0f172a; color: white !important; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
+    #macet-tab.active { background-color: #ef233c !important; }
     
-    .pane-container { min-height: 200px; }
-    .spinner-border.border-width-2 { border-width: 0.15em; width: 1.5rem; height: 1.5rem; }
+    .pane-container { min-height: 250px; }
+    .spinner-border.border-width-2 { border-width: 0.15em; width: 1.6rem; height: 1.6rem; }
     
-    .card { transition: transform 0.1s ease; border: 1px solid #f1f5f9 !important; }
+    .card { transition: all 0.2s ease; border: 1px solid transparent !important; }
+    .card:hover { border-color: #e2e8f0 !important; box-shadow: 0 6px 15px rgba(0,0,0,0.05) !important; }
     .card:active { transform: scale(0.98); }
 </style>
 {% endblock %}
