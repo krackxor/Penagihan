@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sunter Pro - Dashboard Terpadu</title>
+    <title>Area Service - Integrated Operation System</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -11,13 +11,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        /* [VARIABEL TEMA & ROOT] 
-           Sentralisasi skema warna branding untuk menjaga konsistensi visual di seluruh modul aplikasi.
-        */
+        /* [VARIABEL TEMA AREA SERVICE] */
         :root { 
             --primary-bg: #f8fafc;
-            --sunter-blue: #3b82f6;
-            --sunter-dark: #0f172a;
+            --service-blue: #2563eb;
+            --service-dark: #0f172a;
             --accent-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
         }
 
@@ -26,24 +24,20 @@
             background-color: var(--primary-bg); 
             color: #1e293b; 
             overflow-x: hidden; 
-            /* Optimasi UX Mobile: Menghapus highlight tap default pada browser berbasis WebKit */
             -webkit-tap-highlight-color: transparent; 
         }
         
-        /* [NAVBAR GLASSMORPHISM] 
-           Implementasi desain modern menggunakan efek blur latar belakang (backdrop-filter) 
-           untuk memberikan kedalaman visual pada bagian header.
-        */
+        /* [NAVBAR GLASSMORPHISM] */
         .navbar { 
-            background: rgba(255, 255, 255, 0.8) !important; 
-            backdrop-filter: blur(12px); 
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.85) !important; 
+            backdrop-filter: blur(15px); 
+            -webkit-backdrop-filter: blur(15px);
             border-bottom: 1px solid rgba(226, 232, 240, 0.8);
             z-index: 1030;
             padding: 0.75rem 0;
         }
 
-        /* [SIDEBAR & PROFILE BOX CONFIGURATION] */
+        /* [SIDEBAR & PROFILE DESIGN] */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; width: 285px !important; }
         
         .user-profile-box { 
@@ -52,14 +46,10 @@
             padding: 1.25rem; 
             color: white; 
             margin: 1rem;
-            position: relative;
-            overflow: hidden;
             box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
         }
 
-        /* [NAVIGASI CUSTOM INTERACTION] 
-           Logika interaksi menu: Mengatur transisi halus dan indikator visual pada state aktif (selected).
-        */
+        /* [NAVIGASI CUSTOM INTERACTION] */
         .nav-link-custom {
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             font-weight: 600;
@@ -67,44 +57,39 @@
             font-size: 0.85rem;
             display: flex;
             align-items: center;
-            padding: 0.8rem 1rem;
+            padding: 0.85rem 1.1rem;
             text-decoration: none;
-            border-radius: 12px;
-            margin-bottom: 4px;
+            border-radius: 14px;
+            margin-bottom: 6px;
         }
         
-        .nav-link-custom i { width: 24px; text-align: center; margin-right: 12px; font-size: 1.1rem; }
-        .nav-link-custom:hover { background-color: #f8fafc !important; color: #3b82f6; }
+        .nav-link-custom i { width: 24px; text-align: center; margin-right: 12px; font-size: 1.15rem; }
+        .nav-link-custom:hover { background-color: #f1f5f9 !important; color: var(--service-blue); }
 
-        /* Style Active Menu: Memberikan penanda tegas pada halaman yang sedang diakses oleh pengguna */
         .active-menu {
             background-color: #eff6ff !important;
-            color: #2563eb !important;
-            position: relative;
-            border-left: 4px solid #2563eb !important;
+            color: var(--service-blue) !important;
+            border-left: 4px solid var(--service-blue) !important;
         }
 
-        /* [BOTTOM NAVIGATION MOBILE] 
-           Dirancang khusus untuk ergonomi penggunaan satu tangan pada perangkat seluler (Thumb-friendly UI).
-        */
+        /* [BOTTOM NAVIGATION MOBILE] */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(12px);
             display: flex; justify-content: space-around;
-            padding: 10px 0 calc(env(safe-area-inset-bottom) + 10px) 0;
+            padding: 12px 0 calc(env(safe-area-inset-bottom) + 12px) 0;
             border-top: 1px solid #f1f5f9;
             z-index: 1000;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.03);
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.04);
         }
         
         .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 700; }
-        .nav-item-link.active { color: var(--sunter-blue); }
+        .nav-item-link.active { color: var(--service-blue); }
 
-        /* Media Query: Menyembunyikan navigasi bawah pada layar komputer/desktop */
         @media (min-width: 768px) {
             .bottom-nav { display: none !important; }
-            .main-content { padding-bottom: 40px; }
+            .main-content { padding-bottom: 50px; }
         }
     </style>
 </head>
@@ -112,13 +97,13 @@
     {% set current_role = (session.get('role', 'guest')|string)|lower %}
 
     <nav class="navbar sticky-top">
-        <div class="container-fluid px-3">
+        <div class="container-fluid px-3 text-center">
             <button class="btn btn-light shadow-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
                 <i class="fas fa-bars-staggered text-dark"></i>
             </button>
             
-            <a class="navbar-brand mx-auto" href="/">
-                <span class="text-primary"><i class="fas fa-bolt-lightning"></i></span> SUNTER PRO
+            <a class="navbar-brand mx-auto fw-800" href="/">
+                <span class="text-primary"><i class="fas fa-tint me-1"></i></span> AREA SERVICE
             </a>
 
             {% if session.get('username') %}
@@ -127,20 +112,20 @@
                     <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0f172a&color=fff&bold=true" class="rounded-circle shadow-sm" style="width: 35px; height: 35px;">
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3 rounded-4 animate__animated animate__fadeInUp animate__faster">
-                    <li class="px-3 py-2"><small class="text-muted d-block text-center">{{ session['username']|upper }}</small></li>
+                    <li class="px-3 py-2"><small class="text-muted d-block text-center fw-bold">{{ session['username']|upper }}</small></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item py-2 text-danger small" href="/api/auth/logout"><i class="fas fa-power-off me-2"></i> Keluar</a></li>
+                    <li><a class="dropdown-item py-2 text-danger small fw-bold" href="/api/auth/logout"><i class="fas fa-power-off me-2"></i> Terminasi Sesi</a></li>
                 </ul>
             </div>
             {% else %}
-            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-3">Login</a>
+            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">Autentikasi</a>
             {% endif %}
         </div>
     </nav>
 
     <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasNav">
         <div class="offcanvas-header border-bottom py-4 bg-light">
-            <h6 class="offcanvas-title fw-bold text-dark"><i class="fas fa-compass me-2 text-primary"></i>NAVIGASI SISTEM</h6>
+            <h6 class="offcanvas-title fw-bold text-dark"><i class="fas fa-layer-group me-2 text-primary"></i>MENU OPERASIONAL</h6>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
         
@@ -148,66 +133,60 @@
             {% if session.get('username') %}
             <div class="user-profile-box shadow-sm">
                 <div class="d-flex align-items-center">
-                    <div class="bg-white text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                        <i class="fas {% if current_role == 'admin' %}fa-user-tie{% else %}fa-motorcycle{% endif %}"></i>
+                    <div class="bg-white text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 42px; height: 42px;">
+                        <i class="fas {% if current_role == 'admin' %}fa-user-shield{% else %}fa-id-badge{% endif %}"></i>
                     </div>
                     <div>
                         <h6 class="mb-0 fw-bold small text-white">{{ session['username']|upper }}</h6>
-                        <span class="badge bg-white bg-opacity-25" style="font-size: 0.6rem;">{{ current_role|upper }}</span>
+                        <span class="badge bg-primary bg-opacity-50 border border-primary" style="font-size: 0.6rem;">LEVEL: {{ current_role|upper }}</span>
                     </div>
                 </div>
             </div>
             {% endif %}
 
             <div class="px-3 mt-2">
-                <small class="text-muted text-uppercase fw-bold mb-2 ps-2 d-block" style="font-size: 0.65rem;">Utama</small>
+                <small class="text-muted text-uppercase fw-bold mb-2 ps-2 d-block" style="font-size: 0.6rem; letter-spacing: 1px;">Pusat Data</small>
                 <a href="/" class="nav-link-custom {% if request.path == '/' %}active-menu{% endif %}">
-                    <i class="fas fa-chart-pie"></i>Dashboard Realisasi
+                    <i class="fas fa-chart-line"></i>Dashboard Performa
                 </a>
                 <a href="/monitoring-collection" class="nav-link-custom {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
-                    <i class="fas fa-gauge-high"></i>Monitoring Harian
-                </a>
-                <a href="/youtube" class="nav-link-custom {% if request.path == '/youtube' %}active-menu{% endif %}">
-                    <i class="fab fa-youtube"></i>YouTube PAM JAYA
+                    <i class="fas fa-microchip"></i>Monitoring Real-time
                 </a>
                 <a href="/materi" class="nav-link-custom {% if request.path == '/materi' %}active-menu{% endif %}">
-                    <i class="fas fa-book-reader"></i>Pusat Materi Online
+                    <i class="fas fa-book-open-reader"></i>Knowledge Center
                 </a>
 
                 {% if current_role in ['petugas', 'admin'] %}
                 <div class="my-3 border-top opacity-25"></div>
-                <small class="text-muted text-uppercase fw-bold mb-2 ps-2 d-block" style="font-size: 0.65rem;">Operasional Lapangan</small>
+                <small class="text-muted text-uppercase fw-bold mb-2 ps-2 d-block" style="font-size: 0.6rem; letter-spacing: 1px;">Unit Pelaksana</small>
                 <a href="/belum-bayar" class="nav-link-custom {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
-                    <i class="fas fa-hand-holding-dollar"></i>Penagihan Current
+                    <i class="fas fa-hand-holding-dollar"></i>Penagihan Berjalan
                 </a>
                 <a href="/tunggakan-berekor" class="nav-link-custom {% if request.path == '/tunggakan-berekor' %}active-menu{% endif %}">
-                    <i class="fas fa-file-invoice-dollar"></i>Target 20 (Ardebt)
+                    <i class="fas fa-file-invoice-dollar"></i>Target Prioritas (Ardebt)
                 </a>
                 <a href="/janji-bayar" class="nav-link-custom {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
-                    <i class="fas fa-calendar-check"></i>Daftar Janji Bayar
+                    <i class="fas fa-calendar-check"></i>Monitoring Komitmen
                 </a>
                 <a href="/galeri" class="nav-link-custom {% if request.path == '/galeri' %}active-menu{% endif %}">
-                    <i class="fas fa-images"></i>Galeri Aktivitas
+                    <i class="fas fa-camera-retro"></i>Dokumentasi Lapangan
                 </a>
                 {% endif %}
 
                 {% if current_role == 'admin' %}
                 <div class="my-3 border-top opacity-25"></div>
-                <small class="text-muted text-uppercase fw-bold mb-2 ps-2 d-block" style="font-size: 0.65rem;">Pusat Kendali Admin</small>
+                <small class="text-muted text-uppercase fw-bold mb-2 ps-2 d-block" style="font-size: 0.6rem; letter-spacing: 1px;">Administrasi Sistem</small>
                 <a href="/admin/monitoring-lokasi" class="nav-link-custom {% if request.path == '/admin/monitoring-lokasi' %}active-menu{% endif %}">
-                    <i class="fas fa-map-location-dot"></i>Audit Lokasi (GPS)
-                </a>
-                <a href="/performa" class="nav-link-custom {% if request.path == '/performa' %}active-menu{% endif %}">
-                    <i class="fas fa-chart-line"></i>Performa PCEZ
+                    <i class="fas fa-location-crosshairs"></i>Audit Geospasial (GPS)
                 </a>
                 <a href="/wa-blast" class="nav-link-custom {% if request.path == '/wa-blast' %}active-menu{% endif %}">
-                    <i class="fab fa-whatsapp"></i>WA Blast System
+                    <i class="fab fa-whatsapp"></i>Komunikasi Massal (Blast)
                 </a>
                 <a href="/history" class="nav-link-custom {% if request.path == '/history' %}active-menu{% endif %}">
-                    <i class="fas fa-clock-rotate-left"></i>Log History
+                    <i class="fas fa-clock-rotate-left"></i>Log Audit Sistem
                 </a>
                 <a href="/admin/dashboard" class="nav-link-custom {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
-                    <i class="fas fa-shield-halved"></i>Data Master & User
+                    <i class="fas fa-server"></i>Konfigurasi Master & User
                 </a>
                 {% endif %}
             </div>
@@ -215,8 +194,8 @@
 
         {% if session.get('username') %}
         <div class="offcanvas-footer p-3 border-top bg-light">
-            <a href="/api/auth/logout" class="btn btn-outline-danger w-100 rounded-pill fw-bold btn-sm">
-                <i class="fas fa-power-off me-2"></i>Keluar Aplikasi
+            <a href="/api/auth/logout" class="btn btn-danger w-100 rounded-pill fw-bold btn-sm shadow-sm">
+                <i class="fas fa-sign-out-alt me-2"></i>Keluar Sistem
             </a>
         </div>
         {% endif %}
@@ -229,13 +208,13 @@
     {% if current_role == 'petugas' %}
     <nav class="bottom-nav animate__animated animate__slideInUp">
         <a href="/" class="nav-item-link {% if request.path == '/' %}active{% endif %}">
-            <i class="fas fa-house-chimney d-block fa-lg mb-1"></i>Beranda
+            <i class="fas fa-chart-pie d-block fa-lg mb-1"></i>Beranda
         </a>
         <a href="/tunggakan-berekor" class="nav-item-link {% if request.path == '/tunggakan-berekor' %}active{% endif %}">
-            <i class="fas fa-file-invoice-dollar d-block fa-lg mb-1"></i>Target
+            <i class="fas fa-bullseye d-block fa-lg mb-1"></i>Target
         </a>
         <a href="/janji-bayar" class="nav-item-link {% if request.path == '/janji-bayar' %}active{% endif %}">
-            <i class="fas fa-calendar-check d-block fa-lg mb-1"></i>Janji
+            <i class="fas fa-handshake-angle d-block fa-lg mb-1"></i>Komitmen
         </a>
         <a href="/galeri" class="nav-item-link {% if request.path == '/galeri' %}active{% endif %}">
             <i class="fas fa-images d-block fa-lg mb-1"></i>Galeri
@@ -247,18 +226,13 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
-        /**
-         * [LOGIKA ANTARMUKA: Auto-Close Sidebar]
-         * Deskripsi: Mengoptimalkan ruang pandang pengguna dengan menutup panel navigasi 
-         * secara otomatis segera setelah elemen menu dipilih pada tampilan seluler.
-         */
+        /* [LOGIKA ANTARMUKA: Auto-Close Sidebar] */
         document.addEventListener('DOMContentLoaded', function() {
             const offcanvasEl = document.getElementById('offcanvasNav');
             if (offcanvasEl) {
                 const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
                 document.querySelectorAll('.nav-link-custom').forEach(link => {
                     link.addEventListener('click', () => {
-                        // Logika: Hanya tutup jika resolusi layar berada di bawah ambang batas (breakpoint) 992px.
                         if (window.innerWidth < 992) bsOffcanvas.hide();
                     });
                 });
