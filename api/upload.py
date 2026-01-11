@@ -1,15 +1,15 @@
 """
-Upload API - Sunter Dashboard Pro (V4.9 Sinergi Intelligence)
+Upload API - Sunter Dashboard Pro (V5.0 Sinergi Intelligence)
 Sinergi & Smart Update:
-1. NOMET Guard+: Memastikan nomor meter alfanumerik (I19R...) tersimpan tanpa karakter sampah.
-2. Case-Insensitive Rute: Standarisasi UPPER(TRIM()) pada petugas untuk sinkronisasi Ardebt & User.
-3. Float Guard: Otomatis menangani sel Excel kosong ('') menjadi angka 0.0 agar tidak error.
-4. Audit Trail V2: Mencatat log sukses/gagal dengan proteksi nilai NULL untuk mencegah Error 500.
+1. Auto-Period Logic: MC/MB > tanggal 25 otomatis masuk periode bulan depan (N+1).
+2. Dynamic Collection Period: Menentukan periode langsung dari PAY_DT baris per baris.
+3. NOMET Guard+: Memastikan nomor meter alfanumerik tersimpan akurat.
+4. Float Guard: Otomatis menangani sel kosong menjadi angka 0.0.
 """
 
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen
@@ -17,7 +17,7 @@ from core.helpers import clean_nomen
 upload_bp = Blueprint('upload', __name__)
 
 # =========================================================================
-# 1. KONFIGURASI KOLOM WAJIB (STRICT CONTROL)
+# 1. KONFIGURASI KOLOM WAJIB
 # =========================================================================
 REQUIRED_COLS = {
     'MC': [
@@ -35,143 +35,153 @@ REQUIRED_COLS = {
 }
 
 # =========================================================================
-# 2. FUNGSI PEMBANTU (HELPER FUNCTIONS)
+# 2. LOGIKA AUTO-PERIODE (SMART PARSER)
 # =========================================================================
 
-def safe_float(val):
-    """ Mengonversi data Excel menjadi angka aman (Float Guard). """
+def get_dynamic_period(date_str, file_type):
+    """
+    Logika Penentuan Periode Otomatis:
+    - MC & MB: Jika tgl > 25, maka periode = Bulan Depan (N+1).
+    - COLLECTION: Periode sesuai bulan pada PAY_DT.
+    """
     try:
-        if pd.isna(val) or str(val).strip() == '':
-            return 0.0
-        # Menangani format ribuan Indonesia (1.000,00 -> 1000.00)
+        # Normalisasi format tanggal yang berbeda-beda
+        if '-' in str(date_str):
+            dt = pd.to_datetime(date_str, dayfirst=True)
+        else:
+            # Menangani format serial Excel atau format tanpa pemisah
+            dt = pd.to_datetime(date_str)
+
+        if file_type in ['MC', 'MB']:
+            # Logika N+1 jika melewati tanggal 25
+            if dt.day > 25:
+                # Tambah 1 bulan
+                target_dt = dt.replace(day=1) + timedelta(days=32)
+                return target_dt.strftime('%m-%Y')
+            return dt.strftime('%m-%Y')
+        
+        elif file_type == 'COLLECTION':
+            # Collection langsung mengikuti bulan bayar
+            return dt.strftime('%m-%Y')
+            
+    except:
+        return datetime.now().strftime('%m-%Y')
+
+def safe_float(val):
+    try:
+        if pd.isna(val) or str(val).strip() == '': return 0.0
         clean_val = str(val).replace('.', '').replace(',', '.')
         return float(clean_val)
-    except (ValueError, TypeError):
-        return 0.0
+    except: return 0.0
 
 def autopilot_extract_zona(val):
-    """ Membedah string ZONA_NOVAK menjadi komponen rute (Rayon, PC, EZ, Blok). """
-    if pd.isna(val) or str(val).strip() == '':
-        return None
-    # Ekstraksi angka saja dan padding 9 digit
+    if pd.isna(val) or str(val).strip() == '': return None
     s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
     return {
-        'rayon': s[0:2],
-        'pc': s[2:5],
-        'ez': s[5:7],
-        'pcez': f"{s[2:5]}/{s[5:7]}",
-        'blok': s[7:9]
+        'rayon': s[0:2], 'pc': s[2:5], 'ez': s[5:7],
+        'pcez': f"{s[2:5]}/{s[5:7]}", 'blok': s[7:9]
     }
 
 # =========================================================================
-# 3. ROUTE UTAMA (UPLOAD HANDLER)
+# 3. ROUTE UTAMA
 # =========================================================================
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
-    """ 
-    ENDPOINT: Memproses file Excel dan mendistribusikannya ke database. 
-    V4.9: Perbaikan sinkronisasi NOMET alfanumerik dan standarisasi PETUGAS.
-    """
     if session.get('role') != 'admin':
-        return jsonify({"error": "Akses Ditolak: Membutuhkan Level Administrator."}), 403
+        return jsonify({"error": "Akses Ditolak"}), 403
 
     if 'file' not in request.files:
-        return jsonify({"error": "File tidak ditemukan dalam request."}), 400
+        return jsonify({"error": "File tidak ditemukan"}), 400
     
     file = request.files['file']
     file_name = file.filename
     db = get_db_connection()
     
     try:
-        # Load Excel sebagai string untuk melindungi format alfanumerik (NOMET: I19R...)
+        # Load data
         df = pd.read_excel(file, dtype=str).fillna('')
         df.columns = [str(c).upper().strip() for c in df.columns]
         cols = df.columns.tolist()
 
-        # Deteksi Tipe File berdasarkan Header
         file_type = next((t for t, req in REQUIRED_COLS.items() if all(k in cols for k in req)), None)
-
         if not file_type:
-            return jsonify({"error": "Format Header Excel tidak dikenali sistem Sunter Pro."}), 400
+            return jsonify({"error": "Format Header tidak dikenali."}), 400
 
         row_count = 0
-        current_month = datetime.now().strftime('%m-%Y')
+        last_detected_period = datetime.now().strftime('%m-%Y')
 
-        # --- LOGIKA EKSEKUSI MC (Master Pelanggan) ---
+        # --- LOGIKA MC ---
         if file_type == 'MC':
-            db.execute("DELETE FROM master_pelanggan WHERE periode = ? AND tipe = 'MC'", (current_month,))
             for _, r in df.iterrows():
+                row_period = get_dynamic_period(r['TGL_CATAT'], 'MC')
+                last_detected_period = row_period
                 z = autopilot_extract_zona(r['ZONA_NOVAK'])
                 if not z: continue
+                
                 full_addr = f"{r['ALM1_PEL']} {r['ALM2_PEL']} {r['ALM3_PEL']}".strip()
                 val_nomet = str(r['NOMET']).strip() if r['NOMET'] else "-"
+                
                 db.execute("""
                     INSERT INTO master_pelanggan (nomen, nama, alamat, kd_pos, pcez, rayon, pc, ez, blok, 
-                    notagihan, nomet, tarif, tgl_catat, stan_awal, stan_akir, kubik, nominal, cust_type, tipe, periode)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'MC',?)
+                    notagihan, nomet, tarif, tgl_catat, stan_awal, stan_akir, kubik, nominal, cust_type, periode)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, (clean_nomen(r['NOMEN']), r['NAMA_PEL'], full_addr, r['KD_POS'], z['pcez'], z['rayon'], z['pc'], z['ez'], z['blok'],
                       r['NOTAGIHAN'], val_nomet, r['TARIF'], r['TGL_CATAT'], safe_float(r['STAN_AWAL']), safe_float(r['STAN_AKIR']), 
-                      safe_float(r['KUBIK']), safe_float(r['NOMINAL']), r['CUST_TYPE'], current_month))
+                      safe_float(r['KUBIK']), safe_float(r['NOMINAL']), r['CUST_TYPE'], row_period))
                 row_count += 1
 
-        # --- LOGIKA EKSEKUSI MB (Master Bayar) ---
+        # --- LOGIKA MB ---
         elif file_type == 'MB':
             for _, r in df.iterrows():
+                row_period = get_dynamic_period(r['TGL_BAYAR'], 'MB')
+                last_detected_period = row_period
                 db.execute("""
                     INSERT OR REPLACE INTO master_bayar (nomen, bulan_rek, notagihan, tgl_bayar, nominal, periode)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], safe_float(r['NOMINAL']), current_month))
+                """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], safe_float(r['NOMINAL']), row_period))
                 row_count += 1
 
-        # --- LOGIKA EKSEKUSI COLLECTION (Harian Petugas) ---
+        # --- LOGIKA COLLECTION ---
         elif file_type == 'COLLECTION':
             for _, r in df.iterrows():
+                row_period = get_dynamic_period(r['PAY_DT'], 'COLLECTION')
+                last_detected_period = row_period
                 db.execute("""
                     INSERT OR REPLACE INTO collection_harian (nomen, notag, bill_period, bill_reason, nominal, pay_dt, freeze_dttm, vol_collect, periode)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (clean_nomen(r['NOMEN']), r['NOTAG'], r['BILL_PERIOD'], r['BILL_REASON'], 
-                      safe_float(r['NOMINAL']), r['PAY_DT'], r['FREEZE_DTTM'], safe_float(r['VOL_COLLECT']), current_month))
+                      safe_float(r['NOMINAL']), r['PAY_DT'], r['FREEZE_DTTM'], safe_float(r['VOL_COLLECT']), row_period))
                 row_count += 1
 
-        # --- LOGIKA EKSEKUSI RUTE (Mapping Petugas) ---
+        # --- LOGIKA RUTE ---
         elif file_type == 'RUTE':
             for _, r in df.iterrows():
-                nama_petugas = str(r['PETUGAS']).strip().upper()
-                kode_pcez = str(r['PCEZ']).strip()
-                no_admin = str(r.get('NO_ADMIN', '628123456789')).strip()
                 db.execute("""
                     INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                """, (kode_pcez, nama_petugas, no_admin))
+                """, (str(r['PCEZ']).strip(), str(r['PETUGAS']).strip().upper(), str(r.get('NO_ADMIN', ''))))
                 row_count += 1
 
-        # --- EKSEKUSI ARDEBT ---
+        # --- LOGIKA ARDEBT ---
         elif file_type == 'ARDEBT':
             db.execute("DELETE FROM ardebt")
             for _, r in df.iterrows():
-                db.execute("""
-                    INSERT INTO ardebt (nomen, periode_bill, jumlah, volume)
-                    VALUES (?, ?, ?, ?)
-                """, (clean_nomen(r['NOMEN']), r['PERIODE_BILL'], safe_float(r['JUMLAH']), safe_float(r['VOLUME'])))
+                db.execute("INSERT INTO ardebt (nomen, periode_bill, jumlah, volume) VALUES (?, ?, ?, ?)",
+                          (clean_nomen(r['NOMEN']), r['PERIODE_BILL'], safe_float(r['JUMLAH']), safe_float(r['VOLUME'])))
                 row_count += 1
 
-        # --- CATAT RIWAYAT (Audit Trail Integrity) ---
-        db.execute("""
-            INSERT INTO upload_history (file_name, file_type, periode, row_count, status)
-            VALUES (?, ?, ?, ?, ?)
-        """, (file_name, file_type, current_month, row_count, 'SUCCESS'))
+        # Audit History
+        db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)",
+                  (file_name, file_type, last_detected_period, row_count, 'SUCCESS'))
 
         db.commit()
-        return jsonify({"status": "success", "message": f"Sinkronisasi {file_type} Berhasil!", "rows": row_count})
+        return jsonify({"status": "success", "message": f"Sinkronisasi {file_type} Berhasil!", "rows": row_count, "period": last_detected_period})
 
     except Exception as e:
         if db: db.rollback()
-        try:
-            db.execute("INSERT INTO upload_history (file_name, status, row_count) VALUES (?, ?, ?)", (file_name, 'FAILED', 0))
-            db.commit()
-        except: pass
-        print(f"❌ Upload Error: {str(e)}")
-        return jsonify({"error": f"Kegagalan Sistem: {str(e)}"}), 500
+        db.execute("INSERT INTO upload_history (file_name, status, row_count) VALUES (?, 'FAILED', 0)", (file_name,))
+        db.commit()
+        return jsonify({"error": str(e)}), 500
     finally:
-        if db: db.close()
+        db.close()
