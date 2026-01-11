@@ -79,7 +79,7 @@ def format_idr(nominal):
                 nominal = nominal.replace(',', '.')
         
         val = float(nominal)
-        # Menggunakan trick penggantian karakter untuk standar titik (thousand separator) Indonesia
+        # Menggunakan format ribuan standar Indonesia (titik)
         return f"Rp {val:,.0f}".replace(',', '.')
     except (ValueError, TypeError):
         return "Rp 0"
@@ -95,14 +95,14 @@ def clean_nomen(value):
     
     val_str = str(value).strip()
     
-    # Deteksi dan perbaiki notasi ilmiah (E+) agar IDPEL tetap utuh 12 digit
+    # Deteksi dan perbaiki notasi ilmiah (E+) agar IDPEL tetap utuh
     if 'E+' in val_str.upper():
         try:
             return "{:.0f}".format(float(val_str))
         except:
             return val_str
             
-    # Hapus '.0' yang sering muncul jika IDPEL dianggap angka oleh Python
+    # Hapus '.0' dan spasi agar IDPEL bersih
     return val_str.split('.')[0].replace(' ', '')
 
 def clean_phone(phone):
@@ -114,7 +114,7 @@ def clean_phone(phone):
     if phone is None or str(phone).strip() in ('', '-', '0'):
         return ""
     
-    # Ambil angka murni saja (menghapus spasi, +, dan strip)
+    # Ambil angka murni saja
     cleaned = re.sub(r'\D', '', str(phone))
     
     if not cleaned: return ""
@@ -131,19 +131,19 @@ def clean_coordinate(coord):
     """
     [FUNGSI: GPS DATA SANITIZER]
     Kegunaan: Menjamin data Latitude/Longitude aman sebelum masuk database.
-    Logika: Hanya mengizinkan angka, titik, dan tanda minus (untuk koordinat negatif).
+    Logika: Hanya mengizinkan angka, titik, dan tanda minus.
     """
     if coord is None or str(coord).strip() == '':
         return "0.0"
     
-    # Hanya izinkan format angka GPS (Contoh: -6.123456 atau 106.123456)
+    # Hanya izinkan format angka GPS (Contoh: -6.123456)
     cleaned = re.sub(r'[^\d.-]', '', str(coord))
     return cleaned if cleaned else "0.0"
 
 def validate_periode(periode):
     """
     [FUNGSI: PERIOD VALIDATOR]
-    Kegunaan: Memastikan format bulan-tahun (MM-YYYY) benar sebelum proses filter data.
+    Kegunaan: Memastikan format bulan-tahun (MM-YYYY) benar.
     """
     pattern = r'^(0[1-9]|1[0-2])-\d{4}$'
     return bool(re.match(pattern, str(periode)))
@@ -151,8 +151,9 @@ def validate_periode(periode):
 def get_gmaps_link(lat, lng):
     """
     [FUNGSI: GMAPS GENERATOR]
-    Kegunaan: Membuat link lokasi yang bisa diklik dari WhatsApp pimpinan.
+    Kegunaan: Membuat link lokasi yang valid untuk WhatsApp pimpinan.
     """
-    if not lat or not lng or lat == "0.0":
+    if not lat or not lng or str(lat) == "0.0":
         return "Lokasi tidak terlacak"
+    # Format URL Google Maps standar yang lebih kompatibel
     return f"https://www.google.com/maps?q={lat},{lng}"
