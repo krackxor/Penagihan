@@ -1,10 +1,10 @@
 """
 History API Endpoints - Sunter Dashboard Pro (V7.2 Enterprise Edition)
 Sinergi & Smart Update:
-1. Ultimate Snapshot: Proteksi permanen data Nama, Nomet, dan Alamat.
-2. Safe-Data Mapping: Menangani nilai NULL (COALESCE) untuk mencegah Error 500.
-3. WIB Timezone Guard: Standarisasi Asia/Jakarta untuk audit waktu akurat.
-4. Triple-Check JCOUNT: Verifikasi tunggakan real-time vs data bayar.
+1. Ultimate Snapshot: Proteksi permanen data Nama, Nomet, dan Alamat ke tabel kunjungan.
+2. Safe-Data Mapping: Menangani nilai NULL (COALESCE) secara ketat untuk mencegah Error 500.
+3. WIB Timezone Guard: Standarisasi Asia/Jakarta (pytz) untuk audit waktu yang akurat.
+4. Triple-Check JCOUNT: Verifikasi tunggakan real-time melalui pengecekan silang MB dan CH.
 """
 
 import os
@@ -15,7 +15,7 @@ from core.database import get_db_connection
 from core.helpers import APIResponse
 from datetime import datetime
 
-# Inisialisasi Blueprint untuk modul History
+# Inisialisasi Blueprint untuk modul History agar dapat diregistrasi pada app.py
 history_bp = Blueprint('history', __name__)
 
 # ==========================================
@@ -26,16 +26,17 @@ history_bp = Blueprint('history', __name__)
 def get_history():
     """
     [FUNGSI: MONITORING LOG SISTEM]
-    Kegunaan: Menampilkan histori import data Excel untuk kebutuhan audit Admin.
-    Keamanan: Menggunakan COALESCE untuk menjamin row_count & status tidak NULL agar JSON tidak crash.
+    Kegunaan: Menampilkan histori import data Excel (MC, MB, Ardebt, dll) untuk audit Admin.
+    Keamanan: Menggunakan COALESCE di level SQL untuk menjamin variabel krusial tidak NULL.
     """
-    # Proteksi: Akses eksklusif untuk Administrator
+    # Proteksi: Akses eksklusif hanya untuk level Administrator
     if session.get('role') != 'admin':
         return APIResponse.error("Akses terbatas untuk Administrator", code=403)
         
     conn = get_db_connection()
     try:
         # Menarik data riwayat upload (Smart Query V7.2)
+        # Menghindari crash saat JSON encoding jika data database korup/kosong
         query = """
             SELECT 
                 id, 
@@ -50,12 +51,13 @@ def get_history():
         """
         rows = conn.execute(query).fetchall()
         
-        # Mapping data ke format dictionary yang aman dikonsumsi frontend
-        return APIResponse.success(data=[dict(row) for row in rows] if rows else [])
+        # Mapping data ke format dictionary yang aman dikonsumsi oleh frontend JavaScript
+        history_list = [dict(row) for row in rows] if rows else []
+        return APIResponse.success(data=history_list)
         
     except sqlite3.OperationalError:
-        # Menangani kasus jika tabel belum terbuat di database
-        return APIResponse.error("Database belum siap. Tabel log tidak ditemukan.", code=500)
+        # Menangani kasus jika tabel belum terbuat atau database terkunci
+        return APIResponse.error("Database belum siap atau tabel log hilang.", code=500)
     except Exception as e:
         print(f"❌ LOG ERROR HISTORY-LIST: {str(e)}")
         return APIResponse.error(f"Gagal memuat log sistem: {str(e)}", code=500)
@@ -70,17 +72,17 @@ def get_history():
 def simpan_kunjungan():
     """
     [FUNGSI: ENGINE ULTIMATE SNAPSHOT & GPS]
-    Logika:
-    1. Mengunci identitas fisik (Nama/Alamat) ke tabel kunjungan (Snapshot).
-    2. Menangkap koordinat GPS dan menyinkronkan waktu standar WIB.
-    3. Verifikasi jumlah lembar tunggakan secara real-time.
+    Logika Sinergi:
+    1. Snapshot: Mengunci identitas fisik pelanggan saat ini ke tabel kunjungan.
+    2. GPS: Menangkap koordinat petugas sebagai bukti kunjungan otentik.
+    3. Timezone: Memastikan waktu tercatat standar WIB (Asia/Jakarta).
     """
-    # Inisialisasi Waktu WIB
+    # Inisialisasi Waktu WIB menggunakan pytz
     tz_jkt = pytz.timezone('Asia/Jakarta')
     waktu_wib = datetime.now(tz_jkt)
     waktu_str = waktu_wib.strftime('%Y-%m-%d %H:%M:%S')
 
-    # Ekstraksi Input dari Frontend
+    # Ekstraksi Input dari Form HP Petugas
     nomen   = request.form.get('nomen') or request.form.get('idpel')
     petugas = session.get('petugas_id') or request.form.get('petugas_name')
     no_hp   = request.form.get('no_hp')
@@ -90,13 +92,14 @@ def simpan_kunjungan():
     lng     = request.form.get('longitude')  
     foto    = request.files.get('foto')
 
-    # Validasi Dasar
+    # Validasi Dasar: ID Pelanggan dan Foto bersifat Mandatory (Wajib)
     if not nomen or not foto:
         return APIResponse.error("ID Pelanggan dan Foto wajib dilampirkan", code=400)
 
     conn = get_db_connection()
     try:
         # --- LANGKAH 1: SNAPSHOT DATA MASTER ---
+        # Mengambil info pelanggan untuk dikunci secara permanen dalam record kunjungan
         p_info = conn.execute("""
             SELECT nama, nomet, alamat, nominal, kubik 
             FROM master_pelanggan WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT) 
@@ -109,7 +112,7 @@ def simpan_kunjungan():
             WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT)
         """, (nomen,)).fetchone()
 
-        # --- LANGKAH 3: VERIFIKASI LEMBAR TUNGGAK (JCOUNT) ---
+        # --- LANGKAH 3: VERIFIKASI LEMBAR TUNGGAK (TRIPLE-CHECK JCOUNT) ---
         nunggak_info = conn.execute("""
             SELECT COUNT(*) as total_lembar 
             FROM master_pelanggan p
@@ -118,7 +121,7 @@ def simpan_kunjungan():
             AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.notag = p.notagihan)
         """, (nomen,)).fetchone()
         
-        # Validasi Data Fallback
+        # Validasi Data Fallback jika Master tidak ditemukan
         val_nama       = p_info['nama'] if p_info else "Konsumen"
         val_nomet      = p_info['nomet'] if p_info else "-"
         val_alamat     = p_info['alamat'] if p_info else "-"
@@ -127,12 +130,12 @@ def simpan_kunjungan():
         val_kubik      = p_info['kubik'] if p_info else 0
         count_nunggak  = nunggak_info['total_lembar'] if nunggak_info else 0
         
-        # --- LANGKAH 4: PROSES UNGGAH FOTO ---
+        # --- LANGKAH 4: MANAJEMEN PENYIMPANAN FOTO ---
         filename = f"KUNJ_{nomen}_{waktu_wib.strftime('%Y%m%d_%H%M%S')}.jpg"
         upload_path = os.path.join(current_app.root_path, 'static/uploads/kunjungan', filename)
         foto.save(upload_path)
 
-        # --- LANGKAH 5: PENYIMPANAN SNAPSHOT ---
+        # --- LANGKAH 5: EKSEKUSI PENYIMPANAN SNAPSHOT ---
         conn.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, nomet, nama_snapshot, alamat_snapshot, petugas_name, no_hp, 
@@ -143,6 +146,7 @@ def simpan_kunjungan():
               lat, lng, waktu_wib.strftime('%m-%Y'), waktu_str))
         conn.commit()
 
+        # Respon sukses untuk integrasi fitur Share WhatsApp di Frontend
         return jsonify({
             "status": "success",
             "message": "Snapshot & GPS Berhasil Dikunci",
@@ -162,8 +166,8 @@ def simpan_kunjungan():
 def list_kunjungan():
     """
     [FUNGSI: FEED DASHBOARD AUDIT]
-    Kegunaan: Menampilkan histori laporan berdasarkan snapshot yang sudah dikunci.
-    Logika: Memisahkan tampilan data antara Petugas (Data Mandiri) dan Admin (Global).
+    Kegunaan: Menampilkan histori laporan berdasarkan data snapshot permanen.
+    Logika: Memisahkan tampilan data antara Petugas (Mandiri) dan Admin (Global).
     """
     role    = str(session.get('role', 'guest')).lower()
     my_id   = session.get('petugas_id')
@@ -171,6 +175,7 @@ def list_kunjungan():
 
     conn = get_db_connection()
     try:
+        # Mengambil data langsung dari snapshot kunjungan_petugas
         query = """
             SELECT id, created_at as waktu, petugas_name, nomen, nomet,
                    nama_snapshot as nama, alamat_snapshot as alamat,
@@ -181,6 +186,7 @@ def list_kunjungan():
         """
         params = [periode]
 
+        # Filter: Petugas hanya dapat melihat hasil kerjanya sendiri
         if role == 'petugas':
             query += " AND petugas_name = ?"
             params.append(my_id)
@@ -188,6 +194,6 @@ def list_kunjungan():
         rows = conn.execute(query + " ORDER BY created_at DESC").fetchall()
         return APIResponse.success(data=[dict(row) for row in rows])
     except Exception as e:
-        return APIResponse.error(f"Gagal memuat feed: {str(e)}", code=500)
+        return APIResponse.error(f"Gagal memuat feed aktivitas: {str(e)}", code=500)
     finally:
         conn.close()
