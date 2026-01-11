@@ -1,15 +1,15 @@
 """
-Upload API - Sunter Dashboard Pro (V5.0 Sinergi Intelligence)
+Upload API - Sunter Dashboard Pro (V5.1 Sinergi Intelligence)
 Sinergi & Smart Update:
-1. Auto-Period Logic: MC/MB > date 25 automatically enters the next month's period (N+1).
-2. Dynamic Collection Period: Determines the period directly from PAY_DT row by row.
-3. NOMET Guard+: Ensures alphanumeric meter numbers are stored accurately.
-4. Float Guard: Automatically handles empty cells as 0.0.
+1. Simple Period Logic: Ignores > 25 rule, strictly extracts Month & Year from dates.
+2. NOMET Guard+: Ensures alphanumeric meter numbers (e.g., I19R...) are stored accurately.
+3. Float Guard: Automatically handles empty Excel cells as 0.0 to prevent crashes.
+4. Fast Batch Integrity: Standardizes NOMEN across all file types for instant indexing.
 """
 
 import os
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen
@@ -17,7 +17,7 @@ from core.helpers import clean_nomen
 upload_bp = Blueprint('upload', __name__)
 
 # =========================================================================
-# 1. REQUIRED COLUMNS CONFIGURATION
+# 1. STRICT COLUMN CONFIGURATION
 # =========================================================================
 REQUIRED_COLS = {
     'MC': [
@@ -35,48 +35,34 @@ REQUIRED_COLS = {
 }
 
 # =========================================================================
-# 2. HELPER FUNCTIONS (AUTO-PERIOD & DATA GUARDS)
+# 2. HELPER FUNCTIONS (SIMPLE PERIOD & DATA SANITATION)
 # =========================================================================
 
-def get_dynamic_period(date_str, file_type):
+def get_simple_period(date_str):
     """
-    Automatic Period Determination Logic:
-    - MC & MB: If date > 25, period = Next Month (N+1).
-    - COLLECTION: Period follows the month in PAY_DT.
+    Simple Period Logic:
+    Extracts strictly MM-YYYY. Ignores the day of the month.
     """
     try:
-        # Normalize various date formats
-        if '-' in str(date_str):
+        # Support for various date separators
+        if '-' in str(date_str) or '/' in str(date_str):
             dt = pd.to_datetime(date_str, dayfirst=True)
         else:
-            # Handle Excel serial formats or strings without separators
             dt = pd.to_datetime(date_str)
-
-        if file_type in ['MC', 'MB']:
-            # N+1 logic if date exceeds the 25th
-            if dt.day > 25:
-                # Advance to next month
-                target_dt = dt.replace(day=1) + timedelta(days=32)
-                return target_dt.strftime('%m-%Y')
-            return dt.strftime('%m-%Y')
-        
-        elif file_type == 'COLLECTION':
-            # Collection follows the payment month directly
-            return dt.strftime('%m-%Y')
-            
+        return dt.strftime('%m-%Y')
     except:
+        # Fallback to current system month if date is corrupted
         return datetime.now().strftime('%m-%Y')
 
 def safe_float(val):
-    """Excel Data Guard: Converts string/empty to safe float."""
+    """Ensures empty strings or NaN become 0.0."""
     try:
         if pd.isna(val) or str(val).strip() == '': return 0.0
-        clean_val = str(val).replace('.', '').replace(',', '.')
-        return float(clean_val)
+        return float(str(val).replace('.', '').replace(',', '.'))
     except: return 0.0
 
 def autopilot_extract_zona(val):
-    """Slices ZONA_NOVAK into route components."""
+    """Extracts Route/PCEZ from ZONA_NOVAK string."""
     if pd.isna(val) or str(val).strip() == '': return None
     s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
     return {
@@ -85,70 +71,74 @@ def autopilot_extract_zona(val):
     }
 
 # =========================================================================
-# 3. MAIN UPLOAD ROUTE
+# 3. MAIN UPLOAD HANDLER
 # =========================================================================
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_upload():
     if session.get('role') != 'admin':
-        return jsonify({"error": "Access Denied"}), 403
+        return jsonify({"error": "Access Denied: Administrator level required."}), 403
 
     if 'file' not in request.files:
-        return jsonify({"error": "No file found"}), 400
+        return jsonify({"error": "No file detected in request."}), 400
     
     file = request.files['file']
     file_name = file.filename
     db = get_db_connection()
     
     try:
-        # Load data as string to protect alphanumeric formats (NOMET)
+        # Load Excel as string to prevent auto-formatting of NOMEN/NOMET
         df = pd.read_excel(file, dtype=str).fillna('')
         df.columns = [str(c).upper().strip() for c in df.columns]
         cols = df.columns.tolist()
 
+        # Identify File Type
         file_type = next((t for t, req in REQUIRED_COLS.items() if all(k in cols for k in req)), None)
         if not file_type:
-            return jsonify({"error": "Excel Header format not recognized."}), 400
+            return jsonify({"error": "Excel format not recognized by Sunter Pro Engine."}), 400
 
         row_count = 0
-        last_detected_period = datetime.now().strftime('%m-%Y')
+        detected_period = ""
 
-        # --- MC EXECUTION LOGIC (Master Pelanggan) ---
+        # --- MC PROCESSING (Master Pelanggan) ---
         if file_type == 'MC':
             for _, r in df.iterrows():
-                row_period = get_dynamic_period(r['TGL_CATAT'], 'MC')
-                last_detected_period = row_period
+                row_period = get_simple_period(r['TGL_CATAT'])
+                detected_period = row_period
                 z = autopilot_extract_zona(r['ZONA_NOVAK'])
                 if not z: continue
                 
-                full_addr = f"{r['ALM1_PEL']} {r['ALM2_PEL']} {r['ALM3_PEL']}".strip()
+                # Clean NOMET to handle alphanumeric (I19R...) accurately
                 val_nomet = str(r['NOMET']).strip() if r['NOMET'] else "-"
                 
                 db.execute("""
                     INSERT INTO master_pelanggan (nomen, nama, alamat, kd_pos, pcez, rayon, pc, ez, blok, 
                     notagihan, nomet, tarif, tgl_catat, stan_awal, stan_akir, kubik, nominal, cust_type, periode)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, (clean_nomen(r['NOMEN']), r['NAMA_PEL'], full_addr, r['KD_POS'], z['pcez'], z['rayon'], z['pc'], z['ez'], z['blok'],
-                      r['NOTAGIHAN'], val_nomet, r['TARIF'], r['TGL_CATAT'], safe_float(r['STAN_AWAL']), safe_float(r['STAN_AKIR']), 
-                      safe_float(r['KUBIK']), safe_float(r['NOMINAL']), r['CUST_TYPE'], row_period))
+                """, (clean_nomen(r['NOMEN']), r['NAMA_PEL'], f"{r['ALM1_PEL']} {r['ALM2_PEL']}".strip(), 
+                      r['KD_POS'], z['pcez'], z['rayon'], z['pc'], z['ez'], z['blok'],
+                      r['NOTAGIHAN'], val_nomet, r['TARIF'], r['TGL_CATAT'], safe_float(r['STAN_AWAL']), 
+                      safe_float(r['STAN_AKIR']), safe_float(r['KUBIK']), safe_float(r['NOMINAL']), 
+                      r['CUST_TYPE'], row_period))
                 row_count += 1
 
-        # --- MB EXECUTION LOGIC (Master Bayar) ---
+        # --- MB PROCESSING (Master Bayar / Undue) ---
         elif file_type == 'MB':
             for _, r in df.iterrows():
-                row_period = get_dynamic_period(r['TGL_BAYAR'], 'MB')
-                last_detected_period = row_period
+                row_period = get_simple_period(r['TGL_BAYAR'])
+                detected_period = row_period
                 db.execute("""
                     INSERT OR REPLACE INTO master_bayar (nomen, bulan_rek, notagihan, tgl_bayar, nominal, periode)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], safe_float(r['NOMINAL']), row_period))
+                """, (clean_nomen(r['NOMEN']), r['BULAN_REK'], r['NOTAGIHAN'], r['TGL_BAYAR'], 
+                      safe_float(r['NOMINAL']), row_period))
                 row_count += 1
 
-        # --- COLLECTION EXECUTION LOGIC (Harian Petugas) ---
+        # --- COLLECTION PROCESSING (Daily / Current) ---
         elif file_type == 'COLLECTION':
             for _, r in df.iterrows():
-                row_period = get_dynamic_period(r['PAY_DT'], 'COLLECTION')
-                last_detected_period = row_period
+                row_period = get_simple_period(r['PAY_DT'])
+                detected_period = row_period
                 db.execute("""
                     INSERT OR REPLACE INTO collection_harian (nomen, notag, bill_period, bill_reason, nominal, pay_dt, freeze_dttm, vol_collect, periode)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -156,7 +146,7 @@ def handle_upload():
                       safe_float(r['NOMINAL']), r['PAY_DT'], r['FREEZE_DTTM'], safe_float(r['VOL_COLLECT']), row_period))
                 row_count += 1
 
-        # --- RUTE EXECUTION LOGIC ---
+        # --- RUTE & ARDEBT PROCESSING ---
         elif file_type == 'RUTE':
             for _, r in df.iterrows():
                 db.execute("""
@@ -165,7 +155,6 @@ def handle_upload():
                 """, (str(r['PCEZ']).strip(), str(r['PETUGAS']).strip().upper(), str(r.get('NO_ADMIN', ''))))
                 row_count += 1
 
-        # --- ARDEBT EXECUTION LOGIC ---
         elif file_type == 'ARDEBT':
             db.execute("DELETE FROM ardebt")
             for _, r in df.iterrows():
@@ -173,22 +162,22 @@ def handle_upload():
                           (clean_nomen(r['NOMEN']), r['PERIODE_BILL'], safe_float(r['JUMLAH']), safe_float(r['VOLUME'])))
                 row_count += 1
 
-        # Audit history with detected period
+        # Final Audit Trail
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)",
-                  (file_name, file_type, last_detected_period, row_count, 'SUCCESS'))
+                  (file_name, file_type, detected_period, row_count, 'SUCCESS'))
 
         db.commit()
         return jsonify({
             "status": "success", 
             "message": f"{file_type} Sync Successful!", 
-            "rows": row_count, 
-            "period": last_detected_period
+            "period": detected_period,
+            "rows": row_count
         })
 
     except Exception as e:
         if db: db.rollback()
         db.execute("INSERT INTO upload_history (file_name, status, row_count) VALUES (?, 'FAILED', 0)", (file_name,))
         db.commit()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"System Failure: {str(e)}"}), 500
     finally:
         db.close()
