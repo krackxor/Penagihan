@@ -1,29 +1,31 @@
 """
-Rute API - Sunter Dashboard Pro
+Rute API - Sunter Dashboard Pro (V7.2 Sinergi Intelligence)
 Sinergi & Smart Update:
 1. Smart Autopilot: Otomatis mendeteksi rute (PCEZ) baru dari Master Pelanggan (MC) tanpa input manual.
-2. Geo-Sync: Menghitung beban kerja (jumlah pelanggan) per petugas secara real-time.
-3. WhatsApp Territory Link: Menjamin nomor admin wilayah selalu tersinkronisasi untuk laporan otomatis.
+2. Case-Insensitive Guard: Menstandarisasi nama petugas (UPPER) agar sinkron dengan tabel User & Ardebt.
+3. Geo-Sync: Menghitung beban kerja (jumlah pelanggan) per petugas secara real-time.
+4. WhatsApp Territory Link: Menjamin nomor admin wilayah selalu tersinkronisasi untuk laporan otomatis.
 """
 
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import APIResponse, clean_phone
 
+# Inisialisasi Blueprint untuk modul Rute
 rute_bp = Blueprint('rute', __name__)
 
 @rute_bp.route('/list', methods=['GET'])
 def get_rute_list():
     """
-    LOGIKA AUTOPILOT:
-    Mengambil semua daftar rute (PCEZ) yang aktif di periode terbaru.
-    Sinergi: Otomatis menyatukan data rute dari MC dengan mapping petugas yang ada.
+    [FUNGSI: LOGIKA AUTOPILOT]
+    Kegunaan: Mengambil semua daftar rute (PCEZ) yang aktif di periode terbaru.
+    Sinergi: Otomatis menyatukan data rute dari MC dengan mapping petugas yang ada. 
+    Jika rute baru muncul di MC, sistem akan menampilkannya sebagai 'UNMAPPED'.
     """
     db = get_db_connection()
     try:
-        # Query Sinergi: Menampilkan semua PCEZ unik dari master_pelanggan 
-        # digabung dengan informasi petugas. Jika rute baru muncul di MC, 
-        # sistem akan menampilkannya sebagai 'UNMAPPED' secara otomatis.
+        # Query Sinergi V7.2: Menggunakan COALESCE agar tidak ada nilai NULL yang merusak tampilan Frontend.
+        # Filter periode menggunakan subquery agar selalu merujuk ke data terbaru yang diupload.
         query = """
             SELECT 
                 m.pcez, 
@@ -42,7 +44,8 @@ def get_rute_list():
         # Mengembalikan data dalam format list dictionary untuk konsumsi Frontend
         return jsonify([dict(row) for row in rows])
     except Exception as e:
-        # Error logging untuk memudahkan audit sistem
+        # Log error mendetail untuk memudahkan troubleshooting Admin
+        print(f"❌ Error Rute List: {str(e)}")
         return APIResponse.error(message="Gagal memuat rute Autopilot", details=str(e))
     finally:
         db.close()
@@ -50,16 +53,17 @@ def get_rute_list():
 @rute_bp.route('/save', methods=['POST'])
 def save_rute_manual():
     """
-    SMART MAPPING MANUAL:
-    Simpan mapping petugas dan nomor admin untuk satu kode PCEZ tertentu.
-    Akses: Khusus Admin.
+    [FUNGSI: SMART MAPPING MANUAL]
+    Kegunaan: Simpan mapping petugas dan nomor admin untuk satu kode PCEZ tertentu.
+    Akses: Khusus Level Admin.
     """
     if session.get('role') != 'admin':
         return APIResponse.error("Akses ditolak: Membutuhkan Level Administrator", code=403)
 
     db = get_db_connection()
-    # Mengambil data dari form dan menstandarisasi format teks (Upper Case)
-    pcez = request.form.get('pcez')
+    
+    # Standarisasi Input: Menghapus spasi dan memaksa Huruf Besar (UPPER) agar sinkron dengan Ardebt
+    pcez = request.form.get('pcez', '').strip()
     petugas = request.form.get('petugas', '').strip().upper()
     
     # Sanitasi nomor WA menggunakan helper clean_phone agar selalu berformat 628xxx
@@ -69,7 +73,7 @@ def save_rute_manual():
         return APIResponse.error("ID Rute (PCEZ) dan Nama Petugas tidak boleh kosong")
 
     try:
-        # INSERT OR REPLACE menjamin tidak ada duplikasi kode PCEZ di database
+        # INSERT OR REPLACE: Menjamin satu PCEZ hanya dipegang satu petugas (Primary Key Guard)
         db.execute("""
             INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -84,9 +88,9 @@ def save_rute_manual():
 @rute_bp.route('/mass-update', methods=['POST'])
 def mass_update_petugas():
     """
-    BATCH PROCESSING (SMART UPDATE):
-    Mengalokasikan banyak rute ke satu petugas dalam satu kali klik.
-    Sinergi: Sangat berguna saat pergantian shift atau reorganisasi wilayah.
+    [FUNGSI: BATCH PROCESSING - SMART UPDATE]
+    Kegunaan: Mengalokasikan banyak rute ke satu petugas sekaligus (Efisiensi Tinggi).
+    Sinergi: Sangat berguna saat pergantian shift atau reorganisasi wilayah pcez.
     """
     if session.get('role') != 'admin':
         return APIResponse.error("Akses terbatas: Hubungi Admin Pusat", code=403)
@@ -95,8 +99,6 @@ def mass_update_petugas():
     data = request.get_json()
     pcez_list = data.get('pcez_list', [])
     petugas = data.get('petugas', '').strip().upper()
-    
-    # Nomor admin wilayah untuk tembusan WhatsApp
     no_admin = clean_phone(data.get('no_admin', '628123456789'))
 
     if not pcez_list or not petugas:
@@ -104,10 +106,9 @@ def mass_update_petugas():
 
     db = get_db_connection()
     try:
-        # Persiapan data batch untuk transaksi efisien
-        batch_data = [(p, petugas, no_admin) for p in pcez_list]
+        # Persiapan batch data untuk eksekusi massal (executemany)
+        batch_data = [(p.strip(), petugas, no_admin) for p in pcez_list]
         
-        # Eksekusi massal menggunakan executemany (Performa Tinggi)
         db.executemany("""
             INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -116,7 +117,7 @@ def mass_update_petugas():
         db.commit()
         return APIResponse.success(message=f"Smart Update: {len(pcez_list)} rute berhasil dialokasikan ke {petugas}")
     except Exception as e:
-        db.rollback() # Membatalkan semua perubahan jika terjadi error di tengah jalan
+        if db: db.rollback() # Batalkan transaksi jika gagal di tengah jalan
         return APIResponse.error(message="Gagal proses batch update rute", details=str(e))
     finally:
         db.close()
@@ -124,22 +125,25 @@ def mass_update_petugas():
 @rute_bp.route('/sync-autopilot', methods=['POST'])
 def sync_from_mc():
     """
-    FUNGSI AUTOPILOT EKSTRA:
-    Sinkronisasi rute otomatis berdasarkan data MC terbaru.
-    Mencari PCEZ yang belum terdaftar di rute_petugas dan menambahkannya sebagai draft.
+    [FUNGSI: AUTOPILOT SYNC]
+    Kegunaan: Sinkronisasi rute otomatis berdasarkan data Master Pelanggan (MC) terbaru.
+    Logika: Mencari PCEZ unik yang ada di MC tetapi belum terdaftar di tabel rute, 
+    lalu menambahkannya sebagai status 'UNMAPPED'.
     """
     db = get_db_connection()
     try:
-        # Menambahkan rute baru yang ditemukan di Master Pelanggan namun belum ada di Mapping
+        # Sinergi V7.2: INSERT OR IGNORE mencegah error jika data sudah ada
         db.execute("""
             INSERT OR IGNORE INTO rute_petugas (pcez, petugas, updated_at)
             SELECT DISTINCT pcez, 'UNMAPPED', CURRENT_TIMESTAMP
             FROM master_pelanggan
-            WHERE pcez NOT IN (SELECT pcez FROM rute_petugas)
+            WHERE pcez IS NOT NULL AND pcez != ''
+            AND pcez NOT IN (SELECT pcez FROM rute_petugas)
         """)
         db.commit()
         return APIResponse.success(message="Autopilot: Database Rute telah disinkronkan dengan Master Pelanggan")
     except Exception as e:
+        print(f"❌ Error Sync Autopilot: {str(e)}")
         return APIResponse.error(message="Gagal autopilot sinkronisasi", details=str(e))
     finally:
         db.close()
