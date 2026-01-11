@@ -1,23 +1,23 @@
 """
-Flask Application - Sunter Dashboard Pro (V7.1 Enterprise Edition)
-Updated: 2026-01-11 (Mimetype Optimization & Public Access Edition)
+Flask Application - Area Service Integrated System (V7.2 Enterprise Edition)
+Updated: 2026-01-11 (Rebranding & Gallery Integration)
 
-LOGIKA SINERGI AKSES (Security Matrix):
-1. Level 1 (Publik/Guest): Statistik Global, Dashboard Realisasi, Youtube, & Pusat Materi.
-2. Level 2 (Petugas): Fokus Target Harian, Penagihan, GPS Reporting, & Edukasi Internal.
-3. Level 3 (Admin): Audit Lokasi (GPS), Management File, Kendali Data Master, User Control.
+LOGIKA AKSES OPERASIONAL (Security Matrix):
+1. Level 1 (Publik/Guest): Dashboard Realisasi, Monitoring Gabungan, Youtube, & Knowledge Center.
+2. Level 2 (Petugas): Penagihan Berjalan, Target Prioritas, Galeri Visual, & Pelaporan GPS.
+3. Level 3 (Admin): Audit Geospasial, Manajemen Pangkalan Data, Kendali User, & WA Blast.
 """
 
 import os
 from datetime import timedelta
 from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify
 
-# [IMPORT CORE]: Mengambil Konfigurasi, Fungsi Database, dan Helper Navigasi
+# [IMPORT CORE]: Konfigurasi, Koneksi Database, dan Helper Navigasi
 from config import Config
 from core.database import init_db, get_db_connection
 from core.helpers import get_role_redirect
 
-# [IMPORT BLUEPRINTS]: Sistem Modular API untuk pemisahan logika bisnis
+# [IMPORT BLUEPRINTS]: Modular API Area Service
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
@@ -30,65 +30,62 @@ from api.wa_gateway import wa_bp
 
 def create_app():
     """
-    [FUNGSI UTAMA: create_app]
-    Kegunaan: Engine utama untuk inisialisasi Flask, Middleware, dan registrasi Route UI/API.
+    [ENGINE UTAMA AREA SERVICE]
+    Inisialisasi Flask, Middleware Keamanan, dan Registrasi Route Operasional.
     """
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # [KONFIGURASI SESI]: Durasi login 12 jam, optimal untuk shift kerja lapangan petugas
+    # [KONFIGURASI SESI]: Optimalisasi 12 Jam untuk Shift Kerja Lapangan
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
 
-    # --- 1. STARTUP AUTOPILOT: Inisialisasi Infrastruktur ---
+    # --- 1. STARTUP PROTOCOL: Inisialisasi Infrastruktur ---
     with app.app_context():
-        # [DB INITIALIZE]: Auto-Migration untuk tabel GPS, NOMET, dan Snapshot Profiling
+        # Auto-Migration: Menjamin tabel NOMET dan Snapshot sinkron
         init_db(app) 
         
-        # [FOLDER SYNC]: Menjamin ketersediaan direktori penyimpanan file
+        # Folder Synchronization: Memastikan direktori penyimpanan tersedia
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
-            os.path.join(app.root_path, 'static', 'uploads', 'temp'),
             os.path.join(app.root_path, 'static', 'uploads', 'materi')
         ]
         for folder in folders:
             if not os.path.exists(folder):
                 os.makedirs(folder, exist_ok=True)
-                print(f"🚀 Infrastruktur Ready -> {folder}")
 
     @app.teardown_appcontext
     def close_connection(exception):
-        """[FUNGSI: close_connection] Mencegah 'Database Locked' pada SQLite."""
+        """Mencegah 'Database Locked' pada sesi konkurensi tinggi."""
         db = g.pop('db', None)
         if db is not None:
             db.close()
 
-    # --- 2. MIDDLEWARE: SMART SECURITY LAYER (ACCESS CONTROL) ---
+    # --- 2. MIDDLEWARE: SECURITY LAYER & ACCESS CONTROL ---
     @app.before_request
     def security_layer():
         """
-        [FUNGSI: security_layer] Penjaga gerbang akses berdasarkan Role & Session.
-        Materi dan Youtube sekarang terbuka untuk akses publik (Level 1).
+        [GATEKEEPER]: Memastikan akses sesuai dengan Level Otoritas.
+        Knowledge Center & Media Digital terbuka untuk akses publik/guest.
         """
-        # [WHITELIST]: Halaman yang bisa diakses tanpa login (Sinergi Publik)
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 
             'auth.check_session', 'get_full_stats', 'get_reminders', 
             'collection.daily_monitor', 'youtube_page', 'materi_page',
-            'serve_materi_file' # Penting agar file materi bisa dirender publik
+            'serve_materi_file'
         ]
         
         endpoint = request.endpoint
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # [SESSION CHECK]: Proteksi area operasional Petugas & Admin
+        # Proteksi Area Operasional (Wajib Login)
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
-        # [ROLE CHECK]: Membatasi fitur Administrator (Audit & Data Master)
+        # Otoritas Khusus Administrator (Audit & Data Master)
         admin_only_endpoints = [
             'admin_dashboard', 'performa_page', 'wa_blast_page', 
             'history_page', 'monitoring_lokasi_page', 'upload.handle_upload'
@@ -98,7 +95,7 @@ def create_app():
         if endpoint in admin_only_endpoints and user_role != 'admin':
             return redirect(url_for('tunggakan_berekor_page'))
 
-    # --- 3. REGISTRASI BLUEPRINTS (SMART API SYSTEM) ---
+    # --- 3. REGISTRASI BLUEPRINTS (API ENGINE) ---
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
@@ -113,86 +110,96 @@ def create_app():
     
     @app.route('/')
     def index(): 
-        """Menampilkan Dashboard Realisasi Capaian Global."""
+        """Dashboard Performa: Visualisasi Capaian Global."""
         return render_template('index.html')
 
     @app.route('/monitoring-collection')
     def monitoring_collection_page(): 
-        """Menampilkan Monitoring Realisasi Collection Harian Petugas."""
+        """Pusat Realisasi: Monitoring Harian Rayon 34 & 35."""
         return render_template('monitoring_collection.html')
 
     @app.route('/youtube')
     def youtube_page():
-        """Pusat Edukasi Video: Memuat konten dinamis YouTube PAM JAYA."""
+        """Media Sosialisasi: Kanal Informasi Visual Resmi."""
         return render_template('youtube.html')
 
     @app.route('/materi')
     def materi_page():
-        """Pusat Materi Online: Menampilkan daftar PDF/Word (Public Access)."""
+        """Knowledge Center: Repositori Dokumentasi Teknis."""
         materi_dir = os.path.join(app.root_path, 'static', 'uploads', 'materi')
         files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
         return render_template('materi.html', files=files)
 
     @app.route('/login')
     def login_page(): 
-        """Halaman Login dengan Autopilot Redirect."""
+        """Autentikasi Sesi Area Service."""
         if 'role' in session: 
             return redirect(get_role_redirect(session['role']))
         return render_template('login.html')
 
-    # [OPERASIONAL LAPANGAN]
-    @app.route('/tunggakan-berekor')
-    def tunggakan_berekor_page(): 
-        return render_template('tagihan_berekor.html')
-
+    # [UNIT PELAKSANA LAPANGAN]
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
+        """Penagihan Berjalan (Current Period)."""
         return render_template('belum_bayar.html')
+
+    @app.route('/tunggakan-berekor')
+    def ardebt_page(): 
+        """Target Prioritas (Ardebt/Outstanding)."""
+        return render_template('tagihan_berekor.html')
 
     @app.route('/janji-bayar')
     def janji_bayar_page(): 
+        """Monitoring Komitmen Nasabah."""
         return render_template('janji_bayar.html')
 
-    # [ADMINISTRASI & AUDIT]
+    @app.route('/galeri')
+    def galeri_page():
+        """Arsip Visual: Dokumentasi Hasil Lapangan."""
+        return render_template('galeri.html')
+
+    # [ADMINISTRASI STRATEGIS & AUDIT]
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
+        """Konfigurasi Master Data & User."""
         return render_template('admin_dashboard.html')
 
     @app.route('/admin/monitoring-lokasi')
     def monitoring_lokasi_page():
+        """Audit Geospasial: Verifikasi GPS Personel."""
         return render_template('monitoring_lokasi.html')
 
     @app.route('/performa')
     def performa_page(): 
+        """Intelijen Performa: Analisis Prediktif Capaian."""
         return render_template('performa.html')
 
     @app.route('/history')
     def history_page(): 
+        """Audit Log: Jejak Digital Operasional."""
         return render_template('history.html')
 
     @app.route('/wa-blast')
     def wa_blast_page(): 
+        """Komunikasi Massal: Notifikasi WhatsApp Otomatis."""
         return render_template('wa_blast.html')
 
-    # --- 5. FILE SERVING & SECURITY ASSETS ---
+    # --- 5. SECURE FILE SERVING ---
 
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
-        """Menyajikan foto bukti koordinasi lapangan."""
+        """Menyajikan Berkas Dokumentasi Visual Lapangan."""
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
         return send_from_directory(folder, filename)
 
     @app.route('/static/uploads/materi/<filename>')
     def serve_materi_file(filename):
         """
-        [FUNGSI KRUSIAL]: Menyajikan file dengan Mimetype yang tepat.
-        Logika: Mencegah browser menampilkan kode sumber dengan memaksa tipe 'application/pdf'.
+        [MIMETYPE GUARD]: Menjamin dokumen dirender dengan benar di browser.
         """
         folder = os.path.join(app.root_path, 'static', 'uploads', 'materi')
-        # Optimasi: Deteksi otomatis ekstensi file untuk merender konten bukan kode
         ext = os.path.splitext(filename)[1].lower()
         mtype = 'application/pdf' if ext == '.pdf' else 'application/octet-stream'
-        
         return send_from_directory(folder, filename, mimetype=mtype)
 
     return app
