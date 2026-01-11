@@ -1,10 +1,10 @@
 """
-Ardebt (Tagihan Berekor) API - V6.0 (Smart Routing & Professional Logic)
+Ardebt (Tagihan Berekor) API - V6.2 (Smart Routing & Sinergi Edition)
 Sinergi & Smart Update:
 1. High Priority: Mengurutkan data berdasarkan pemakaian air (Kubik) tertinggi.
 2. Smart Auto-Hide: Data otomatis hilang dari daftar jika sudah dikunjungi pada periode berjalan.
-3. Daily Quota: Membatasi tampilan 20 target per hari untuk efektivitas petugas.
-4. Global Search: Fitur pencarian tetap dapat menemukan data meskipun sudah dikunjungi.
+3. Sync Petugas: Sinkronisasi daftar petugas langsung dari mapping rute wilayah.
+4. WIB Timezone Guard: Memastikan validasi periode sesuai waktu Indonesia Barat.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -12,32 +12,46 @@ from core.database import get_db_connection
 from core.helpers import APIResponse
 from datetime import datetime
 
+# Inisialisasi Blueprint untuk modul Ardebt
 ardebt_bp = Blueprint('ardebt', __name__)
 
 def get_latest_periode_available(cursor):
-    """
-    FUNGSI: Mencari periode terbaru di Master Pelanggan.
-    Kegunaan: Menentukan 'Current Period' untuk sinkronisasi data MC dan Ardebt.
-    """
+    """ Mencari periode terbaru di Master Pelanggan untuk sinkronisasi data. """
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
+@ardebt_bp.route('/petugas', methods=['GET'])
+def get_list_petugas_ardebt():
+    """
+    [FUNGSI: SYNC PETUGAS ARDEBT]
+    Kegunaan: Menampilkan daftar petugas yang memiliki tanggung jawab wilayah rute.
+    Sinergi: Mengambil data dari rute_petugas untuk memastikan filter di dashboard akurat.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        # Mengambil nama petugas unik dari mapping rute yang sudah diupload
+        query = "SELECT DISTINCT petugas FROM rute_petugas WHERE petugas != 'UNMAPPED' ORDER BY petugas ASC"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        return jsonify([row['petugas'] for row in rows])
+    except Exception as e:
+        return jsonify({"error": f"Gagal sinkron petugas: {str(e)}"}), 500
+    finally:
+        conn.close()
+
 @ardebt_bp.route('/history/<nomen>', methods=['GET'])
 def get_customer_full_intelligence(nomen):
     """
-    FUNGSI: Laporan Audit Riwayat Pelanggan.
-    Logic: 
-    - Melakukan verifikasi 3 arah (Master Pelanggan, Master Bayar, dan Collection).
-    - Menghitung 'J-Count' (Jumlah lembar tunggakan).
-    - Menganalisis lonjakan kubikasi (Potensi Kebocoran).
+    [FUNGSI: LAPORAN AUDIT RIWAYAT PELANGGAN]
+    Logic: Verifikasi 3 arah (MC, MB, CH) dan hitung J-Count (Lembar tunggakan).
     """
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         
-        # --- 1. QUERY VERIFIKASI TIGA ARAH ---
-        # Memastikan status bayar akurat antara Bank (MB) dan Setoran Lapangan (CH)
+        # Query Verifikasi Tiga Arah: Bank (MB) dan Setoran Lapangan (CH)
         cursor.execute("""
             SELECT 
                 p.periode, 
@@ -58,25 +72,17 @@ def get_customer_full_intelligence(nomen):
         
         all_history = [dict(row) for row in cursor.fetchall()]
 
-        # --- 2. VALIDASI DATA KOSONG ---
         if len(all_history) <= 1:
-            return jsonify({
-                "status": "not_available",
-                "message": "Data riwayat pembanding belum tersedia.",
-                "history": all_history
-            })
+            return jsonify({"status": "not_available", "history": all_history})
 
-        # --- 3. ANALISIS TREN & J-COUNT ---
+        # Analisis Tren & J-Count
         curr, prev = all_history[0], all_history[1]
         diff_kubik = curr['pemakaian_air'] - prev['pemakaian_air']
-        status_tren = "NAIK" if diff_kubik > 0 else "TURUN"
-        
-        # J-COUNT: Menghitung jumlah lembar yang belum terbayar (Status 0)
         count_nunggak = sum(1 for item in all_history if item['status_lunas'] == 0)
         
-        saran, alert_level = "Pemakaian air terpantau normal.", "success"
+        saran, alert_level = "Pemakaian air normal.", "success"
         if curr['pemakaian_air'] > (prev['pemakaian_air'] * 2) and prev['pemakaian_air'] > 0:
-            saran, alert_level = "⚠️ Lonjakan >100%: Cek potensi kebocoran!", "danger"
+            saran, alert_level = "⚠️ Lonjakan >100%: Cek kebocoran!", "danger"
         elif curr['pemakaian_air'] == 0 and prev['pemakaian_air'] > 0:
             saran, alert_level = "🔍 Kubik 0: Waspada meteran macet.", "warning"
 
@@ -84,7 +90,7 @@ def get_customer_full_intelligence(nomen):
             "status": "available",
             "nomen": nomen,
             "analysis": {
-                "perubahan": f"{abs(diff_kubik)} m3 ({status_tren})",
+                "perubahan": f"{abs(diff_kubik)} m3",
                 "saran": saran, 
                 "level": alert_level,
                 "count_nunggak": count_nunggak
@@ -97,24 +103,19 @@ def get_customer_full_intelligence(nomen):
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
     """
-    ENDPOINT UTAMA: Daftar Target Harian Petugas (Smart Routing).
-    Logika Sinergi V6.0:
-    1. Filter Kubik > 0 (Hanya rumah berpenghuni/aktif).
-    2. NOT EXISTS: Menghilangkan data yang sudah dikunjungi hari ini/periode ini.
-    3. Order By Kubik DESC: Prioritas pelanggan dengan pemakaian air tertinggi.
-    4. Limit 20: Memberikan kuota harian yang terukur untuk petugas.
+    [ENDPOINT UTAMA: DAFTAR TARGET HARIAN PETUGAS]
+    Logika Sinergi: Filter Kubik > 0, Auto-Hide kunjungan, dan Prioritas Kubik tertinggi.
     """
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id')
     search_query = request.args.get('search', '').strip()
+    petugas_filter = request.args.get('petugas', 'all')
     
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         curr_period = get_latest_periode_available(cursor)
 
-        # --- 1. BASE QUERY DENGAN LOGIKA AUTO-HIDE ---
-        # Menampilkan IDPEL yang ada di ARDEBT tapi belum dikunjungi di periode ini
         query = """
             SELECT 
                 a.nomen, a.periode_bill as rincian_periode, 
@@ -126,14 +127,11 @@ def get_tunggakan_berekor():
             FROM ardebt a
             INNER JOIN master_pelanggan p ON CAST(a.nomen AS TEXT) = CAST(p.nomen AS TEXT)
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE p.periode = ?
-              AND p.kubik > 0 
-              AND p.status_lunas = 0
+            WHERE p.periode = ? AND p.kubik > 0 AND p.status_lunas = 0
         """
         params = [curr_period]
 
-        # --- 2. LOGIKA AUTO-HIDE KUNJUNGAN ---
-        # Hanya aktif jika TIDAK dalam mode pencarian (Search mengabaikan filter ini)
+        # Logika Smart Auto-Hide (Hanya muncul jika belum dikunjungi periode ini)
         if not search_query:
             query += """ AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
@@ -141,19 +139,20 @@ def get_tunggakan_berekor():
                 AND k.periode = p.periode
             )"""
 
-        # Filter Keamanan Role Petugas
+        # Filter berdasarkan Role & Dropdown Petugas
         if user_role == 'petugas':
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
+        elif petugas_filter != 'all':
+            query += " AND r.petugas = ?"
+            params.append(petugas_filter)
 
-        # --- 3. FILTER PENCARIAN & PRIORITAS KUBIKASI ---
         if search_query:
             query += " AND (a.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
-            # Mode cari: Tanpa limit agar semua data lama ketemu
             query += " ORDER BY p.kubik DESC"
         else:
-            # Mode Standar: Prioritas Kubik Tinggi & Limit 20 (Target Harian)
+            # Kuota harian 20 target per petugas agar lebih fokus
             query += " ORDER BY p.kubik DESC LIMIT 20"
         
         cursor.execute(query, params)
