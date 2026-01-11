@@ -1,10 +1,10 @@
 """
-History API Endpoints - Sunter Dashboard Pro (V7.2 Enterprise Edition)
+History API Endpoints - Sunter Dashboard Pro (V7.3 Enterprise Edition)
 Sinergi & Smart Update:
-1. Ultimate Snapshot: Proteksi permanen data Nama, Nomet, dan Alamat ke tabel kunjungan.
+1. Ultimate Snapshot: Proteksi permanen data Nama, Nomet (Alfanumerik), dan Alamat.
 2. Safe-Data Mapping: Menangani nilai NULL (COALESCE) secara ketat untuk mencegah Error 500.
-3. WIB Timezone Guard: Standarisasi Asia/Jakarta (pytz) untuk audit waktu yang akurat.
-4. Triple-Check JCOUNT: Verifikasi tunggakan real-time melalui pengecekan silang MB dan CH.
+3. WIB Timezone Guard: Standarisasi Asia/Jakarta (pytz) untuk audit waktu akurat.
+4. NOMET Integrity: Menjamin nomor seri meteran dari MC tersimpan dalam riwayat kunjungan.
 """
 
 import os
@@ -15,7 +15,7 @@ from core.database import get_db_connection
 from core.helpers import APIResponse
 from datetime import datetime
 
-# Inisialisasi Blueprint untuk modul History agar dapat diregistrasi pada app.py
+# Inisialisasi Blueprint untuk modul History
 history_bp = Blueprint('history', __name__)
 
 # ==========================================
@@ -26,17 +26,15 @@ history_bp = Blueprint('history', __name__)
 def get_history():
     """
     [FUNGSI: MONITORING LOG SISTEM]
-    Kegunaan: Menampilkan histori import data Excel (MC, MB, Ardebt, dll) untuk audit Admin.
-    Keamanan: Menggunakan COALESCE di level SQL untuk menjamin variabel krusial tidak NULL.
+    Kegunaan: Menampilkan histori import data Excel untuk audit Admin.
+    Keamanan: COALESCE menjamin row_count dan status tidak NULL agar JSON tidak crash.
     """
-    # Proteksi: Akses eksklusif hanya untuk level Administrator
     if session.get('role') != 'admin':
         return APIResponse.error("Akses terbatas untuk Administrator", code=403)
         
     conn = get_db_connection()
     try:
-        # Menarik data riwayat upload (Smart Query V7.2)
-        # COALESCE menjamin row_count dan status tidak NULL agar JSON tidak crash
+        # Menarik data riwayat upload (Smart Query V7.3)
         query = """
             SELECT 
                 id, 
@@ -51,12 +49,10 @@ def get_history():
         """
         rows = conn.execute(query).fetchall()
         
-        # Mapping data ke format dictionary yang aman dikonsumsi oleh frontend
         history_list = [dict(row) for row in rows] if rows else []
         return APIResponse.success(data=history_list)
         
     except sqlite3.OperationalError:
-        # Menangani kasus jika tabel belum terbuat atau database terkunci
         return APIResponse.error("Database belum siap atau tabel log hilang.", code=500)
     except Exception as e:
         print(f"❌ LOG ERROR HISTORY-LIST: {str(e)}")
@@ -72,17 +68,14 @@ def get_history():
 def simpan_kunjungan():
     """
     [FUNGSI: ENGINE ULTIMATE SNAPSHOT & GPS]
-    Logika Sinergi:
-    1. Snapshot: Mengunci identitas fisik pelanggan (termasuk NOMET) ke tabel kunjungan.
-    2. GPS: Menangkap koordinat petugas sebagai bukti kunjungan otentik.
-    3. Timezone: Memastikan waktu tercatat standar WIB (Asia/Jakarta).
+    Logika:
+    1. Mengunci data fisik pelanggan (Nama, Alamat, NOMET) secara permanen.
+    2. Menangkap koordinat GPS dan menyinkronkan waktu standar WIB.
     """
-    # Inisialisasi Waktu WIB menggunakan pytz
     tz_jkt = pytz.timezone('Asia/Jakarta')
     waktu_wib = datetime.now(tz_jkt)
     waktu_str = waktu_wib.strftime('%Y-%m-%d %H:%M:%S')
 
-    # Ekstraksi Input dari Form HP Petugas
     nomen   = request.form.get('nomen') or request.form.get('idpel')
     petugas = session.get('petugas_id') or request.form.get('petugas_name')
     no_hp   = request.form.get('no_hp')
@@ -92,14 +85,12 @@ def simpan_kunjungan():
     lng     = request.form.get('longitude')  
     foto    = request.files.get('foto')
 
-    # Validasi Dasar: ID Pelanggan dan Foto bersifat Mandatory
     if not nomen or not foto:
         return APIResponse.error("ID Pelanggan dan Foto wajib dilampirkan", code=400)
 
     conn = get_db_connection()
     try:
-        # --- LANGKAH 1: SNAPSHOT DATA MASTER ---
-        # Mengambil info pelanggan (termasuk NOMET) untuk dikunci secara permanen
+        # --- LANGKAH 1: SNAPSHOT DATA MASTER (Termasuk NOMET Alfanumerik) ---
         p_info = conn.execute("""
             SELECT nama, nomet, alamat, nominal, kubik 
             FROM master_pelanggan WHERE CAST(nomen AS TEXT) = CAST(? AS TEXT) 
@@ -121,9 +112,9 @@ def simpan_kunjungan():
             AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.notag = p.notagihan)
         """, (nomen,)).fetchone()
         
-        # Validasi Data Fallback jika Master tidak ditemukan
+        # Validasi Data Fallback (NOMET Guard V7.3)
         val_nama       = p_info['nama'] if p_info else "Konsumen"
-        val_nomet      = p_info['nomet'] if p_info else "-"
+        val_nomet      = p_info['nomet'] if p_info else "-" # Mengambil NOMET dari MC
         val_alamat     = p_info['alamat'] if p_info else "-"
         val_mc         = p_info['nominal'] if p_info else 0
         val_ardebt     = a_info['total'] if a_info and a_info['total'] else 0
@@ -136,7 +127,6 @@ def simpan_kunjungan():
         foto.save(upload_path)
 
         # --- LANGKAH 5: EKSEKUSI PENYIMPANAN SNAPSHOT ---
-        # Data NOMET dikunci ke dalam tabel kunjungan_petugas
         conn.execute("""
             INSERT INTO kunjungan_petugas 
             (nomen, nomet, nama_snapshot, alamat_snapshot, petugas_name, no_hp, 
@@ -147,7 +137,6 @@ def simpan_kunjungan():
               lat, lng, waktu_wib.strftime('%m-%Y'), waktu_str))
         conn.commit()
 
-        # Respon sukses untuk integrasi WhatsApp
         return jsonify({
             "status": "success",
             "message": "Snapshot & GPS Berhasil Dikunci",
@@ -166,10 +155,7 @@ def simpan_kunjungan():
 
 @history_bp.route('/kunjungan', methods=['GET'])
 def list_kunjungan():
-    """
-    [FUNGSI: FEED DASHBOARD AUDIT]
-    Menampilkan histori laporan berdasarkan data snapshot permanen.
-    """
+    """ Menampilkan histori laporan berdasarkan data snapshot permanen. """
     role    = str(session.get('role', 'guest')).lower()
     my_id   = session.get('petugas_id')
     periode = request.args.get('periode') or datetime.now().strftime('%m-%Y')
