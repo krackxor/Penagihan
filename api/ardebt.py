@@ -1,10 +1,10 @@
 """
-Ardebt (Tagihan Berekor) API - V6.2 (Smart Routing & Sinergi Edition)
+Ardebt (Tagihan Berekor) API - V6.3 (Smart Routing & Sinergi Edition)
 Sinergi & Smart Update:
 1. High Priority: Mengurutkan data berdasarkan pemakaian air (Kubik) tertinggi.
-2. Smart Auto-Hide: Data otomatis hilang dari daftar jika sudah dikunjungi pada periode berjalan.
-3. Sync Petugas: Sinkronisasi daftar petugas langsung dari mapping rute wilayah.
-4. WIB Timezone Guard: Memastikan validasi periode sesuai waktu Indonesia Barat.
+2. NOMET Guard: Memastikan sinkronisasi Nomor Meter (Nomet) terdeteksi secara akurat dari Master.
+3. Sync Petugas: Pengambilan daftar petugas yang lebih stabil melalui LEFT JOIN rute_petugas.
+4. Smart Auto-Hide: Data otomatis hilang dari daftar kerja jika sudah dikunjungi pada periode berjalan.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -26,7 +26,7 @@ def get_list_petugas_ardebt():
     """
     [FUNGSI: SYNC PETUGAS ARDEBT]
     Kegunaan: Menampilkan daftar petugas yang memiliki tanggung jawab wilayah rute.
-    Sinergi: Mengambil data dari rute_petugas untuk memastikan filter di dashboard akurat.
+    Sinergi: Mengambil data langsung dari rute_petugas untuk validasi filter.
     """
     conn = get_db_connection()
     try:
@@ -58,7 +58,7 @@ def get_customer_full_intelligence(nomen):
                 p.kubik as pemakaian_air, 
                 p.nominal as rupiah, 
                 p.tarif, 
-                p.nomet as no_seri_meter, 
+                COALESCE(p.nomet, '-') as no_seri_meter, 
                 p.notagihan,
                 CASE 
                     WHEN EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.notagihan = p.notagihan) THEN 1
@@ -104,7 +104,7 @@ def get_customer_full_intelligence(nomen):
 def get_tunggakan_berekor():
     """
     [ENDPOINT UTAMA: DAFTAR TARGET HARIAN PETUGAS]
-    Logika Sinergi: Filter Kubik > 0, Auto-Hide kunjungan, dan Prioritas Kubik tertinggi.
+    Logika Sinergi: Filter Kubik > 0, Auto-Hide kunjungan, dan sinkronisasi NOMET/PETUGAS.
     """
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id')
@@ -116,14 +116,17 @@ def get_tunggakan_berekor():
         cursor = conn.cursor()
         curr_period = get_latest_periode_available(cursor)
 
+        # Query Utama dengan JOIN eksplisit untuk menarik NOMET dan PETUGAS
         query = """
             SELECT 
                 a.nomen, a.periode_bill as rincian_periode, 
                 a.jumlah as nominal_ardebt, a.volume as volume_ardebt,
-                p.nama, p.alamat, p.nomet as no_seri_meter, p.tarif,
+                p.nama, p.alamat, 
+                COALESCE(p.nomet, '-') as no_seri_meter, 
+                p.tarif,
                 p.kubik as pemakaian_air, p.pcez, p.pc, p.ez, p.blok,
                 COALESCE(p.nominal, 0) as nominal_mc,
-                r.petugas as nama_petugas
+                COALESCE(r.petugas, 'UNMAPPED') as nama_petugas
             FROM ardebt a
             INNER JOIN master_pelanggan p ON CAST(a.nomen AS TEXT) = CAST(p.nomen AS TEXT)
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
@@ -131,7 +134,7 @@ def get_tunggakan_berekor():
         """
         params = [curr_period]
 
-        # Logika Smart Auto-Hide (Hanya muncul jika belum dikunjungi periode ini)
+        # Logika Smart Auto-Hide
         if not search_query:
             query += """ AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
@@ -139,12 +142,12 @@ def get_tunggakan_berekor():
                 AND k.periode = p.periode
             )"""
 
-        # Filter berdasarkan Role & Dropdown Petugas
+        # Filter Keamanan Role & Petugas
         if user_role == 'petugas':
-            query += " AND r.petugas = ?"
+            query += " AND UPPER(r.petugas) = UPPER(?)"
             params.append(user_petugas_id)
         elif petugas_filter != 'all':
-            query += " AND r.petugas = ?"
+            query += " AND UPPER(r.petugas) = UPPER(?)"
             params.append(petugas_filter)
 
         if search_query:
@@ -152,7 +155,6 @@ def get_tunggakan_berekor():
             params.extend([f"%{search_query}%", f"%{search_query}%"])
             query += " ORDER BY p.kubik DESC"
         else:
-            # Kuota harian 20 target per petugas agar lebih fokus
             query += " ORDER BY p.kubik DESC LIMIT 20"
         
         cursor.execute(query, params)
