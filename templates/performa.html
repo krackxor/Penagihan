@@ -6,30 +6,34 @@
 
 <style>
     :root {
-        --sunter-dark: #0f172a;
-        --sunter-blue: #3b82f6;
-        --sunter-red: #ef4444;
+        --service-dark: #0f172a;
+        --service-blue: #2563eb;
+        --service-danger: #ef4444;
         --glass: rgba(255, 255, 255, 0.98);
     }
     body { background-color: #f8fafc; }
     .mobile-container { padding: 1rem 0.75rem; }
     .glass-panel { background: var(--glass); border-radius: 1.25rem; border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    /* Dashboard Utama dengan Gradasi Sinergi */
+    
+    /* Command Center Utama */
     .main-command { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 1.5rem; color: white; padding: 1.25rem; }
-    /* Kotak Informasi untuk Saran Intelijen */
-    .info-box { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.8rem; font-size: 0.7rem; border-left: 4px solid var(--sunter-blue); line-height: 1.4; }
+    
+    /* Intelligence Insight Box */
+    .info-box { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.8rem; font-size: 0.7rem; border-left: 4px solid var(--service-blue); line-height: 1.4; }
+    
     .nav-pills .nav-link { font-size: 0.65rem; font-weight: 700; border-radius: 0.75rem; color: #64748b; background: white; border: 1px solid #e2e8f0; margin-right: 5px; white-space: nowrap; }
-    .nav-pills .nav-link.active { background-color: var(--sunter-dark); color: white; border-color: var(--sunter-dark); }
-    /* Area Card untuk Prioritas Wilayah */
-    .area-card { border-left: 4px solid #cbd5e1; background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #f1f5f9; }
-    .area-card.kritis { border-left-color: var(--sunter-red); background: #fffafb; }
+    .nav-pills .nav-link.active { background-color: var(--service-dark); color: white; border-color: var(--service-dark); }
+    
+    /* Strategi Card Delegasi Wilayah */
+    .area-card { border-left: 4px solid #cbd5e1; background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #f1f5f9; transition: 0.3s; }
+    .area-card.kritis { border-left-color: var(--service-danger); background: #fffafb; }
     .xsmall { font-size: 0.65rem !important; }
 </style>
 
 <div class="mobile-container pb-5">
     <div class="pt-2 mb-3 d-flex justify-content-between align-items-center">
         <div>
-            <h5 class="fw-bold mb-0 text-dark">Intelijen Performa 🧠</h5>
+            <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-brain me-2 text-primary"></i>Intelijen Performa</h5>
             <p class="text-muted xsmall mb-0" id="display-current-date"></p>
         </div>
         <div class="d-flex gap-2">
@@ -42,16 +46,18 @@
 
     <div class="main-command mb-4 shadow-lg animate__animated animate__fadeIn">
         <div id="panic-alert" class="text-center mb-3 d-none">
-            <span class="badge bg-white text-danger px-3 py-2 rounded-pill animate__animated animate__infinite animate__flash fw-bold xsmall">🚨 RISIKO CAPAIAN DI BAWAH TARGET</span>
+            <span class="badge bg-white text-danger px-3 py-2 rounded-pill animate__animated animate__infinite animate__flash fw-bold xsmall">
+                <i class="fas fa-exclamation-triangle me-1"></i> RISIKO EFEKTIVITAS DI BAWAH PARAMETER
+            </span>
         </div>
         
         <div class="row">
             <div class="col-12 mb-3">
-                <small class="text-white-50 fw-bold text-uppercase xsmall">Proyeksi Akhir Bulan (Autopilot)</small>
+                <small class="text-white-50 fw-bold text-uppercase xsmall" style="letter-spacing: 0.5px;">Proyeksi Akumulasi Akhir Periode</small>
                 <h2 class="fw-bold mb-1" style="font-size: 1.6rem;" id="val-projected">Rp 0</h2>
                 <div class="d-flex justify-content-between xsmall opacity-75">
-                    <span id="trend-status">Tren: Menghitung...</span>
-                    <span>Akurasi Model: <span id="conf-score">0%</span></span>
+                    <span id="trend-status">Analisis Tren: Sinkronisasi...</span>
+                    <span>Confidence Score: <span id="conf-score">0%</span></span>
                 </div>
                 <div class="progress bg-white bg-opacity-10 mt-2" style="height: 6px; border-radius: 10px;">
                     <div id="risk-bar" class="progress-bar bg-primary" style="width: 0%"></div>
@@ -60,7 +66,7 @@
             <div class="col-12">
                 <div class="p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10">
                     <div class="d-flex justify-content-between align-items-end mb-1">
-                        <small class="text-white-50 fw-bold xsmall">PROGRES (Target KPI 97%)</small>
+                        <small class="text-white-50 fw-bold xsmall">REALISASI KPI (Batas Toleransi 97%)</small>
                         <h5 class="fw-bold mb-0" id="val-progress">0%</h5>
                     </div>
                     <div class="progress bg-white bg-opacity-10" style="height: 10px; border-radius: 10px;">
@@ -73,11 +79,11 @@
 
     <div class="nav-pills-wrapper overflow-auto">
         <ul class="nav nav-pills flex-nowrap mb-3" id="pills-tab" role="tablist">
-            <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-priority">STATUS RUTE</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-prediction">ANALISIS TREN</button></li>
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-priority">PRIORITAS WILAYAH</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-prediction">PREDIKSI LAJU</button></li>
             {% if session['role'] == 'admin' %}
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-simulator">SIMULATOR</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-officers">AUDIT TIM</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-simulator">SIMULATOR TARGET</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-officers">AUDIT PERSONEL</button></li>
             {% endif %}
         </ul>
     </div>
@@ -85,21 +91,21 @@
     <div class="tab-content mt-2">
         <div class="tab-pane fade show active" id="tab-priority">
             <div class="glass-panel p-3">
-                <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase">Beban Piutang Terbesar</h6>
+                <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase" style="letter-spacing: 0.5px;">Evaluasi Eksposur Piutang Terbesar</h6>
                 <div id="priority-area-list"><div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div></div>
             </div>
         </div>
 
         <div class="tab-pane fade" id="tab-prediction">
             <div class="glass-panel p-3 mb-3">
-                <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase">Laju Setoran Harian</h6>
+                <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase" style="letter-spacing: 0.5px;">Velocity Penagihan Harian</h6>
                 <div class="prediction-box bg-light p-3 rounded-4 text-center mb-3">
                     <h5 class="fw-bold mb-1" id="status-prediction-text">-</h5>
-                    <div class="xsmall text-muted" id="status-prediction-desc">Menganalisis data historis...</div>
+                    <div class="xsmall text-muted" id="status-prediction-desc">Menghitung probabilitas ketercapaian...</div>
                 </div>
                 <div style="height: 180px;"><canvas id="performanceChart"></canvas></div>
             </div>
-            <div class="info-box shadow-sm" id="prediction-advice">Mengaktifkan intelijen operasional...</div>
+            <div class="info-box shadow-sm" id="prediction-advice">Mengaktifkan algoritma analisis Area Service...</div>
         </div>
 
         {% if session['role'] == 'admin' %}
@@ -107,18 +113,18 @@
             <div class="glass-panel p-3 shadow-sm border-start border-4 border-primary">
                 <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase">Decision Support Simulator</h6>
                 <div class="mb-4">
-                    <label class="xsmall fw-bold text-muted mb-2">INPUT TAMBAHAN SETORAN HARI INI:</label>
+                    <label class="xsmall fw-bold text-muted mb-2">INPUT SIMULASI SETORAN TAMBAHAN:</label>
                     <input type="range" class="form-range" id="sim-input" min="0" max="500000000" step="5000000" value="0">
                     <div class="fw-bold text-primary small mt-1" id="sim-display">Rp 0</div>
                 </div>
                 <div id="sim-result" class="p-3 rounded-4 bg-light border text-center xsmall">
-                    Geser slider untuk mensimulasikan target akhir bulan.
+                    Gunakan slider untuk mensimulasikan dampak setoran terhadap target KPI akhir bulan.
                 </div>
             </div>
         </div>
 
         <div class="tab-pane fade" id="tab-officers">
-            <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase px-1">Efektivitas Kolektor</h6>
+            <h6 class="fw-bold mb-3 xsmall text-dark text-uppercase px-1">Efektivitas Kinerja Personel</h6>
             <div id="officer-list"></div>
         </div>
         {% endif %}
@@ -134,23 +140,20 @@
 </div>
 
 <script>
+/**
+ * INTELLIGENCE PERFORMANCE ENGINE - AREA SERVICE
+ */
 let GlobalData = {};
 let PerformanceChart = null;
 const USER_ROLE = "{{ session['role'] }}";
 const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-/**
- * INITIALIZER: Mengatur tanggal autopilot
- */
 function initCalendar() {
     const now = new Date();
     document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     document.getElementById('display-current-date').innerText = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-/**
- * ANALYSIS ENGINE: Fungsi utama kalkulasi intelijen
- */
 async function runAnalysis() {
     const icon = document.getElementById('refresh-icon');
     const rawPeriode = document.getElementById('filter-periode').value;
@@ -165,7 +168,7 @@ async function runAnalysis() {
         const data = await response.json();
         GlobalData = data;
         
-        processSinergiLogic(); // Jalankan mesin Autopilot
+        calculateOperationalMetrics(); 
         renderDashboard();
         renderPriorityAreas();
         renderPrediction();
@@ -175,16 +178,13 @@ async function runAnalysis() {
         }
         renderChart();
     } catch (err) {
-        console.error("Analysis Sync Failed:", err);
+        console.error("Analysis Failure:", err);
     } finally {
         setTimeout(() => icon.classList.remove('fa-spin'), 600);
     }
 }
 
-/**
- * MESIN AUTOPILOT: Kalkulasi proyeksi linear berdasarkan velocity harian
- */
-function processSinergiLogic() {
+function calculateOperationalMetrics() {
     const now = new Date();
     const today = now.getDate() || 1;
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -195,7 +195,6 @@ function processSinergiLogic() {
     const targetTotal = (g.total_nominal_mc || 1);
     const target97 = targetTotal * 0.97;
     
-    // Kecepatan setoran harian
     const velocity = currentRev / today;
     const projected = velocity * lastDay;
     const progress = (currentRev / target97) * 100;
@@ -204,9 +203,6 @@ function processSinergiLogic() {
     GlobalData.meta = { projected, progress, remain, velocity, dailyNeeded, target97, currentRev, lastDay, today };
 }
 
-/**
- * RENDERER: Memperbarui UI Command Center
- */
 function renderDashboard() {
     const m = GlobalData.meta;
     document.getElementById('val-projected').innerText = toIDR(m.projected);
@@ -214,17 +210,13 @@ function renderDashboard() {
     document.getElementById('progress-bar-97').style.width = Math.min(100, m.progress) + '%';
     document.getElementById('risk-bar').style.width = Math.min(100, m.progress) + '%';
     
-    document.getElementById('trend-status').innerText = `Estimasi: ${m.projected >= m.target97 ? 'CAPAI TARGET' : 'DI BAWAH TARGET'}`;
+    document.getElementById('trend-status').innerText = `Estimasi Realisasi: ${m.projected >= m.target97 ? 'REACH TARGET' : 'UNDER TARGET'}`;
     const score = Math.min(100, (m.velocity / (m.dailyNeeded || 1) * 100));
     document.getElementById('conf-score').innerText = score.toFixed(0) + '%';
     
-    // Panic Button Autopilot: Muncul jika progres < 85% di pertengahan bulan
     document.getElementById('panic-alert').className = (m.progress < 85 && m.today > 15) ? 'text-center mb-3 animate__animated animate__shakeX' : 'd-none';
 }
 
-/**
- * PRIORITY RENDERER: Menentukan wilayah mana yang butuh intervensi
- */
 function renderPriorityAreas() {
     const container = document.getElementById('priority-area-list');
     const areas = [...(GlobalData.officers || [])].sort((a,b) => b.total_nominal - a.total_nominal);
@@ -233,17 +225,14 @@ function renderPriorityAreas() {
         <div class="area-card ${index < 2 ? 'kritis' : ''} animate__animated animate__fadeInUp">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="fw-bold xsmall mb-1 text-uppercase">${a.petugas}</h6>
-                    <div class="text-muted xsmall">Piutang Belum Tertagih: <span class="text-danger fw-bold">${toIDR(a.total_nominal)}</span></div>
+                    <h6 class="fw-bold xsmall mb-1 text-uppercase text-dark">${a.petugas}</h6>
+                    <div class="text-muted xsmall">Outstanding Piutang: <span class="text-danger fw-bold">${toIDR(a.total_nominal)}</span></div>
                 </div>
-                <span class="badge ${index < 2 ? 'bg-danger' : 'bg-primary'} xsmall rounded-pill px-2">Priority ${index + 1}</span>
+                <span class="badge ${index < 2 ? 'bg-danger' : 'bg-primary'} xsmall rounded-pill px-3">Level ${index + 1}</span>
             </div>
-        </div>`).join('') || '<div class="text-center xsmall text-muted py-3">Tidak ada data rute</div>';
+        </div>`).join('') || '<div class="text-center xsmall text-muted py-3">Tidak ditemukan parameter rute</div>';
 }
 
-/**
- * PREDICTION RENDERER: Memberikan saran operasional berdasarkan data
- */
 function renderPrediction() {
     const m = GlobalData.meta;
     const stext = document.getElementById('status-prediction-text');
@@ -251,19 +240,16 @@ function renderPrediction() {
     const adv = document.getElementById('prediction-advice');
 
     if (m.velocity >= m.dailyNeeded) {
-        stext.innerHTML = "STATUS AMAN 🟢"; stext.className = "fw-bold text-success h5";
-        sdesc.innerText = "Laju setoran saat ini mencukupi untuk target 97%.";
-        adv.innerHTML = "<b>Saran Sinergi:</b> Pertahankan ritme kerja. Pastikan tidak ada penurunan velocity di akhir pekan.";
+        stext.innerHTML = "PARAMETER OPTIMAL 🟢"; stext.className = "fw-bold text-success h5";
+        sdesc.innerText = "Velocity setoran harian memenuhi kriteria target 97%.";
+        adv.innerHTML = "<b>Rekomendasi Strategis:</b> Pertahankan konsistensi penagihan. Fokus pada mitigasi penurunan velocity di periode akhir bulan.";
     } else {
-        stext.innerHTML = "RISIKO TARGET 🔴"; stext.className = "fw-bold text-danger h5";
-        sdesc.innerText = "Laju harian masih di bawah batas aman.";
-        adv.innerHTML = `<b>Instruksi Strategis:</b> Butuh suntikan setoran rata-rata <b>${toIDR(m.dailyNeeded - m.velocity)}</b> per hari untuk mengamankan target bulan ini.`;
+        stext.innerHTML = "INDIKASI DEVIAI 🔴"; stext.className = "fw-bold text-danger h5";
+        sdesc.innerText = "Laju pemulihan piutang berada di bawah garis aman.";
+        adv.innerHTML = `<b>Instruksi Operasional:</b> Dibutuhkan akselerasi setoran rata-rata <b>${toIDR(m.dailyNeeded - m.velocity)}</b> per hari untuk mengamankan ambang batas KPI.`;
     }
 }
 
-/**
- * CHART ENGINE: Visualisasi kinerja tim
- */
 function renderChart() {
     const ctx = document.getElementById('performanceChart').getContext('2d');
     if (PerformanceChart) PerformanceChart.destroy();
@@ -276,7 +262,7 @@ function renderChart() {
             datasets: [{ 
                 label: 'Capaian (Juta)',
                 data: logs.map(o => o.total_nominal / 1000000), 
-                backgroundColor: '#3b82f6', 
+                backgroundColor: '#2563eb', 
                 borderRadius: 8,
                 barThickness: 15
             }]
@@ -289,9 +275,6 @@ function renderChart() {
     });
 }
 
-/**
- * SIMULATOR LOGIC: Membantu Admin menghitung dampak setoran tambahan
- */
 function initDecisionSimulator() {
     const simInput = document.getElementById('sim-input');
     const simDisplay = document.getElementById('sim-display');
@@ -302,18 +285,14 @@ function initDecisionSimulator() {
         const val = parseInt(this.value);
         simDisplay.innerText = toIDR(val);
         const m = GlobalData.meta;
-        // Simulasi: Berapa progres jika hari ini ada tambahan setoran sebesar X?
         const simulatedProjected = ((m.currentRev + val) / m.today) * m.lastDay;
         const simulatedProg = (simulatedProjected / m.target97) * 100;
         
         simResult.className = `p-3 rounded-4 text-center xsmall animate__animated animate__pulse ${simulatedProg >= 97 ? 'bg-success-subtle text-success border-success' : 'bg-danger-subtle text-danger border-danger'}`;
-        simResult.innerHTML = `Hasil Simulasi: Proyeksi akhir bulan akan naik menjadi <b>${simulatedProg.toFixed(1)}%</b>.`;
+        simResult.innerHTML = `Analisis Simulasi: Penambahan dana akan meningkatkan proyeksi efektivitas menjadi <b>${simulatedProg.toFixed(1)}%</b>.`;
     };
 }
 
-/**
- * AUDIT RENDERER: Daftar detail kinerja per petugas
- */
 function renderOfficers() {
     const container = document.getElementById('officer-list');
     if (!container) return;
@@ -322,12 +301,12 @@ function renderOfficers() {
         <div class="glass-panel p-3 mb-2 border-start border-primary border-4 animate__animated animate__fadeIn">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="fw-bold xsmall mb-0 text-uppercase">${l.petugas}</h6>
-                    <small class="text-muted" style="font-size: 0.6rem;">${l.jml_bayar} Lunas • ${l.total_dijalan} Kunjungan</small>
+                    <h6 class="fw-bold xsmall mb-0 text-uppercase text-dark">${l.petugas}</h6>
+                    <small class="text-muted" style="font-size: 0.6rem;">${l.jml_bayar} Settled • ${l.total_dijalan} Visits</small>
                 </div>
                 <div class="text-end">
                     <h6 class="fw-bold xsmall text-primary mb-0">${toIDR(l.total_nominal)}</h6>
-                    <button class="btn btn-link p-0 xsmall text-dark fw-bold" onclick="showAuditDetail('${l.petugas}')">Rincian Audit</button>
+                    <button class="btn btn-link p-0 xsmall text-dark fw-bold text-decoration-none" onclick="showAuditDetail('${l.petugas}')">View Audit <i class="fas fa-chevron-right ms-1"></i></button>
                 </div>
             </div>
         </div>`).join('');
@@ -337,16 +316,17 @@ function showAuditDetail(name) {
     const l = GlobalData.officers.find(o => o.petugas === name);
     const modal = new bootstrap.Modal(document.getElementById('auditModal'));
     document.getElementById('audit-modal-body').innerHTML = `
-        <div class="bg-dark text-white p-3">
+        <div class="bg-dark text-white p-3 d-flex justify-content-between">
             <h6 class="fw-bold mb-0">Audit Kinerja: ${name}</h6>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="p-3 bg-white">
             <div class="info-box mb-3 shadow-sm">
-                <div class="d-flex justify-content-between mb-1"><span>EFEKTIVITAS:</span><b>${((l.jml_bayar/(l.total_dijalan || 1))*100).toFixed(1)}%</b></div>
-                <div class="d-flex justify-content-between mb-1"><span>JANJI BAYAR:</span><b>${l.jml_janji}</b></div>
-                <div class="d-flex justify-content-between"><span>TOTAL REALISASI:</span><b>${toIDR(l.total_nominal)}</b></div>
+                <div class="d-flex justify-content-between mb-1"><span>EFEKTIVITAS VISIT:</span><b class="text-info">${((l.jml_bayar/(l.total_dijalan || 1))*100).toFixed(1)}%</b></div>
+                <div class="d-flex justify-content-between mb-1"><span>KOMITMEN AKTIF:</span><b>${l.jml_janji}</b></div>
+                <div class="d-flex justify-content-between"><span>TOTAL RECOVERY:</span><b class="text-success">${toIDR(l.total_nominal)}</b></div>
             </div>
-            <button class="btn btn-dark w-100 py-3 rounded-3 fw-bold xsmall" data-bs-dismiss="modal">TUTUP AUDIT</button>
+            <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold xsmall" data-bs-dismiss="modal">CLOSE AUDIT LOG</button>
         </div>`;
     modal.show();
 }
@@ -358,6 +338,6 @@ document.addEventListener('DOMContentLoaded', () => { initCalendar(); runAnalysi
     .bg-success-subtle { background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #bbf7d0; }
     .bg-danger-subtle { background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fecaca; }
     .nav-pills-wrapper::-webkit-scrollbar { display: none; }
-    .progress-bar { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+    .progress-bar { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
 </style>
 {% endblock %}
