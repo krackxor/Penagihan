@@ -8,16 +8,16 @@
             <div>
                 <h4 class="fw-bold mb-0 text-dark">
                     {% if session.get('role') == 'admin' %} 
-                        Dashboard Sunter ⚡ 
+                        Pusat Kendali Area Service ⚡ 
                     {% elif session.get('role') == 'petugas' %} 
-                        Performa Saya 📈 
+                        Key Performance Indicator (KPI) Saya 📈 
                     {% else %}
-                        Monitor Realisasi 🌏
+                        Monitoring Realisasi Global 🌏
                     {% endif %}
                 </h4>
                 <p class="text-muted small mb-0" id="display-date"></p>
                 {% if session.get('petugas_id') and session.get('petugas_id') != 'ALL' %}
-                    <span class="badge bg-primary text-white rounded-pill mt-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">WILAYAH: {{ session['petugas_id'] }}</span>
+                    <span class="badge bg-primary text-white rounded-pill mt-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">ZONA KERJA: {{ session['petugas_id'] }}</span>
                 {% endif %}
             </div>
             <div class="d-flex gap-2">
@@ -36,13 +36,13 @@
     <div class="row g-2 mb-3">
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">TARGET UNIT</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">ESTIMASI TARGET UNIT</small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-primary border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">POTENSI RUPIAH</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">PROYEKSI RECOVERY</small>
                 <h6 class="fw-bold mb-0 text-primary" id="g-nom-mc">Rp 0</h6>
             </div>
         </div>
@@ -50,24 +50,24 @@
 
     <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">REALISASI GLOBAL</small>
+            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Capaian Efektivitas Tahunan</small>
             <h1 class="fw-bold mb-0" id="stat-percent" style="font-size: 4rem; letter-spacing: -2px;">0%</h1>
             
             <div class="progress my-3 bg-white bg-opacity-10" style="height: 12px; border-radius: 20px;">
                 <div id="prog-bar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 0%;"></div>
             </div>
-            <p class="small mb-4 fw-medium opacity-75" id="stat-realisasi">Sinkronisasi data...</p>
+            <p class="small mb-4 fw-medium opacity-75" id="stat-realisasi">Validasi integrasi data operasional...</p>
 
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU LUNAS (MB)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">SETTLED (LUNAS BANK)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">PINTU COLL (APP)</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">COLLECTED (AREA SERVICE)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">0</span>
                     </div>
                 </div>
@@ -78,11 +78,11 @@
     <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white">
         <div class="row g-0 align-items-center text-center">
             <div class="col-6 border-end">
-                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.55rem;">Sisa Piutang</small>
+                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.55rem;">Outstanding (Rupiah)</small>
                 <h6 class="fw-bold mb-0 text-danger" id="stat-sisa-nom" style="font-size: 0.85rem;">Rp 0</h6>
             </div>
             <div class="col-6">
-                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.55rem;">Sisa Lembar</small>
+                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.55rem;">Outstanding (Lembar)</small>
                 <h6 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0</h6>
             </div>
         </div>
@@ -90,7 +90,7 @@
 
     <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden bg-white">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-medal text-warning me-2"></i>Ranking Efektivitas</h6>
+            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-medal text-warning me-2"></i>Evaluasi Peringkat Kinerja</h6>
         </div>
         <div class="card-body pt-0">
             {% if session.get('role') == 'admin' %}
@@ -105,10 +105,10 @@
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
-        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-satellite-dish text-primary me-2"></i>Log Aktivitas</h6>
+        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-satellite-dish text-primary me-2"></i>Audit Log Aktivitas</h6>
         <div class="d-flex align-items-center bg-white shadow-sm rounded-pill px-3 py-1 border border-danger border-opacity-25">
             <span class="realtime-dot me-2"></span>
-            <small class="fw-bold text-danger" style="font-size: 0.55rem;">REAL-TIME</small>
+            <small class="fw-bold text-danger" style="font-size: 0.55rem;">LIVE STREAM</small>
         </div>
     </div>
     <div id="list-history-petugas" class="mb-4"></div>
@@ -123,8 +123,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     /**
-     * [VARIABEL GLOBAL]
-     * Menyimpan state dashboard untuk manajemen data di sisi Client.
+     * CORE AREA SERVICE DASHBOARD ENGINE
+     * Versi Rebranding Enterprise 7.4
      */
     let currentPage = 1; 
     let allLogs = []; 
@@ -133,29 +133,18 @@
     const USER_ROLE = "{{ session.get('role', 'guest')|lower }}";
     const MY_PETUGAS_ID = "{{ session.get('petugas_id', 'ALL') }}";
 
-    // Formatter Rupiah Standar (Indonesia)
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     
-    /**
-     * [FUNGSI: DOMContentLoaded]
-     * Menjalankan inisialisasi default saat halaman selesai dimuat.
-     */
     document.addEventListener('DOMContentLoaded', () => { 
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         
-        // Auto-set filter bulan ke periode berjalan (YYYY-MM)
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         
         refreshDashboard(); 
     });
 
-    /**
-     * [FUNGSI: refreshDashboard]
-     * Kegunaan: Mengambil data performa terbaru dari API Backend.
-     * Alur: Memutar ikon sync -> Fetching data -> Update UI (Summary, Progress, Ranking, Logs).
-     */
     async function refreshDashboard() {
         const icon = document.getElementById('sync-icon');
         const rawPeriode = document.getElementById('filter-periode').value; 
@@ -167,8 +156,6 @@
 
         try {
             const res = await fetch(`/api/performance/full-stats?periode=${periode}`);
-            
-            // Proteksi: Jika sesi berakhir (Unauthorized), arahkan ke halaman login
             if (res.status === 401) {
                 window.location.href = '/login?logout=expired';
                 return;
@@ -179,18 +166,18 @@
 
             const g = result.global;
 
-            // 1. UPDATE SUMMARY CARDS (Unit Master vs Rupiah Master)
+            // Update Kartu Strategis
             document.getElementById('g-nomen-mc').innerText = (g.total_nomen_mc || 0).toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(g.total_nominal_mc || 0);
             
-            // 2. HITUNG SISA PIUTANG (Total Master dikurangi Realisasi Lunas)
+            // Perhitungan Recovery Piutang
             const totalLunasRp = (g.nom_terbayar || 0);
             document.getElementById('stat-sisa-nom').innerText = toIDR((g.total_nominal_mc || 0) - totalLunasRp);
             document.getElementById('stat-sisa-nomen').innerText = (g.sisa_nomen || 0).toLocaleString();
             
-            // 3. UPDATE PERCENTAGE & PROGRESS BAR (Total Lunas vs Total Target)
+            // Analisis Realisasi Global
             const totalLunasCount = (g.total_lunas_mc || 0);
-            document.getElementById('stat-realisasi').innerText = `${totalLunasCount.toLocaleString()} Terbayar / ${(g.total_nomen_mc || 0).toLocaleString()} Unit`;
+            document.getElementById('stat-realisasi').innerText = `${totalLunasCount.toLocaleString()} Berhasil Dipulihkan / ${(g.total_nomen_mc || 0).toLocaleString()} Target`;
             document.getElementById('val-undue').innerText = (g.count_undue || 0).toLocaleString();
             document.getElementById('val-current').innerText = (g.count_current || 0).toLocaleString();
 
@@ -198,35 +185,26 @@
             document.getElementById('prog-bar').style.width = pct + '%';
             document.getElementById('stat-percent').innerText = pct + '%';
 
-            // 4. RENDER RANKING (Leaderboard) & CHART (Khusus Admin)
             renderLeaderboard(result.officers || []);
             if (USER_ROLE === 'admin' && document.getElementById('performaChart')) {
                 renderChart(result.officers || []);
             }
 
-            // 5. UPDATE FEED LOGS (Aktivitas Petugas)
             allLogs = result.log_petugas || [];
             currentPage = 1; 
             renderLiveLogs();
 
         } catch (e) { 
-            console.error("Dashboard Sync Error:", e); 
+            console.error("Critical Sync Failure:", e); 
         } finally { 
-            // Hentikan putaran ikon refresh setelah 1 detik
             setTimeout(() => icon.classList.remove('fa-spin'), 1000); 
         }
     }
 
-    /**
-     * [FUNGSI: renderLeaderboard]
-     * Kegunaan: Menampilkan daftar petugas berdasarkan pencapaian tertinggi (Ranking).
-     * Sinergi: Menandai baris "SAYA" untuk petugas yang sedang login.
-     */
     function renderLeaderboard(officers) {
         const lb = document.getElementById('leaderboard-section');
         if (!lb) return;
 
-        // Sorting petugas berdasarkan Nominal Collection (Desceding)
         const sorted = [...officers].sort((a, b) => b.total_nominal - a.total_nominal);
         
         lb.innerHTML = sorted.slice(0, 5).map((o, i) => {
@@ -239,30 +217,25 @@
                     <div class="d-flex align-items-center">
                         <div class="fw-bold text-center me-3" style="width: 25px;">${medal}</div>
                         <div>
-                            <h6 class="fw-bold mb-0 text-dark small text-uppercase">${o.petugas} ${o.petugas === MY_PETUGAS_ID ? '<span class="badge bg-primary ms-1" style="font-size:0.5rem;">SAYA</span>' : ''}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;">${o.jml_bayar} Unit Lunas • ${o.total_dijalan} Kunjungan</small>
+                            <h6 class="fw-bold mb-0 text-dark small text-uppercase">${o.petugas} ${o.petugas === MY_PETUGAS_ID ? '<span class="badge bg-primary ms-1" style="font-size:0.5rem;">TARGET PERSONEL</span>' : ''}</h6>
+                            <small class="text-muted" style="font-size: 0.6rem;">Realisasi: ${o.jml_bayar} Unit • Aktivitas: ${o.total_dijalan} Visit</small>
                         </div>
                     </div>
                     <span class="badge bg-success text-white rounded-pill" style="font-size: 0.65rem;">${toIDR(o.total_nominal)}</span>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-center py-3 text-muted small">Belum ada aktivitas di periode ini</div>';
+        }).join('') || '<div class="text-center py-3 text-muted small">Data operasional periode ini belum tersedia</div>';
     }
 
-    /**
-     * [FUNGSI: renderChart]
-     * Kegunaan: Visualisasi grafik batang untuk perbandingan performa antar petugas.
-     * Alur: Membangun objek Chart.js dengan data nominal collection.
-     */
     function renderChart(officers) {
         const ctx = document.getElementById('performaChart').getContext('2d');
-        if (myChart) myChart.destroy(); // Hancurkan chart lama sebelum membuat yang baru
+        if (myChart) myChart.destroy();
         myChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: officers.map(o => o.petugas.split(' ')[0]),
                 datasets: [{ 
-                    label: 'Capaian (Rp)', 
+                    label: 'Recovery Nominal', 
                     data: officers.map(o => o.total_nominal), 
                     backgroundColor: '#3b82f6', 
                     borderRadius: 10,
@@ -280,18 +253,12 @@
         });
     }
 
-    /**
-     * [FUNGSI: renderLiveLogs]
-     * Kegunaan: Rendering daftar aktivitas lapangan (Pagination Logic).
-     * Alur: Slice data dari array allLogs berdasarkan currentPage.
-     */
     function renderLiveLogs() {
         const container = document.getElementById('list-history-petugas');
         const start = (currentPage - 1) * logsPerPage;
         const currentLogs = allLogs.slice(start, start + logsPerPage);
         
         container.innerHTML = currentLogs.map(log => {
-            // Memberikan warna berbeda berdasarkan status koordinasi petugas
             let labelClass = log.keterangan.includes('Sudah') ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
             return `
             <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
@@ -305,29 +272,22 @@
                     <span class="fw-bold text-primary" style="font-size:0.8rem;">${toIDR(log.nominal || 0)}</span>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-center py-4 text-muted small">Log aktivitas kosong</div>';
+        }).join('') || '<div class="text-center py-4 text-muted small">Antrean log audit kosong</div>';
         
-        // Perhitungan navigasi halaman (Prev/Next)
         const totalPages = Math.ceil(allLogs.length / logsPerPage) || 1;
         document.getElementById('page-info').innerText = `Halaman ${currentPage} / ${totalPages}`;
         document.getElementById('btn-prev').disabled = currentPage === 1;
         document.getElementById('btn-next').disabled = currentPage === totalPages || allLogs.length === 0;
     }
 
-    /**
-     * [FUNGSI: changePage]
-     * Kegunaan: Mengganti halaman log dan melakukan auto-scroll ke atas list.
-     */
     function changePage(step) {
         currentPage += step;
         renderLiveLogs();
-        // Efek smooth scroll ke awal daftar log
         window.scrollTo({ top: document.getElementById('list-history-petugas').offsetTop - 100, behavior: 'smooth' });
     }
 </script>
 
 <style>
-    /* Animasi Titik Real-time (Pulse Red) */
     .realtime-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: pulse-red 1.5s infinite; }
     @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     
