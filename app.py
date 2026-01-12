@@ -1,25 +1,25 @@
 """
-Flask Application - Area Service Integrated System (V7.4 Sinergi Open-Access)
-Updated: 2026-01-12 (Pusat Kendali & Guest Sync)
+Flask Application - Area Service Integrated System (V7.5 Sinergi & Global Sync)
+Updated: 2026-01-12 (Fix: Monitoring Route & Guest Data Consistency)
 
 LOGIKA AKSES OPERASIONAL (Security Matrix):
-1. Level 1 (Publik/Guest): Dashboard Global (N+1 Sync), Youtube, & Materi Center.
-2. Level 2 (Petugas): Penagihan Berjalan, Ardebt, & Pelaporan Watermark Foto.
-3. Level 3 (Admin): Data Management, Audit Log, & WA Gateway.
+1. Level 1 (Publik/Guest): Dashboard Global (Sync), Monitoring, Youtube, & Materi.
+2. Level 2 (Petugas): Penagihan Berjalan, Ardebt, & Laporan Lapangan.
+3. Level 3 (Admin): Pusat Kendali Data, Upload Excel, & Audit Log.
 """
 
 import os
 from datetime import timedelta
 from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify
 
-# [IMPORT CORE]: Konfigurasi, Koneksi Database, dan Helper Navigasi
+# [IMPORT CORE]
 from config import Config
 from core.database import init_db, get_db_connection
 from core.helpers import get_role_redirect
 
-# [IMPORT BLUEPRINTS]: Modular API Area Service
+# [IMPORT BLUEPRINTS]
 from api.auth import auth_bp
-from api.dashboard import dashboard_bp  # Dashboard Utama (MC, MB, COLL Sync)
+from api.dashboard import dashboard_bp 
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
@@ -30,9 +30,6 @@ from api.pcez_performance import register_pcez_routes
 from api.wa_gateway import wa_bp 
 
 def create_app():
-    """
-    [ENGINE UTAMA AREA SERVICE]
-    """
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
@@ -57,12 +54,13 @@ def create_app():
     @app.before_request
     def security_layer():
         """
-        [GATEKEEPER]: Sinkronisasi data Guest dan Admin.
+        [GATEKEEPER]: Mengizinkan Guest melihat Dashboard & Monitoring 
+        agar data yang ditampilkan sinkron dengan data Global.
         """
-        # Endpoint yang bisa diakses tanpa login
         public_endpoints = [
             'index', 
-            'dashboard.get_pusat_kendali', # API Dashboard dibuka agar data Guest = Global
+            'monitoring_collection_page',    # FIXED: Re-added to public access
+            'dashboard.get_pusat_kendali',   # API Dashboard terbuka untuk Guest
             'auth.login', 
             'login_page', 
             'static', 
@@ -76,13 +74,11 @@ def create_app():
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # Proteksi Area Petugas & Admin
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
-        # Otoritas Admin (Upload & Management)
         admin_only_endpoints = [
             'admin_dashboard', 'wa_blast_page', 'history_page', 
             'monitoring_lokasi_page', 'upload.handle_upload'
@@ -104,10 +100,26 @@ def create_app():
     app.register_blueprint(wa_bp, url_prefix='/api/wa-gateway') 
     register_pcez_routes(app, get_db_connection)
 
-    # --- 4. UI ROUTES ---
+    # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
+    
     @app.route('/')
     def index(): 
         return render_template('index.html')
+
+    @app.route('/monitoring-collection')
+    def monitoring_collection_page(): 
+        """Pusat Realisasi: Monitoring Harian (FIXED: Route Re-added)."""
+        return render_template('monitoring_collection.html')
+
+    @app.route('/youtube')
+    def youtube_page():
+        return render_template('youtube.html')
+
+    @app.route('/materi')
+    def materi_page():
+        materi_dir = os.path.join(app.root_path, 'static', 'uploads', 'materi')
+        files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
+        return render_template('materi.html', files=files)
 
     @app.route('/login')
     def login_page(): 
@@ -115,6 +127,7 @@ def create_app():
             return redirect(get_role_redirect(session['role']))
         return render_template('login.html')
 
+    # [UNIT PELAKSANA LAPANGAN]
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
         return render_template('belum_bayar.html')
@@ -123,9 +136,22 @@ def create_app():
     def ardebt_page(): 
         return render_template('tagihan_berekor.html')
 
+    @app.route('/galeri')
+    def galeri_page():
+        return render_template('galeri.html')
+
+    # [ADMINISTRASI STRATEGIS & AUDIT]
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
         return render_template('admin_dashboard.html')
+
+    @app.route('/admin/monitoring-lokasi')
+    def monitoring_lokasi_page():
+        return render_template('monitoring_lokasi.html')
+
+    @app.route('/history')
+    def history_page(): 
+        return render_template('history.html')
 
     # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
