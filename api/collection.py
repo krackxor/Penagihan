@@ -1,10 +1,11 @@
 """
-Collection API - Sunter Dashboard Pro (V12.13 Recovery Mode)
+Collection API - Sunter Dashboard Pro (V12.14 Audit & Recovery)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
-1. Fix Typo: Mengganti total_realisai menjadi total_realisasi (Menghilangkan Error 500).
-2. Data Recovery: Menghitung kategori 'ARDEBT' agar data yang terlanjur di-upload muncul.
-3. Resilience: Menggunakan LEFT JOIN agar transaksi muncul meski data MC belum lengkap.
+1. Logic Sync: Menghitung UNDUE jika Bulan Bayar == Bulan Rekening (N).
+2. Field Audit: Memastikan realisasi CURRENT (N+1) tervalidasi via kunjungan.
+3. Zero Gap: Mengintegrasikan kategori 'ARDEBT' ke dashboard untuk data recovery.
+4. Division Safety: Proteksi (target or 1) untuk mencegah error pembagian nol.
 """
 
 from flask import Blueprint, jsonify, request
@@ -14,24 +15,24 @@ from datetime import datetime
 collection_bp = Blueprint('collection', __name__)
 
 def get_active_period(cursor):
-    """Mendeteksi periode aktif terbaru dari database."""
+    """Mendeteksi periode aktif terbaru dari database untuk default view."""
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Audit: Memisahkan realisasi MB dan Collection (Inklusi Recovery)."""
+    """Summary Audit: Konsolidasi Realisasi Bank (Undue) & Lapangan (Field vs Mandiri)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # 1. TOTAL TARGET MC
+        # 1. TOTAL TARGET (MC)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (Inklusi ARDEBT agar angka muncul jika filter upload meleset)
+        # 2. BOX UNDUE (BANK) - Inklusi ARDEBT untuk memastikan data bayar masuk terserap
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -39,7 +40,7 @@ def pusat_kendali():
         """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX CURRENT - FIELD/PETUGAS
+        # 3. BOX FIELD (PETUGAS) - Realisasi Current yang memiliki record kunjungan
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
@@ -51,7 +52,7 @@ def pusat_kendali():
         """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. BOX CURRENT - MANDIRI
+        # 4. BOX MANDIRI - Realisasi Current tanpa record kunjungan
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
@@ -63,7 +64,6 @@ def pusat_kendali():
         """, (periode_req,))
         current_mandiri = cursor.fetchone()[0]
 
-        # FIX TYPO DISINI: total_realisasi (dengan huruf 'n')
         total_realisasi = undue_val + current_petugas + current_mandiri
 
         return jsonify({
@@ -77,8 +77,8 @@ def pusat_kendali():
                     "current_petugas": current_petugas,
                     "current_mandiri": current_mandiri
                 },
-                "sisa_tagihan": target_mc - total_realisasi,
-                "pct": round((total_realisasi / target_mc * 100), 2) if target_mc > 0 else 0
+                "sisa_tagihan": max(0, target_mc - total_realisasi),
+                "pct": round((total_realisasi / (target_mc or 1) * 100), 2)
             }
         })
     finally:
@@ -86,13 +86,13 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Monitoring progres harian menggunakan LEFT JOIN (Pencegahan Data Kosong)."""
+    """Tren Kumulatif Harian: Menggabungkan data harian dengan saldo awal Undue."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # Target per-Rayon
+        # Target Detail per Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -102,11 +102,11 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Saldo Awal Undue
+        # Saldo Awal Realisasi Bank
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori IN ('UNDUE', 'ARDEBT')", (periode_req,))
         undue_start = cursor.fetchone()[0]
 
-        # Query Tabel Harian (LEFT JOIN agar transaksi muncul meski MC belum lengkap)
+        # Query Harian dengan LEFT JOIN (Menampilkan transaksi meski Master Pelanggan belum lengkap)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
