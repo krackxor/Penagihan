@@ -5,7 +5,7 @@
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h4 class="fw-bold mb-0 text-dark"><i class="fas fa-microchip me-2 text-primary"></i>Audit Realisasi Digital</h4>
-            <p class="text-muted small mb-0">Analisis Kunjungan Lapangan & Kanal Pembayaran</p>
+            <p class="text-muted small mb-0">Sinkronisasi MB (Bank) & Collection (Lapangan)</p>
         </div>
         <div class="d-flex gap-2">
             <input type="month" id="filter-periode" 
@@ -22,40 +22,36 @@
             <div class="card border-0 shadow-sm rounded-4 text-white position-relative overflow-hidden" 
                   style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
                 <div class="card-body p-4 text-center">
-                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Total Progres Penagihan (%)</small>
+                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Total Efektivitas Konsolidasi (%)</small>
                     <div class="d-flex justify-content-center align-items-end gap-2 mt-1">
                         <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
                     </div>
-                    <p class="small mb-0 opacity-75" id="sum-info">Mengkalkulasi parameter audit...</p>
+                    <p class="small mb-0 opacity-75" id="sum-info">Memverifikasi data MB & Collection...</p>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row g-2 mb-4 text-center">
-        <div class="col-4">
-            <div class="card p-2 border-0 shadow-sm rounded-4 h-100 border-bottom border-warning border-4 bg-white">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.5rem;">UNDUE (BANK)</small>
-                <h6 class="fw-bold mb-0 text-warning" id="audit-undue" style="font-size: 0.8rem;">Rp 0</h6>
+        <div class="col-6">
+            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-bottom border-warning border-4 bg-white">
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem;">UNDUE (MURNI MB)</small>
+                <h6 class="fw-bold mb-0 text-warning" id="audit-undue">Rp 0</h6>
+                <p class="text-muted mt-1 mb-0" style="font-size: 0.45rem;">*Filter: Bulan Bayar == Bulan Rekening</p>
             </div>
         </div>
-        <div class="col-4">
-            <div class="card p-2 border-0 shadow-sm rounded-4 h-100 border-bottom border-primary border-4 bg-white">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.5rem;">FIELD (PETUGAS)</small>
-                <h6 class="fw-bold mb-0 text-primary" id="audit-petugas" style="font-size: 0.8rem;">Rp 0</h6>
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card p-2 border-0 shadow-sm rounded-4 h-100 border-bottom border-info border-4 bg-white">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.5rem;">MANDIRI (CURR)</small>
-                <h6 class="fw-bold mb-0 text-info" id="audit-mandiri" style="font-size: 0.8rem;">Rp 0</h6>
+        <div class="col-6">
+            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-bottom border-primary border-4 bg-white">
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem;">CURRENT (COLLECTION)</small>
+                <h6 class="fw-bold mb-0 text-primary" id="audit-current">Rp 0</h6>
+                <p class="text-muted mt-1 mb-0" style="font-size: 0.45rem;">*Realisasi Lapangan (Petugas & Mandiri)</p>
             </div>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-wave-square me-2 text-primary"></i>Tren Penagihan Harian</h6>
+            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-wave-square me-2 text-primary"></i>Tren Kumulatif Harian</h6>
             <div class="d-flex gap-3">
                 <small class="text-primary fw-bold" style="font-size: 0.6rem;"><i class="fas fa-circle me-1"></i>R34: <span id="sum-r34">0%</span></small>
                 <small class="text-info fw-bold" style="font-size: 0.6rem;"><i class="fas fa-circle me-1"></i>R35: <span id="sum-r35">0%</span></small>
@@ -106,11 +102,9 @@
         const periode = `${month}-${year}`;
 
         try {
-            // 1. Fetch Audit Summary
             const resSum = await fetch(`/api/collection/pusat-kendali?periode=${periode}`);
             const sumData = await resSum.json();
 
-            // 2. Fetch Daily Analytics (Rayon Logic)
             const resDaily = await fetch(`/api/collection/daily-monitor?periode=${periode}`);
             const dailyData = await resDaily.json();
             
@@ -120,7 +114,7 @@
                 renderChart(dailyData.data);
             }
         } catch (e) {
-            console.error("Critical: Transmisi Gagal", e);
+            console.error("Critical Failure:", e);
         } finally {
             setTimeout(() => icon.classList.remove('fa-spin'), 800);
         }
@@ -128,15 +122,12 @@
 
     function updateUI(sum, daily) {
         const s = sum.summary;
-        // Widget Global & Audit
-        document.getElementById('sum-pct').innerText = (daily.summary.pct || 0).toFixed(2) + '%';
-        document.getElementById('sum-info').innerText = `Target MC: ${toIDR(s.target_mc)} / Sisa: ${toIDR(s.sisa_tagihan)}`;
+        document.getElementById('sum-pct').innerText = (s.pct || 0).toFixed(2) + '%';
+        document.getElementById('sum-info').innerText = `Target MC: ${toIDR(s.total_mc)} / Sisa: ${toIDR(s.sisa_tagihan)}`;
         
         document.getElementById('audit-undue').innerText = toIDR(s.realisasi.undue);
-        document.getElementById('audit-petugas').innerText = toIDR(s.realisasi.current_petugas);
-        document.getElementById('audit-mandiri').innerText = toIDR(s.realisasi.current_mandiri);
+        document.getElementById('audit-current').innerText = toIDR(s.realisasi.current);
 
-        // Rayon Legend
         if (daily.data.length > 0) {
             const last = daily.data[daily.data.length - 1];
             document.getElementById('sum-r34').innerText = (last.r34.pct || 0).toFixed(2) + '%';
@@ -149,7 +140,7 @@
         const footer = document.getElementById('table-footer');
         
         if (!data || data.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data pembayaran belum tersedia.</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data transaksi sah tidak ditemukan.</td></tr>';
             footer.innerHTML = '';
             return;
         }
@@ -175,7 +166,7 @@
                 <td class="py-2">FINAL</td>
                 <td colspan="2" class="text-end border-start pe-2">R34: ${(last.r34.pct || 0).toFixed(2)}%</td>
                 <td colspan="2" class="text-end border-start pe-2">R35: ${(last.r35.pct || 0).toFixed(2)}%</td>
-                <td colspan="3" class="text-end pe-3 bg-primary">AB Sunter: ${(last.total.pct || 0).toFixed(2)}%</td>
+                <td colspan="3" class="text-end pe-3 bg-primary">TOTAL: ${(last.total.pct || 0).toFixed(2)}%</td>
             </tr>`;
     }
 
@@ -187,7 +178,7 @@
             data: {
                 labels: data.map(d => d.tgl.split('-')[0]),
                 datasets: [{
-                    label: 'Progres Total (%)',
+                    label: 'Progres (%)',
                     data: data.map(d => d.total.pct),
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(37, 99, 235, 0.05)',
@@ -218,5 +209,6 @@
     .sticky-top { position: sticky; top: 0; z-index: 1020; }
     .bg-primary { background-color: #2563eb !important; }
     .btn-white { background: #fff; border: 1px solid #e2e8f0; }
+    #audit-undue, #audit-current { font-size: 0.85rem; letter-spacing: -0.5px; }
 </style>
 {% endblock %}
