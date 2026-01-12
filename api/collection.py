@@ -1,10 +1,10 @@
 """
-Collection API - Sunter Dashboard Pro (V8.2 Sinergi Intelligence)
+Collection API - Sunter Dashboard Pro (V8.3 Sinergi Intelligence)
 Sinergi & Smart Update:
-1. Pusat Kendali ⚡: Monitoring Nomen & Nominal (MC, Undue, Current, Belum Bayar).
-2. Daily Monitor: Grafik laju progres harian kumulatif (Realisasi vs Target).
-3. Leaderboard: Peringkat produktivitas petugas berdasarkan % Realisasi Nomen.
-4. Ultra-Fast Join: Menghapus CAST() untuk akses instan via Database INDEX.
+1. Pusat Kendali ⚡: Monitoring sinkron berdasarkan status_lunas otomatis dari Trigger.
+2. Daily Monitor: Perbaikan algoritma kumulatif dengan pengurutan tanggal SQL standar.
+3. Leaderboard: Peringkat produktivitas petugas berbasis real-time data.
+4. Ultra-Fast Join: Optimalisasi query tanpa CAST() menggunakan INDEX (Nomen, Periode).
 """
 
 import os
@@ -16,7 +16,7 @@ from datetime import datetime
 collection_bp = Blueprint('collection', __name__)
 
 def get_latest_period(cursor):
-    """FUNGSI AUTOPILOT: Mendapatkan periode terakhir yang tersedia di database."""
+    """FUNGSI AUTOPILOT: Mengambil periode aktif terbaru dari database."""
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
@@ -27,16 +27,14 @@ def get_latest_period(cursor):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """
-    ENDPOINT UTAMA: Memantau Jumlah Nomen & Nominal MC.
-    Breakdown by Rayon, PCEZ, dan Petugas untuk Grafik Dinamis.
-    """
+    """ENDPOINT UTAMA: Memantau Jumlah Nomen & Nominal MC."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_latest_period(cursor)
 
         # A. RINGKASAN DATA (NOMEN VS NOMINAL)
+        # Mengandalkan status_lunas yang diupdate otomatis oleh Trigger
         cursor.execute("""
             SELECT 
                 COUNT(nomen) as total_nomen,
@@ -50,12 +48,12 @@ def pusat_kendali():
         summary = dict(cursor.fetchone())
 
         # B. ANALISIS REALISASI (UNDUE VS CURRENT)
-        # Undue: Dari Master Bayar | Current: Dari Collection Harian
+        # Undue: Realisasi Kantor | Current: Realisasi Lapangan
         cursor.execute("SELECT SUM(nominal) FROM master_bayar WHERE periode = ?", (periode_req,))
         undue_val = cursor.fetchone()[0] or 0
         current_val = (summary['rp_lunas'] or 0) - undue_val
 
-        # C. DATA BY AREA & PETUGAS (UNTUK GRAFIK DINAMIS)
+        # C. DATA BY AREA & PETUGAS (GRAFIK DINAMIS)
         cursor.execute("""
             SELECT p.rayon, p.pcez, r.petugas,
                 COUNT(p.nomen) as qty,
@@ -81,7 +79,7 @@ def pusat_kendali():
         """, (periode_req,))
         leaderboard = [dict(row) for row in cursor.fetchall()]
 
-        # E. LOG AKTIVITAS TERAKHIR
+        # E. LOG AKTIVITAS TERAKHIR (LIVE FEED)
         cursor.execute("""
             SELECT petugas_name, nomen, keterangan, created_at 
             FROM kunjungan_petugas WHERE periode = ? 
@@ -93,8 +91,8 @@ def pusat_kendali():
             "status": "success",
             "periode": periode_req,
             "summary": {
-                "nomen": { "total": summary['total_nomen'], "lunas": summary['qty_bayar'], "sisa": summary['qty_belum'] },
-                "nominal": { "mc": summary['total_rp_mc'], "undue": undue_val, "current": current_val, "sisa": summary['rp_sisa'] }
+                "nomen": { "total": summary['total_nomen'] or 0, "lunas": summary['qty_bayar'] or 0, "sisa": summary['qty_belum'] or 0 },
+                "nominal": { "mc": summary['total_rp_mc'] or 0, "undue": undue_val, "current": current_val, "sisa": summary['rp_sisa'] or 0 }
             },
             "analytics": analytics,
             "leaderboard": leaderboard,
@@ -109,29 +107,28 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Fungsi monitoring harian cerdas. Menghitung laju progres (Current) vs saldo awal (Undue)."""
+    """Monitoring harian cerdas: Laju Current vs Saldo Awal Undue."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_latest_period(cursor)
 
-        # AMBIL TARGET TOTAL
+        # TARGET TOTAL & REALISASI AWAL (UNDUE)
         cursor.execute("SELECT SUM(nominal) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_total = cursor.fetchone()[0] or 0
 
-        # AMBIL REALISASI AWAL (UNDUE)
         cursor.execute("SELECT SUM(nominal) FROM master_bayar WHERE periode = ?", (periode_req,))
         undue_total = cursor.fetchone()[0] or 0
 
-        # AMBIL LAJU HARIAN (COLLECTION)
+        # AMBIL LAJU HARIAN (COLLECTION) - Sinkronisasi JOIN Nomen & Periode
         cursor.execute("""
             SELECT c.pay_dt as tgl, SUM(c.nominal) as rp_hari
             FROM collection_harian c
-            INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND c.notag = p.notagihan
-            WHERE p.periode = ? AND c.periode = ?
+            INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
+            WHERE p.periode = ?
             GROUP BY c.pay_dt 
             ORDER BY substr(c.pay_dt,7,4), substr(c.pay_dt,4,2), substr(c.pay_dt,1,2) ASC
-        """, (periode_req, periode_req))
+        """, (periode_req,))
         rows = cursor.fetchall()
 
         results = []
