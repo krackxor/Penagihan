@@ -1,15 +1,16 @@
 """
-Smart Period & Type Detector - Sunter Dashboard Pro (V12.21)
+Smart Period & Type Detector - Sunter Dashboard Pro (V12.22)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. N+1 Global Alignment: Memastikan Bulan Rekening 11 otomatis masuk ke Periode 12.
-2. Robust Parsing: Penanganan format 112025 (6-digit) dan Nov/2025 yang lebih stabil.
-3. Ardebt Shield: Bypass deteksi periode otomatis untuk file piutang lama agar tidak gagal.
+2. Zero Gap Parsing: Menangani whitespace non-standard (\xa0) dan karakter kutip.
+3. Enhanced MB Detection: Validasi format 112025 (6-digit) sebagai prioritas utama audit.
 4. Serial Date Fix: Konversi otomatis angka Serial Excel menjadi objek tanggal Python.
 """
 
 import pandas as pd
+import re
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
@@ -34,10 +35,16 @@ def identify_file_type(df):
     
     return None
 
+def clean_val(val):
+    """Membersihkan karakter sampah tersembunyi dari ekspor perbankan."""
+    if not val or pd.isna(val): return ""
+    # Hapus spasi non-breaking (\xa0), kutip, dan whitespace
+    return str(val).replace('\xa0', ' ').replace("'", "").replace("`", "").strip()
+
 def parse_billing_date(val, file_type='MB'):
     """Membedah Bulan Rekening (Bulan N)."""
-    if not val or str(val).lower() in ('nan', 'none', ''): return None
-    s = str(val).strip().replace("'", "").replace("`", "")
+    s = clean_val(val)
+    if not s or s.lower() in ('nan', 'none'): return None
     
     try:
         # 1. Format MB: 112025 (6 digit angka murni)
@@ -61,8 +68,8 @@ def parse_billing_date(val, file_type='MB'):
 
 def parse_flexible_date(date_val):
     """Konverter Tanggal Universal termasuk Serial Date Excel."""
-    if not date_val or str(date_val).lower() in ('nan', 'none', ''): return None
-    s_date = str(date_val).split(' ')[0].replace("'", "").replace("/", "-").strip()
+    s_date = clean_val(date_val).split(' ')[0].replace("/", "-")
+    if not s_date or s_date.lower() in ('nan', 'none'): return None
     
     # Proteksi: Serial Date Excel (Contoh: 45291)
     try:
@@ -97,13 +104,13 @@ def detect_file_period(df, file_type):
     if not date_col or date_col not in cols: return None, None
     
     try:
-        # Ambil sampel 5 baris pertama untuk mencari data valid
+        # Ambil sampel baris pertama yang valid (bukan header kosong)
         valid_rows = df[df[date_col].astype(str).str.strip() != ''].head(5)
         if valid_rows.empty: return None, None
             
         raw_date = valid_rows.iloc[0].get(date_col)
         
-        # Ambil objek datetime murni
+        # Parsing tanggal dasar
         if date_col in ['BULAN_REK', 'BILL_PERIOD']:
             dt = parse_billing_date(raw_date, file_type)
         else:
@@ -121,11 +128,17 @@ def detect_file_period(df, file_type):
 
 def autopilot_extract_zona(val):
     """Ekstraksi PCEZ cerdas (Rayon-PC-EZ)."""
-    if pd.isna(val) or str(val).strip() == '': return None
-    s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
+    s = clean_val(val)
+    if not s: return None
+    
+    # Ambil angka saja
+    digits = ''.join(filter(str.isdigit, s.split('.')[0])).zfill(9)
     return {
-        'rayon': s[0:2], 'pc': s[2:5], 'ez': s[5:7],
-        'pcez': s[0:5], 'blok': s[7:9]
+        'rayon': digits[0:2], 
+        'pc': digits[2:5], 
+        'ez': digits[5:7],
+        'pcez': digits[0:5], 
+        'blok': digits[7:9]
     }
 
 # Aliasing untuk sinkronisasi dengan API Upload
