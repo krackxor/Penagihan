@@ -1,166 +1,224 @@
-"""
-Collection API - Sunter Dashboard Pro (V11.5 Smart Audit & Rayon Logic)
-Update: 2026-01-12
----------------------------------------------------------------------------
-Pembaruan Strategis:
-1. Smart Audit Logic: Memisahkan Current Petugas (Ada Kunjungan) vs Current Mandiri.
-2. Rayon Split Analysis: Detail harian Rp & % untuk Rayon 34 & 35.
-3. Integrated Pivot: Sinkronisasi data Master, MB, Collection, dan Kunjungan.
-4. Temporal Integrity: Pengurutan kronologis SQL standar untuk monitoring harian.
-"""
+{% extends "base.html" %}
 
-from flask import Blueprint, jsonify, request
-from core.database import get_db_connection
-from datetime import datetime
+{% block content %}
+<div class="px-2 pb-5 animate__animated animate__fadeIn">
+    <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0 text-dark"><i class="fas fa-microchip me-2 text-primary"></i>Audit Realisasi Digital</h4>
+            <p class="text-muted small mb-0">Sinkronisasi Kunjungan Lapangan & Kanal Pembayaran</p>
+        </div>
+        <div class="d-flex gap-2">
+            <input type="month" id="filter-periode" 
+                   class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" 
+                   style="width: 150px; font-size: 0.75rem;" onchange="loadMonitor()">
+            <button class="btn btn-sm btn-white shadow-sm rounded-circle p-2" onclick="loadMonitor()" id="btn-sync">
+                <i class="fas fa-sync-alt text-primary" id="sync-icon"></i>
+            </button>
+        </div>
+    </div>
 
-collection_bp = Blueprint('collection', __name__)
+    <div class="row g-2 mb-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4 text-white position-relative overflow-hidden" 
+                  style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+                <div class="card-body p-4 text-center">
+                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Total Efektivitas Konsolidasi (%)</small>
+                    <div class="d-flex justify-content-center align-items-end gap-2 mt-1">
+                        <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
+                    </div>
+                    <p class="small mb-0 opacity-75" id="sum-info">Mengkalkulasi parameter audit...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-def get_active_period(cursor):
-    """Mendeteksi periode aktif terbaru dari database."""
-    cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
-    row = cursor.fetchone()
-    return row['periode'] if row else datetime.now().strftime('%m-%Y')
+    <div class="row g-2 mb-4">
+        <div class="col-4">
+            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-bottom border-warning border-4 bg-white text-center">
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.5rem;">UNDUE (BANK)</small>
+                <h6 class="fw-bold mb-0 text-warning" id="audit-undue">Rp 0</h6>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-bottom border-primary border-4 bg-white text-center">
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.5rem;">FIELD (PETUGAS)</small>
+                <h6 class="fw-bold mb-0 text-primary" id="audit-petugas">Rp 0</h6>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-bottom border-info border-4 bg-white text-center">
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.5rem;">MANDIRI (CURRENT)</small>
+                <h6 class="fw-bold mb-0 text-info" id="audit-mandiri">Rp 0</h6>
+            </div>
+        </div>
+    </div>
 
-@collection_bp.route('/pusat-kendali', methods=['GET'])
-def pusat_kendali():
-    """Summary Audit: Memisahkan realisasi berdasarkan bukti kerja lapangan."""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        periode_req = request.args.get('periode') or get_active_period(cursor)
+    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-wave-square me-2 text-primary"></i>Tren Penagihan Harian</h6>
+            <div class="d-flex gap-3">
+                <small class="text-primary fw-bold" style="font-size: 0.6rem;"><i class="fas fa-circle me-1"></i>R34: <span id="sum-r34">0%</span></small>
+                <small class="text-info fw-bold" style="font-size: 0.6rem;"><i class="fas fa-circle me-1"></i>R35: <span id="sum-r35">0%</span></small>
+            </div>
+        </div>
+        <div class="card-body pt-0">
+            <canvas id="collectionChart" style="height: 180px;"></canvas>
+        </div>
+    </div>
 
-        # 1. Target MC & Total Lunas
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(nominal), 0) as target_mc,
-                COALESCE(SUM(CASE WHEN status_lunas = 1 THEN nominal ELSE 0 END), 0) as rp_lunas,
-                COALESCE(SUM(CASE WHEN status_lunas = 0 THEN nominal ELSE 0 END), 0) as rp_sisa
-            FROM master_pelanggan WHERE periode = ?
-        """, (periode_req,))
-        master = dict(cursor.fetchone())
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden border">
+        <div class="table-responsive" style="max-height: 500px;">
+            <table class="table table-sm table-bordered small mb-0 text-center align-middle">
+                <thead class="bg-dark text-white sticky-top">
+                    <tr style="font-size: 0.65rem; letter-spacing: 0.3px;">
+                        <th rowspan="2" class="align-middle px-3">TGL</th>
+                        <th colspan="2" class="border-start">RAYON 34</th>
+                        <th colspan="2" class="border-start bg-secondary">RAYON 35</th>
+                        <th colspan="3" class="border-start bg-primary">AB SUNTER</th>
+                    </tr>
+                    <tr style="font-size: 0.55rem;">
+                        <th class="border-start">Nominal (Rp)</th><th>% Real</th>
+                        <th class="border-start">Nominal (Rp)</th><th>% Real</th>
+                        <th class="border-start">Harian</th><th>Kumulatif</th><th>% Total</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <tr><td colspan="8" class="py-5">Mempersiapkan data audit harian...</td></tr>
+                </tbody>
+                <tfoot class="bg-light fw-bold" id="table-footer"></tfoot>
+            </table>
+        </div>
+    </div>
+</div>
 
-        # 2. Logika UNDUE (Bank/Mandiri Pre-Period)
-        cursor.execute("""
-            SELECT COALESCE(SUM(nominal), 0) FROM (
-                SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
-                UNION ALL
-                SELECT nominal FROM collection_harian WHERE periode = ? AND kategori = 'UNDUE'
-            )
-        """, (periode_req, periode_req))
-        undue_val = cursor.fetchone()[0]
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let myChart = null;
+    const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-        # 3. Logika CURRENT PETUGAS (Bayar + Ada Bukti Kunjungan)
-        cursor.execute("""
-            SELECT COALESCE(SUM(p.nominal), 0) FROM (
-                SELECT nomen, nominal FROM master_bayar WHERE periode = ? AND kategori = 'CURRENT'
-                UNION ALL
-                SELECT nomen, nominal FROM collection_harian WHERE periode = ? AND kategori = 'CURRENT'
-            ) p
-            WHERE EXISTS (
-                SELECT 1 FROM kunjungan_petugas k 
-                WHERE k.nomen = p.nomen AND k.periode = ?
-            )
-        """, (periode_req, periode_req))
-        current_petugas = cursor.fetchone()[0]
-
-        # 4. Logika CURRENT MANDIRI (Bayar + Tanpa Kunjungan)
-        current_mandiri = master['rp_lunas'] - undue_val - current_petugas
-
-        return jsonify({
-            "status": "success",
-            "periode": periode_req,
-            "summary": {
-                "target_mc": master['target_mc'],
-                "realisasi": {
-                    "total": master['rp_lunas'],
-                    "undue": undue_val,
-                    "current_petugas": current_petugas,
-                    "current_mandiri": current_mandiri
-                },
-                "sisa_tagihan": master['rp_sisa']
-            }
-        })
-    finally:
-        conn.close()
-
-@collection_bp.route('/daily-monitor', methods=['GET'])
-def daily_monitor():
-    """Monitoring harian dengan rincian Rayon 34 & 35."""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        periode_req = request.args.get('periode') or get_active_period(cursor)
-
-        # Ambil Target per-Rayon
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
-                COALESCE(SUM(CASE WHEN rayon = '35' THEN nominal ELSE 0 END), 0) as target_35,
-                COALESCE(SUM(nominal), 0) as target_total
-            FROM master_pelanggan WHERE periode = ?
-        """, (periode_req,))
-        targets = dict(cursor.fetchone())
-
-        # Ambil Saldo Awal Undue
-        cursor.execute("""
-            SELECT COALESCE(SUM(nominal), 0) FROM (
-                SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
-                UNION ALL
-                SELECT nominal FROM collection_harian WHERE periode = ? AND kategori = 'UNDUE'
-            )
-        """, (periode_req, periode_req))
-        undue_start = cursor.fetchone()[0]
-
-        # Query Pivot Harian
-        cursor.execute("""
-            SELECT 
-                c.pay_dt as tgl,
-                SUM(CASE WHEN p.rayon = '34' THEN c.nominal ELSE 0 END) as rp_34,
-                SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END) as rp_35,
-                SUM(c.nominal) as rp_total
-            FROM collection_harian c
-            INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE p.periode = ?
-            GROUP BY c.pay_dt 
-            ORDER BY substr(c.pay_dt,7,4) ASC, substr(c.pay_dt,4,2) ASC, substr(c.pay_dt,1,2) ASC
-        """, (periode_req,))
-        rows = cursor.fetchall()
-
-        daily_data = []
-        cum_34 = 0
-        cum_35 = 0
+    async function loadMonitor() {
+        const picker = document.getElementById('filter-periode').value;
+        const icon = document.getElementById('sync-icon');
+        if (!picker) return;
         
-        for r in rows:
-            cum_34 += r['rp_34']
-            cum_35 += r['rp_35']
-            cum_all = cum_34 + cum_35 + undue_start
-            
-            daily_data.append({
-                "tgl": r['tgl'],
-                "r34": {
-                    "rp": r['rp_34'], 
-                    "pct": round((cum_34 / targets['target_34'] * 100), 2) if targets['target_34'] > 0 else 0
-                },
-                "r35": {
-                    "rp": r['rp_35'], 
-                    "pct": round((cum_35 / targets['target_35'] * 100), 2) if targets['target_35'] > 0 else 0
-                },
-                "total": {
-                    "rp_harian": r['rp_total'],
-                    "cum_all": cum_all,
-                    "pct": round((cum_all / targets['target_total'] * 100), 2) if targets['target_total'] > 0 else 0
-                }
-            })
+        icon.classList.add('fa-spin');
+        const [year, month] = picker.split('-');
+        const periode = `${month}-${year}`;
 
-        return jsonify({
-            "status": "success",
-            "periode": periode_req,
-            "data": daily_data,
-            "summary": {
-                "target": targets['target_total'],
-                "pct": (cum_all / targets['target_total'] * 100) if rows and targets['target_total'] > 0 else 0,
-                "realisasi": cum_all if rows else undue_start
+        try {
+            // Fetch Summary Audit
+            const resSum = await fetch(`/api/collection/pusat-kendali?periode=${periode}`);
+            const sumData = await resSum.json();
+
+            // Fetch Daily Monitor Data
+            const resDaily = await fetch(`/api/collection/daily-monitor?periode=${periode}`);
+            const dailyData = await resDaily.json();
+            
+            if (sumData.status === 'success' && dailyData.status === 'success') {
+                updateUI(sumData, dailyData);
+                renderTable(dailyData.data);
+                renderChart(dailyData.data);
             }
-        })
-    finally:
-        conn.close()
+        } catch (e) {
+            console.error("Critical: Transmisi Gagal", e);
+        } finally {
+            setTimeout(() => icon.classList.remove('fa-spin'), 800);
+        }
+    }
+
+    function updateUI(sum, daily) {
+        const s = sum.summary;
+        // Global Widget
+        document.getElementById('sum-pct').innerText = (daily.summary.pct || 0).toFixed(2) + '%';
+        document.getElementById('sum-info').innerText = `Proyeksi MC: ${toIDR(s.target_mc)} / Sisa: ${toIDR(s.sisa_tagihan)}`;
+        
+        // Audit Widgets
+        document.getElementById('audit-undue').innerText = toIDR(s.realisasi.undue);
+        document.getElementById('audit-petugas').innerText = toIDR(s.realisasi.current_petugas);
+        document.getElementById('audit-mandiri').innerText = toIDR(s.realisasi.current_mandiri);
+
+        // Rayon Legend
+        if (daily.data.length > 0) {
+            const last = daily.data[daily.data.length - 1];
+            document.getElementById('sum-r34').innerText = (last.r34.pct || 0).toFixed(2) + '%';
+            document.getElementById('sum-r35').innerText = (last.r35.pct || 0).toFixed(2) + '%';
+        }
+    }
+
+    function renderTable(data) {
+        const body = document.getElementById('table-body');
+        const footer = document.getElementById('table-footer');
+        
+        if (!data || data.length === 0) {
+            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Belum ada data pembayaran di periode ini.</td></tr>';
+            footer.innerHTML = '';
+            return;
+        }
+
+        body.innerHTML = data.map(row => {
+            const tglDay = row.tgl.split('-')[0];
+            return `
+            <tr class="clickable-row">
+                <td class="bg-light fw-bold text-primary">${tglDay}</td>
+                <td class="text-end border-start">${(row.r34.rp || 0).toLocaleString()}</td>
+                <td class="small fw-bold text-primary">${(row.r34.pct || 0).toFixed(1)}%</td>
+                <td class="text-end border-start">${(row.r35.rp || 0).toLocaleString()}</td>
+                <td class="small fw-bold text-info">${(row.r35.pct || 0).toFixed(1)}%</td>
+                <td class="text-end border-start bg-light">${(row.total.rp_harian || 0).toLocaleString()}</td>
+                <td class="text-end bg-light" style="font-size: 0.6rem;">${toIDR(row.total.cum_all)}</td>
+                <td class="bg-primary text-white fw-bold">${(row.total.pct || 0).toFixed(1)}%</td>
+            </tr>`;
+        }).join('');
+
+        const last = data[data.length - 1];
+        footer.innerHTML = `
+            <tr class="table-dark">
+                <td class="py-2">TOTAL</td>
+                <td colspan="2" class="text-end border-start pe-3">R34 Realisasi</td>
+                <td colspan="2" class="text-end border-start pe-3">R35 Realisasi</td>
+                <td colspan="3" class="text-end pe-3 bg-primary">Final: ${(last.total.pct || 0).toFixed(2)}%</td>
+            </tr>`;
+    }
+
+    function renderChart(data) {
+        const ctx = document.getElementById('collectionChart').getContext('2d');
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.tgl.split('-')[0]),
+                datasets: [{
+                    label: 'Progres Total (%)',
+                    data: data.map(d => d.total.pct),
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                    fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: false, ticks: { font: { size: 9 }, callback: (v) => v + '%' } },
+                    x: { ticks: { font: { size: 9 } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const now = new Date();
+        document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        loadMonitor();
+    });
+</script>
+
+<style>
+    .clickable-row:hover { background-color: #f8fafc !important; cursor: default; }
+    .table-bordered td, .table-bordered th { border-color: #f1f5f9 !important; }
+    .sticky-top { position: sticky; top: 0; z-index: 1020; }
+    .bg-primary { background-color: #2563eb !important; }
+    .btn-white { background: #fff; border: 1px solid #e2e8f0; }
+    #audit-undue, #audit-petugas, #audit-mandiri { font-size: 0.85rem; letter-spacing: -0.5px; }
+</style>
+{% endblock %}
