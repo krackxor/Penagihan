@@ -1,12 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V12.7 Strict MB Filter)
+Collection API - Sunter Dashboard Pro (V12.8 Audit Field vs Mandiri)
 Update: 2026-01-12
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Strict UNDUE Filter: Hanya menarik data MB dengan kategori 'UNDUE' (Bulan Bayar == Bulan Rekening).
-2. Data Integrity: Menghitung realisasi dari tabel asli (MB & Collection) bukan status_lunas master.
-3. Ardebt Exclusion: Pembayaran ekor/basi (kategori 'ARDEBT') otomatis tidak dihitung di dashboard.
-4. Rayon Accuracy: Monitoring kumulatif harian dimulai dari saldo awal Undue yang sah.
+1. Strict UNDUE Filter: Realisasi Bank murni (MB) dengan kategori 'UNDUE'.
+2. Field vs Mandiri Split: Memisahkan realisasi CURRENT berdasarkan Visit Log.
+3. Logical Verification: Menggunakan subquery EXISTS untuk validasi bukti kunjungan.
+4. Rayon Integrity: Mempertahankan detail breakdown untuk Rayon 34 & 35.
 """
 
 from flask import Blueprint, jsonify, request
@@ -23,18 +23,17 @@ def get_active_period(cursor):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Audit: Memisahkan realisasi berdasarkan sumber data dan filter BULAN_REK."""
+    """Summary Audit: Memisahkan realisasi MB (Undue) dan Collection (Petugas vs Mandiri)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # 1. TOTAL MC (Target Global dari Master Pelanggan)
+        # 1. TOTAL MC (Target Global)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (Eksklusif: Master Bayar / MB)
-        # Hanya data yang berlabel 'UNDUE' (Bulan Bayar == Bulan Rekening) saat upload
+        # 2. BOX UNDUE (Eksklusif MB)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -42,27 +41,43 @@ def pusat_kendali():
         """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX CURRENT (Eksklusif: Collection / Lapangan)
-        # Menghitung semua realisasi lapangan kategori 'CURRENT' (N di N+1)
+        # 3. BOX CURRENT - FIELD/PETUGAS (Eksklusif Collection + Bukti Kunjungan)
         cursor.execute("""
-            SELECT COALESCE(SUM(nominal), 0) 
-            FROM collection_harian 
-            WHERE periode = ? AND kategori = 'CURRENT'
+            SELECT COALESCE(SUM(c.nominal), 0) 
+            FROM collection_harian c
+            WHERE c.periode = ? AND c.kategori = 'CURRENT'
+            AND EXISTS (
+                SELECT 1 FROM kunjungan_petugas k 
+                WHERE k.nomen = c.nomen AND k.periode = c.periode
+            )
         """, (periode_req,))
-        current_val = cursor.fetchone()[0]
+        current_petugas = cursor.fetchone()[0]
+
+        # 4. BOX CURRENT - MANDIRI (Eksklusif Collection Tanpa Bukti Kunjungan)
+        cursor.execute("""
+            SELECT COALESCE(SUM(c.nominal), 0) 
+            FROM collection_harian c
+            WHERE c.periode = ? AND c.kategori = 'CURRENT'
+            AND NOT EXISTS (
+                SELECT 1 FROM kunjungan_petugas k 
+                WHERE k.nomen = c.nomen AND k.periode = c.periode
+            )
+        """, (periode_req,))
+        current_mandiri = cursor.fetchone()[0]
 
         # Konsolidasi Realisasi Sah
-        total_realisasi = undue_val + current_val
+        total_realisasi = undue_val + current_petugas + current_mandiri
 
         return jsonify({
             "status": "success",
             "periode": periode_req,
             "summary": {
-                "total_mc": target_mc,
+                "target_mc": target_mc,
                 "realisasi": {
-                    "total": total_realisasi,
+                    "total": total_realisai,
                     "undue": undue_val,
-                    "current": current_val
+                    "current_petugas": current_petugas,
+                    "current_mandiri": current_mandiri
                 },
                 "sisa_tagihan": target_mc - total_realisasi,
                 "pct": round((total_realisasi / target_mc * 100), 2) if target_mc > 0 else 0
@@ -73,13 +88,12 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Monitoring progres harian gabungan Undue (MB) dan Current (Collection)."""
+    """Monitoring progres harian gabungan Undue dan Current."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # Ambil Target per-Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -89,11 +103,9 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Ambil Saldo Awal Undue yang Sah
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'", (periode_req,))
         undue_start = cursor.fetchone()[0]
 
-        # Query Pivot Harian (Hanya data Collection kategori CURRENT)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
