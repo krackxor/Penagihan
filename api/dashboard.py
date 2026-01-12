@@ -1,9 +1,12 @@
 """
-API Dashboard - Sunter Dashboard Pro (V9.0 Smart Sync Edition)
-Pembaruan:
-1. Autonomous Period: Mengambil periode aktif terbaru dari database untuk mencegah data kosong (Anti-Januari).
-2. Smart Route Sync: Integrasi langsung dengan rute_petugas (PCEZ) hasil upload terbaru.
-3. Integrity Guard: Menjamin konsistensi angka realisasi Undue (MB) dan Current (Coll).
+API Dashboard - Sunter Dashboard Pro (V12.16 Strict Audit Edition)
+Update: 2026-01-13
+---------------------------------------------------------------------------
+Pembaruan Strategis:
+1. Audit Alignment: Filter kategori UNDUE, CURRENT, dan HISTORY secara spesifik.
+2. N+1 Logic Sync: Mendukung pemetaan periode dashboard hasil upload cerdas.
+3. Anti-Zero Recovery: Menghitung nominal HISTORY agar Box Bank tidak Rp 0.
+4. Smart Route Sync: Konsistensi data petugas berdasarkan pemetaan PCEZ terbaru.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -13,24 +16,23 @@ from datetime import datetime
 dashboard_bp = Blueprint('dashboard', __name__)
 
 def get_latest_active_period(db):
-    """Mendeteksi periode target penagihan terbaru di database."""
+    """Mendeteksi periode target penagihan terbaru di database (N+1)."""
     res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
     return res['periode'] if res else datetime.now().strftime('%m-%Y')
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
-    """Endpoint Pusat Kendali: Mengelola statistik global dan personal petugas."""
+    """Endpoint Pusat Kendali: Mengelola statistik global dan audit realisasi."""
     db = get_db_connection()
     try:
         # [1] SMART PERIOD DETECTION
-        # Memastikan dashboard tidak kosong saat awal bulan dengan mencari periode terakhir yang tersedia.
+        # Mengunci periode dashboard agar sinkron dengan hasil deteksi N+1 di upload.
         periode = request.args.get('periode') or get_latest_active_period(db)
         
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
         # [2] SUMMARY MC (TARGET UTAMA PERIODE AKTIF)
-        # Menggunakan COALESCE agar Guest melihat angka 0, bukan null.
         query_summary = """
             SELECT 
                 COUNT(*) as total_nomen,
@@ -50,17 +52,18 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params).fetchone()
 
-        # [3] REALISASI SINERGI (UNDUE VS CURRENT)
-        # Undue: Pembayaran Kantor (MB) | Current: Pembayaran Lapangan (Coll).
+        # [3] REALISASI SINERGI (AUDIT CATEGORY)
+        # Menarik data UNDUE & HISTORY untuk Bank, dan CURRENT & HISTORY untuk Lapangan.
         query_realisasi = """
             SELECT 
-                (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ?) as undue_nom,
-                (SELECT COALESCE(SUM(nominal), 0) FROM collection_harian WHERE periode = ?) as current_nom
+                (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
+                 WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY', 'ARDEBT')) as undue_nom,
+                (SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
+                 WHERE periode = ? AND kategori IN ('CURRENT', 'HISTORY', 'ARDEBT')) as current_nom
         """
         res_realisasi = db.execute(query_realisasi, (periode, periode)).fetchone()
 
-        # [4] SMART LEADERBOARD
-        # Sinkronisasi instan dengan rute_petugas terbaru (Hasil upload Rute RL JS).
+        # [4] SMART LEADERBOARD (KINERJA LAPANGAN)
         query_leaderboard = """
             SELECT 
                 r.petugas,
@@ -76,6 +79,13 @@ def get_pusat_kendali():
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
         # [5] SYNC OUTPUT UNTUK DASHBOARD UI
+        total_mc = res_summary['total_nominal'] or 0
+        total_undue = res_realisasi['undue_nom'] or 0
+        total_current = res_realisasi['current_nom'] or 0
+        
+        # Kalkulasi sisa berdasarkan audit realisasi gabungan
+        realisasi_gabungan = total_undue + total_current
+
         return jsonify({
             "summary": {
                 "periode_aktif": periode,
@@ -85,10 +95,12 @@ def get_pusat_kendali():
                     "belum": res_summary['sisa_nomen'] or 0
                 },
                 "rupiah": {
-                    "mc": res_summary['total_nominal'] or 0,
-                    "undue": res_realisasi['undue_nom'] or 0,
-                    "current": res_realisasi['current_nom'] or 0,
-                    "sisa": (res_summary['total_nominal'] or 0) - (res_summary['rp_lunas'] or 0)
+                    "mc": total_mc,
+                    "undue": total_undue,
+                    "current": total_current,
+                    "total_realisasi": realisasi_gabungan,
+                    "sisa": max(0, total_mc - realisasi_gabungan),
+                    "pct": round((realisasi_gabungan / (total_mc or 1) * 100), 2)
                 }
             },
             "analytics": {"leaderboard": [dict(row) for row in res_leaderboard]},
