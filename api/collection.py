@@ -1,12 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V11.6 Bug Fixed Edition)
-Update: 2026-01-12 16:00
+Collection API - Sunter Dashboard Pro (V12.0 Strict Hard-Audit)
+Update: 2026-01-12
 ---------------------------------------------------------------------------
-Pembaruan:
-1. Fix Bindings: Sinkronisasi jumlah parameter SQL (?) untuk mencegah error 500.
-2. Smart Audit: Logika pemisahan Current Petugas vs Current Mandiri berbasis visit log.
-3. Rayon Consistency: Mendukung breakdown detail untuk Rayon 34 & 35.
-4. Chronological Sorting: Pengurutan harian stabil menggunakan substr SQL.
+Pembaruan Strategis:
+1. Strict Source Logic: Undue (MB Only) & Current (Collection Only).
+2. Hard Filter Audit: Otomatis membuang data ARDEBT/EKOR dari dashboard.
+3. Visit-Based Validation: Memastikan realisasi lapangan didukung bukti kunjungan.
+4. Rayon Split: Monitoring detail performa Rayon 34 & Rayon 35.
 """
 
 from flask import Blueprint, jsonify, request
@@ -23,65 +23,66 @@ def get_active_period(cursor):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Audit: Validasi realisasi berdasarkan bukti kerja lapangan (Visit Log)."""
+    """Summary Audit: Validasi realisasi ketat dengan memisahkan sumber data."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # 1. Target & Total Lunas (Basic Summary)
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(nominal), 0) as target_mc,
-                COALESCE(SUM(CASE WHEN status_lunas = 1 THEN nominal ELSE 0 END), 0) as rp_lunas,
-                COALESCE(SUM(CASE WHEN status_lunas = 0 THEN nominal ELSE 0 END), 0) as rp_sisa
-            FROM master_pelanggan WHERE periode = ?
-        """, (periode_req,))
-        master = dict(cursor.fetchone())
+        # 1. Target MC (Referensi Dasar)
+        cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
+        target_mc = cursor.fetchone()[0]
 
-        # 2. Logika UNDUE (Bank/Mandiri Pre-Period)
-        # Membutuhkan 2 parameter periode_req
+        # 2. LOGIKA UNDUE (Eksklusif: Master Bayar / MB)
+        # Hanya mengambil data MB yang berlabel UNDUE (Bulan Bayar == Bulan Rekening)
         cursor.execute("""
-            SELECT COALESCE(SUM(nominal), 0) FROM (
-                SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
-                UNION ALL
-                SELECT nominal FROM collection_harian WHERE periode = ? AND kategori = 'UNDUE'
-            )
-        """, (periode_req, periode_req))
+            SELECT COALESCE(SUM(nominal), 0) 
+            FROM master_bayar 
+            WHERE periode = ? AND kategori = 'UNDUE'
+        """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. Logika CURRENT PETUGAS (Bayar + Ada Bukti Kunjungan)
-        # Membutuhkan 3 parameter periode_req: 2 untuk UNION, 1 untuk EXISTS
-        query_petugas = """
-            SELECT COALESCE(SUM(p.nominal), 0) FROM (
-                SELECT nomen, nominal, periode FROM master_bayar WHERE kategori = 'CURRENT'
-                UNION ALL
-                SELECT nomen, nominal, periode FROM collection_harian WHERE kategori = 'CURRENT'
-            ) p
-            WHERE p.periode = ? 
+        # 3. LOGIKA CURRENT PETUGAS (Eksklusif: Collection / Lapangan + Kunjungan)
+        # Hanya mengambil data Collection yang berlabel CURRENT + Ada record kunjungan
+        cursor.execute("""
+            SELECT COALESCE(SUM(c.nominal), 0) 
+            FROM collection_harian c
+            WHERE c.periode = ? AND c.kategori = 'CURRENT'
             AND EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
-                WHERE k.nomen = p.nomen AND k.periode = ?
+                WHERE k.nomen = c.nomen AND k.periode = c.periode
             )
-        """
-        cursor.execute(query_petugas, (periode_req, periode_req))
+        """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. Logika CURRENT MANDIRI (Bayar + Tanpa Kunjungan)
-        current_mandiri = master['rp_lunas'] - undue_val - current_petugas
+        # 4. LOGIKA CURRENT MANDIRI (Eksklusif: Collection / Lapangan - Tanpa Kunjungan)
+        # Hanya mengambil data Collection yang berlabel CURRENT + Tanpa record kunjungan
+        cursor.execute("""
+            SELECT COALESCE(SUM(c.nominal), 0) 
+            FROM collection_harian c
+            WHERE c.periode = ? AND c.kategori = 'CURRENT'
+            AND NOT EXISTS (
+                SELECT 1 FROM kunjungan_petugas k 
+                WHERE k.nomen = c.nomen AND k.periode = c.periode
+            )
+        """, (periode_req,))
+        current_mandiri = cursor.fetchone()[0]
+
+        # Konsolidasi Realisasi Sah (Data ARDEBT/EKOR otomatis tereliminasi karena tidak dipanggil)
+        total_realisasi = undue_val + current_petugas + current_mandiri
 
         return jsonify({
             "status": "success",
             "periode": periode_req,
             "summary": {
-                "target_mc": master['target_mc'],
+                "target_mc": target_mc,
                 "realisasi": {
-                    "total": master['rp_lunas'],
+                    "total": total_realisasi,
                     "undue": undue_val,
                     "current_petugas": current_petugas,
                     "current_mandiri": current_mandiri
                 },
-                "sisa_tagihan": master['rp_sisa']
+                "sisa_tagihan": target_mc - total_realisasi
             }
         })
     finally:
@@ -89,7 +90,7 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Monitoring progres harian dengan rincian Rayon 34 & 35."""
+    """Monitoring progres harian detail per Rayon (Hanya Data Sah)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -105,17 +106,11 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Ambil Saldo Awal Undue (Membutuhkan 2 parameter)
-        cursor.execute("""
-            SELECT COALESCE(SUM(nominal), 0) FROM (
-                SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
-                UNION ALL
-                SELECT nominal FROM collection_harian WHERE periode = ? AND kategori = 'UNDUE'
-            )
-        """, (periode_req, periode_req))
+        # Ambil Saldo Awal Undue (Murni MB)
+        cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'", (periode_req,))
         undue_start = cursor.fetchone()[0]
 
-        # Query Pivot Harian (Pemisahan Rayon 34 & 35)
+        # Query Pivot Harian (Hanya data Collection kategori CURRENT)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -124,7 +119,7 @@ def daily_monitor():
                 SUM(c.nominal) as rp_total
             FROM collection_harian c
             INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE p.periode = ?
+            WHERE p.periode = ? AND c.kategori = 'CURRENT'
             GROUP BY c.pay_dt 
             ORDER BY substr(c.pay_dt,7,4) ASC, substr(c.pay_dt,4,2) ASC, substr(c.pay_dt,1,2) ASC
         """, (periode_req,))
@@ -155,18 +150,13 @@ def daily_monitor():
                 }
             })
 
-        # Final Summary for Header
-        last_cum = daily_data[-1]['total']['cum_all'] if daily_data else undue_start
-        last_pct = daily_data[-1]['total']['pct'] if daily_data else 0
-
         return jsonify({
             "status": "success",
-            "periode": periode_req,
             "data": daily_data,
             "summary": {
                 "target": targets['target_total'],
-                "pct": last_pct,
-                "realisasi": last_cum
+                "pct": daily_data[-1]['total']['pct'] if daily_data else 0,
+                "realisasi": daily_data[-1]['total']['cum_all'] if daily_data else undue_start
             }
         })
     finally:
