@@ -1,7 +1,9 @@
 """
-API Dashboard - Sunter Dashboard Pro (V8.1 Open Access Edition)
-Fungsi: Menyuplai data ke index.html baik saat login maupun guest.
-Logika: Guest/Admin = Global Data, Petugas = Personal Area Data.
+API Dashboard - Sunter Dashboard Pro (V8.2 Sinergi Edition)
+Pembaruan:
+1. Sinergi Realisasi: Menghubungkan nominal Undue (MB) dan Current (Coll) secara global.
+2. Smart Leaderboard: Mengaktifkan peringkat petugas otomatis di halaman depan.
+3. Guest Data Consistency: Menjamin Guest melihat total global, bukan data kosong.
 """
 
 from flask import Blueprint, jsonify, request, session
@@ -12,17 +14,16 @@ dashboard_bp = Blueprint('dashboard', __name__)
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
-    # --- FIX 1: Izinkan Guest melihat data tanpa 401 Unauthorized ---
+    # Mengambil periode dari request atau default ke bulan berjalan
     periode = request.args.get('periode') or datetime.now().strftime('%m-%Y')
     
-    # Deteksi role secara aman
+    # Deteksi role secara aman untuk menentukan jangkauan data
     user_role = str(session.get('role', 'guest')).lower()
     petugas_id = session.get('petugas_id')
 
     db = get_db_connection()
     try:
-        # 1. Summary MC (Master Catat)
-        # --- FIX 2: Default Query Global ---
+        # 1. Summary MC (Master Catat) - Target Utama Periode Berjalan
         query_summary = """
             SELECT 
                 COUNT(*) as total_nomen,
@@ -34,16 +35,15 @@ def get_pusat_kendali():
         """
         params = [periode]
 
-        # Filter area HANYA jika yang login adalah petugas
+        # Filter area jika yang login adalah petugas agar melihat data personalnya
         if user_role == 'petugas' and petugas_id:
             query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
             params.append(petugas_id)
 
         res_summary = db.execute(query_summary, params).fetchone()
 
-        # 2. Realisasi Undue & Current
-        # Logika: Undue (Kantor/MB) & Current (Lapangan/Collection)
-        # Data realisasi untuk dashboard utama sebaiknya selalu global jika guest/admin
+        # 2. Realisasi Undue (MB) & Current (Collection)
+        # Undue: Pembayaran via Bank/Kantor | Current: Pembayaran via Lapangan
         query_realisasi = """
             SELECT 
                 (SELECT SUM(nominal) FROM master_bayar WHERE periode = ?) as undue_nom,
@@ -51,7 +51,7 @@ def get_pusat_kendali():
         """
         res_realisasi = db.execute(query_realisasi, (periode, periode)).fetchone()
 
-        # 3. Leaderboard (Performa Petugas)
+        # 3. Leaderboard (Peringkat Produktivitas Petugas Global)
         query_leaderboard = """
             SELECT 
                 r.petugas,
@@ -64,11 +64,11 @@ def get_pusat_kendali():
             FROM rute_petugas r
             JOIN master_pelanggan p ON r.pcez = p.pcez
             WHERE p.periode = ?
-            GROUP BY r.petugas ORDER BY pct_nomen DESC
+            GROUP BY r.petugas ORDER BY pct_nomen DESC LIMIT 5
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
-        # 4. Logs (Aktivitas Lapangan Terbaru)
+        # 4. Logs (Aktivitas Lapangan Terbaru) - Live Stream Dashboard
         query_logs = """
             SELECT nomen, petugas_name, keterangan, created_at 
             FROM kunjungan_petugas WHERE periode = ? 
@@ -76,7 +76,7 @@ def get_pusat_kendali():
         """
         res_logs = db.execute(query_logs, (periode,)).fetchall()
 
-        # Sinkronisasi JSON Output
+        # Sinkronisasi JSON Output untuk index.html
         return jsonify({
             "summary": {
                 "nomen": {
