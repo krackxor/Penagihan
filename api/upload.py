@@ -3,10 +3,10 @@ Smart Integration Engine - Sunter Dashboard Pro (V12.9 History First)
 Update: 2026-01-12
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Zero Data Loss: Semua baris dari MC, MB, dan COLLECTION wajib disimpan untuk history.
-2. Smart Labeling: Memisahkan UNDUE, CURRENT, dan ARDEBT tanpa menghapus data.
-3. ARDEBT Module Fix: Mendukung sinkronisasi modul ARDEBT murni.
-4. Atomic Transaction: Konsistensi data terjamin dengan Rollback protection.
+1. Zero Data Loss: Semua baris dari MB dan COLLECTION disimpan untuk history.
+2. ARDEBT Fix: Mendukung sinkronisasi piutang lama tanpa mandatory period.
+3. Smart Labeling: Memisahkan UNDUE, CURRENT, dan ARDEBT secara otomatis.
+4. Error Resilience: Melompati baris kosong di Excel untuk mencegah crash.
 """
 
 import pandas as pd
@@ -30,9 +30,9 @@ class UploadEngine:
     def determine_strict_logic(billing_val, payment_date_str, file_type):
         """
         LOGIKA PELABELAN AUDIT:
-        - Bayar N di bulan N     -> UNDUE
-        - Bayar N di bulan N+1   -> CURRENT
-        - Selebihnya             -> ARDEBT (TETAP DISIMPAN SEBAGAI HISTORY)
+        - Bayar N di bulan N     -> UNDUE (MB)
+        - Bayar N di bulan N+1   -> CURRENT (COLL)
+        - Selebihnya             -> ARDEBT (History/Ekor)
         """
         try:
             billing_dt = parse_billing_date(billing_val, file_type)
@@ -47,7 +47,7 @@ class UploadEngine:
             elif diff == 1 and file_type == 'COLLECTION':
                 return 'CURRENT'
             
-            return 'ARDEBT' # Label untuk history (Ekor)
+            return 'ARDEBT' # Ditandai sebagai piutang lama/ekor
         except:
             return 'ARDEBT'
 
@@ -68,24 +68,30 @@ def handle_smart_upload():
         df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         df.columns = [str(c).upper().strip() for c in df.columns]
         
-        # [2] Identifikasi Modul & Periode Target
+        # [2] Identifikasi Modul
         data_type = identify_file_type(df)
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # Penentuan Periode
-        if data_type == 'RUTE':
+        # [3] Penentuan Periode (Bypass untuk ARDEBT)
+        if data_type == 'ARDEBT':
+            target_period = "GLOBAL" # Ardebt tidak terikat satu periode
+        elif data_type == 'RUTE':
             target_period = datetime.now().strftime('%m-%Y')
         else:
             month, year = detect_file_period(df, data_type)
             if not month:
-                return jsonify({"status": "error", "message": "Gagal deteksi periode"}), 400
+                return jsonify({"status": "error", "message": "Gagal deteksi periode file"}), 400
             target_period = f"{month}-{year}"
 
         row_count = 0
 
-        # [3] Processing Tanpa Filter Buang (Semua Disimpan)
+        # [4] Processing Loop (Atomic)
         for _, row in df.iterrows():
+            # Skip baris jika IDPEL/NOMEN kosong
+            nomen = clean_nomen(row.get('NOMEN') or row.get('IDPEL'))
+            if not nomen: continue
+
             # A. MODUL RUTE
             if data_type == 'RUTE':
                 pcez, petugas = str(row.get('PCEZ', '')).strip(), str(row.get('PETUGAS', '')).strip()
@@ -94,10 +100,7 @@ def handle_smart_upload():
                     row_count += 1
                 continue
 
-            # B. MODUL TRANSAKSI & MASTER
-            nomen = clean_nomen(row.get('NOMEN') or row.get('IDPEL'))
-            if not nomen: continue
-
+            # B. MODUL MC
             if data_type == 'MC':
                 zona = autopilot_extract_zona(row['ZONA_NOVAK'])
                 if zona:
@@ -110,11 +113,11 @@ def handle_smart_upload():
                           row.get('NOMET'), target_period))
                     row_count += 1
 
+            # C. MODUL MB & COLLECTION (Simpan Semua sebagai History)
             elif data_type in ['MB', 'COLLECTION']:
                 bill_col = 'BULAN_REK' if data_type == 'MB' else 'BILL_PERIOD'
                 pay_col = 'TGL_BAYAR' if data_type == 'MB' else 'PAY_DT'
                 
-                # Tentukan Kategori (UNDUE / CURRENT / ARDEBT)
                 category = UploadEngine.determine_strict_logic(row.get(bill_col), row.get(pay_col), data_type)
                 
                 if data_type == 'MB':
@@ -129,25 +132,26 @@ def handle_smart_upload():
                     """, (nomen, row.get(pay_col), UploadEngine.cast_to_float(row['NOMINAL']), target_period, category))
                 row_count += 1
 
+            # D. MODUL ARDEBT (Jalur Khusus Piutang Lama)
             elif data_type == 'ARDEBT':
-                # Pastikan sinkronisasi kolom JUMLAH/NOMINAL untuk modul Ardebt
-                nominal_ardebt = row.get('JUMLAH') or row.get('NOMINAL') or 0
+                p_bill = str(row.get('PERIODE_BILL') or row.get('PERIODE') or '-').strip()
+                nominal_val = row.get('JUMLAH') or row.get('NOMINAL') or 0
                 db.execute("""
                     INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume) 
                     VALUES (?, ?, ?, ?)
-                """, (nomen, row.get('PERIODE_BILL', target_period), 
-                      UploadEngine.cast_to_float(nominal_ardebt), 
+                """, (nomen, p_bill, 
+                      UploadEngine.cast_to_float(nominal_val), 
                       UploadEngine.cast_to_float(row.get('VOLUME', 0))))
                 row_count += 1
 
-        # [4] Audit History
+        # [5] Audit & Commit
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)", 
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
         db.commit()
         
         return jsonify({
             "status": "success",
-            "message": f"Integrasi Sukses: {row_count} baris data berhasil disimpan sebagai history.",
+            "message": f"Integrasi Sukses: {row_count} baris data berhasil diproses.",
             "metadata": {"rows": row_count, "period": target_period, "type": data_type}
         })
 
