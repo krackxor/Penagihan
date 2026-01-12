@@ -1,15 +1,14 @@
 """
-Upload API - Sunter Dashboard Pro (V5.2 Intelligence Edition)
-Sinergi & Smart Update:
-1. Auto-Text Guard: Menggunakan clean_nomen & clean_notag untuk menjamin JOIN dashboard.
-2. Simple Period Logic: Murni mengambil Bulan & Tahun dari tanggal (MM-YYYY).
-3. NOMET Guard+: Memastikan nomor meter alfanumerik (I19R...) tersimpan akurat.
-4. Float Guard: Menangani angka desimal .0 dari Excel secara otomatis.
+Upload API - Sunter Dashboard Pro (V5.3 Intelligence Edition)
+Pembaruan:
+1. Excel Date Fix: Mendukung konversi angka serial Excel (45986.0) menjadi tanggal asli.
+2. Ardebt Clean: Memastikan NOMEN pada Ardebt dibersihkan agar sinkron dengan Master.
+3. Strict PCEZ: Standarisasi format rute (PC/EZ) agar join dengan tabel petugas akurat.
 """
 
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen, clean_notag
@@ -38,27 +37,36 @@ REQUIRED_COLS = {
 # 2. HELPER FUNCTIONS (SINKRONISASI DATA)
 # =========================================================================
 
-def get_simple_period(date_str):
-    """Mengekstrak MM-YYYY. Mengabaikan tanggal spesifik untuk sinkronisasi global."""
+def parse_excel_date(val):
+    """Mengonversi format tanggal Excel (Serial/String) menjadi objek Datetime."""
     try:
-        if '-' in str(date_str) or '/' in str(date_str):
-            dt = pd.to_datetime(date_str, dayfirst=True)
-        else:
-            dt = pd.to_datetime(date_str)
-        return dt.strftime('%m-%Y')
+        # Jika berupa angka serial Excel (contoh: 45987.0)
+        if str(val).replace('.', '').isdigit():
+            return datetime(1899, 12, 30) + timedelta(days=float(val))
+        
+        # Jika berupa string tanggal biasa
+        return pd.to_datetime(val, dayfirst=True)
     except:
-        return datetime.now().strftime('%m-%Y')
+        return datetime.now()
+
+def get_simple_period(date_val):
+    """Mengekstrak MM-YYYY dari berbagai input tanggal."""
+    dt = parse_excel_date(date_val)
+    return dt.strftime('%m-%Y')
 
 def safe_float(val):
     """Data Guard: Memastikan nominal Excel tidak merusak kalkulasi database."""
     try:
         if pd.isna(val) or str(val).strip() == '': return 0.0
-        return float(str(val).replace('.', '').replace(',', '.'))
+        # Menangani pemisah ribuan titik dan desimal koma
+        clean_val = str(val).replace('.', '').replace(',', '.')
+        return float(clean_val)
     except: return 0.0
 
 def autopilot_extract_zona(val):
     """Otomatis memecah ZONA_NOVAK menjadi komponen rute PCEZ."""
     if pd.isna(val) or str(val).strip() == '': return None
+    # Ambil angka murni dan pastikan 9 digit (Padding Zero)
     s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
     return {
         'rayon': s[0:2], 'pc': s[2:5], 'ez': s[5:7],
@@ -89,7 +97,7 @@ def handle_upload():
 
         file_type = next((t for t, req in REQUIRED_COLS.items() if all(k in cols for k in req)), None)
         if not file_type:
-            return jsonify({"error": "Excel Header format not recognized."}), 400
+            return jsonify({"error": "Format Header Excel tidak dikenali."}), 400
 
         row_count = 0
         detected_period = ""
@@ -122,7 +130,6 @@ def handle_upload():
             for _, r in df.iterrows():
                 row_period = get_simple_period(r['TGL_BAYAR'])
                 detected_period = row_period
-                # INTEGRITY: Memaksa IDPEL & NOTAGIHAN bersih agar terbaca sebagai LUNAS
                 db.execute("""
                     INSERT OR REPLACE INTO master_bayar (nomen, bulan_rek, notagihan, tgl_bayar, nominal, periode)
                     VALUES (?, ?, ?, ?, ?, ?)
@@ -135,7 +142,6 @@ def handle_upload():
             for _, r in df.iterrows():
                 row_period = get_simple_period(r['PAY_DT'])
                 detected_period = row_period
-                # INTEGRITY: NOTAG di Collection harus identik dengan NOTAGIHAN di MC
                 db.execute("""
                     INSERT OR REPLACE INTO collection_harian (nomen, notag, bill_period, bill_reason, nominal, pay_dt, freeze_dttm, vol_collect, periode)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -146,15 +152,18 @@ def handle_upload():
         # --- RUTE & ARDEBT ---
         elif file_type == 'RUTE':
             for _, r in df.iterrows():
+                # Pastikan format PCEZ seragam (contoh: 092/01)
+                pcez_val = str(r['PCEZ']).strip()
                 db.execute("""
                     INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                """, (str(r['PCEZ']).strip(), str(r['PETUGAS']).strip().upper(), str(r.get('NO_ADMIN', ''))))
+                """, (pcez_val, str(r['PETUGAS']).strip().upper(), str(r.get('NO_ADMIN', ''))))
                 row_count += 1
 
         elif file_type == 'ARDEBT':
             db.execute("DELETE FROM ardebt")
             for _, r in df.iterrows():
+                # Gunakan clean_nomen agar Ardebt tersambung ke profil pelanggan
                 db.execute("INSERT INTO ardebt (nomen, periode_bill, jumlah, volume) VALUES (?, ?, ?, ?)",
                           (clean_nomen(r['NOMEN']), r['PERIODE_BILL'], safe_float(r['JUMLAH']), safe_float(r['VOLUME'])))
                 row_count += 1
@@ -164,7 +173,7 @@ def handle_upload():
                   (file_name, file_type, detected_period, row_count, 'SUCCESS'))
 
         db.commit()
-        return jsonify({"status": "success", "message": f"{file_type} Sync Successful!", "rows": row_count, "period": detected_period})
+        return jsonify({"status": "success", "message": f"{file_type} Sync Berhasil!", "rows": row_count, "period": detected_period})
 
     except Exception as e:
         if db: db.rollback()
