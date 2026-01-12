@@ -1,11 +1,11 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.0 Strict Audit)
+Smart Integration Engine - Sunter Dashboard Pro (V12.9 History First)
 Update: 2026-01-12
 ---------------------------------------------------------------------------
-Logika Filter Keras (Audit Compliance):
-1. MB Source: Hanya simpan data jika Bulan Bayar == Bulan Rekening (UNDUE).
-2. COLL Source: Hanya simpan data jika Bulan Bayar == Bulan Rekening + 1 (CURRENT).
-3. Ekor/Ardebt Bypass: Data di luar jendela waktu N & N+1 otomatis DIBUANG.
+Pembaruan Strategis:
+1. Zero Data Loss: Semua baris dari MC, MB, dan COLLECTION wajib disimpan untuk history.
+2. Smart Labeling: Memisahkan UNDUE, CURRENT, dan ARDEBT tanpa menghapus data.
+3. ARDEBT Module Fix: Mendukung sinkronisasi modul ARDEBT murni.
 4. Atomic Transaction: Konsistensi data terjamin dengan Rollback protection.
 """
 
@@ -29,10 +29,10 @@ class UploadEngine:
     @staticmethod
     def determine_strict_logic(billing_val, payment_date_str, file_type):
         """
-        LOGIKA FILTER KERAS:
-        - Bayar N di bulan N     -> UNDUE (Hanya dari MB)
-        - Bayar N di bulan N+1   -> CURRENT (Hanya dari COLL)
-        - Selebihnya             -> REJECT (DIBUANG)
+        LOGIKA PELABELAN AUDIT:
+        - Bayar N di bulan N     -> UNDUE
+        - Bayar N di bulan N+1   -> CURRENT
+        - Selebihnya             -> ARDEBT (TETAP DISIMPAN SEBAGAI HISTORY)
         """
         try:
             billing_dt = parse_billing_date(billing_val, file_type)
@@ -47,9 +47,9 @@ class UploadEngine:
             elif diff == 1 and file_type == 'COLLECTION':
                 return 'CURRENT'
             
-            return 'REJECT' # Data Ekor atau salah sumber file
+            return 'ARDEBT' # Label untuk history (Ekor)
         except:
-            return 'REJECT'
+            return 'ARDEBT'
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_smart_upload():
@@ -73,6 +73,7 @@ def handle_smart_upload():
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
+        # Penentuan Periode
         if data_type == 'RUTE':
             target_period = datetime.now().strftime('%m-%Y')
         else:
@@ -82,9 +83,8 @@ def handle_smart_upload():
             target_period = f"{month}-{year}"
 
         row_count = 0
-        rejected_count = 0
 
-        # [3] Batch Processing dengan Filter Keras
+        # [3] Processing Tanpa Filter Buang (Semua Disimpan)
         for _, row in df.iterrows():
             # A. MODUL RUTE
             if data_type == 'RUTE':
@@ -94,7 +94,7 @@ def handle_smart_upload():
                     row_count += 1
                 continue
 
-            # B. MODUL TRANSAKSI
+            # B. MODUL TRANSAKSI & MASTER
             nomen = clean_nomen(row.get('NOMEN') or row.get('IDPEL'))
             if not nomen: continue
 
@@ -114,12 +114,8 @@ def handle_smart_upload():
                 bill_col = 'BULAN_REK' if data_type == 'MB' else 'BILL_PERIOD'
                 pay_col = 'TGL_BAYAR' if data_type == 'MB' else 'PAY_DT'
                 
-                # JALANKAN FILTER KERAS V12.0
+                # Tentukan Kategori (UNDUE / CURRENT / ARDEBT)
                 category = UploadEngine.determine_strict_logic(row.get(bill_col), row.get(pay_col), data_type)
-                
-                if category == 'REJECT':
-                    rejected_count += 1
-                    continue # DATA DIBUANG (ARDEBT/EKOR)
                 
                 if data_type == 'MB':
                     db.execute("""
@@ -134,10 +130,13 @@ def handle_smart_upload():
                 row_count += 1
 
             elif data_type == 'ARDEBT':
+                # Pastikan sinkronisasi kolom JUMLAH/NOMINAL untuk modul Ardebt
+                nominal_ardebt = row.get('JUMLAH') or row.get('NOMINAL') or 0
                 db.execute("""
                     INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume) 
                     VALUES (?, ?, ?, ?)
-                """, (nomen, row['PERIODE_BILL'], UploadEngine.cast_to_float(row['JUMLAH']), 
+                """, (nomen, row.get('PERIODE_BILL', target_period), 
+                      UploadEngine.cast_to_float(nominal_ardebt), 
                       UploadEngine.cast_to_float(row.get('VOLUME', 0))))
                 row_count += 1
 
@@ -148,13 +147,13 @@ def handle_smart_upload():
         
         return jsonify({
             "status": "success",
-            "message": f"Sinkronisasi Berhasil. {row_count} diproses, {rejected_count} dibuang (Ekor).",
-            "metadata": {"rows": row_count, "rejected": rejected_count, "period": target_period}
+            "message": f"Integrasi Sukses: {row_count} baris data berhasil disimpan sebagai history.",
+            "metadata": {"rows": row_count, "period": target_period, "type": data_type}
         })
 
     except Exception as e:
         if db: db.rollback()
         current_app.logger.error(f"Integrity Error: {str(e)}")
-        return jsonify({"status": "error", "message": f"Sistem Error: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"Kegagalan Sinkronisasi: {str(e)}"}), 500
     finally:
         db.close()
