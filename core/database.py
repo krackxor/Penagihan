@@ -1,10 +1,9 @@
 """
-Core Database Module - Sunter Dashboard Pro (V7.4 Sinergi Final Edition)
-Sinergi & Smart Update:
-1. WAL Mode Autopilot: Optimasi konkurensi untuk akses massal petugas.
-2. Self-Healing Migration V4: Perbaikan otomatis kolom NOMET di master & kunjungan.
-3. Performance Indexing: Turbo charging untuk pencarian PCEZ dan NOMET.
-4. Audit Trail Guard: Pembersihan otomatis data history untuk mencegah Error 500.
+Core Database Module - Sunter Dashboard Pro (V7.5 Sinergi Final Edition)
+Pembaruan:
+1. Multi-Table Periode Sync: Menjamin kolom 'periode' tersedia di MC, MB, & Collection.
+2. Self-Healing Migration V5: Perbaikan otomatis struktur tabel untuk filter bulanan.
+3. Index Turbo: Optimasi pencarian berdasarkan 'periode' untuk dashboard cepat.
 """
 
 import sqlite3
@@ -56,17 +55,17 @@ def init_db(app):
             # 2. Proteksi struktur tabel minimal
             check_and_create_tables(cursor)
 
-            # 3. Jalankan Migrasi Self-Healing (Nomet & History Guard)
+            # 3. Jalankan Migrasi Self-Healing (Nomet, Periode & History Guard)
             run_smart_migration(cursor)
             
-            # 4. Optimasi Turbo Indexing (Nomet & PCEZ Sync)
+            # 4. Optimasi Turbo Indexing (Nomet, Periode & PCEZ Sync)
             optimize_performance(cursor)
 
             # 5. Seeding Akun Admin Pusat
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Sinergi V7.4: Infrastruktur Database & Nomet Sync Telah Aktif.")
+            print("✅ Sinergi V7.5: Infrastruktur Database & Periode Sync Telah Aktif.")
             
         except Exception as e:
             print(f"❌ Sinergi Database Error: {e}")
@@ -76,7 +75,6 @@ def init_db(app):
 
 def check_and_create_tables(cursor):
     """ Menjamin tabel-tabel krusial tersedia agar API tidak Error 500. """
-    # Tabel Laporan Kunjungan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,7 +84,6 @@ def check_and_create_tables(cursor):
         )
     """)
     
-    # Tabel Riwayat Upload
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS upload_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,8 +95,8 @@ def check_and_create_tables(cursor):
 
 def run_smart_migration(cursor):
     """
-    [HELPER: MEKANISME SELF-HEALING V4]
-    Menambah kolom baru secara otomatis dan menjamin NOMET tersedia.
+    [HELPER: MEKANISME SELF-HEALING V5]
+    Menambah kolom baru secara otomatis untuk sinkronisasi data Excel.
     """
     # --- 1. MIGRASI TABEL KUNJUNGAN ---
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
@@ -115,37 +112,44 @@ def run_smart_migration(cursor):
     for col, dtype in kunjungan_cols.items():
         if col not in existing_kunjungan:
             cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
-            print(f"🔧 Kunjungan: Kolom [{col}] ditambahkan.")
 
-    # --- 2. MIGRASI TABEL MASTER (NOMET GUARD) ---
-    # Memastikan kolom nomet tersedia untuk menampung data alfanumerik dari Excel
-    cursor.execute("PRAGMA table_info(master_pelanggan)")
-    existing_master = [row['name'] for row in cursor.fetchall()]
-    if 'nomet' not in existing_master:
-        cursor.execute("ALTER TABLE master_pelanggan ADD COLUMN nomet TEXT")
-        print("🔧 Master: Kolom [nomet] ditambahkan otomatis.")
+    # --- 2. PERIODE & NOMET GUARD (MASTER & TRANSAKSI) ---
+    # Memastikan semua tabel memiliki kolom 'periode' (MM-YYYY) agar filter dashboard sinkron
+    tables_to_fix = ['master_pelanggan', 'master_bayar', 'collection_harian']
+    
+    for table in tables_to_fix:
+        cursor.execute(f"PRAGMA table_info({table})")
+        existing_cols = [row['name'] for row in cursor.fetchall()]
+        
+        # Tambahkan kolom 'periode' jika belum ada
+        if 'periode' not in existing_cols:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
+            print(f"🔧 {table.capitalize()}: Kolom [periode] ditambahkan.")
+            
+        # Tambahkan kolom 'nomet' khusus master jika belum ada
+        if table == 'master_pelanggan' and 'nomet' not in existing_cols:
+            cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN nomet TEXT")
 
     # --- 3. AUDIT TRAIL GUARD ---
-    # Memperbaiki data history yang NULL agar halaman riwayat tidak crash
     cursor.execute("UPDATE upload_history SET row_count = 0 WHERE row_count IS NULL")
     cursor.execute("UPDATE upload_history SET status = 'FAILED' WHERE status IS NULL")
 
 def optimize_performance(cursor):
     """
     [HELPER: TURBO LOADING & SYNC]
-    Membuat Index pada NOMET dan PCEZ agar deteksi data instan.
+    Membuat Index agar filter periode dan rute menjadi instan.
     """
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_master_nomen ON master_pelanggan (nomen)",
-        "CREATE INDEX IF NOT EXISTS idx_master_nomet ON master_pelanggan (nomet)",
-        "CREATE INDEX IF NOT EXISTS idx_master_pcez ON master_pelanggan (pcez)",
-        "CREATE INDEX IF NOT EXISTS idx_kunjungan_nomen ON kunjungan_petugas (nomen)",
+        "CREATE INDEX IF NOT EXISTS idx_master_pcez ON master_pelanggan (pcez, periode)",
+        "CREATE INDEX IF NOT EXISTS idx_master_periode ON master_pelanggan (periode)",
+        "CREATE INDEX IF NOT EXISTS idx_mb_periode ON master_bayar (periode)",
+        "CREATE INDEX IF NOT EXISTS idx_coll_periode ON collection_harian (periode)",
         "CREATE INDEX IF NOT EXISTS idx_kunjungan_periode ON kunjungan_petugas (periode)",
         "CREATE INDEX IF NOT EXISTS idx_history_date ON upload_history (created_at)"
     ]
     for idx in indices:
         cursor.execute(idx)
-    print("🚀 Performa: Indexing Turbo (Nomet & Petugas Sync) Aktif.")
 
 def seed_default_admin(cursor):
     """ Menjamin ketersediaan akun admin utama. """
@@ -157,10 +161,9 @@ def seed_default_admin(cursor):
             INSERT INTO users (username, password, role, petugas_id)
             VALUES (?, ?, ?, ?)
         """, (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
-        print(f"👤 Seeder: Akun Admin '{username}' siap (Default: admin123).")
+        print(f"👤 Seeder: Akun Admin '{username}' siap.")
 
 def get_db():
-    """ Mengambil koneksi database yang aktif. """
     if 'db' not in g:
         g.db = get_db_connection()
     return g.db
