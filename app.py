@@ -1,11 +1,11 @@
 """
-Flask Application - Area Service Integrated System (V7.2 Enterprise Edition)
-Updated: 2026-01-11 (Rebranding & Gallery Integration)
+Flask Application - Area Service Integrated System (V7.3 Sinergi Edition)
+Updated: 2026-01-12 (Pusat Kendali & Dashboard Sync)
 
 LOGIKA AKSES OPERASIONAL (Security Matrix):
-1. Level 1 (Publik/Guest): Dashboard Realisasi, Monitoring Gabungan, Youtube, & Knowledge Center.
-2. Level 2 (Petugas): Penagihan Berjalan, Target Prioritas, Galeri Visual, & Pelaporan GPS.
-3. Level 3 (Admin): Audit Geospasial, Manajemen Pangkalan Data, Kendali User, & WA Blast.
+1. Level 1 (Publik/Guest): Pusat Kendali, Monitoring Global, Youtube, & Materi.
+2. Level 2 (Petugas): Penagihan Current, Target Ardebt, Galeri Visual, & Lapor GPS.
+3. Level 3 (Admin): Pusat Data, Upload Excel, Audit Lokasi, & WA Blast.
 """
 
 import os
@@ -18,6 +18,8 @@ from core.database import init_db, get_db_connection
 from core.helpers import get_role_redirect
 
 # [IMPORT BLUEPRINTS]: Modular API Area Service
+from api.auth import auth_bp
+from api.dashboard import dashboard_bp  # API Baru untuk Dashboard Utama
 from api.upload import upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
@@ -25,7 +27,6 @@ from api.ardebt import ardebt_bp
 from api.belum_bayar import belum_bayar_bp
 from api.collection import collection_bp
 from api.pcez_performance import register_pcez_routes
-from api.auth import auth_bp
 from api.wa_gateway import wa_bp 
 
 def create_app():
@@ -41,7 +42,7 @@ def create_app():
 
     # --- 1. STARTUP PROTOCOL: Inisialisasi Infrastruktur ---
     with app.app_context():
-        # Auto-Migration: Menjamin tabel NOMET dan Snapshot sinkron
+        # Auto-Migration: Menjamin tabel NOMET, Periode, dan Snapshot sinkron
         init_db(app) 
         
         # Folder Synchronization: Memastikan direktori penyimpanan tersedia
@@ -65,12 +66,12 @@ def create_app():
     def security_layer():
         """
         [GATEKEEPER]: Memastikan akses sesuai dengan Level Otoritas.
-        Knowledge Center & Media Digital terbuka untuk akses publik/guest.
+        Dashboard Global & Media Informasi terbuka untuk akses publik.
         """
         public_endpoints = [
             'index', 'monitoring_collection_page', 'auth.login', 
             'login_page', 'static', 'serve_kunjungan_photo', 
-            'auth.check_session', 'get_full_stats', 'get_reminders', 
+            'auth.check_session', 'dashboard.get_pusat_kendali', # API Dashboard Terbuka
             'collection.daily_monitor', 'youtube_page', 'materi_page',
             'serve_materi_file'
         ]
@@ -79,7 +80,7 @@ def create_app():
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # Proteksi Area Operasional (Wajib Login)
+        # Proteksi Area Operasional (Wajib Login untuk Petugas/Admin)
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
@@ -93,10 +94,11 @@ def create_app():
         
         user_role = str(session.get('role', 'petugas')).lower()
         if endpoint in admin_only_endpoints and user_role != 'admin':
-            return redirect(url_for('tunggakan_berekor_page'))
+            return redirect(url_for('ardebt_page'))
 
     # --- 3. REGISTRASI BLUEPRINTS (API ENGINE) ---
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard') # Endpoint Dashboard
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(history_bp, url_prefix='/api/history')
     app.register_blueprint(rute_bp, url_prefix='/api/rute')
@@ -110,13 +112,8 @@ def create_app():
     
     @app.route('/')
     def index(): 
-        """Dashboard Performa: Visualisasi Capaian Global."""
+        """Pusat Kendali: Dashboard Performa Global (Sinergi V8.0)."""
         return render_template('index.html')
-
-    @app.route('/monitoring-collection')
-    def monitoring_collection_page(): 
-        """Pusat Realisasi: Monitoring Harian Rayon 34 & 35."""
-        return render_template('monitoring_collection.html')
 
     @app.route('/youtube')
     def youtube_page():
@@ -140,49 +137,34 @@ def create_app():
     # [UNIT PELAKSANA LAPANGAN]
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
-        """Penagihan Berjalan (Current Period)."""
+        """Penagihan Berjalan (Current Period - Anti Ardebt)."""
         return render_template('belum_bayar.html')
 
     @app.route('/tunggakan-berekor')
     def ardebt_page(): 
-        """Target Prioritas (Ardebt/Outstanding)."""
+        """Target Prioritas (Ardebt/Tagihan Berbulan-bulan)."""
         return render_template('tagihan_berekor.html')
-
-    @app.route('/janji-bayar')
-    def janji_bayar_page(): 
-        """Monitoring Komitmen Nasabah."""
-        return render_template('janji_bayar.html')
 
     @app.route('/galeri')
     def galeri_page():
-        """Arsip Visual: Dokumentasi Hasil Lapangan."""
+        """Arsip Visual: Dokumentasi Hasil Lapangan Petugas."""
         return render_template('galeri.html')
 
     # [ADMINISTRASI STRATEGIS & AUDIT]
     @app.route('/admin/dashboard')
     def admin_dashboard(): 
-        """Konfigurasi Master Data & User."""
+        """Panel Admin: Konfigurasi Master Data & Excel Upload."""
         return render_template('admin_dashboard.html')
 
     @app.route('/admin/monitoring-lokasi')
     def monitoring_lokasi_page():
-        """Audit Geospasial: Verifikasi GPS Personel."""
+        """Audit Geospasial: Verifikasi Posisi Real-time Personel."""
         return render_template('monitoring_lokasi.html')
-
-    @app.route('/performa')
-    def performa_page(): 
-        """Intelijen Performa: Analisis Prediktif Capaian."""
-        return render_template('performa.html')
 
     @app.route('/history')
     def history_page(): 
-        """Audit Log: Jejak Digital Operasional."""
+        """Audit Log: Jejak Digital Aktivitas Sistem."""
         return render_template('history.html')
-
-    @app.route('/wa-blast')
-    def wa_blast_page(): 
-        """Komunikasi Massal: Notifikasi WhatsApp Otomatis."""
-        return render_template('wa_blast.html')
 
     # --- 5. SECURE FILE SERVING ---
 
@@ -194,9 +176,7 @@ def create_app():
 
     @app.route('/static/uploads/materi/<filename>')
     def serve_materi_file(filename):
-        """
-        [MIMETYPE GUARD]: Menjamin dokumen dirender dengan benar di browser.
-        """
+        """MIMETYPE GUARD: Menyajikan dokumen teknis (PDF/Docs)."""
         folder = os.path.join(app.root_path, 'static', 'uploads', 'materi')
         ext = os.path.splitext(filename)[1].lower()
         mtype = 'application/pdf' if ext == '.pdf' else 'application/octet-stream'
