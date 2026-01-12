@@ -4,7 +4,7 @@ from dateutil.relativedelta import relativedelta
 
 def identify_file_type(df):
     """
-    SINERGI DETECTOR (V6.1):
+    SINERGI DETECTOR (V6.2):
     Mendeteksi tipe file berdasarkan kolom kunci spesifik.
     """
     cols = [str(c).upper().strip() for c in df.columns]
@@ -63,7 +63,6 @@ def detect_file_period(df, file_type):
     """
     LOGIKA PERIODE V6.1 (ULTRA-LOCK):
     Mengunci satu periode untuk seluruh isi file berdasarkan baris pertama.
-    Mencegah data terpecah jika ada baris yang beda tanggal.
     """
     cols = [str(c).upper().strip() for c in df.columns]
     
@@ -92,7 +91,6 @@ def detect_file_period(df, file_type):
             elif file_type == 'collection':
                 target_dt = dt 
 
-            # Mengembalikan bulan dan tahun yang sudah TERKUNCI untuk seluruh entri
             return target_dt.strftime('%m'), target_dt.strftime('%Y')
 
     except Exception as e:
@@ -100,13 +98,15 @@ def detect_file_period(df, file_type):
         
     return None, None
 
-def parse_zona_novak(val):
-    """Pecah ZONA_NOVAK menjadi komponen PCEZ."""
-    if pd.isna(val) or val == '':
+def autopilot_extract_zona(val):
+    """
+    FIXED: Mengubah nama fungsi dari parse_zona_novak menjadi autopilot_extract_zona
+    agar sinkron dengan api/upload.py.
+    """
+    if pd.isna(val) or str(val).strip() == '':
         return None
-    s = str(val).strip().split('.')[0]
-    if len(s) < 9:
-        s = s.zfill(9)
+    # Membersihkan karakter non-digit dan mengambil bagian depan sebelum titik
+    s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
     return {
         'rayon': s[0:2],
         'pc': s[2:5],
@@ -114,3 +114,6 @@ def parse_zona_novak(val):
         'pcez': f"{s[2:5]}/{s[5:7]}",
         'blok': s[7:9]
     }
+
+# Alias tambahan untuk keamanan sinkronisasi
+parse_zona_novak = autopilot_extract_zona
