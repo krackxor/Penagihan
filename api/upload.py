@@ -1,12 +1,12 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V9.5 Sinergi Global Sync)
-Last Updated: 2026-01-12
+Smart Integration Engine - Sunter Dashboard Pro (V10.0 Global Sync)
+Update: 2026-01-12
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Rute Autonomous Logic: Bypass deteksi periode otomatis untuk modul RUTE.
-2. CSV & Excel Compatibility: Mendukung pemrosesan cerdas untuk berbagai format file.
-3. Multi-Layer Integrity: Validasi data di level engine sebelum masuk ke database.
-4. Standardized API Response: Menjamin sinkronisasi UI tanpa 'undefined' errors.
+1. Rute Autonomous Logic: Mendeteksi & bypass periode otomatis untuk modul RUTE.
+2. CSV & Excel Compatibility: Mendukung pemrosesan cerdas berbagai format file.
+3. Atomic Transaction: Menjamin integritas data dengan commit tunggal.
+4. UI Intelligence: Menghilangkan pesan 'undefined' pada Dashboard.
 """
 
 import os
@@ -24,6 +24,7 @@ class UploadEngine:
     
     @staticmethod
     def cast_to_float(value):
+        """Mengamankan konversi angka desimal dari Excel."""
         try:
             if pd.isna(value) or str(value).strip() == '':
                 return 0.0
@@ -33,20 +34,20 @@ class UploadEngine:
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_smart_upload():
-    """Endpoint integrasi masal dengan proteksi kegagalan sinkronisasi rute."""
+    """Endpoint utama integrasi masal dengan proteksi kegagalan sinkronisasi."""
     
     if session.get('role') != 'admin':
-        return jsonify({"status": "error", "message": "Access Denied: Admin Level Required"}), 403
+        return jsonify({"status": "error", "message": "Akses Ditolak: Butuh Level Admin"}), 403
 
     if 'file' not in request.files:
-        return jsonify({"status": "error", "message": "No file stream detected"}), 400
+        return jsonify({"status": "error", "message": "Tidak ada file yang dideteksi"}), 400
     
     file = request.files['file']
     file_name = file.filename
     db = get_db_connection()
     
     try:
-        # 1. CERDAS: Deteksi Format (CSV vs Excel)
+        # [1] CERDAS: Deteksi Format (CSV vs Excel)
         if file_name.endswith('.csv'):
             df = pd.read_csv(file, dtype=str).fillna('')
         else:
@@ -54,14 +55,14 @@ def handle_smart_upload():
             
         df.columns = [str(c).upper().strip() for c in df.columns]
         
-        # 2. IDENTIFIKASI MODUL
+        # [2] IDENTIFIKASI MODUL
         data_type = identify_file_type(df)
         if not data_type:
-            return jsonify({"status": "error", "message": "Format Excel/CSV tidak dikenali"}), 400
+            return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # 3. SMART PERIOD LOCKING (Fix: Gagal mendeteksi periode file)
+        # [3] SMART PERIOD LOCKING (Fix: Gagal mendeteksi periode file)
         if data_type == 'RUTE':
-            # Rute RL JS tidak mengandung tanggal, gunakan periode berjalan secara otomatis
+            # Rute RL JS menggunakan periode server berjalan secara otomatis
             target_period = datetime.now().strftime('%m-%Y')
         else:
             # Modul transaksi (MC/MB/COLL) wajib deteksi dari isi file
@@ -72,7 +73,7 @@ def handle_smart_upload():
 
         row_count = 0
 
-        # 4. BATCH PROCESSING (ATOMIC TRANSACTION)
+        # [4] BATCH PROCESSING (ATOMIC TRANSACTION)
         for _, row in df.iterrows():
             
             # Case RUTE: Mapping Administrasi (PCEZ -> PETUGAS)
@@ -124,7 +125,7 @@ def handle_smart_upload():
 
             row_count += 1
 
-        # 5. AUDIT & LOGGING
+        # [5] AUDIT & LOGGING
         db.execute("""
             INSERT INTO upload_history (file_name, file_type, periode, row_count, status) 
             VALUES (?, ?, ?, ?, ?)
@@ -132,7 +133,7 @@ def handle_smart_upload():
 
         db.commit()
         
-        # 6. RESPONSE PROFESIONAL (Mencegah Undefined)
+        # [6] RESPONSE PROFESIONAL (Mencegah Undefined)
         return jsonify({
             "status": "success",
             "message": f"Sinkronisasi Modul {data_type} Berhasil",
