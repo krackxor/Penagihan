@@ -1,12 +1,12 @@
 """
-Smart Period & Type Detector - Sunter Dashboard Pro (V12.19)
+Smart Period & Type Detector - Sunter Dashboard Pro (V12.21)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. UNDUE Logic: Optimasi deteksi format 112025 untuk validasi bulan bayar yang sama.
-2. Zero Data Loss Detection: Memastikan ARDEBT dan RUTE tidak terlempar karena masalah periode.
-3. Robust Parsing: Menangani Excel Serial Date dan berbagai format separator (/, -, ').
-4. N+1 Targeting: Konsistensi pemetaan data operasional ke dashboard periode berikutnya.
+1. N+1 Global Alignment: Memastikan Bulan Rekening 11 otomatis masuk ke Periode 12.
+2. Robust Parsing: Penanganan format 112025 (6-digit) dan Nov/2025 yang lebih stabil.
+3. Ardebt Shield: Bypass deteksi periode otomatis untuk file piutang lama agar tidak gagal.
+4. Serial Date Fix: Konversi otomatis angka Serial Excel menjadi objek tanggal Python.
 """
 
 import pandas as pd
@@ -14,10 +14,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 def identify_file_type(df):
-    """
-    DETECTOR V12.19:
-    Mendeteksi tipe file berdasarkan struktur kolom kunci dengan toleransi spasi.
-    """
+    """Mendeteksi tipe file berdasarkan struktur kolom kunci."""
     cols = [str(c).upper().strip() for c in df.columns]
     
     # Deteksi Master Pelanggan (MC)
@@ -29,7 +26,7 @@ def identify_file_type(df):
     # Deteksi Realisasi Lapangan (Collection) - Sumber Utama CURRENT
     if 'BILL_PERIOD' in cols or 'PAY_DT' in cols: return 'COLLECTION'
     
-    # Deteksi Piutang Lama (Ardebt) - Data History Global
+    # Deteksi Piutang Lama (Ardebt)
     if 'PERIODE_BILL' in cols or 'JUMLAH' in cols: return 'ARDEBT'
     
     # Deteksi Pemetaan Administrasi (Rute)
@@ -38,10 +35,7 @@ def identify_file_type(df):
     return None
 
 def parse_billing_date(val, file_type='MB'):
-    """
-    KUNCI AUDIT: Membedah Bulan Rekening (Bulan N).
-    Mendukung format: 112025 (MB) atau Nov/2025 (Collection).
-    """
+    """Membedah Bulan Rekening (Bulan N)."""
     if not val or str(val).lower() in ('nan', 'none', ''): return None
     s = str(val).strip().replace("'", "").replace("`", "")
     
@@ -58,22 +52,16 @@ def parse_billing_date(val, file_type='MB'):
             else: # Contoh: 11/2025
                 return datetime.strptime(f"{parts[0]} {parts[1]}", "%m %Y")
                 
-        # 3. Format Tanggal Standar (Fallback)
+        # 3. Format Fallback (Tanggal Standar)
         for fmt in ['%d-%m-%Y', '%Y-%m-%d', '%d/%m/%Y', '%m-%Y']:
-            try:
-                return datetime.strptime(s.split(' ')[0], fmt)
+            try: return datetime.strptime(s.split(' ')[0], fmt)
             except: continue
     except: pass
     return None
 
 def parse_flexible_date(date_val):
-    """
-    Konverter Tanggal Universal: Mendukung format string dan Serial Date Excel.
-    Digunakan untuk memvalidasi TGL_BAYAR / PAY_DT.
-    """
+    """Konverter Tanggal Universal termasuk Serial Date Excel."""
     if not date_val or str(date_val).lower() in ('nan', 'none', ''): return None
-
-    # Bersihkan string dari karakter aneh
     s_date = str(date_val).split(' ')[0].replace("'", "").replace("/", "-").strip()
     
     # Proteksi: Serial Date Excel (Contoh: 45291)
@@ -82,7 +70,7 @@ def parse_flexible_date(date_val):
             return datetime(1899, 12, 30) + timedelta(days=float(s_date))
     except: pass
 
-    # Daftar format tanggal umum untuk scanning
+    # Daftar format umum
     formats = ['%d-%m-%Y', '%Y-%m-%d', '%d/%m/%Y', '%m%Y', '%b-%y', '%B-%Y']
     for fmt in formats:
         try: return datetime.strptime(s_date, fmt)
@@ -91,9 +79,7 @@ def parse_flexible_date(date_val):
 
 def detect_file_period(df, file_type):
     """
-    LOGIKA PERIODE V12.19:
-    Dashboard N+1 dideteksi dari Bulan Rekening N.
-    Bypass otomatis untuk ARDEBT dan RUTE.
+    LOGIKA N+1: Dashboard Desember (12) didapat dari Rekening November (11).
     """
     if file_type in ['RUTE', 'ARDEBT'] or not file_type: return None, None
 
@@ -111,20 +97,20 @@ def detect_file_period(df, file_type):
     if not date_col or date_col not in cols: return None, None
     
     try:
-        # Ambil sampel baris pertama yang berisi data
+        # Ambil sampel 5 baris pertama untuk mencari data valid
         valid_rows = df[df[date_col].astype(str).str.strip() != ''].head(5)
         if valid_rows.empty: return None, None
             
         raw_date = valid_rows.iloc[0].get(date_col)
         
-        # Gunakan parser yang sesuai untuk kolom periode vs kolom tanggal
+        # Ambil objek datetime murni
         if date_col in ['BULAN_REK', 'BILL_PERIOD']:
             dt = parse_billing_date(raw_date, file_type)
         else:
             dt = parse_flexible_date(raw_date)
         
         if dt:
-            # SEMUA DATA REKENING BULAN N DITARGETKAN UNTUK DASHBOARD N+1
+            # FIX UTAMA: Menambahkan 1 bulan ke depan untuk target dashboard
             target_dt = dt + relativedelta(months=1)
             return target_dt.strftime('%m'), target_dt.strftime('%Y')
 
@@ -134,20 +120,12 @@ def detect_file_period(df, file_type):
     return None, None
 
 def autopilot_extract_zona(val):
-    """
-    Extract PCEZ cerdas dari kolom ZONA_NOVAK.
-    Menangani format angka murni maupun format titik (34.101.xx).
-    """
+    """Ekstraksi PCEZ cerdas (Rayon-PC-EZ)."""
     if pd.isna(val) or str(val).strip() == '': return None
-    
-    # Ambil angka saja, buang karakter lain
     s = ''.join(filter(str.isdigit, str(val).split('.')[0])).zfill(9)
     return {
-        'rayon': s[0:2],
-        'pc': s[2:5],
-        'ez': s[5:7],
-        'pcez': s[0:5], 
-        'blok': s[7:9]
+        'rayon': s[0:2], 'pc': s[2:5], 'ez': s[5:7],
+        'pcez': s[0:5], 'blok': s[7:9]
     }
 
 # Aliasing untuk sinkronisasi dengan API Upload
