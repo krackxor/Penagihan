@@ -23,7 +23,7 @@
             <div class="d-flex gap-2">
                 <input type="month" id="filter-periode" 
                        class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" 
-                       style="width: 130px; font-size: 0.75rem;" 
+                       style="width: 140px; font-size: 0.75rem;" 
                        onchange="refreshDashboard()">
                 
                 <button class="btn btn-white shadow-sm rounded-circle p-2" onclick="refreshDashboard()" id="btn-refresh">
@@ -62,13 +62,13 @@
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
                         <small class="d-block opacity-75" style="font-size: 0.55rem;">UNDUE (BANK/MB)</small>
-                        <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">0</span>
+                        <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">Rp 0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
                         <small class="d-block opacity-75" style="font-size: 0.55rem;">CURRENT (FIELD/COLL)</small>
-                        <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">0</span>
+                        <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">Rp 0</span>
                     </div>
                 </div>
             </div>
@@ -113,23 +113,12 @@
     </div>
     <div id="list-history-petugas" class="mb-4"></div>
 
-    <div class="d-flex justify-content-between align-items-center px-1 mb-5">
-        <button class="btn btn-sm btn-white shadow-sm rounded-pill px-3 fw-bold" id="btn-prev" onclick="changePage(-1)" style="font-size: 0.7rem;">Prev</button>
-        <small class="text-muted fw-bold" id="page-info" style="font-size: 0.7rem;">Halaman 1</small>
-        <button class="btn btn-sm btn-white shadow-sm rounded-pill px-3 fw-bold" id="btn-next" onclick="changePage(1)" style="font-size: 0.7rem;">Next</button>
-    </div>
 </div>
-
-
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let currentPage = 1; 
-    let allLogs = []; 
-    const logsPerPage = 10; 
     let myChart = null;
     const USER_ROLE = "{{ session.get('role', 'guest')|lower }}";
-    const MY_PETUGAS_ID = "{{ session.get('petugas_id', 'ALL') }}";
 
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     
@@ -138,6 +127,7 @@
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         
         const now = new Date();
+        // Default ke bulan berjalan
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         
         refreshDashboard(); 
@@ -149,49 +139,48 @@
         if (!rawPeriode) return;
         
         icon.classList.add('fa-spin');
+        
+        // Konversi YYYY-MM ke MM-YYYY untuk API
         const [year, month] = rawPeriode.split('-');
         const periode = `${month}-${year}`; 
 
         try {
-            // Memanggil API Pusat Kendali yang baru dibuat di backend
-            const res = await fetch(`/api/collection/pusat-kendali?periode=${periode}`);
+            const res = await fetch(`/api/dashboard/pusat-kendali?periode=${periode}`);
             const result = await res.json();
             
             if(!res.ok) throw new Error(result.message);
 
             const s = result.summary;
 
-            // 1. Update Kartu Nomen & Nominal
+            // 1. Update Kartu Utama
             document.getElementById('g-nomen-mc').innerText = s.nomen.total.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(s.rupiah.mc);
             
-            // 2. Update Persentase & Progress
+            // 2. Efektivitas & Progress Bar
             const pct = s.nomen.total > 0 ? Math.round((s.nomen.bayar / s.nomen.total) * 100) : 0;
             document.getElementById('stat-percent').innerText = pct + '%';
             document.getElementById('prog-bar').style.width = pct + '%';
-            document.getElementById('stat-realisasi').innerText = `${s.nomen.bayar.toLocaleString()} Nomen Lunas dari ${s.nomen.total.toLocaleString()} Target`;
+            document.getElementById('stat-realisasi').innerText = `${s.nomen.bayar.toLocaleString()} Lunas dari ${s.nomen.total.toLocaleString()} Target`;
 
-            // 3. Update Undue vs Current
+            // 3. Undue vs Current
             document.getElementById('val-undue').innerText = toIDR(s.rupiah.undue);
             document.getElementById('val-current').innerText = toIDR(s.rupiah.current);
 
-            // 4. Update Outstanding
+            // 4. Outstanding
             document.getElementById('stat-sisa-nom').innerText = toIDR(s.rupiah.sisa);
             document.getElementById('stat-sisa-nomen').innerText = s.nomen.belum.toLocaleString();
 
-            // 5. Render Leaderboard & Chart
+            // 5. Leaderboard & Chart
             renderLeaderboard(result.analytics.leaderboard);
             if (USER_ROLE === 'admin') {
                 renderChart(result.analytics.leaderboard);
             }
 
             // 6. Logs
-            allLogs = result.logs || [];
-            currentPage = 1; 
-            renderLiveLogs();
+            renderLiveLogs(result.logs);
 
         } catch (e) { 
-            console.error("Critical Sync Failure:", e); 
+            console.error("Sync Failure:", e); 
         } finally { 
             setTimeout(() => icon.classList.remove('fa-spin'), 1000); 
         }
@@ -199,6 +188,10 @@
 
     function renderLeaderboard(leaderboard) {
         const lb = document.getElementById('leaderboard-section');
+        if (!leaderboard || leaderboard.length === 0) {
+            lb.innerHTML = '<div class="text-center py-3 small text-muted">Belum ada data periode ini</div>';
+            return;
+        }
         lb.innerHTML = leaderboard.map((o, i) => {
             let badgeColor = i === 0 ? 'bg-warning' : 'bg-light text-dark';
             return `
@@ -208,7 +201,7 @@
                         <div class="fw-bold me-3 text-muted">#${i + 1}</div>
                         <div>
                             <h6 class="fw-bold mb-0 small text-uppercase">${o.petugas || 'UNMAPPED'}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;">${o.lunas_nomen} / ${o.target_nomen} Nomen</small>
+                            <small class="text-muted" style="font-size: 0.6rem;">${o.lunas_nomen} / ${o.target_nomen} Lunas</small>
                         </div>
                     </div>
                     <span class="badge ${badgeColor} rounded-pill" style="font-size: 0.7rem;">${o.pct_nomen}%</span>
@@ -218,7 +211,9 @@
     }
 
     function renderChart(leaderboard) {
-        const ctx = document.getElementById('performaChart').getContext('2d');
+        const canvas = document.getElementById('performaChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
         if (myChart) myChart.destroy();
         myChart = new Chart(ctx, {
             type: 'bar',
@@ -239,16 +234,20 @@
         });
     }
 
-    function renderLiveLogs() {
+    function renderLiveLogs(logs) {
         const container = document.getElementById('list-history-petugas');
-        container.innerHTML = allLogs.map(log => `
+        if (!logs || logs.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted small">Belum ada aktivitas</div>';
+            return;
+        }
+        container.innerHTML = logs.map(log => `
             <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeIn">
                 <div class="d-flex justify-content-between small mb-1">
                     <span class="fw-bold text-primary">${log.petugas_name}</span>
                     <span class="text-muted" style="font-size:0.6rem;">${log.created_at}</span>
                 </div>
                 <div class="small text-dark fw-bold mb-1">${log.nomen}</div>
-                <div class="badge bg-light text-dark rounded-pill py-2 px-3 text-start w-100" style="font-size:0.65rem;">
+                <div class="badge bg-light text-dark rounded-pill py-2 px-3 text-start w-100" style="font-size:0.65rem; white-space: normal;">
                     <i class="fas fa-comment-dots me-2 text-primary"></i>${log.keterangan}
                 </div>
             </div>`).join('');
@@ -257,7 +256,11 @@
 
 <style>
     .realtime-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: pulse-red 1.5s infinite; }
-    @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    @keyframes pulse-red { 
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 
+    }
     .btn-white { background: white; border: 1px solid #e2e8f0; }
     .progress-bar { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
 </style>
