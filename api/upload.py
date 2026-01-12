@@ -1,12 +1,8 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.11 Audit & History First)
+Smart Integration Engine - Sunter Dashboard Pro (V12.20)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
-Pembaruan Strategis:
-1. Zero Data Loss: Semua baris MB & Collection dipertahankan sebagai History.
-2. Fix RUTE Resilience: Penanganan ekstra spasi dan kolom zona alternatif.
-3. Enhanced Logging: Audit history mencatat metadata kategori secara detail.
-4. Transaction Safety: Proteksi database menyeluruh dengan mode Atomic.
+FIX: Perbaikan IndentationError pada row_count dan sinkronisasi logika Audit.
 """
 
 import pandas as pd
@@ -14,7 +10,13 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, session, current_app
 from core.database import get_db_connection
 from core.helpers import clean_nomen
-from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona, parse_billing_date
+from processors.auto_detect import (
+    identify_file_type, 
+    detect_file_period, 
+    autopilot_extract_zona, 
+    parse_billing_date,
+    parse_flexible_date
+)
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -29,17 +31,16 @@ class UploadEngine:
     @staticmethod
     def determine_strict_logic(billing_val, payment_date_str, file_type):
         """
-        LOGIKA PELABELAN AUDIT:
-        - Bayar N di bulan N      -> UNDUE (MB)
-        - Bayar N di bulan N+1    -> CURRENT (COLL)
-        - Di luar jendela waktu   -> ARDEBT (History)
+        LOGIKA AUDIT:
+        - UNDUE: Bulan Bayar == Bulan Rekening (N) -> Khusus MB
+        - CURRENT: Bulan Bayar == Bulan Rekening + 1 -> Khusus COLLECTION
         """
         try:
             billing_dt = parse_billing_date(billing_val, file_type)
-            # Normalisasi format tanggal bayar
-            clean_date = str(payment_date_str).split(' ')[0].replace("/", "-").replace("'", "")
-            pay_dt = datetime.strptime(clean_date, '%d-%m-%Y')
+            pay_dt = parse_flexible_date(payment_date_str)
             
+            if not billing_dt or not pay_dt: return 'HISTORY'
+
             # Hitung selisih bulan
             diff = (pay_dt.year - billing_dt.year) * 12 + (pay_dt.month - billing_dt.month)
 
@@ -48,9 +49,9 @@ class UploadEngine:
             elif diff == 1 and file_type == 'COLLECTION':
                 return 'CURRENT'
             
-            return 'ARDEBT'
+            return 'HISTORY'
         except:
-            return 'ARDEBT'
+            return 'HISTORY'
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_smart_upload():
@@ -65,13 +66,12 @@ def handle_smart_upload():
     db = get_db_connection()
     
     try:
-        # [1] Load Data (CSV/Excel) dengan penanganan encoding
+        # [1] Load Data
         if file_name.endswith('.csv'):
             df = pd.read_csv(file, dtype=str).fillna('')
         else:
             df = pd.read_excel(file, dtype=str).fillna('')
 
-        # Standarisasi Header: Kapital, Tanpa Spasi ujung/awal
         df.columns = [str(c).upper().strip() for c in df.columns]
         
         # [2] Identifikasi Modul
@@ -79,7 +79,7 @@ def handle_smart_upload():
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # [3] Penentuan Periode (Bypass untuk modul non-periodik)
+        # [3] Penentuan Periode
         if data_type == 'ARDEBT':
             target_period = "GLOBAL-HISTORY"
         elif data_type == 'RUTE':
@@ -92,21 +92,18 @@ def handle_smart_upload():
 
         row_count = 0
 
-        # [4] Processing Loop (Batch Mode)
+        # [4] Processing Loop
         for _, row in df.iterrows():
-            # --- MODUL RUTE ---
+            # A. MODUL RUTE
             if data_type == 'RUTE':
                 pcez = str(row.get('PCEZ', row.get('ZONA', ''))).strip()
                 petugas = str(row.get('PETUGAS', '')).strip()
                 if pcez and petugas:
-                    db.execute("""
-                        INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) 
-                        VALUES (?, ?, CURRENT_TIMESTAMP)
-                    """, (pcez, petugas))
+                    db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (pcez, petugas))
                     row_count += 1
                 continue
 
-            # --- MODUL TRANSAKSI (Nomen Check) ---
+            # B. MODUL MC, MB, COLLECTION
             nomen = clean_nomen(row.get('NOMEN') or row.get('IDPEL'))
             if not nomen: continue
 
@@ -126,39 +123,27 @@ def handle_smart_upload():
                 bill_col = 'BULAN_REK' if data_type == 'MB' else 'BILL_PERIOD'
                 pay_col = 'TGL_BAYAR' if data_type == 'MB' else 'PAY_DT'
                 
-                # Gunakan Audit Logic V12.11
                 category = UploadEngine.determine_strict_logic(row.get(bill_col), row.get(pay_col), data_type)
-                
                 query_table = "master_bayar" if data_type == 'MB' else "collection_harian"
                 date_col_db = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                 
-                db.execute(f"""
-                    INSERT OR REPLACE INTO {query_table} (nomen, {date_col_db}, nominal, periode, kategori)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (nomen, row.get(pay_col), UploadEngine.cast_to_float(row['NOMINAL']), target_period, category))
+                db.execute(f"INSERT OR REPLACE INTO {query_table} (nomen, {date_col_db}, nominal, periode, kategori) VALUES (?, ?, ?, ?, ?)", 
+                           (nomen, row.get(pay_col), UploadEngine.cast_to_float(row['NOMINAL']), target_period, category))
                 row_count += 1
 
             elif data_type == 'ARDEBT':
                 p_bill = str(row.get('PERIODE_BILL', row.get('PERIODE', '-'))).strip()
-                nominal_val = row.get('JUMLAH') or row.get('NOMINAL') or 0
-                db.execute("""
-                    INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume) 
-                    VALUES (?, ?, ?, ?)
-                """, (nomen, p_bill, 
-                      UploadEngine.cast_to_float(nominal_val), 
-                      UploadEngine.cast_to_float(row.get('VOLUME', 0))))
-                    row_count += 1
+                db.execute("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume) VALUES (?, ?, ?, ?)", 
+                           (nomen, p_bill, UploadEngine.cast_to_float(row.get('JUMLAH', row.get('NOMINAL'))), 
+                            UploadEngine.cast_to_float(row.get('VOLUME', 0))))
+                row_count += 1
 
-        # [5] Final Audit History & Commit
+        # [5] Finalize
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)", 
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
         db.commit()
         
-        return jsonify({
-            "status": "success",
-            "message": f"Integrasi Berhasil: {row_count} baris diproses.",
-            "metadata": {"rows": row_count, "period": target_period}
-        })
+        return jsonify({"status": "success", "message": f"Berhasil: {row_count} baris diproses.", "metadata": {"rows": row_count, "period": target_period}})
 
     except Exception as e:
         if db: db.rollback()
