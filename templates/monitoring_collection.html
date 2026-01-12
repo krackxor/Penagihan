@@ -4,8 +4,8 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-line me-2 text-primary"></i>Monitoring Realisasi Harian</h4>
-            <p class="text-muted small mb-0">Analisis Penetrasi Operasional Rayon 34 & 35</p>
+            <h4 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-line me-2 text-primary"></i>Monitoring Realisasi</h4>
+            <p class="text-muted small mb-0">Pusat Kendali Realisasi Global & Harian</p>
         </div>
         <div class="d-flex gap-2">
             <input type="month" id="filter-periode" 
@@ -22,34 +22,32 @@
             <div class="card border-0 shadow-sm rounded-4 text-white position-relative overflow-hidden" 
                  style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
                 <div class="card-body p-4 text-center">
-                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Akumulasi Realisasi Gabungan (Integrated)</small>
+                    <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Total Efektivitas Penagihan (%)</small>
                     <div class="d-flex justify-content-center align-items-end gap-2 mt-1">
                         <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
-                        <div id="variance-area" class="mb-2"></div>
                     </div>
-                    <p class="small mb-0 opacity-75" id="sum-info">Mengkalkulasi parameter nominal operasional...</p>
+                    <p class="small mb-0 opacity-75" id="sum-info">Sinkronisasi parameter operasional...</p>
                 </div>
             </div>
         </div>
         
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-start border-primary border-4 bg-white">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">EFEKTIVITAS RAYON 34</small>
-                <h5 class="fw-bold mb-0 text-primary" id="sum-r34">0%</h5>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">BANK (UNDUE)</small>
+                <h6 class="fw-bold mb-0 text-primary" id="sum-undue">Rp 0</h6>
             </div>
         </div>
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 border-start border-info border-4 bg-white">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">EFEKTIVITAS RAYON 35</small>
-                <h5 class="fw-bold mb-0 text-info" id="sum-r35">0%</h5>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">LAPANGAN (CURRENT)</small>
+                <h6 class="fw-bold mb-0 text-info" id="sum-current">Rp 0</h6>
             </div>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-wave-square me-2 text-primary"></i>Tren Penagihan Kumulatif</h6>
-            <span class="badge bg-light text-muted fw-bold" style="font-size: 0.55rem;">METRIK HARIAN</span>
+            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-wave-square me-2 text-primary"></i>Grafik Penetrasi Harian</h6>
         </div>
         <div class="card-body pt-0">
             <canvas id="collectionChart" style="height: 180px;"></canvas>
@@ -61,48 +59,17 @@
             <table class="table table-sm table-bordered small mb-0 text-center align-middle">
                 <thead class="bg-dark text-white sticky-top">
                     <tr style="font-size: 0.65rem; letter-spacing: 0.3px;">
-                        <th rowspan="2" class="align-middle px-3">TGL</th>
-                        <th colspan="2" class="border-start">ZONA RAYON 34</th>
-                        <th colspan="2" class="border-start bg-secondary">ZONA RAYON 35</th>
-                        <th colspan="3" class="border-start bg-primary">KONSOLIDASI TOTAL</th>
-                    </tr>
-                    <tr style="font-size: 0.55rem;">
-                        <th class="border-start">Nominal (Rp)</th><th>% Realisasi</th>
-                        <th class="border-start">Nominal (Rp)</th><th>% Realisasi</th>
-                        <th class="border-start">Harian</th><th>Kumulatif</th><th>% Total</th>
+                        <th class="py-2 px-3">TANGGAL</th>
+                        <th>NOMINAL HARIAN</th>
+                        <th>KUMULATIF</th>
+                        <th class="bg-primary">% PROGRES</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="8" class="py-5">Menghubungkan ke pangkalan data...</td></tr>
+                    <tr><td colspan="4" class="py-5">Menghubungkan ke pusat data...</td></tr>
                 </tbody>
                 <tfoot class="bg-light fw-bold" id="table-footer"></tfoot>
             </table>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-0 bg-light p-3">
-                <div>
-                    <h6 class="modal-title fw-bold mb-0" id="detailTitle">Rincian Pelunasan</h6>
-                    <small class="text-muted" style="font-size: 0.6rem;">Sinkronisasi kanal perbankan & penagihan lapangan</small>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-                <table class="table table-sm small mb-0">
-                    <thead class="bg-white sticky-top shadow-sm">
-                        <tr class="text-muted" style="font-size: 0.65rem;">
-                            <th class="ps-3 py-2">IDENTITAS / WILAYAH</th>
-                            <th class="py-2">ENTITAS NASABAH</th>
-                            <th class="text-end pe-3 py-2">NOMINAL (RP)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="detail-body"></tbody>
-                </table>
-            </div>
         </div>
     </div>
 </div>
@@ -112,9 +79,6 @@
     let myChart = null;
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    /**
-     * LOAD MONITOR: Sinkronisasi data realisasi dari API Area Service.
-     */
     async function loadMonitor() {
         const picker = document.getElementById('filter-periode').value;
         const icon = document.getElementById('sync-icon');
@@ -125,108 +89,64 @@
         const periode = `${month}-${year}`;
 
         try {
-            const res = await fetch(`/api/collection/daily-monitor?periode=${periode}`);
-            const result = await res.json();
+            // 1. Load Pusat Kendali Summary
+            const resSum = await fetch(`/api/collection/pusat-kendali?periode=${periode}`);
+            const sumData = await resSum.json();
             
-            if (result.status === 'success') {
-                updateUI(result);
-                renderTable(result.data, periode);
-                renderChart(result.data);
+            // 2. Load Daily Monitor Data
+            const resDaily = await fetch(`/api/collection/daily-monitor?periode=${periode}`);
+            const dailyData = await resDaily.json();
+            
+            if (sumData.status === 'success' && dailyData.status === 'success') {
+                updateUI(sumData, dailyData);
+                renderTable(dailyData.data);
+                renderChart(dailyData.data);
             }
         } catch (e) {
-            console.error("Critical: Transmisi Data Gagal", e);
+            console.error("Critical: Transmisi Gagal", e);
         } finally {
             setTimeout(() => icon.classList.remove('fa-spin'), 800);
         }
     }
 
-    function updateUI(res) {
-        const s = res.summary;
-        document.getElementById('sum-pct').innerText = (s.pct || 0).toFixed(2) + '%';
-        document.getElementById('sum-info').innerText = `Realisasi: ${toIDR(s.realisasi || 0)} / Proyeksi: ${toIDR(s.target || 0)}`;
+    function updateUI(sum, daily) {
+        const s = sum.summary;
+        const totalPct = daily.data.length > 0 ? daily.data[daily.data.length - 1].pct : 0;
         
-        const lastRow = res.data[res.data.length - 1];
-        if (lastRow) {
-            document.getElementById('sum-r34').innerText = (lastRow.r34.pct || 0).toFixed(2) + '%';
-            document.getElementById('sum-r35').innerText = (lastRow.r35.pct || 0).toFixed(2) + '%';
-        }
-
-        const varArea = document.getElementById('variance-area');
-        const variance = s.variance || 0;
-        const isUp = variance >= 0;
-        varArea.innerHTML = `
-            <span class="badge bg-white ${isUp ? 'text-success' : 'text-danger'} shadow-sm px-2 py-1 animate__animated animate__pulse animate__infinite" style="font-size: 0.7rem;">
-                <i class="fas fa-caret-${isUp ? 'up' : 'down'} me-1"></i> ${isUp ? '+' : ''}${variance.toFixed(2)}%
-            </span>
-        `;
+        document.getElementById('sum-pct').innerText = totalPct.toFixed(2) + '%';
+        document.getElementById('sum-info').innerText = `Target MC: ${toIDR(s.target_mc)}`;
+        document.getElementById('sum-undue').innerText = toIDR(s.realisasi.undue_bank);
+        document.getElementById('sum-current').innerText = toIDR(s.realisasi.current_lapangan);
     }
 
-    function renderTable(data, periode) {
+    function renderTable(data) {
         const body = document.getElementById('table-body');
         const footer = document.getElementById('table-footer');
         
         if (!data || data.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data operasional belum diunggah.</td></tr>';
+            body.innerHTML = '<tr><td colspan="4" class="py-5 text-muted small">Data transaksi belum tersedia.</td></tr>';
             footer.innerHTML = '';
             return;
         }
 
         body.innerHTML = data.map(row => {
-            const tglDay = row.tgl.split('-')[2];
+            const tglDay = row.tgl.split('-')[0]; // Ambil DD dari DD-MM-YYYY
             return `
-            <tr onclick="showDetail('${row.tgl}', '${periode}')" style="cursor: pointer;" class="clickable-row">
-                <td class="bg-light fw-bold text-primary">${tglDay} <i class="fas fa-fingerprint opacity-25 ms-1" style="font-size: 0.5rem;"></i></td>
-                <td class="text-end border-start">${(row.r34.rp || 0).toLocaleString()}</td>
-                <td class="fw-bold text-primary">${(row.r34.pct || 0).toFixed(2)}%</td>
-                <td class="text-end border-start">${(row.r35.rp || 0).toLocaleString()}</td>
-                <td class="fw-bold text-info">${(row.r35.pct || 0).toFixed(2)}%</td>
-                <td class="text-end border-start bg-light">${(row.total.rp_harian || 0).toLocaleString()}</td>
-                <td class="text-end bg-light" style="font-size: 0.6rem;">${toIDR(row.total.cum_all)}</td>
-                <td class="bg-primary text-white fw-bold">${(row.total.pct || 0).toFixed(2)}%</td>
+            <tr>
+                <td class="bg-light fw-bold text-primary">${tglDay}</td>
+                <td class="text-end px-3">Rp ${row.rp_hari.toLocaleString()}</td>
+                <td class="text-end px-3">${toIDR(row.kumulatif)}</td>
+                <td class="bg-primary text-white fw-bold">${row.pct.toFixed(2)}%</td>
             </tr>`;
         }).join('');
 
         const last = data[data.length - 1];
-        const totalRp34 = data.reduce((a, b) => a + (b.r34.rp || 0), 0);
-        const totalRp35 = data.reduce((a, b) => a + (b.r35.rp || 0), 0);
-        
         footer.innerHTML = `
             <tr class="table-dark">
-                <td class="py-2">TOTAL</td>
-                <td class="text-end border-start">${totalRp34.toLocaleString()}</td>
-                <td class="text-primary">${(last.r34.pct || 0).toFixed(2)}%</td>
-                <td class="text-end border-start">${totalRp35.toLocaleString()}</td>
-                <td class="text-info">${(last.r35.pct || 0).toFixed(2)}%</td>
-                <td class="text-end border-start bg-dark">${(totalRp34 + totalRp35).toLocaleString()}</td>
-                <td class="text-end bg-dark">${toIDR(last.total.cum_all)}</td>
-                <td class="bg-white text-dark">${(last.total.pct || 0).toFixed(2)}%</td>
+                <td class="py-2">FINAL</td>
+                <td colspan="2" class="text-end pe-3">Total Realisasi: ${toIDR(last.kumulatif)}</td>
+                <td class="bg-white text-dark">${last.pct.toFixed(2)}%</td>
             </tr>`;
-    }
-
-    async function showDetail(tgl, periode) {
-        const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
-        const body = document.getElementById('detail-body');
-        document.getElementById('detailTitle').innerText = `Audit Transaksi: ${tgl}`;
-        
-        body.innerHTML = '<tr><td colspan="3" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
-        modal.show();
-
-        try {
-            const res = await fetch(`/api/collection/daily-detail?tgl=${tgl}&periode=${periode}`);
-            const result = await res.json();
-            
-            body.innerHTML = result.data.map(d => `
-                <tr class="border-bottom animate__animated animate__fadeIn animate__faster">
-                    <td class="ps-3 py-2">
-                        <div class="fw-bold text-dark" style="font-size: 0.75rem;">${d.nomen}</div>
-                        <div class="text-muted" style="font-size: 0.6rem;">PCEZ: ${d.pcez || '-'} | R${d.rayon}</div>
-                    </td>
-                    <td class="py-2"><div class="text-truncate text-uppercase fw-bold" style="max-width: 150px; font-size: 0.7rem;">${d.nama}</div></td>
-                    <td class="text-end pe-3 py-2 fw-bold text-success" style="font-size: 0.75rem;">${(d.nominal || 0).toLocaleString()}</td>
-                </tr>`).join('') || '<tr><td colspan="3" class="text-center py-4 text-muted small">Catatan pelunasan harian nihil.</td></tr>';
-        } catch (e) {
-            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4 small">Kegagalan transmisi rincian.</td></tr>';
-        }
     }
 
     function renderChart(data) {
@@ -235,13 +155,13 @@
         myChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: data.map(d => d.tgl.split('-')[2]),
+                labels: data.map(d => d.tgl.split('-')[0]),
                 datasets: [{
-                    label: 'Efektivitas Konsolidasi (%)',
-                    data: data.map(d => d.total.pct),
+                    label: 'Progres Kumulatif (%)',
+                    data: data.map(d => d.pct),
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(37, 99, 235, 0.05)',
-                    fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#fff', pointBorderWidth: 2
+                    fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#fff'
                 }]
             },
             options: {
@@ -263,11 +183,8 @@
 </script>
 
 <style>
-    /* SINERGI VISUAL STANDARDS */
-    .clickable-row:hover { background-color: #f8fafc !important; transition: background 0.2s; }
     .table-bordered td, .table-bordered th { border-color: #f1f5f9 !important; }
     .sticky-top { position: sticky; top: 0; z-index: 1020; }
-    #table-body td { font-size: 0.65rem; padding: 0.5rem 0.2rem; }
     .bg-primary { background-color: #2563eb !important; }
     .btn-white { background: #fff; border: 1px solid #e2e8f0; }
 </style>
