@@ -1,12 +1,12 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.16 Strict Audit Edition)
+API Dashboard - Sunter Dashboard Pro (V12.21 Strict Audit Edition)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Audit Alignment: Filter kategori UNDUE, CURRENT, dan HISTORY secara spesifik.
-2. N+1 Logic Sync: Mendukung pemetaan periode dashboard hasil upload cerdas.
-3. Anti-Zero Recovery: Menghitung nominal HISTORY agar Box Bank tidak Rp 0.
-4. Smart Route Sync: Konsistensi data petugas berdasarkan pemetaan PCEZ terbaru.
+1. Audit Alignment: Sinkronisasi filter UNDUE, CURRENT, dan HISTORY secara ketat.
+2. N+1 Logic Sync: Mendukung pemetaan periode dashboard (Bulan Rekening N -> Dashboard N+1).
+3. Anti-Zero Recovery: Menarik nominal HISTORY agar Box Bank (Undue) mencerminkan data asli.
+4. Smart Leaderboard: Kinerja petugas kini dihitung berdasarkan irisan rute_petugas terbaru.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -16,17 +16,17 @@ from datetime import datetime
 dashboard_bp = Blueprint('dashboard', __name__)
 
 def get_latest_active_period(db):
-    """Mendeteksi periode target penagihan terbaru di database (N+1)."""
+    """Mendeteksi periode target penagihan terbaru di database (Hasil N+1 Upload)."""
     res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
     return res['periode'] if res else datetime.now().strftime('%m-%Y')
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
-    """Endpoint Pusat Kendali: Mengelola statistik global dan audit realisasi."""
+    """Endpoint Pusat Kendali: Statistik global dan audit realisasi digital."""
     db = get_db_connection()
     try:
         # [1] SMART PERIOD DETECTION
-        # Mengunci periode dashboard agar sinkron dengan hasil deteksi N+1 di upload.
+        # Mengunci periode agar sinkron dengan hasil deteksi otomatis saat upload.
         periode = request.args.get('periode') or get_latest_active_period(db)
         
         user_role = str(session.get('role', 'guest')).lower()
@@ -45,15 +45,15 @@ def get_pusat_kendali():
         """
         params = [periode]
 
-        # Filter area jika yang login adalah petugas.
+        # Filter area kerja jika user login sebagai petugas
         if user_role == 'petugas' and petugas_id:
             query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
             params.append(petugas_id)
 
         res_summary = db.execute(query_summary, params).fetchone()
 
-        # [3] REALISASI SINERGI (AUDIT CATEGORY)
-        # Menarik data UNDUE & HISTORY untuk Bank, dan CURRENT & HISTORY untuk Lapangan.
+        # [3] REALISASI SINERGI (AUDIT CATEGORY INTEGRATION)
+        # Menghitung UNDUE (Bank) dan CURRENT (Lapangan) termasuk kategori HISTORY (Data Recovery)
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
@@ -63,13 +63,14 @@ def get_pusat_kendali():
         """
         res_realisasi = db.execute(query_realisasi, (periode, periode)).fetchone()
 
-        # [4] SMART LEADERBOARD (KINERJA LAPANGAN)
+        # [4] SMART LEADERBOARD (KPI PETUGAS)
+        # Menghubungkan rute_petugas (PCEZ) dengan master_pelanggan untuk progres real-time.
         query_leaderboard = """
             SELECT 
                 r.petugas,
                 COUNT(p.id) as target_nomen,
                 SUM(p.status_lunas) as lunas_nomen,
-                ROUND((CAST(SUM(p.status_lunas) AS FLOAT) / COUNT(p.id)) * 100, 1) as pct_nomen
+                ROUND((CAST(SUM(p.status_lunas) AS FLOAT) / MAX(1, COUNT(p.id))) * 100, 1) as pct_nomen
             FROM rute_petugas r
             JOIN master_pelanggan p ON r.pcez = p.pcez
             WHERE p.periode = ?
@@ -78,12 +79,12 @@ def get_pusat_kendali():
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
-        # [5] SYNC OUTPUT UNTUK DASHBOARD UI
+        # [5] FINAL SYNC OUTPUT
         total_mc = res_summary['total_nominal'] or 0
         total_undue = res_realisasi['undue_nom'] or 0
         total_current = res_realisasi['current_nom'] or 0
         
-        # Kalkulasi sisa berdasarkan audit realisasi gabungan
+        # Realisasi gabungan murni hasil audit digital
         realisasi_gabungan = total_undue + total_current
 
         return jsonify({
@@ -100,7 +101,7 @@ def get_pusat_kendali():
                     "current": total_current,
                     "total_realisasi": realisasi_gabungan,
                     "sisa": max(0, total_mc - realisasi_gabungan),
-                    "pct": round((realisasi_gabungan / (total_mc or 1) * 100), 2)
+                    "pct": round((realisasi_gabungan / max(1, total_mc) * 100), 2)
                 }
             },
             "analytics": {"leaderboard": [dict(row) for row in res_leaderboard]},
