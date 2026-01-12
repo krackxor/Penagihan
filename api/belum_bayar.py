@@ -1,10 +1,10 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V8.0 Sinergi & Fix Syntax)
+Belum Bayar API - Sunter Dashboard Pro (V8.2 Sinergi & Global Sync)
 Pembaruan:
-1. Syntax Fix: Memperbaiki 'unterminated string literal' pada baris periode.
-2. Logic N+1 Sync: Menyesuaikan filter agar sinkron dengan periode target (Desember).
-3. Anti-NULL Payment: Menggunakan NOT EXISTS (Nomen + Periode) untuk filter lunas.
-4. Ardebt Exclusion: Memisahkan tagihan berekor secara mutlak dari daftar Current.
+1. Sinkronisasi Kolom: Mengganti p.volume menjadi p.kubik sesuai schema.sql.
+2. Fix 404: Menambahkan endpoint /petugas-tabs untuk kebutuhan filter di frontend.
+3. Anti-NULL Payment Guard: Memastikan tagihan lunas tidak muncul kembali.
+4. Ardebt Exclusion: Memisahkan data tunggakan lama secara mutlak.
 """
 
 import os, sqlite3
@@ -55,48 +55,40 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Watermark Error: {str(e)}")
 
 # =========================================================================
-# 2. ENDPOINT DAFTAR TARGET (BELUM BAYAR CURRENT ONLY)
+# 2. ENDPOINT DAFTAR TARGET (FIXED: KUBIK & SYNC LOGIC)
 # =========================================================================
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """ 
-    [DAFTAR KERJA HARIAN: FOKUS CURRENT & MURNI BELUM BAYAR] 
-    """
+    """ [DAFTAR KERJA HARIAN: FOKUS CURRENT & MURNI BELUM BAYAR] """
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id') 
-
     petugas_filter = request.args.get('petugas')
     
-    # FIX: Perbaikan Syntax Error baris 74 (Menambahkan tutup kutip dan kurung)
+    # Konsistensi format periode MM-YYYY
     raw_period = request.args.get('periode') or datetime.now().strftime('%m-%Y')
-    
     search_query = request.args.get('search', '').strip()
     
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         
-        # QUERY SINERGI (V8.0): 
-        # - nominal >= 300rb
-        # - bukan ardebt (tagihan berekor)
-        # - belum bayar di MB (Undue) atau Collection (Current)
+        # QUERY SINERGI (V8.2): Menggunakan p.kubik sesuai schema.sql
         query = """
-            SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, p.volume, p.rayon,
+            SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, p.kubik as volume, p.rayon,
                    r.petugas as nama_petugas
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
             AND p.nominal >= 300000 
             AND p.status_lunas = 0
-            -- LOGIKA: Kecualikan jika nomen ada di tabel ardebt
+            -- Kecualikan data tunggakan lama (Ardebt)
             AND p.nomen NOT IN (SELECT DISTINCT nomen FROM ardebt)
-            -- LOGIKA ANTI-NULL: Cek di MB (Periode yang sama)
+            -- Cek sinkronisasi pembayaran di MB dan Collection
             AND NOT EXISTS (
                 SELECT 1 FROM master_bayar mb 
                 WHERE mb.nomen = p.nomen AND mb.periode = p.periode
             )
-            -- LOGIKA ANTI-NULL: Cek di Collection (Periode yang sama)
             AND NOT EXISTS (
                 SELECT 1 FROM collection_harian ch 
                 WHERE ch.nomen = p.nomen AND ch.periode = p.periode
@@ -115,7 +107,7 @@ def get_belum_bayar():
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
-            # Auto-Hide jika sudah dikunjungi
+            # Sembunyikan jika sudah dikunjungi pada periode ini
             query += """ 
                 AND NOT EXISTS (
                     SELECT 1 FROM kunjungan_petugas k 
@@ -130,11 +122,28 @@ def get_belum_bayar():
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT LAPOR (SNAPSHOT OPERASIONAL)
+# 3. ENDPOINT FILTER TABS (FIX: MENGATASI 404)
+# =========================================================================
+
+@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
+def get_petugas_tabs():
+    """ Menyediakan daftar petugas unik untuk filter di UI. """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL ORDER BY petugas ASC")
+        result = [row['petugas'] for row in cursor.fetchall()]
+        return jsonify(result)
+    finally:
+        conn.close()
+
+# =========================================================================
+# 4. ENDPOINT LAPOR (SNAPSHOT OPERASIONAL)
 # =========================================================================
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
+    """ Mencatat hasil kunjungan lapangan petugas. """
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
