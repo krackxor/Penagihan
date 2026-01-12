@@ -1,12 +1,10 @@
 """
-Collection API - Sunter Dashboard Pro (V12.8 Audit Field vs Mandiri)
-Update: 2026-01-12
+Collection API - Sunter Dashboard Pro (V12.13 Recovery Mode)
+Update: 2026-01-13
 ---------------------------------------------------------------------------
-Pembaruan Strategis:
-1. Strict UNDUE Filter: Realisasi Bank murni (MB) dengan kategori 'UNDUE'.
-2. Field vs Mandiri Split: Memisahkan realisasi CURRENT berdasarkan Visit Log.
-3. Logical Verification: Menggunakan subquery EXISTS untuk validasi bukti kunjungan.
-4. Rayon Integrity: Mempertahankan detail breakdown untuk Rayon 34 & 35.
+1. Fix Typo: Mengganti total_realisai menjadi total_realisasi (Menghilangkan Error 500).
+2. Data Recovery: Menghitung kategori 'ARDEBT' agar data yang terlanjur di-upload muncul.
+3. Resilience: Menggunakan LEFT JOIN agar transaksi muncul meski data MC belum lengkap.
 """
 
 from flask import Blueprint, jsonify, request
@@ -23,29 +21,29 @@ def get_active_period(cursor):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Audit: Memisahkan realisasi MB (Undue) dan Collection (Petugas vs Mandiri)."""
+    """Summary Audit: Memisahkan realisasi MB dan Collection (Inklusi Recovery)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # 1. TOTAL MC (Target Global)
+        # 1. TOTAL TARGET MC
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (Eksklusif MB)
+        # 2. BOX UNDUE (Inklusi ARDEBT agar angka muncul jika filter upload meleset)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
-            WHERE periode = ? AND kategori = 'UNDUE'
+            WHERE periode = ? AND kategori IN ('UNDUE', 'ARDEBT')
         """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX CURRENT - FIELD/PETUGAS (Eksklusif Collection + Bukti Kunjungan)
+        # 3. BOX CURRENT - FIELD/PETUGAS
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
-            WHERE c.periode = ? AND c.kategori = 'CURRENT'
+            WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'ARDEBT')
             AND EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = c.nomen AND k.periode = c.periode
@@ -53,11 +51,11 @@ def pusat_kendali():
         """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. BOX CURRENT - MANDIRI (Eksklusif Collection Tanpa Bukti Kunjungan)
+        # 4. BOX CURRENT - MANDIRI
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
-            WHERE c.periode = ? AND c.kategori = 'CURRENT'
+            WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'ARDEBT')
             AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = c.nomen AND k.periode = c.periode
@@ -65,7 +63,7 @@ def pusat_kendali():
         """, (periode_req,))
         current_mandiri = cursor.fetchone()[0]
 
-        # Konsolidasi Realisasi Sah
+        # FIX TYPO DISINI: total_realisasi (dengan huruf 'n')
         total_realisasi = undue_val + current_petugas + current_mandiri
 
         return jsonify({
@@ -74,7 +72,7 @@ def pusat_kendali():
             "summary": {
                 "target_mc": target_mc,
                 "realisasi": {
-                    "total": total_realisai,
+                    "total": total_realisasi, 
                     "undue": undue_val,
                     "current_petugas": current_petugas,
                     "current_mandiri": current_mandiri
@@ -88,12 +86,13 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Monitoring progres harian gabungan Undue dan Current."""
+    """Monitoring progres harian menggunakan LEFT JOIN (Pencegahan Data Kosong)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
+        # Target per-Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -103,9 +102,11 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'", (periode_req,))
+        # Saldo Awal Undue
+        cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori IN ('UNDUE', 'ARDEBT')", (periode_req,))
         undue_start = cursor.fetchone()[0]
 
+        # Query Tabel Harian (LEFT JOIN agar transaksi muncul meski MC belum lengkap)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -113,8 +114,8 @@ def daily_monitor():
                 SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END) as rp_35,
                 SUM(c.nominal) as rp_total
             FROM collection_harian c
-            INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE p.periode = ? AND c.kategori = 'CURRENT'
+            LEFT JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
+            WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'ARDEBT')
             GROUP BY c.pay_dt 
             ORDER BY substr(c.pay_dt,7,4) ASC, substr(c.pay_dt,4,2) ASC, substr(c.pay_dt,1,2) ASC
         """, (periode_req,))
@@ -132,16 +133,16 @@ def daily_monitor():
                 "tgl": r['tgl'],
                 "r34": {
                     "rp": r['rp_34'], 
-                    "pct": round((cum_34 / targets['target_34'] * 100), 2) if targets['target_34'] > 0 else 0
+                    "pct": round((cum_34 / (targets['target_34'] or 1) * 100), 2)
                 },
                 "r35": {
                     "rp": r['rp_35'], 
-                    "pct": round((cum_35 / targets['target_35'] * 100), 2) if targets['target_35'] > 0 else 0
+                    "pct": round((cum_35 / (targets['target_35'] or 1) * 100), 2)
                 },
                 "total": {
                     "rp_harian": r['rp_total'],
                     "cum_all": cum_all,
-                    "pct": round((cum_all / targets['target_total'] * 100), 2) if targets['target_total'] > 0 else 0
+                    "pct": round((cum_all / (targets['target_total'] or 1) * 100), 2)
                 }
             })
 
