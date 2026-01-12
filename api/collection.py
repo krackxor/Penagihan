@@ -1,12 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V11.5 Smart Audit & Rayon Logic)
-Update: 2026-01-12
+Collection API - Sunter Dashboard Pro (V11.6 Bug Fixed Edition)
+Update: 2026-01-12 16:00
 ---------------------------------------------------------------------------
-Pembaruan Strategis:
-1. Smart Audit Logic: Memisahkan Current Petugas (Ada Kunjungan) vs Current Mandiri.
-2. Rayon Split Analysis: Detail harian Rp & % untuk Rayon 34 & 35.
-3. Integrated Pivot: Sinkronisasi data Master, MB, Collection, dan Kunjungan.
-4. Temporal Integrity: Pengurutan kronologis SQL standar untuk monitoring harian.
+Pembaruan:
+1. Fix Bindings: Sinkronisasi jumlah parameter SQL (?) untuk mencegah error 500.
+2. Smart Audit: Logika pemisahan Current Petugas vs Current Mandiri berbasis visit log.
+3. Rayon Consistency: Mendukung breakdown detail untuk Rayon 34 & 35.
+4. Chronological Sorting: Pengurutan harian stabil menggunakan substr SQL.
 """
 
 from flask import Blueprint, jsonify, request
@@ -23,13 +23,13 @@ def get_active_period(cursor):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Audit: Memisahkan realisasi berdasarkan bukti kerja lapangan."""
+    """Summary Audit: Validasi realisasi berdasarkan bukti kerja lapangan (Visit Log)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # 1. Target MC & Total Lunas
+        # 1. Target & Total Lunas (Basic Summary)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(nominal), 0) as target_mc,
@@ -40,6 +40,7 @@ def pusat_kendali():
         master = dict(cursor.fetchone())
 
         # 2. Logika UNDUE (Bank/Mandiri Pre-Period)
+        # Membutuhkan 2 parameter periode_req
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM (
                 SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
@@ -50,17 +51,20 @@ def pusat_kendali():
         undue_val = cursor.fetchone()[0]
 
         # 3. Logika CURRENT PETUGAS (Bayar + Ada Bukti Kunjungan)
-        cursor.execute("""
+        # Membutuhkan 3 parameter periode_req: 2 untuk UNION, 1 untuk EXISTS
+        query_petugas = """
             SELECT COALESCE(SUM(p.nominal), 0) FROM (
-                SELECT nomen, nominal FROM master_bayar WHERE periode = ? AND kategori = 'CURRENT'
+                SELECT nomen, nominal, periode FROM master_bayar WHERE kategori = 'CURRENT'
                 UNION ALL
-                SELECT nomen, nominal FROM collection_harian WHERE periode = ? AND kategori = 'CURRENT'
+                SELECT nomen, nominal, periode FROM collection_harian WHERE kategori = 'CURRENT'
             ) p
-            WHERE EXISTS (
+            WHERE p.periode = ? 
+            AND EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = p.nomen AND k.periode = ?
             )
-        """, (periode_req, periode_req))
+        """
+        cursor.execute(query_petugas, (periode_req, periode_req))
         current_petugas = cursor.fetchone()[0]
 
         # 4. Logika CURRENT MANDIRI (Bayar + Tanpa Kunjungan)
@@ -85,7 +89,7 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Monitoring harian dengan rincian Rayon 34 & 35."""
+    """Monitoring progres harian dengan rincian Rayon 34 & 35."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -101,7 +105,7 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Ambil Saldo Awal Undue
+        # Ambil Saldo Awal Undue (Membutuhkan 2 parameter)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM (
                 SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
@@ -111,7 +115,7 @@ def daily_monitor():
         """, (periode_req, periode_req))
         undue_start = cursor.fetchone()[0]
 
-        # Query Pivot Harian
+        # Query Pivot Harian (Pemisahan Rayon 34 & 35)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -127,8 +131,7 @@ def daily_monitor():
         rows = cursor.fetchall()
 
         daily_data = []
-        cum_34 = 0
-        cum_35 = 0
+        cum_34, cum_35 = 0, 0
         
         for r in rows:
             cum_34 += r['rp_34']
@@ -152,14 +155,18 @@ def daily_monitor():
                 }
             })
 
+        # Final Summary for Header
+        last_cum = daily_data[-1]['total']['cum_all'] if daily_data else undue_start
+        last_pct = daily_data[-1]['total']['pct'] if daily_data else 0
+
         return jsonify({
             "status": "success",
             "periode": periode_req,
             "data": daily_data,
             "summary": {
                 "target": targets['target_total'],
-                "pct": (cum_all / targets['target_total'] * 100) if rows and targets['target_total'] > 0 else 0,
-                "realisasi": cum_all if rows else undue_start
+                "pct": last_pct,
+                "realisasi": last_cum
             }
         })
     finally:
