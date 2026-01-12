@@ -1,11 +1,10 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V7.9 Strict Logic Edition)
-Sinergi & Smart Update:
-1. Strict Current: Mengecualikan nomen yang terdaftar di tabel 'ardebt' agar tidak tercampur.
-2. Payment Integrity (Anti-NULL): Mengecek realisasi di MB & Collection menggunakan 'nomen' 
-   dan 'periode' untuk menangani kasus di mana 'notagihan' atau 'notag' bernilai NULL.
-3. High Value Filter: Tetap mempertahankan batasan nominal >= 300.000 untuk prioritas penagihan.
-4. Ultra-Fast Join: Menghapus CAST() agar database menggunakan INDEX secara maksimal.
+Belum Bayar API - Sunter Dashboard Pro (V8.0 Sinergi & Fix Syntax)
+Pembaruan:
+1. Syntax Fix: Memperbaiki 'unterminated string literal' pada baris periode.
+2. Logic N+1 Sync: Menyesuaikan filter agar sinkron dengan periode target (Desember).
+3. Anti-NULL Payment: Menggunakan NOT EXISTS (Nomen + Periode) untuk filter lunas.
+4. Ardebt Exclusion: Memisahkan tagihan berekor secara mutlak dari daftar Current.
 """
 
 import os, sqlite3
@@ -48,7 +47,6 @@ def add_watermark(image_path, info):
         line_height = font_size + 10
         y_pos = height - (line_height * 5) - margin
 
-        # Shadow & Text Utama
         draw.multiline_text((margin + 2, y_pos + 2), text, font=font, fill="black", spacing=10)
         draw.multiline_text((margin, y_pos), text, font=font, fill="#FFFF00", spacing=10)
         
@@ -64,11 +62,116 @@ def add_watermark(image_path, info):
 def get_belum_bayar():
     """ 
     [DAFTAR KERJA HARIAN: FOKUS CURRENT & MURNI BELUM BAYAR] 
-    Menyaring data agar murni tagihan berjalan yang belum lunas.
     """
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id') 
 
     petugas_filter = request.args.get('petugas')
-    # Sinkronisasi periode agar selalu menggunakan format MM-YYYY
-    raw_period = request.args.get('periode') or datetime.now().strftime('%m-%Y
+    
+    # FIX: Perbaikan Syntax Error baris 74 (Menambahkan tutup kutip dan kurung)
+    raw_period = request.args.get('periode') or datetime.now().strftime('%m-%Y')
+    
+    search_query = request.args.get('search', '').strip()
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # QUERY SINERGI (V8.0): 
+        # - nominal >= 300rb
+        # - bukan ardebt (tagihan berekor)
+        # - belum bayar di MB (Undue) atau Collection (Current)
+        query = """
+            SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, p.volume, p.rayon,
+                   r.petugas as nama_petugas
+            FROM master_pelanggan p
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            WHERE p.periode = ?
+            AND p.nominal >= 300000 
+            AND p.status_lunas = 0
+            -- LOGIKA: Kecualikan jika nomen ada di tabel ardebt
+            AND p.nomen NOT IN (SELECT DISTINCT nomen FROM ardebt)
+            -- LOGIKA ANTI-NULL: Cek di MB (Periode yang sama)
+            AND NOT EXISTS (
+                SELECT 1 FROM master_bayar mb 
+                WHERE mb.nomen = p.nomen AND mb.periode = p.periode
+            )
+            -- LOGIKA ANTI-NULL: Cek di Collection (Periode yang sama)
+            AND NOT EXISTS (
+                SELECT 1 FROM collection_harian ch 
+                WHERE ch.nomen = p.nomen AND ch.periode = p.periode
+            )
+        """
+        params = [raw_period]
+        
+        if user_role == 'petugas':
+            query += " AND r.petugas = ?"
+            params.append(user_petugas_id)
+        elif petugas_filter and petugas_filter != 'all':
+            query += " AND r.petugas = ?"
+            params.append(petugas_filter)
+
+        if search_query:
+            query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
+            params.extend([f"%{search_query}%", f"%{search_query}%"])
+        else:
+            # Auto-Hide jika sudah dikunjungi
+            query += """ 
+                AND NOT EXISTS (
+                    SELECT 1 FROM kunjungan_petugas k 
+                    WHERE k.nomen = p.nomen AND k.periode = p.periode
+                )
+            """
+        
+        query += " ORDER BY p.nominal DESC LIMIT 100"
+        cursor.execute(query, params)
+        return jsonify([dict(row) for row in cursor.fetchall()])
+    finally:
+        conn.close()
+
+# =========================================================================
+# 3. ENDPOINT LAPOR (SNAPSHOT OPERASIONAL)
+# =========================================================================
+
+@belum_bayar_bp.route('/lapor', methods=['POST'])
+def lapor_kunjungan():
+    nomen = request.form.get('idpel')
+    petugas_name = request.form.get('petugas_name')
+    hasil = request.form.get('hasil')
+    foto = request.files.get('foto')
+    
+    if not nomen or not hasil:
+        return APIResponse.error("Data tidak lengkap", code=400)
+    
+    filename = None
+    if foto:
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
+        os.makedirs(upload_folder, exist_ok=True)
+        filename = f"LOG_{nomen}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        foto_path = os.path.join(upload_folder, filename)
+        foto.save(foto_path)
+        
+        add_watermark(foto_path, {
+            'petugas': petugas_name or "Petugas", 
+            'nomen': nomen,
+            'nama': request.form.get('nama_pelanggan') or "-",
+            'keterangan': hasil,
+            'nominal': request.form.get('nominal_display') or "0"
+        })
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO kunjungan_petugas (nomen, petugas_name, keterangan, no_hp, catatan, 
+            foto_path, latitude, longitude, periode) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (nomen, petugas_name, hasil, request.form.get('no_hp'), 
+              request.form.get('keterangan'), filename, 
+              request.form.get('latitude'), request.form.get('longitude'), 
+              datetime.now().strftime('%m-%Y')))
+        
+        conn.commit()
+        return APIResponse.success(message="Laporan kunjungan tersimpan.")
+    finally:
+        conn.close()
