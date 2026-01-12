@@ -1,12 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V10.1 Integrated Rayon Logic)
+Collection API - Sunter Dashboard Pro (V11.5 Smart Audit & Rayon Logic)
 Update: 2026-01-12
 ---------------------------------------------------------------------------
-Pembaruan:
-1. Rayon Split Logic: Mengembalikan perhitungan Rp & % per-Rayon (34 & 35).
-2. Advanced Daily Monitor: Sinkronisasi akumulasi harian dengan saldo awal Undue.
-3. SQL Standard Sorting: Pengurutan tanggal kronologis (YYYY-MM-DD) via Substr.
-4. Smart Pivot: Mengelompokkan data harian secara efisien dalam satu query.
+Pembaruan Strategis:
+1. Smart Audit Logic: Memisahkan Current Petugas (Ada Kunjungan) vs Current Mandiri.
+2. Rayon Split Analysis: Detail harian Rp & % untuk Rayon 34 & 35.
+3. Integrated Pivot: Sinkronisasi data Master, MB, Collection, dan Kunjungan.
+4. Temporal Integrity: Pengurutan kronologis SQL standar untuk monitoring harian.
 """
 
 from flask import Blueprint, jsonify, request
@@ -23,35 +23,61 @@ def get_active_period(cursor):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary global untuk widget dashboard atas."""
+    """Summary Audit: Memisahkan realisasi berdasarkan bukti kerja lapangan."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
+        # 1. Target MC & Total Lunas
         cursor.execute("""
             SELECT 
-                COALESCE(SUM(nominal), 0) as total_rp_mc,
+                COALESCE(SUM(nominal), 0) as target_mc,
                 COALESCE(SUM(CASE WHEN status_lunas = 1 THEN nominal ELSE 0 END), 0) as rp_lunas,
                 COALESCE(SUM(CASE WHEN status_lunas = 0 THEN nominal ELSE 0 END), 0) as rp_sisa
             FROM master_pelanggan WHERE periode = ?
         """, (periode_req,))
-        summary_mc = dict(cursor.fetchone())
+        master = dict(cursor.fetchone())
 
-        cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ?", (periode_req,))
+        # 2. Logika UNDUE (Bank/Mandiri Pre-Period)
+        cursor.execute("""
+            SELECT COALESCE(SUM(nominal), 0) FROM (
+                SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
+                UNION ALL
+                SELECT nominal FROM collection_harian WHERE periode = ? AND kategori = 'UNDUE'
+            )
+        """, (periode_req, periode_req))
         undue_val = cursor.fetchone()[0]
-        
+
+        # 3. Logika CURRENT PETUGAS (Bayar + Ada Bukti Kunjungan)
+        cursor.execute("""
+            SELECT COALESCE(SUM(p.nominal), 0) FROM (
+                SELECT nomen, nominal FROM master_bayar WHERE periode = ? AND kategori = 'CURRENT'
+                UNION ALL
+                SELECT nomen, nominal FROM collection_harian WHERE periode = ? AND kategori = 'CURRENT'
+            ) p
+            WHERE EXISTS (
+                SELECT 1 FROM kunjungan_petugas k 
+                WHERE k.nomen = p.nomen AND k.periode = ?
+            )
+        """, (periode_req, periode_req))
+        current_petugas = cursor.fetchone()[0]
+
+        # 4. Logika CURRENT MANDIRI (Bayar + Tanpa Kunjungan)
+        current_mandiri = master['rp_lunas'] - undue_val - current_petugas
+
         return jsonify({
             "status": "success",
             "periode": periode_req,
             "summary": {
-                "target_mc": summary_mc['total_rp_mc'],
+                "target_mc": master['target_mc'],
                 "realisasi": {
-                    "total": summary_mc['rp_lunas'],
-                    "undue_bank": undue_val,
-                    "current_lapangan": summary_mc['rp_lunas'] - undue_val
+                    "total": master['rp_lunas'],
+                    "undue": undue_val,
+                    "current_petugas": current_petugas,
+                    "current_mandiri": current_mandiri
                 },
-                "sisa_tagihan": summary_mc['rp_sisa']
+                "sisa_tagihan": master['rp_sisa']
             }
         })
     finally:
@@ -59,13 +85,13 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Monitoring harian dengan rincian Rayon 34 & 35 (Sesuai Logika Awal)."""
+    """Monitoring harian dengan rincian Rayon 34 & 35."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # 1. Hitung Target per-Rayon untuk dasar persentase
+        # Ambil Target per-Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -75,11 +101,17 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # 2. Ambil Saldo Awal Undue (Bank)
-        cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ?", (periode_req,))
-        undue_total = cursor.fetchone()[0]
+        # Ambil Saldo Awal Undue
+        cursor.execute("""
+            SELECT COALESCE(SUM(nominal), 0) FROM (
+                SELECT nominal FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE'
+                UNION ALL
+                SELECT nominal FROM collection_harian WHERE periode = ? AND kategori = 'UNDUE'
+            )
+        """, (periode_req, periode_req))
+        undue_start = cursor.fetchone()[0]
 
-        # 3. Query Pivot Harian (Pemisahan Rayon 34 & 35)
+        # Query Pivot Harian
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -101,8 +133,7 @@ def daily_monitor():
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
-            # Kumulatif gabungan (Undue + Hasil Lapangan)
-            cum_all = cum_34 + cum_35 + undue_total
+            cum_all = cum_34 + cum_35 + undue_start
             
             daily_data.append({
                 "tgl": r['tgl'],
@@ -128,7 +159,7 @@ def daily_monitor():
             "summary": {
                 "target": targets['target_total'],
                 "pct": (cum_all / targets['target_total'] * 100) if rows and targets['target_total'] > 0 else 0,
-                "realisasi": cum_all if rows else undue_total
+                "realisasi": cum_all if rows else undue_start
             }
         })
     finally:
