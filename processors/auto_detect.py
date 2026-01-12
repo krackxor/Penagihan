@@ -4,45 +4,39 @@ from dateutil.relativedelta import relativedelta
 
 def identify_file_type(df):
     """
-    SINERGI DETECTOR (V5.3):
-    Mendeteksi tipe file berdasarkan kolom kunci spesifik dari file asli.
+    SINERGI DETECTOR (V6.0):
+    Mendeteksi tipe file berdasarkan kolom kunci spesifik.
     """
-    # Standarisasi nama kolom: Uppercase dan Hilangkan Spasi
     cols = [str(c).upper().strip() for c in df.columns]
     
-    # 1. Deteksi MC (Master Catat) -> Kunci Utama: ZONA_NOVAK
     if 'ZONA_NOVAK' in cols and 'TGL_CATAT' in cols:
         return 'mc'
     
-    # 2. Deteksi MB (Master Bayar) -> Kunci Utama: TGL_BAYAR
     if 'TGL_BAYAR' in cols:
         return 'mb'
     
-    # 3. Deteksi Collection -> Kunci Utama: PAY_DT (Disesuaikan dengan file asli)
+    # Deteksi Collection menggunakan PAY_DT
     if 'PAY_DT' in cols:
         return 'collection'
     
-    # 4. Deteksi Ardebt -> Kunci Utama: PERIODE_BILL
     if 'PERIODE_BILL' in cols and 'JUMLAH' in cols:
         return 'ardebt'
     
-    # 5. Deteksi Rute -> Kunci Utama: PETUGAS
     if 'PETUGAS' in cols and 'PCEZ' in cols:
         return 'rute'
     
     return None
 
-def parse_flexible_date(date_str):
+def parse_flexible_date(date_val):
     """
-    Mengubah string tanggal atau serial excel menjadi objek datetime.
-    Mendukung angka seperti 45987.0 dari file MB/MC Anda.
+    Mengubah input (String/Serial Excel) menjadi objek datetime.
+    Mencegah error pada angka 45987.0
     """
-    if not date_str or str(date_str).lower() in ('nan', 'none', ''):
+    if not date_val or str(date_val).lower() in ('nan', 'none', ''):
         return None
 
-    s_date = str(date_str).split(' ')[0].replace("'", "").strip()
-    
-    # Cek jika format adalah Serial Date Excel (angka murni seperti 45987.0)
+    # Jika input adalah serial date Excel (angka murni)
+    s_date = str(date_val).split(' ')[0].replace("'", "").strip()
     try:
         if s_date.replace('.', '').isdigit():
             return datetime(1899, 12, 30) + timedelta(days=float(s_date))
@@ -58,21 +52,20 @@ def parse_flexible_date(date_str):
     return None
 
 def get_date_column(file_type, cols):
-    """Mapping acuan kolom tanggal sesuai standarisasi file asli."""
     mapping = {
-        'mc': 'TGL_CATAT',      # Dari file MC 1125.xls
-        'mb': 'TGL_BAYAR',      # Dari file MB 1125.xls
-        'collection': 'PAY_DT', # Dari file Collection 1225.xls
-        'ardebt': 'PERIODE_BILL' # Dari file Arrdebt 1125.xlsx
+        'mc': 'TGL_CATAT',
+        'mb': 'TGL_BAYAR',
+        'collection': 'PAY_DT',
+        'ardebt': 'PERIODE_BILL'
     }
     col_name = mapping.get(file_type)
     return col_name if col_name in cols else None
 
 def detect_file_period(df, file_type):
     """
-    LOGIKA PERIODE BILL:
-    - MC & MB: Bulan N menjadi target bulan N+1 (Contoh: Catat/Bayar Nov -> Periode Des)
-    - Collection: Tetap di bulan berjalan (Contoh: Bayar Des -> Periode Des)
+    LOGIKA PERIODE V6.0 (ANTI-JANUARI):
+    - Target (MC/MB/Ardebt): Bulan N + 1 (Nov -> Des)
+    - Realisasi (Collection): Bulan N Tetap (Des -> Des)
     """
     cols = [str(c).upper().strip() for c in df.columns]
     
@@ -84,25 +77,23 @@ def detect_file_period(df, file_type):
         if not date_col:
             return None, None
         
-        # Ambil sampel baris pertama yang berisi data
         valid_rows = df[df[date_col].notna()]
         if valid_rows.empty:
             return None, None
             
-        raw_date = str(valid_rows.iloc[0].get(date_col))
+        raw_date = valid_rows.iloc[0].get(date_col)
         dt = parse_flexible_date(raw_date)
         
         if dt:
-            # LOGIKA SINERGI PERIODE:
-            # MC & MB bulan 11 (Nov) dimajukan menjadi periode 12 (Des)
-            if file_type in ['mc', 'mb']:
+            # FIX LOGIKA: Bedakan antara file modal kerja dan file hasil lapangan
+            if file_type in ['mc', 'mb', 'ardebt']:
+                # Input Nov -> Jadi Periode Des (Benar)
                 dt = dt + relativedelta(months=1)
             
-            # Ardebt juga dimajukan agar sinkron sebagai target periode berjalan
-            elif file_type == 'ardebt':
-                dt = dt + relativedelta(months=1)
-            
-            # Collection (PAY_DT 15-12-2025) tetap Periode 12
+            elif file_type == 'collection':
+                # Input Des -> TETAP Periode Des (Jangan ditambah 1 agar tidak jadi Januari)
+                dt = dt 
+
             return dt.strftime('%m'), dt.strftime('%Y')
 
     except Exception as e:
@@ -111,7 +102,7 @@ def detect_file_period(df, file_type):
     return None, None
 
 def parse_zona_novak(val):
-    """Ekstraksi PCEZ dari ZONA_NOVAK (350960217 -> 096/02)."""
+    """Pecah ZONA_NOVAK menjadi komponen PCEZ."""
     if pd.isna(val) or val == '':
         return None
     s = str(val).strip().split('.')[0]
