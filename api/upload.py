@@ -1,30 +1,22 @@
 """
-Upload API - Sunter Dashboard Pro (V8.5 Sinergi Global Sync)
+Upload API - Sunter Dashboard Pro (V8.6 Sinergi Global Sync)
 Update: 2026-01-12
 - Global Locking: Mengunci satu periode untuk seluruh isi file (Anti-Januari).
 - N+1 Logic: MC/MB/Ardebt bulan N -> Periode N+1.
 - Collection Sync: Collection bulan N -> Periode N.
+- UI Fix: Mengirimkan identitas modul untuk menghilangkan pesan 'undefined'.
+- Rute Fix: Bypass deteksi periode untuk file RUTE agar tidak gagal sinkronisasi.
 """
 
 import os
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
-from core.helpers import clean_nomen, clean_notag
-# Menggunakan auto_detect yang sudah diperbaiki
+from core.helpers import clean_nomen
 from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
 
 upload_bp = Blueprint('upload', __name__)
-
-# Konfigurasi kolom wajib
-REQUIRED_COLS = {
-    'MC': ['NOMEN', 'NAMA_PEL', 'ZONA_NOVAK', 'TGL_CATAT', 'NOMINAL'],
-    'MB': ['NOMEN', 'TGL_BAYAR', 'NOMINAL'],
-    'ARDEBT': ['NOMEN', 'PERIODE_BILL', 'JUMLAH'],
-    'COLLECTION': ['NOMEN', 'PAY_DT', 'NOMINAL'],
-    'RUTE': ['PCEZ', 'PETUGAS']
-}
 
 def safe_float(val):
     """Data Guard: Memastikan angka desimal Excel terbaca benar."""
@@ -50,26 +42,44 @@ def handle_upload():
         df = pd.read_excel(file, dtype=str).fillna('')
         df.columns = [str(c).upper().strip() for c in df.columns]
         
-        # 1. Identifikasi Tipe & DETEKSI PERIODE GLOBAL (Kunci Anti-Januari)
-        file_type = identify_file_type(df) #
+        # 1. Identifikasi Tipe File
+        file_type = identify_file_type(df)
         if not file_type:
             return jsonify({"error": "Format Excel tidak dikenali"}), 400
 
-        # KUNCI PERIODE DI SINI (Hanya 1x deteksi untuk seluruh file)
-        t_month, t_year = detect_file_period(df, file_type) #
-        if not t_month:
-            return jsonify({"error": "Gagal mendeteksi periode file"}), 400
+        # 2. DETEKSI PERIODE GLOBAL (Bypass untuk RUTE)
+        if file_type == 'RUTE':
+            # Rute tidak memiliki kolom tanggal, gunakan periode sistem saat ini
+            t_month = datetime.now().strftime('%m')
+            t_year = datetime.now().strftime('%Y')
+        else:
+            t_month, t_year = detect_file_period(df, file_type)
+            if not t_month:
+                return jsonify({"error": "Gagal mendeteksi periode file"}), 400
             
-        periode_fix = f"{t_month}-{t_year}" # Contoh: 12-2025
+        periode_fix = f"{t_month}-{t_year}"
         row_count = 0
 
-        # 2. PROSES INSERT (Menggunakan periode_fix untuk SEMUA baris)
+        # 3. PROSES INSERT
         for _, r in df.iterrows():
-            nomen = clean_nomen(r.get('NOMEN') or r.get('IDPEL')) #
+            # Khusus RUTE, menggunakan join key PCEZ (bukan NOMEN)
+            if file_type == 'RUTE':
+                pcez_val = str(r.get('PCEZ', '')).strip()
+                petugas_val = str(r.get('PETUGAS', '')).strip()
+                if pcez_val and petugas_val:
+                    db.execute("""
+                        INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at)
+                        VALUES (?, ?, CURRENT_TIMESTAMP)
+                    """, (pcez_val, petugas_val))
+                    row_count += 1
+                continue
+
+            # Proses untuk tipe data transaksional (MC, MB, COLL, ARDEBT)
+            nomen = clean_nomen(r.get('NOMEN') or r.get('IDPEL'))
             if not nomen: continue
 
             if file_type == 'MC':
-                z = autopilot_extract_zona(r['ZONA_NOVAK']) #
+                z = autopilot_extract_zona(r['ZONA_NOVAK'])
                 if not z: continue
                 
                 db.execute("""
@@ -100,14 +110,20 @@ def handle_upload():
 
             row_count += 1
 
-        # 3. AUDIT HISTORY
+        # 4. AUDIT HISTORY
         db.execute("""
             INSERT INTO upload_history (file_name, file_type, periode, row_count, status) 
             VALUES (?, ?, ?, ?, ?)
         """, (file_name, file_type, periode_fix, row_count, 'SUCCESS'))
 
         db.commit()
-        return jsonify({"status": "success", "rows": row_count, "period": periode_fix})
+        
+        return jsonify({
+            "status": "success", 
+            "rows": row_count, 
+            "period": periode_fix,
+            "module": file_type 
+        })
 
     except Exception as e:
         if db: db.rollback()
