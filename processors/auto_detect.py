@@ -42,7 +42,7 @@ def parse_flexible_date(date_str):
 
     s_date = str(date_str).split(' ')[0].replace("'", "").strip()
     
-    # Cek jika format adalah Serial Date Excel (angka murni)
+    # Cek jika format adalah Serial Date Excel (angka murni seperti 45987.0)
     try:
         if s_date.replace('.', '').isdigit():
             return datetime(1899, 12, 30) + timedelta(days=float(s_date))
@@ -63,15 +63,16 @@ def get_date_column(file_type, cols):
         'mc': 'TGL_CATAT',      # Dari file MC 1125.xls
         'mb': 'TGL_BAYAR',      # Dari file MB 1125.xls
         'collection': 'PAY_DT', # Dari file Collection 1225.xls
-        'ardebt': 'PERIODE_BILL'
+        'ardebt': 'PERIODE_BILL' # Dari file Arrdebt 1125.xlsx
     }
     col_name = mapping.get(file_type)
     return col_name if col_name in cols else None
 
 def detect_file_period(df, file_type):
     """
-    AUTOPILOT PERIOD:
-    Data bulan N (November) menjadi target bulan N+1 (Desember).
+    LOGIKA PERIODE BILL:
+    - MC & MB: Bulan N menjadi target bulan N+1 (Contoh: Catat/Bayar Nov -> Periode Des)
+    - Collection: Tetap di bulan berjalan (Contoh: Bayar Des -> Periode Des)
     """
     cols = [str(c).upper().strip() for c in df.columns]
     
@@ -92,10 +93,16 @@ def detect_file_period(df, file_type):
         dt = parse_flexible_date(raw_date)
         
         if dt:
-            # Sinergi: MC, MB, & Ardebt dimajukan 1 bulan untuk periode kerja
-            if file_type in ['mc', 'mb', 'ardebt']:
+            # LOGIKA SINERGI PERIODE:
+            # MC & MB bulan 11 (Nov) dimajukan menjadi periode 12 (Des)
+            if file_type in ['mc', 'mb']:
                 dt = dt + relativedelta(months=1)
             
+            # Ardebt juga dimajukan agar sinkron sebagai target periode berjalan
+            elif file_type == 'ardebt':
+                dt = dt + relativedelta(months=1)
+            
+            # Collection (PAY_DT 15-12-2025) tetap Periode 12
             return dt.strftime('%m'), dt.strftime('%Y')
 
     except Exception as e:
