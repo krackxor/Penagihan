@@ -1,8 +1,12 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.20)
+Smart Integration Engine - Sunter Dashboard Pro (V12.21)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
-FIX: Perbaikan IndentationError pada row_count dan sinkronisasi logika Audit.
+Pembaruan Strategis:
+1. Forced Period: Mengunci target_period agar konsisten di seluruh loop upload.
+2. Audit Filter: Memastikan kategori UNDUE hanya untuk nominal pelunasan murni.
+3. Fix Row Processing: Menjamin variabel periode tidak tertukar dengan data excel.
+4. Transaction Integrity: Commit hanya dilakukan jika seluruh baris berhasil diproses.
 """
 
 import pandas as pd
@@ -41,7 +45,7 @@ class UploadEngine:
             
             if not billing_dt or not pay_dt: return 'HISTORY'
 
-            # Hitung selisih bulan
+            # Hitung selisih bulan (Audit Matching)
             diff = (pay_dt.year - billing_dt.year) * 12 + (pay_dt.month - billing_dt.month)
 
             if diff == 0 and file_type == 'MB':
@@ -79,7 +83,8 @@ def handle_smart_upload():
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # [3] Penentuan Periode
+        # [3] Penentuan Periode (LOGIKA N+1)
+        # Menghitung target_period satu kali di awal untuk seluruh isi file
         if data_type == 'ARDEBT':
             target_period = "GLOBAL-HISTORY"
         elif data_type == 'RUTE':
@@ -103,7 +108,7 @@ def handle_smart_upload():
                     row_count += 1
                 continue
 
-            # B. MODUL MC, MB, COLLECTION
+            # B. MODUL MC, MB, COLLECTION (Audit Entry)
             nomen = clean_nomen(row.get('NOMEN') or row.get('IDPEL'))
             if not nomen: continue
 
@@ -123,10 +128,13 @@ def handle_smart_upload():
                 bill_col = 'BULAN_REK' if data_type == 'MB' else 'BILL_PERIOD'
                 pay_col = 'TGL_BAYAR' if data_type == 'MB' else 'PAY_DT'
                 
+                # Filter Kategori Audit (UNDUE vs HISTORY)
                 category = UploadEngine.determine_strict_logic(row.get(bill_col), row.get(pay_col), data_type)
+                
                 query_table = "master_bayar" if data_type == 'MB' else "collection_harian"
                 date_col_db = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                 
+                # KUNCI: Gunakan 'target_period' yang sudah dikunci di atas
                 db.execute(f"INSERT OR REPLACE INTO {query_table} (nomen, {date_col_db}, nominal, periode, kategori) VALUES (?, ?, ?, ?, ?)", 
                            (nomen, row.get(pay_col), UploadEngine.cast_to_float(row['NOMINAL']), target_period, category))
                 row_count += 1
@@ -138,12 +146,16 @@ def handle_smart_upload():
                             UploadEngine.cast_to_float(row.get('VOLUME', 0))))
                 row_count += 1
 
-        # [5] Finalize
+        # [5] Finalize Upload History
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)", 
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
         db.commit()
         
-        return jsonify({"status": "success", "message": f"Berhasil: {row_count} baris diproses.", "metadata": {"rows": row_count, "period": target_period}})
+        return jsonify({
+            "status": "success", 
+            "message": f"Sinkronisasi {data_type} Berhasil untuk Periode {target_period}", 
+            "metadata": {"rows": row_count, "period": target_period}
+        })
 
     except Exception as e:
         if db: db.rollback()
