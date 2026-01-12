@@ -1,9 +1,9 @@
 """
-PCEZ Performance API - Sunter Dashboard Pro (Smart Autopilot Edition)
+PCEZ Performance API - Sunter Dashboard Pro (V8.3 Sinergi Edition)
 Sinergi & Smart Update:
-1. Autopilot Transition: Otomatis mendeteksi periode aktif terbaru jika data bulan ini belum tersedia.
-2. Smart Casting & Linkage: Normalisasi NOMEN dan NOTAGIHAN untuk akurasi sinkronisasi 100%.
-3. Multi-Path Validation: Verifikasi pelunasan real-time via Master Bayar (MB) & Collection Harian.
+1. Autopilot Transition: Deteksi periode otomatis untuk masa transisi data.
+2. Database Trigger Sync: Memanfaatkan status_lunas otomatis untuk akurasi 100%.
+3. Real-time Undue & Current: Pemisahan pembayaran kantor dan lapangan yang presisi.
 4. Access Intelligence: Filter dinamis berdasarkan role (Admin Global vs Petugas Personal).
 """
 
@@ -13,71 +13,43 @@ from datetime import datetime
 def register_pcez_routes(app, get_db):
     
     def get_autopilot_periode(db):
-        """
-        LOGIKA AUTOPILOT:
-        Mencari periode terakhir yang tersedia di database. 
-        Mencegah dashboard kosong saat tanggal 1-10 (masa transisi data).
-        """
+        """Mencari periode terakhir yang tersedia di database."""
         row = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
         return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
     @app.route('/api/performance/full-stats', methods=['GET'])
     def get_full_stats():
-        """
-        Dashboard Intelijen:
-        Mengambil statistik target vs realisasi dengan audit pelunasan ganda.
-        """
+        """Dashboard Intelijen: Statistik target vs realisasi."""
         try:
             db = get_db()
-            today = datetime.now()
             
             # --- 1. IDENTIFIKASI LOGIN & LEVEL AKSES ---
             user_role = str(session.get('role', 'publik')).lower()
             user_petugas_id = session.get('petugas_id') 
             
             # --- 2. PENGATURAN PERIODE (SMART AUTOPILOT) ---
-            req_periode = request.args.get('periode')
-            if not req_periode:
-                # Gunakan Autopilot jika user tidak memilih periode secara manual
-                req_periode = get_autopilot_periode(db)
+            req_periode = request.args.get('periode') or get_autopilot_periode(db)
 
             # --- 3. LOGIKA SMART FILTERING ---
             target_filter = ""
-            params_global = []
+            params_global = [req_periode, req_periode, req_periode]
 
-            # Sinergi Level Akses: Membatasi jangkauan data sesuai identitas petugas
             if user_role == 'petugas':
                 target_filter = " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
-                for _ in range(5):
-                    params_global.extend([req_periode, user_petugas_id])
-            else:
-                # Admin/Guest melihat data global (5 sub-query = 5 periode params)
-                params_global = [req_periode] * 5
+                params_global = [req_periode, user_petugas_id, req_periode, user_petugas_id, req_periode, user_petugas_id]
 
-            # --- 4. QUERY GLOBAL DASHBOARD (SMART SYNC) ---
-            # Menggunakan CAST ke TEXT pada NOMEN & NOTAG untuk menjamin kecocokan data (Match)
+            # --- 4. QUERY GLOBAL DASHBOARD (TRIGGER SYNC V8.3) ---
+            # Mengambil data langsung dari kolom status_lunas hasil trigger database
             global_query = f"""
                 SELECT 
-                    COALESCE((SELECT COUNT(*) FROM master_pelanggan WHERE tipe = 'MC' AND periode = ? {target_filter}), 0) as total_nomen_mc,
-                    COALESCE((SELECT SUM(nominal) FROM master_pelanggan WHERE tipe = 'MC' AND periode = ? {target_filter}), 0) as total_nominal_mc,
-                    COALESCE((SELECT SUM(m.nominal) FROM master_pelanggan m 
-                        WHERE m.tipe = 'MC' AND m.periode = ? {target_filter.replace('pcez', 'm.pcez')}
-                        AND (
-                            -- Pintu 1: Cek pelunasan via Master Bayar (Kantor)
-                            EXISTS (SELECT 1 FROM master_bayar mb WHERE CAST(mb.nomen AS TEXT) = CAST(m.nomen AS TEXT))
-                            OR 
-                            -- Pintu 2: Cek pelunasan via Collection Harian (Input Lapangan)
-                            EXISTS (SELECT 1 FROM collection_harian c WHERE CAST(c.notag AS TEXT) = CAST(m.notagihan AS TEXT))
-                        )
-                    ), 0) as nom_terbayar,
-                    COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
-                        WHERE m.tipe = 'MC' AND m.periode = ? {target_filter.replace('pcez', 'm.pcez')}
-                        AND EXISTS (SELECT 1 FROM master_bayar mb WHERE CAST(mb.nomen AS TEXT) = CAST(m.nomen AS TEXT))
-                    ), 0) as count_undue,
-                    COALESCE((SELECT COUNT(DISTINCT m.nomen) FROM master_pelanggan m 
-                        WHERE m.tipe = 'MC' AND m.periode = ? {target_filter.replace('pcez', 'm.pcez')}
-                        AND EXISTS (SELECT 1 FROM collection_harian c WHERE CAST(c.notag AS TEXT) = CAST(m.notagihan AS TEXT))
-                    ), 0) as count_current
+                    COUNT(*) as total_nomen_mc,
+                    SUM(nominal) as total_nominal_mc,
+                    SUM(CASE WHEN status_lunas = 1 THEN 1 ELSE 0 END) as total_lunas_mc,
+                    SUM(CASE WHEN status_lunas = 1 THEN nominal ELSE 0 END) as nom_terbayar,
+                    (SELECT COUNT(*) FROM master_bayar WHERE periode = ? {target_filter}) as count_undue,
+                    (SELECT COUNT(*) FROM collection_harian WHERE periode = ? {target_filter}) as count_current
+                FROM master_pelanggan 
+                WHERE periode = ? {target_filter}
             """
             
             # --- 5. QUERY RANKING & PERFORMA PETUGAS ---
@@ -89,7 +61,7 @@ def register_pcez_routes(app, get_db):
                     SUM(CASE WHEN k.keterangan LIKE '%Janji%' THEN 1 ELSE 0 END) as jml_janji,
                     SUM(CASE WHEN k.keterangan LIKE '%Sudah%' THEN (COALESCE(k.mc, 0) + COALESCE(k.ardebt, 0)) ELSE 0 END) as total_nominal
                 FROM kunjungan_petugas k
-                LEFT JOIN master_pelanggan mp ON CAST(k.nomen AS TEXT) = CAST(mp.nomen AS TEXT)
+                LEFT JOIN master_pelanggan mp ON k.nomen = mp.nomen AND k.periode = mp.periode
                 LEFT JOIN rute_petugas r ON mp.pcez = r.pcez
                 WHERE k.periode = ?
             """
@@ -101,18 +73,18 @@ def register_pcez_routes(app, get_db):
 
             officer_ranking_query += " GROUP BY petugas ORDER BY total_nominal DESC"
 
-            # --- 6. EKSEKUSI & SINKRONISASI AKHIR ---
+            # --- 6. EKSEKUSI DATA ---
             g_stat = db.execute(global_query, params_global).fetchone()
             o_rank = db.execute(officer_ranking_query, rank_params).fetchall()
             
             # --- 7. LOG AKTIVITAS LIVE FEED ---
-            log_q = """
-                SELECT strftime('%H:%M', k.created_at, '+7 hours') as waktu, 
+            log_q = f"""
+                SELECT strftime('%H:%M', k.created_at) as waktu, 
                        k.nomen, mp.nama, k.keterangan, 
                        COALESCE(r.petugas, k.petugas_name) as petugas,
                        (COALESCE(k.mc, 0) + COALESCE(k.ardebt, 0)) as nominal
                 FROM kunjungan_petugas k 
-                LEFT JOIN master_pelanggan mp ON CAST(k.nomen AS TEXT) = CAST(mp.nomen AS TEXT)
+                LEFT JOIN master_pelanggan mp ON k.nomen = mp.nomen AND k.periode = mp.periode
                 LEFT JOIN rute_petugas r ON mp.pcez = r.pcez 
                 WHERE k.periode = ?
             """
@@ -123,15 +95,13 @@ def register_pcez_routes(app, get_db):
             
             l_recent = db.execute(log_q + " ORDER BY k.created_at DESC LIMIT 10", log_params).fetchall()
             
-            # --- 8. SMART CALCULATION ---
+            # --- 8. FINAL DATA MAPPING ---
             res_global = dict(g_stat) if g_stat else {}
-            # Total Lunas Gabungan (Pintu Kantor + Pintu Lapangan)
-            res_global['total_lunas_mc'] = res_global.get('count_undue', 0) + res_global.get('count_current', 0)
             res_global['sisa_nomen'] = max(0, res_global.get('total_nomen_mc', 0) - res_global.get('total_lunas_mc', 0))
 
             return jsonify({
                 "status": "success",
-                "active_periode": req_periode, # Memberitahu frontend periode mana yang sedang aktif
+                "active_periode": req_periode,
                 "global": res_global,
                 "officers": [dict(row) for row in o_rank],
                 "log_petugas": [dict(row) for row in l_recent],
@@ -142,7 +112,7 @@ def register_pcez_routes(app, get_db):
 
     @app.route('/api/performance/reminders', methods=['GET'])
     def get_reminders():
-        """Janji Bayar dengan Validasi Pelunasan Otomatis."""
+        """Janji Bayar dengan Status Pelunasan Otomatis."""
         try:
             db = get_db()
             user_role = str(session.get('role', 'publik')).lower()
@@ -154,13 +124,9 @@ def register_pcez_routes(app, get_db):
                     k.nomen, m.nama, k.no_hp, k.janji_bayar_dt as tanggal_janji,
                     k.catatan, COALESCE(r.petugas, k.petugas_name) as petugas_name,
                     (COALESCE(k.mc, 0) + COALESCE(k.ardebt, 0)) as nominal,
-                    CASE 
-                        WHEN EXISTS (SELECT 1 FROM master_bayar mb WHERE CAST(mb.nomen AS TEXT) = CAST(m.nomen AS TEXT)) OR 
-                             EXISTS (SELECT 1 FROM collection_harian c WHERE CAST(c.notag AS TEXT) = CAST(m.notagihan AS TEXT))
-                        THEN 'LUNAS' ELSE 'PENDING'
-                    END as status_bayar
+                    CASE WHEN m.status_lunas = 1 THEN 'LUNAS' ELSE 'PENDING' END as status_bayar
                 FROM kunjungan_petugas k
-                LEFT JOIN master_pelanggan m ON CAST(k.nomen AS TEXT) = CAST(m.nomen AS TEXT)
+                LEFT JOIN master_pelanggan m ON k.nomen = m.nomen AND k.periode = m.periode
                 LEFT JOIN rute_petugas r ON m.pcez = r.pcez
                 WHERE k.periode = ? AND k.keterangan LIKE '%Janji%'
             """
