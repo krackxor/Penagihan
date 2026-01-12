@@ -4,7 +4,7 @@ from dateutil.relativedelta import relativedelta
 
 def identify_file_type(df):
     """
-    SINERGI DETECTOR (V6.0):
+    SINERGI DETECTOR (V6.1):
     Mendeteksi tipe file berdasarkan kolom kunci spesifik.
     """
     cols = [str(c).upper().strip() for c in df.columns]
@@ -15,7 +15,6 @@ def identify_file_type(df):
     if 'TGL_BAYAR' in cols:
         return 'mb'
     
-    # Deteksi Collection menggunakan PAY_DT
     if 'PAY_DT' in cols:
         return 'collection'
     
@@ -30,14 +29,13 @@ def identify_file_type(df):
 def parse_flexible_date(date_val):
     """
     Mengubah input (String/Serial Excel) menjadi objek datetime.
-    Mencegah error pada angka 45987.0
     """
     if not date_val or str(date_val).lower() in ('nan', 'none', ''):
         return None
 
-    # Jika input adalah serial date Excel (angka murni)
     s_date = str(date_val).split(' ')[0].replace("'", "").strip()
     try:
+        # Menangani Serial Date Excel (Contoh: 45987.0)
         if s_date.replace('.', '').isdigit():
             return datetime(1899, 12, 30) + timedelta(days=float(s_date))
     except:
@@ -63,9 +61,9 @@ def get_date_column(file_type, cols):
 
 def detect_file_period(df, file_type):
     """
-    LOGIKA PERIODE V6.0 (ANTI-JANUARI):
-    - Target (MC/MB/Ardebt): Bulan N + 1 (Nov -> Des)
-    - Realisasi (Collection): Bulan N Tetap (Des -> Des)
+    LOGIKA PERIODE V6.1 (ULTRA-LOCK):
+    Mengunci satu periode untuk seluruh isi file berdasarkan baris pertama.
+    Mencegah data terpecah jika ada baris yang beda tanggal.
     """
     cols = [str(c).upper().strip() for c in df.columns]
     
@@ -77,6 +75,7 @@ def detect_file_period(df, file_type):
         if not date_col:
             return None, None
         
+        # MENGUNCI PERIODE BERDASARKAN SAMPEL PERTAMA YANG VALID
         valid_rows = df[df[date_col].notna()]
         if valid_rows.empty:
             return None, None
@@ -85,16 +84,16 @@ def detect_file_period(df, file_type):
         dt = parse_flexible_date(raw_date)
         
         if dt:
-            # FIX LOGIKA: Bedakan antara file modal kerja dan file hasil lapangan
+            # MC/MB/Ardebt: Target Kerja N+1 (Nov -> Des)
             if file_type in ['mc', 'mb', 'ardebt']:
-                # Input Nov -> Jadi Periode Des (Benar)
-                dt = dt + relativedelta(months=1)
+                target_dt = dt + relativedelta(months=1)
             
+            # Collection: Realisasi Tetap (Des -> Des)
             elif file_type == 'collection':
-                # Input Des -> TETAP Periode Des (Jangan ditambah 1 agar tidak jadi Januari)
-                dt = dt 
+                target_dt = dt 
 
-            return dt.strftime('%m'), dt.strftime('%Y')
+            # Mengembalikan bulan dan tahun yang sudah TERKUNCI untuk seluruh entri
+            return target_dt.strftime('%m'), target_dt.strftime('%Y')
 
     except Exception as e:
         print(f"⚠️ Smart Period Detection Warning: {e}")
