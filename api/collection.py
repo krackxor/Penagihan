@@ -1,12 +1,13 @@
 """
-Collection API - Sunter Dashboard Pro (V12.22 Audit Alignment)
+Collection API - Sunter Dashboard Pro (V12.27 Smart Sync)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. N+1 Global Sync: Menyelaraskan pengambilan data dengan periode Dashboard N+1.
+   (Contoh: Data Rekening 12/2025 muncul di Dashboard 01-2026).
 2. Anti-Zero Recovery: Menarik kategori HISTORY & ARDEBT ke Box UNDUE secara otomatis.
 3. Field Audit Lock: Memastikan Box Field hanya terisi jika tervalidasi record kunjungan.
-4. Precision Analytics: Menggunakan pembagi MAX(1, target) untuk mencegah error pembagian nol.
+4. Precision Analytics: Menggunakan pembagi MAX(1, target) untuk mencegah error division by zero.
 """
 
 from flask import Blueprint, jsonify, request
@@ -16,7 +17,7 @@ from datetime import datetime
 collection_bp = Blueprint('collection', __name__)
 
 def get_active_period(cursor):
-    """Mendeteksi periode aktif terbaru dari database (Hasil N+1 Upload)."""
+    """Mendeteksi periode dashboard aktif terbaru dari database (Hasil N+1 Upload)."""
     # Mengambil periode terbaru dari Master Pelanggan sebagai jangkar dashboard
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
@@ -32,12 +33,12 @@ def pusat_kendali():
         # Menggunakan periode dari request atau deteksi otomatis periode aktif terbaru (N+1)
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # 1. TOTAL TARGET (MC) - Target murni periode berjalan
+        # 1. TOTAL TARGET (MC) - Target murni hasil mapping N+1 (Contoh: MC Des -> 01-2026)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (BANK) - Realisasi pelunasan murni + data history recovery
-        # Memasukkan kategori 'HISTORY' untuk menangani data yang meleset dari filter audit ketat saat upload
+        # 2. BOX UNDUE (BANK) - Realisasi pelunasan MB periode berjalan
+        # Inklusi 'HISTORY' menangani data yang meleset dari filter audit ketat (Bulan Bayar != Bulan Rekening)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -45,7 +46,7 @@ def pusat_kendali():
         """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX FIELD (PETUGAS) - Realisasi Current yang tervalidasi bukti kunjungan
+        # 3. BOX FIELD (PETUGAS) - Realisasi yang tervalidasi bukti kunjungan
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
@@ -57,7 +58,7 @@ def pusat_kendali():
         """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. BOX MANDIRI - Realisasi tanpa record kunjungan (Pembayaran mandiri/online)
+        # 4. BOX MANDIRI - Realisasi tanpa record kunjungan (Pembayaran mandiri/ATM/App)
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
@@ -73,7 +74,10 @@ def pusat_kendali():
 
         return jsonify({
             "status": "success",
-            "periode": periode_req,
+            "metadata": {
+                "dashboard_period": periode_req,
+                "logic": "N+1 Alignment (Operational Month N -> Dashboard N+1)"
+            },
             "summary": {
                 "target_mc": target_mc,
                 "realisasi": {
@@ -97,7 +101,7 @@ def daily_monitor():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # Ambil Target Detail per Rayon
+        # Ambil Target Detail per Rayon untuk validasi progress
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -107,7 +111,7 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Saldo Awal Realisasi Bank (Mencakup UNDUE & HISTORY dari file MB)
+        # Saldo Awal Realisasi Bank (Mencakup UNDUE & HISTORY dari file MB Desember)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -115,7 +119,7 @@ def daily_monitor():
         """, (periode_req,))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian: Gabungan nominal harian dengan data Master Pelanggan (Rayon)
+        # Query Harian: Gabungan nominal harian dengan data Master Pelanggan (Join Rayon)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -136,7 +140,7 @@ def daily_monitor():
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
-            # Akumulasi total = (Progress Lapangan) + (Saldo Awal Bank)
+            # Akumulasi total dashboard = (Progress Lapangan) + (Saldo Awal MB Desember)
             cum_all = cum_34 + cum_35 + undue_start
             
             daily_data.append({
