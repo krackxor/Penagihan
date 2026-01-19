@@ -134,7 +134,7 @@ def handle_smart_upload():
                 query_table = "master_bayar" if data_type == 'MB' else "collection_harian"
                 date_col_db = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                 
-                # KUNCI: Gunakan 'target_period' yang sudah dikunci di atas
+                # KUNCI: Gunakan 'target_period' yang sudah dikunci di atas agar mendarat di bulan yang tepat
                 db.execute(f"INSERT OR REPLACE INTO {query_table} (nomen, {date_col_db}, nominal, periode, kategori) VALUES (?, ?, ?, ?, ?)", 
                            (nomen, row.get(pay_col), UploadEngine.cast_to_float(row['NOMINAL']), target_period, category))
                 row_count += 1
