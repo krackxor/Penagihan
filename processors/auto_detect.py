@@ -3,9 +3,9 @@ Smart Period & Type Detector - Sunter Dashboard Pro (V12.22)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. N+1 Global Alignment: Memastikan Bulan Rekening 11 otomatis masuk ke Periode 12.
-2. Zero Gap Parsing: Menangani whitespace non-standard (\xa0) dan karakter kutip.
-3. Enhanced MB Detection: Validasi format 112025 (6-digit) sebagai prioritas utama audit.
+1. N+1 Global Alignment: Memastikan data Bulan Rekening N otomatis masuk ke Dashboard N+1.
+2. Zero Gap Parsing: Menangani whitespace non-standard (\xa0) dan karakter kutip dari ekspor bank.
+3. Enhanced MB Detection: Validasi format 112025 (6-digit) sebagai prioritas utama audit periode.
 4. Serial Date Fix: Konversi otomatis angka Serial Excel menjadi objek tanggal Python.
 """
 
@@ -37,8 +37,8 @@ def identify_file_type(df):
 
 def clean_val(val):
     """Membersihkan karakter sampah tersembunyi dari ekspor perbankan."""
-    if not val or pd.isna(val): return ""
-    # Hapus spasi non-breaking (\xa0), kutip, dan whitespace
+    if val is None or (isinstance(val, float) and pd.isna(val)): return ""
+    # Hapus spasi non-breaking (\xa0), kutip tunggal, backtick, dan whitespace di ujung
     return str(val).replace('\xa0', ' ').replace("'", "").replace("`", "").strip()
 
 def parse_billing_date(val, file_type='MB'):
@@ -61,27 +61,35 @@ def parse_billing_date(val, file_type='MB'):
                 
         # 3. Format Fallback (Tanggal Standar)
         for fmt in ['%d-%m-%Y', '%Y-%m-%d', '%d/%m/%Y', '%m-%Y']:
-            try: return datetime.strptime(s.split(' ')[0], fmt)
-            except: continue
-    except: pass
+            try: 
+                return datetime.strptime(s.split(' ')[0], fmt)
+            except: 
+                continue
+    except: 
+        pass
     return None
 
 def parse_flexible_date(date_val):
     """Konverter Tanggal Universal termasuk Serial Date Excel."""
-    s_date = clean_val(date_val).split(' ')[0].replace("/", "-")
-    if not s_date or s_date.lower() in ('nan', 'none'): return None
+    s = clean_val(date_val)
+    if not s or s.lower() in ('nan', 'none'): return None
+    
+    s_date = s.split(' ')[0].replace("/", "-")
     
     # Proteksi: Serial Date Excel (Contoh: 45291)
     try:
         if s_date.replace('.', '').isdigit() and len(s_date) < 6:
             return datetime(1899, 12, 30) + timedelta(days=float(s_date))
-    except: pass
+    except: 
+        pass
 
-    # Daftar format umum
+    # Daftar format umum untuk scanning
     formats = ['%d-%m-%Y', '%Y-%m-%d', '%d/%m/%Y', '%m%Y', '%b-%y', '%B-%Y']
     for fmt in formats:
-        try: return datetime.strptime(s_date, fmt)
-        except: continue
+        try: 
+            return datetime.strptime(s_date, fmt)
+        except: 
+            continue
     return None
 
 def detect_file_period(df, file_type):
@@ -110,14 +118,14 @@ def detect_file_period(df, file_type):
             
         raw_date = valid_rows.iloc[0].get(date_col)
         
-        # Parsing tanggal dasar
+        # Parsing tanggal dasar dari file
         if date_col in ['BULAN_REK', 'BILL_PERIOD']:
             dt = parse_billing_date(raw_date, file_type)
         else:
             dt = parse_flexible_date(raw_date)
         
         if dt:
-            # FIX UTAMA: Menambahkan 1 bulan ke depan untuk target dashboard
+            # FIX UTAMA: Menambahkan 1 bulan ke depan untuk target dashboard (N+1)
             target_dt = dt + relativedelta(months=1)
             return target_dt.strftime('%m'), target_dt.strftime('%Y')
 
@@ -131,7 +139,7 @@ def autopilot_extract_zona(val):
     s = clean_val(val)
     if not s: return None
     
-    # Ambil angka saja
+    # Ambil angka saja, buang titik atau karakter lain
     digits = ''.join(filter(str.isdigit, s.split('.')[0])).zfill(9)
     return {
         'rayon': digits[0:2], 
@@ -141,5 +149,5 @@ def autopilot_extract_zona(val):
         'blok': digits[7:9]
     }
 
-# Aliasing untuk sinkronisasi dengan API Upload
+# Aliasing untuk sinkronisasi dengan modul lain
 parse_zona_novak = autopilot_extract_zona
