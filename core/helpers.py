@@ -1,22 +1,19 @@
 """
-Core Helpers - Sunter Dashboard Pro (V6.7 Intelligence Edition)
-Sinergi: API Standardizer, Data Sanitizer, GPS Validator, & Role Manager
+Core Helpers - Sunter Dashboard Pro (V12.60 Intelligence)
+Sinergi: API Standardizer, Data Sanitizer, GPS Validator, & Audit Logger
 
-Update V6.7:
-- Auto-Text Shield: Memperkuat clean_nomen untuk menangani format .0 dari Excel secara otomatis.
-- Notag Sanitizer: Menambahkan fungsi khusus pembersih Nomor Tagihan.
-- GMaps Logic: Mengoptimalkan generator link lokasi.
+Update V12.60:
+- Log Action Integration: Menambahkan mesin pencatat jejak digital Admin & Petugas.
+- Auto-Text Shield: Proteksi IDPEL (Nomen) dari kerusakan format ilmiah Excel (E+).
+- Notag Sanitizer: Menjamin join data antar periode tetap sinkron (MC, MB, Coll).
 """
 
 import re
-from flask import jsonify
+import sqlite3
+from flask import jsonify, current_app
 
 class APIResponse:
-    """
-    [KELAS: STANDARISASI RESPONS JSON]
-    Kegunaan: Menjamin konsistensi struktur data yang dikirim dari Server ke HP Petugas/Dashboard.
-    """
-    
+    """ [STANDARISASI RESPONS JSON] """
     @staticmethod
     def success(data=None, message="Success", code=200):
         response = {
@@ -36,66 +33,67 @@ class APIResponse:
             response["details"] = str(details)
         return jsonify(response), code
 
-def get_role_redirect(role):
-    """[FUNGSI: ROLE-BASED NAVIGATION]"""
-    role_map = {
-        'admin': 'admin_dashboard',
-        'petugas': 'tagihan_berekor_page',
-        'publik': 'index',
-        'guest': 'index'
-    }
-    return role_map.get(str(role).lower(), 'index')
+# ==========================================
+# 1. MODUL AUDIT & LOGGING (FIX: ImportError)
+# ==========================================
 
-def format_idr(nominal):
-    """[FUNGSI: FORMATTER RUPIAH]"""
-    if nominal is None or str(nominal).strip() == '':
-        return "Rp 0"
-    
+def log_action(user_id, action, module, details="", ip=""):
+    """
+    [FUNGSI: SYSTEM LOG WRITER]
+    Mencatat setiap aktivitas administratif (Upload, Update, Delete) ke tabel system_logs.
+    """
+    from core.database import get_db_connection  # Local import to prevent circular dependency
+    db = None
     try:
-        if isinstance(nominal, str):
-            nominal = re.sub(r'[^\d,.]', '', nominal)
-            if ',' in nominal and '.' not in nominal:
-                nominal = nominal.replace(',', '.')
-        
-        val = float(nominal)
-        return f"Rp {val:,.0f}".replace(',', '.')
-    except (ValueError, TypeError):
-        return "Rp 0"
+        db = get_db_connection()
+        db.execute("""
+            INSERT INTO system_logs (user_id, action, module, details, ip_address)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, action, module, details, ip))
+        db.commit()
+    except Exception as e:
+        print(f"❌ Failed to write system log: {str(e)}")
+    finally:
+        if db:
+            db.close()
+
+# ==========================================
+# 2. MODUL DATA SANITIZER (EXCEL REPAIR)
+# ==========================================
 
 def clean_nomen(value):
-    """
-    [FUNGSI: IDPEL AUTO-REPAIR]
-    Mencegah IDPEL menjadi 1.23E+11 atau kehilangan nol di depan.
-    Juga otomatis menghapus '.0' yang sering muncul dari pembacaan float Excel.
-    """
+    """ [FUNGSI: IDPEL AUTO-REPAIR] - Menghapus .0 dan notasi ilmiah (E+) """
     if value is None or str(value).strip().upper() in ('NAN', 'NULL', ''):
         return ""
     
     val_str = str(value).strip()
     
-    # 1. Perbaiki notasi ilmiah (Contoh: 1.23E+11)
+    # Perbaiki notasi ilmiah (Contoh: 1.23E+11)
     if 'E+' in val_str.upper():
         try:
             val_str = "{:.0f}".format(float(val_str))
         except:
             pass
             
-    # 2. Hapus '.0' di akhir jika terbaca sebagai float (Contoh: 12345.0 -> 12345)
+    # Hapus '.0' di akhir (Contoh: 12345.0 -> 12345)
     if val_str.endswith('.0'):
         val_str = val_str[:-2]
         
-    # 3. Ambil bagian sebelum titik (jika ada desimal lain) dan bersihkan spasi
     return val_str.split('.')[0].replace(' ', '')
 
 def clean_notag(value):
-    """
-    [FUNGSI: NOTAGIHAN SANITIZER]
-    Sangat penting untuk JOIN antara tabel MC, MB, dan COLLECTION agar dashboard tidak BLANK.
-    """
+    """ [FUNGSI: NOTAGIHAN SANITIZER] - Join Guard """
     return clean_nomen(value)
 
+def clean_coordinate(coord):
+    """ [FUNGSI: GPS DATA SANITIZER] """
+    if coord is None or str(coord).strip() == '':
+        return "0.0"
+    cleaned = re.sub(r'[^\d.-]', '', str(coord))
+    return cleaned if cleaned else "0.0"
+
 def clean_phone(phone):
-    """[FUNGSI: WHATSAPP NUMBER SANITIZER]"""
+    """ [FUNGSI: WHATSAPP NUMBER SANITIZER] """
     if phone is None or str(phone).strip() in ('', '-', '0'):
         return ""
     cleaned = re.sub(r'\D', '', str(phone))
@@ -106,20 +104,29 @@ def clean_phone(phone):
         cleaned = '62' + cleaned
     return cleaned
 
-def clean_coordinate(coord):
-    """[FUNGSI: GPS DATA SANITIZER]"""
-    if coord is None or str(coord).strip() == '':
-        return "0.0"
-    cleaned = re.sub(r'[^\d.-]', '', str(coord))
-    return cleaned if cleaned else "0.0"
+# ==========================================
+# 3. MODUL FORMATTER & NAVIGATION
+# ==========================================
 
-def validate_periode(periode):
-    """[FUNGSI: PERIOD VALIDATOR]"""
-    pattern = r'^(0[1-9]|1[0-2])-\d{4}$'
-    return bool(re.match(pattern, str(periode)))
+def get_role_redirect(role):
+    """ [FUNGSI: ROLE-BASED NAVIGATION] """
+    role_map = {
+        'admin': '/admin/dashboard',
+        'petugas': '/tunggakan-berekor',
+        'guest': '/'
+    }
+    return role_map.get(str(role).lower(), '/')
+
+def format_idr(nominal):
+    """ [FUNGSI: FORMATTER RUPIAH] """
+    try:
+        val = float(nominal) if nominal else 0
+        return f"Rp {val:,.0f}".replace(',', '.')
+    except:
+        return "Rp 0"
 
 def get_gmaps_link(lat, lng):
-    """[FUNGSI: GMAPS GENERATOR]"""
+    """ [FUNGSI: GMAPS GENERATOR] """
     if not lat or not lng or str(lat) == "0.0":
         return "Lokasi tidak terlacak"
     return f"https://www.google.com/maps?q={lat},{lng}"
