@@ -1,12 +1,12 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.72 Final Sync)
+Core Database Module - Sunter Dashboard Pro (V12.75 Ultimate Sync)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Rute Column Shield: Tambah 'no_admin' (Fix: Error Rute List / no such column).
-2. Busy Timeout Extension: Set 60s timeout (Fix: Database is locked).
-3. Transaction Integrity: Sinkronisasi nominal & kategori pada tabel transaksi.
-4. Robust WAL Mode: Mengaktifkan Write-Ahead Logging untuk akses simultan.
+1. Self-Healing Master: Tambah kolom 'tarif' & 'kubik' otomatis (Fix: Ardebt Error).
+2. Rute Column Shield: Memastikan 'no_admin' tersedia (Fix: Error Rute List).
+3. Robust Multi-User: Busy Timeout 60s & WAL Mode aktif (Fix: Database is locked).
+4. Sequential Execution: Inisialisasi -> Migrasi -> Indexing -> Seeding.
 """
 
 import sqlite3
@@ -18,14 +18,14 @@ def get_db_connection():
     """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        # Timeout ditingkatkan menjadi 60 detik untuk antrean proses tulis
+        # Timeout 60 detik untuk antrean proses tulis saat upload besar
         conn = sqlite3.connect(db_path, timeout=60)
         conn.row_factory = sqlite3.Row 
         
         # Optimasi SQLite untuk Performa Tinggi & Multi-User
         conn.execute('PRAGMA journal_mode=WAL;')       # Izinkan baca saat tulis berlangsung
-        conn.execute('PRAGMA synchronous=NORMAL;')     # Kecepatan tulis maksimal
-        conn.execute('PRAGMA foreign_keys = ON;')      # Integritas data
+        conn.execute('PRAGMA synchronous=NORMAL;')     # Kecepatan I/O maksimal
+        conn.execute('PRAGMA foreign_keys = ON;')      # Menjaga relasi data
         return conn
     except sqlite3.Error as e:
         print(f"❌ Connection Error: {e}")
@@ -43,7 +43,7 @@ def init_db(app):
             check_and_create_tables(cursor)
             db.commit() 
 
-            # --- TAHAP 2: SELF-HEALING MIGRATIONS ---
+            # --- TAHAP 2: SELF-HEALING MIGRATIONS (PENTING) ---
             run_smart_migration(cursor)
             db.commit()
             
@@ -54,7 +54,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.72: Infrastruktur Rute & Transaksi Sinkron.")
+            print("✅ Database V12.75: Skema Master, Ardebt, & Rute Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -63,9 +63,9 @@ def init_db(app):
             if db: db.close()
 
 def check_and_create_tables(cursor):
-    """Melahirkan seluruh struktur tabel master."""
+    """Melahirkan struktur tabel utama jika belum ada."""
     
-    # 1. Infrastruktur Admin & Navigasi (FIXED: no_admin column)
+    # 1. Infrastruktur Rute (FIXED: no_admin)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS rute_petugas (
             pcez TEXT PRIMARY KEY, 
@@ -75,88 +75,70 @@ def check_and_create_tables(cursor):
         )
     """)
     
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS upload_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            file_name TEXT, file_type TEXT, periode TEXT, 
-            row_count INTEGER DEFAULT 0, status TEXT, 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    # 2. Tabel Master Pelanggan
+    # 2. Tabel Master Pelanggan (Versi Dasar)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nomen TEXT UNIQUE, nama TEXT, alamat TEXT, pcez TEXT, rayon TEXT, 
-            nominal REAL, nomet TEXT, periode TEXT, status_lunas INTEGER DEFAULT 0
+            nominal REAL, periode TEXT, status_lunas INTEGER DEFAULT 0
         )
     """)
 
-    # 3. Tabel Transaksi (FIXED: Kolom nominal & kategori)
+    # 3. Tabel Transaksi & Ardebt
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_bayar (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, 
-            periode TEXT, kategori TEXT DEFAULT 'HISTORY'
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, 
+            nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY'
         )
     """)
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS collection_harian (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, 
-            periode TEXT, kategori TEXT DEFAULT 'HISTORY'
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, 
+            nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY'
         )
     """)
 
-    # Tabel Ardebt (Piutang Lama)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS ardebt (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, 
-            volume REAL DEFAULT 0, periode TEXT
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, 
+            jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT
         )
     """)
     
-    # 4. Keamanan & Log Sistem
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, 
-            last_login TIMESTAMP
-        )
-    """)
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS system_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS kunjungan_petugas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomen TEXT NOT NULL, 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+    # 4. Keamanan & Log
+    cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS kunjungan_petugas (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 
 def run_smart_migration(cursor):
-    """Menambah kolom secara dinamis tanpa merusak data."""
-    cursor.execute("PRAGMA table_info(kunjungan_petugas)")
-    existing = [row['name'] for row in cursor.fetchall()]
+    """Menambah kolom secara otomatis tanpa menghapus data yang sudah ada."""
     
-    cols = {
+    # --- MIGRASI MASTER PELANGGAN (Fix Ardebt Engine) ---
+    cursor.execute("PRAGMA table_info(master_pelanggan)")
+    existing_master = [row['name'] for row in cursor.fetchall()]
+    
+    master_cols = {
+        'tarif': 'TEXT',
+        'kubik': 'REAL DEFAULT 0',
+        'nomet': 'TEXT'
+    }
+    for col, dtype in master_cols.items():
+        if col not in existing_master:
+            cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+            print(f"⚙️ Migrasi: Kolom [{col}] ditambahkan ke master_pelanggan")
+
+    # --- MIGRASI KUNJUNGAN PETUGAS ---
+    cursor.execute("PRAGMA table_info(kunjungan_petugas)")
+    existing_kunjungan = [row['name'] for row in cursor.fetchall()]
+    
+    kunjungan_cols = {
         'mc':'REAL', 'ardebt':'REAL', 'catatan':'TEXT', 'keterangan':'TEXT', 
         'foto_path':'TEXT', 'nama_snapshot':'TEXT', 'alamat_snapshot':'TEXT', 
         'latitude':'TEXT', 'longitude':'TEXT', 'periode':'TEXT', 'petugas_name':'TEXT'
     }
-    
-    for col, dtype in cols.items():
-        if col not in existing:
+    for col, dtype in kunjungan_cols.items():
+        if col not in existing_kunjungan:
             cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
 
 def optimize_performance(cursor):
@@ -171,15 +153,13 @@ def optimize_performance(cursor):
         cursor.execute(idx)
 
 def seed_default_admin(cursor):
-    """Menjamin akun admin pusat selalu tersedia."""
+    """Menjamin akun admin default tersedia."""
     username = 'admin_sunter'
     cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
     if not cursor.fetchone():
         hashed_pw = generate_password_hash('admin123')
-        cursor.execute("""
-            INSERT INTO users (username, password, role, petugas_id) 
-            VALUES (?, ?, ?, ?)
-        """, (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
+        cursor.execute("INSERT INTO users (username, password, role, petugas_id) VALUES (?, ?, ?, ?)", 
+                       (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
 
 def get_db():
     if 'db' not in g:
