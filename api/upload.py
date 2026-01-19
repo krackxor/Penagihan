@@ -3,7 +3,7 @@ Smart Integration Engine - Sunter Dashboard Pro (V12.21)
 Update: 2026-01-13
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Forced Period: Mengunci target_period agar konsisten di seluruh loop upload.
+1. Forced Period: Mengunci target_period agar konsisten di seluruh loop upload (N+1 Support).
 2. Audit Filter: Memastikan kategori UNDUE hanya untuk nominal pelunasan murni.
 3. Fix Row Processing: Menjamin variabel periode tidak tertukar dengan data excel.
 4. Transaction Integrity: Commit hanya dilakukan jika seluruh baris berhasil diproses.
@@ -83,8 +83,9 @@ def handle_smart_upload():
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # [3] Penentuan Periode (LOGIKA N+1)
-        # Menghitung target_period satu kali di awal untuk seluruh isi file
+        # [3] Penentuan Periode (LOGIKA N+1 ALIGNMENT)
+        # Menghitung target_period satu kali di awal. 
+        # Jika file MB Des 2025 diupload, target_period akan otomatis menjadi '01-2026'
         if data_type == 'ARDEBT':
             target_period = "GLOBAL-HISTORY"
         elif data_type == 'RUTE':
@@ -134,7 +135,8 @@ def handle_smart_upload():
                 query_table = "master_bayar" if data_type == 'MB' else "collection_harian"
                 date_col_db = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                 
-                # KUNCI: Gunakan 'target_period' yang sudah dikunci di atas agar mendarat di bulan yang tepat
+                # KUNCI: Menggunakan 'target_period' (N+1) hasil deteksi awal 
+                # sehingga data Rekening Des mendarat di Dashboard Jan
                 db.execute(f"INSERT OR REPLACE INTO {query_table} (nomen, {date_col_db}, nominal, periode, kategori) VALUES (?, ?, ?, ?, ?)", 
                            (nomen, row.get(pay_col), UploadEngine.cast_to_float(row['NOMINAL']), target_period, category))
                 row_count += 1
@@ -153,7 +155,7 @@ def handle_smart_upload():
         
         return jsonify({
             "status": "success", 
-            "message": f"Sinkronisasi {data_type} Berhasil untuk Periode {target_period}", 
+            "message": f"Sinkronisasi {data_type} Berhasil untuk Dashboard {target_period}", 
             "metadata": {"rows": row_count, "period": target_period}
         })
 
