@@ -35,20 +35,26 @@
         <div class="table-responsive" style="max-height: 600px;">
             <table class="table table-sm small mb-0 text-center align-middle bg-white">
                 <thead class="bg-dark text-white sticky-top" style="z-index: 100;">
-                    <tr style="font-size: 0.65rem;">
-                        <th rowspan="2" class="align-middle px-3" style="width: 50px;">TGL</th>
-                        <th colspan="2" class="border-start">RAYON 34</th>
-                        <th colspan="2" class="border-start bg-secondary">RAYON 35</th>
-                        <th colspan="3" class="border-start bg-primary">TOTAL AB SUNTER</th>
+                    <tr style="font-size: 0.6rem;">
+                        <th rowspan="2" class="align-middle px-2">TGL</th>
+                        <th colspan="3" class="border-start">RAYON 34</th>
+                        <th colspan="3" class="border-start bg-secondary text-white">RAYON 35</th>
+                        <th colspan="3" class="border-start bg-primary text-white">TOTAL AB SUNTER</th>
                     </tr>
-                    <tr style="font-size: 0.55rem;">
-                        <th class="border-start">Nominal (Klik)</th><th>% Real</th>
-                        <th class="border-start">Nominal (Klik)</th><th>% Real</th>
+                    <tr style="font-size: 0.5rem;">
                         <th class="border-start">Harian</th>
-                        <th class="bg-primary bg-opacity-75">Kumulatif</th> <th class="bg-primary">% Total</th>           </tr>
+                        <th class="bg-light text-dark">Kumulatif</th>
+                        <th>% Real</th>
+                        <th class="border-start">Harian</th>
+                        <th class="bg-light text-dark">Kumulatif</th>
+                        <th>% Real</th>
+                        <th class="border-start">Harian</th>
+                        <th class="bg-primary bg-opacity-75">Kumulatif</th>
+                        <th class="bg-primary">% Total</th>
+                    </tr>
                 </thead>
                 <tbody id="table-body">
-                    <tr><td colspan="8" class="py-5 text-muted">Sinkronisasi data audit...</td></tr>
+                    <tr><td colspan="10" class="py-5 text-muted small">Sinkronisasi data audit...</td></tr>
                 </tbody>
                 <tfoot class="sticky-bottom bg-dark text-white fw-bold shadow-lg" id="table-footer" style="bottom: 0; z-index: 100;">
                 </tfoot>
@@ -86,7 +92,6 @@
 <script>
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    // [SARAN 1] HEATMAP LOGIC
     function getHeatmapColor(pct) {
         if (pct >= 90) return 'rgba(34, 197, 94, 0.12)'; 
         if (pct >= 50) return 'rgba(234, 179, 8, 0.12)';  
@@ -142,6 +147,7 @@
                         ${(row.r34.rp || 0).toLocaleString()}
                     </button>
                 </td>
+                <td class="text-end bg-light" style="font-size: 0.55rem; background: ${color34}">${(row.r34.cum || 0).toLocaleString()}</td>
                 <td class="small fw-bold border-end" style="background: ${color34}">${(row.r34.pct || 0).toFixed(1)}%</td>
                 
                 <td class="text-end border-start" style="background: ${color35}">
@@ -150,6 +156,7 @@
                         ${(row.r35.rp || 0).toLocaleString()}
                     </button>
                 </td>
+                <td class="text-end bg-light" style="font-size: 0.55rem; background: ${color35}">${(row.r35.cum || 0).toLocaleString()}</td>
                 <td class="small fw-bold border-end" style="background: ${color35}">${(row.r35.pct || 0).toFixed(1)}%</td>
                 
                 <td class="text-end bg-light border-start">${(row.total.rp_harian || 0).toLocaleString()}</td>
@@ -162,9 +169,9 @@
             const last = data[data.length - 1];
             footer.innerHTML = `
                 <tr>
-                    <td class="py-2 px-3">TOTAL</td>
-                    <td colspan="2" class="text-end border-start px-3 small">R34: ${(last.r34.pct || 0).toFixed(2)}%</td>
-                    <td colspan="2" class="text-end border-start px-3 small">R35: ${(last.r35.pct || 0).toFixed(2)}%</td>
+                    <td class="py-2 px-1 small">TOTAL</td>
+                    <td colspan="3" class="text-end border-start px-2 small">R34: ${(last.r34.pct || 0).toFixed(2)}%</td>
+                    <td colspan="3" class="text-end border-start px-2 small">R35: ${(last.r35.pct || 0).toFixed(2)}%</td>
                     <td colspan="3" class="text-end bg-primary px-3 text-white">AKUMULASI: ${(last.total.pct || 0).toFixed(2)}%</td>
                 </tr>`;
         }
@@ -187,7 +194,7 @@
                     <td class="text-uppercase" style="font-size: 0.7rem;">${d.nama || '-'}</td>
                     <td class="text-end fw-bold pe-3">${toIDR(d.nominal)}</td>
                 </tr>`).join('') || '<tr><td colspan="3" class="text-center py-3 text-muted">Data tidak ditemukan</td></tr>';
-        } catch (e) { body.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Gagal Memuat</td></tr>'; }
+        } catch (e) { body.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data</td></tr>'; }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
