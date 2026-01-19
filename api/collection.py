@@ -1,12 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V12.35 Dynamic Sync)
+Collection API - Sunter Dashboard Pro (V12.42 Multi-Cumulative)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Drill-down Engine: Endpoint baru untuk melihat detail nomen/nama per klik nominal.
-2. Rayon-Specific Filter: Memisahkan rincian data Rayon 34 dan 35 secara presisi.
-3. Strict Chronological: Memastikan tabel hanya menampilkan tgl sesuai bulan periode.
-4. Correct Cumulative: Menggabungkan saldo bank (UNDUE) ke tren harian.
+1. Multi-Cumulative Engine: Menghitung akumulasi harian per rayon (34 & 35) secara terpisah.
+2. Dynamic Drill-down: Mendukung pengambilan detail pelanggan per klik nominal harian.
+3. Strict Chronological: Penanganan filter tanggal (DD-MM-YYYY) agar tidak "nyasar" antar bulan.
+4. Correct Baseline: Menyuntikkan saldo bank (UNDUE) sebagai modal awal kumulatif total.
 """
 
 from flask import Blueprint, jsonify, request
@@ -40,7 +40,7 @@ def pusat_kendali():
         """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX FIELD (PETUGAS) - Tervalidasi Kunjungan
+        # 3. BOX FIELD (PETUGAS)
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
             WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'HISTORY')
@@ -77,13 +77,14 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian dengan Filter Bulan yang Ketat."""
+    """Tren Kumulatif Harian dengan Penambahan Kumulatif per Rayon."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         target_month_code = periode_req.split('-')[0]
 
+        # Target Detail per Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -93,9 +94,11 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
+        # Saldo Awal Realisasi Bank (Baseline)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY')", (periode_req,))
         undue_start = cursor.fetchone()[0]
 
+        # Query Harian dengan Join Rayon
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -112,15 +115,30 @@ def daily_monitor():
 
         daily_data = []
         cum_34, cum_35 = 0, 0
+        
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
+            # Akumulasi Kumulatif Total menyertakan Saldo Bank (Undue)
             cum_all = cum_34 + cum_35 + undue_start
+            
             daily_data.append({
                 "tgl": r['tgl'],
-                "r34": { "rp": r['rp_34'], "pct": round((cum_34 / max(1, targets['target_34']) * 100), 2) },
-                "r35": { "rp": r['rp_35'], "pct": round((cum_35 / max(1, targets['target_35']) * 100), 2) },
-                "total": { "rp_harian": r['rp_total'], "cum_all": cum_all, "pct": round((cum_all / max(1, targets['target_total']) * 100), 2) }
+                "r34": { 
+                    "rp": r['rp_34'], 
+                    "cum": cum_34, 
+                    "pct": round((cum_34 / max(1, targets['target_34']) * 100), 2) 
+                },
+                "r35": { 
+                    "rp": r['rp_35'], 
+                    "cum": cum_35, 
+                    "pct": round((cum_35 / max(1, targets['target_35']) * 100), 2) 
+                },
+                "total": { 
+                    "rp_harian": r['rp_total'], 
+                    "cum_all": cum_all, 
+                    "pct": round((cum_all / max(1, targets['target_total']) * 100), 2) 
+                }
             })
 
         return jsonify({"status": "success", "data": daily_data})
@@ -129,7 +147,7 @@ def daily_monitor():
 
 @collection_bp.route('/detail-transaksi', methods=['GET'])
 def detail_transaksi():
-    """[NEW] Drill-down Engine: Menampilkan list nomen & nama per klik nominal."""
+    """Drill-down Engine: Menampilkan rincian pelanggan per rayon/tanggal."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -138,10 +156,7 @@ def detail_transaksi():
         periode = request.args.get('periode')
 
         query = """
-            SELECT 
-                c.nomen, 
-                p.nama, 
-                c.nominal
+            SELECT c.nomen, p.nama, c.nominal
             FROM collection_harian c
             LEFT JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
             WHERE c.pay_dt = ? AND p.rayon = ? AND c.periode = ?
