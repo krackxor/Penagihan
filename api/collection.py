@@ -1,5 +1,5 @@
 """
-Collection API - Sunter Dashboard Pro (V12.31 Robust Sync)
+Collection API - Sunter Dashboard Pro (V12.32 Ultra Sync)
 Update: 2026-01-19
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -7,6 +7,7 @@ Pembaruan Strategis:
 2. Robust Current Fix: Menarik data lapangan berdasarkan join Nomen & Periode yang presisi.
 3. Field Audit Validation: Membedakan nominal hasil kunjungan petugas vs pembayaran mandiri.
 4. Correct Cumulative Logic: Menggabungkan saldo awal bank (UNDUE) ke tren harian lapangan.
+5. Strict SQL Ordering: Menjamin tabel urut secara kronologis (Tahun-Bulan-Hari).
 """
 
 from flask import Blueprint, jsonify, request
@@ -33,7 +34,7 @@ def pusat_kendali():
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (BANK) - Hasil Master Bayar
+        # 2. BOX UNDUE (BANK) - Hasil Master Bayar (Shift N+1)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -41,7 +42,7 @@ def pusat_kendali():
         """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX FIELD (PETUGAS) - Tervalidasi Kunjungan
+        # 3. BOX FIELD (PETUGAS) - Tervalidasi Kunjungan Lapangan
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
@@ -53,7 +54,7 @@ def pusat_kendali():
         """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. BOX MANDIRI - Pembayaran tanpa kunjungan (ATM/App/Loket)
+        # 4. BOX MANDIRI - Pembayaran harian tanpa kunjungan (ATM/App/Loket)
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
@@ -87,13 +88,13 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian: Grafik integrasi Bank + Progress Lapangan."""
+    """Tren Kumulatif Harian: Grafik integrasi Saldo Bank + Progress Lapangan."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # Target Detail per Rayon
+        # Target Detail per Rayon untuk perhitungan % progress harian
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -103,7 +104,7 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Saldo Awal Realisasi Bank (Sebagai pijakan grafik hari pertama)
+        # Saldo Awal Realisasi Bank (Baseline grafik hari ke-0)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -111,7 +112,7 @@ def daily_monitor():
         """, (periode_req,))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian: Menggabungkan data Collection dengan Mapping Rayon
+        # Query Harian: Gabungan nominal harian dengan data Rayon yang sinkron
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -122,7 +123,10 @@ def daily_monitor():
             LEFT JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
             WHERE c.periode = ?
             GROUP BY c.pay_dt 
-            ORDER BY substr(c.pay_dt,7,4) ASC, substr(c.pay_dt,4,2) ASC, substr(c.pay_dt,1,2) ASC
+            ORDER BY 
+                substr(c.pay_dt,7,4) ASC, 
+                substr(c.pay_dt,4,2) ASC, 
+                substr(c.pay_dt,1,2) ASC
         """, (periode_req,))
         rows = cursor.fetchall()
 
@@ -132,7 +136,7 @@ def daily_monitor():
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
-            # Akumulasi Dashboard = (Hasil Lapangan) + (Saldo Bank/UNDUE)
+            # Akumulasi Dashboard = (Saldo Awal Bank Desember) + (Progress Lapangan Januari)
             cum_all = cum_34 + cum_35 + undue_start
             
             daily_data.append({
