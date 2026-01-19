@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="px-2 pb-5 animate__animated animate__fadeIn">
+<div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
+    
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h4 class="fw-bold mb-0 text-dark"><i class="fas fa-microchip me-2 text-primary"></i>Audit Realisasi Digital</h4>
@@ -23,9 +24,7 @@
                   style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
                 <div class="card-body p-4 text-center">
                     <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Total Efektivitas Konsolidasi (%)</small>
-                    <div class="d-flex justify-content-center align-items-end gap-2 mt-1">
-                        <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
-                    </div>
+                    <h1 class="fw-bold mb-0" id="sum-pct" style="font-size: 3.5rem; letter-spacing: -2px;">0%</h1>
                     <p class="small mb-0 opacity-75" id="sum-info">Mengkalkulasi parameter audit...</p>
                 </div>
             </div>
@@ -56,10 +55,6 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
             <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;"><i class="fas fa-wave-square me-2 text-primary"></i>Tren Penagihan Harian</h6>
-            <div class="d-flex gap-3">
-                <small class="text-primary fw-bold" style="font-size: 0.6rem;"><i class="fas fa-circle me-1"></i>R34: <span id="sum-r34">0%</span></small>
-                <small class="text-info fw-bold" style="font-size: 0.6rem;"><i class="fas fa-circle me-1"></i>R35: <span id="sum-r35">0%</span></small>
-            </div>
         </div>
         <div class="card-body pt-0">
             <canvas id="collectionChart" style="height: 180px;"></canvas>
@@ -68,17 +63,17 @@
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden border">
         <div class="table-responsive" style="max-height: 500px;">
-            <table class="table table-sm table-bordered small mb-0 text-center align-middle">
+            <table class="table table-sm table-bordered small mb-0 text-center align-middle bg-white">
                 <thead class="bg-dark text-white sticky-top">
-                    <tr style="font-size: 0.65rem; letter-spacing: 0.3px;">
+                    <tr style="font-size: 0.65rem;">
                         <th rowspan="2" class="align-middle px-3">TGL</th>
                         <th colspan="2" class="border-start">RAYON 34</th>
                         <th colspan="2" class="border-start bg-secondary">RAYON 35</th>
-                        <th colspan="3" class="border-start bg-primary">AB SUNTER</th>
+                        <th colspan="3" class="border-start bg-primary">TOTAL AB SUNTER</th>
                     </tr>
                     <tr style="font-size: 0.55rem;">
-                        <th class="border-start">Nominal (Rp)</th><th>% Real</th>
-                        <th class="border-start">Nominal (Rp)</th><th>% Real</th>
+                        <th class="border-start">Nominal (Klik)</th><th>% Real</th>
+                        <th class="border-start">Nominal (Klik)</th><th>% Real</th>
                         <th class="border-start">Harian</th><th>Kumulatif</th><th>% Total</th>
                     </tr>
                 </thead>
@@ -87,6 +82,31 @@
                 </tbody>
                 <tfoot class="bg-light fw-bold" id="table-footer"></tfoot>
             </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="fw-bold mb-0">Rincian Penagihan Rayon <span id="mdl-rayon" class="text-primary"></span> - <span id="mdl-tgl"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive" style="max-height: 400px;">
+                    <table class="table table-hover table-sm small">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Nomen</th>
+                                <th>Nama Pelanggan</th>
+                                <th class="text-end">Nominal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mdl-body"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -106,21 +126,19 @@
         const periode = `${month}-${year}`;
 
         try {
-            // Fetch Summary Audit
             const resSum = await fetch(`/api/collection/pusat-kendali?periode=${periode}`);
             const sumData = await resSum.json();
 
-            // Fetch Daily Rayon Analysis
             const resDaily = await fetch(`/api/collection/daily-monitor?periode=${periode}`);
             const dailyData = await resDaily.json();
             
             if (sumData.status === 'success' && dailyData.status === 'success') {
                 updateUI(sumData, dailyData);
-                renderTable(dailyData.data);
+                renderTable(dailyData.data, periode);
                 renderChart(dailyData.data);
             }
         } catch (e) {
-            console.error("Critical: Transmisi Gagal", e);
+            console.error("Transmisi Gagal", e);
         } finally {
             setTimeout(() => icon.classList.remove('fa-spin'), 800);
         }
@@ -128,56 +146,71 @@
 
     function updateUI(sum, daily) {
         const s = sum.summary;
-        // Update Widget Utama
         document.getElementById('sum-pct').innerText = (s.pct || 0).toFixed(2) + '%';
         document.getElementById('sum-info').innerText = `Target MC: ${toIDR(s.target_mc)} / Sisa: ${toIDR(s.sisa_tagihan)}`;
-        
-        // Update Kotak Audit (MB vs Field vs Mandiri)
         document.getElementById('audit-undue').innerText = toIDR(s.realisasi.undue);
         document.getElementById('audit-petugas').innerText = toIDR(s.realisasi.current_petugas);
         document.getElementById('audit-mandiri').innerText = toIDR(s.realisasi.current_mandiri);
-
-        // Update Legend Rayon
-        if (daily.data.length > 0) {
-            const last = daily.data[daily.data.length - 1];
-            document.getElementById('sum-r34').innerText = (last.r34.pct || 0).toFixed(2) + '%';
-            document.getElementById('sum-r35').innerText = (last.r35.pct || 0).toFixed(2) + '%';
-        }
     }
 
-    function renderTable(data) {
+    function renderTable(data, periode) {
         const body = document.getElementById('table-body');
-        const footer = document.getElementById('table-footer');
-        
         if (!data || data.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data pembayaran belum tersedia.</td></tr>';
-            footer.innerHTML = '';
+            body.innerHTML = '<tr><td colspan="8" class="py-5 text-muted small">Data belum tersedia.</td></tr>';
             return;
         }
 
         body.innerHTML = data.map(row => {
             const tglDay = row.tgl.split('-')[0];
             return `
-            <tr class="clickable-row">
+            <tr>
                 <td class="bg-light fw-bold text-primary">${tglDay}</td>
-                <td class="text-end border-start">${(row.r34.rp || 0).toLocaleString()}</td>
+                <td class="text-end border-start">
+                    <button class="btn btn-link btn-sm p-0 fw-bold text-decoration-none" onclick="showDetail('${row.tgl}', '34', '${periode}')">
+                        ${(row.r34.rp || 0).toLocaleString()}
+                    </button>
+                </td>
                 <td class="small fw-bold text-primary">${(row.r34.pct || 0).toFixed(1)}%</td>
-                <td class="text-end border-start">${(row.r35.rp || 0).toLocaleString()}</td>
+                <td class="text-end border-start">
+                    <button class="btn btn-link btn-sm p-0 fw-bold text-decoration-none" onclick="showDetail('${row.tgl}', '35', '${periode}')">
+                        ${(row.r35.rp || 0).toLocaleString()}
+                    </button>
+                </td>
                 <td class="small fw-bold text-info">${(row.r35.pct || 0).toFixed(1)}%</td>
                 <td class="text-end border-start bg-light">${(row.total.rp_harian || 0).toLocaleString()}</td>
                 <td class="text-end bg-light" style="font-size: 0.6rem;">${toIDR(row.total.cum_all)}</td>
                 <td class="bg-primary text-white fw-bold">${(row.total.pct || 0).toFixed(1)}%</td>
             </tr>`;
         }).join('');
+    }
 
-        const last = data[data.length - 1];
-        footer.innerHTML = `
-            <tr class="table-dark">
-                <td class="py-2">FINAL</td>
-                <td colspan="2" class="text-end border-start pe-2">R34: ${(last.r34.pct || 0).toFixed(2)}%</td>
-                <td colspan="2" class="text-end border-start pe-2">R35: ${(last.r35.pct || 0).toFixed(2)}%</td>
-                <td colspan="3" class="text-end pe-3 bg-primary">AB Sunter: ${(last.total.pct || 0).toFixed(2)}%</td>
-            </tr>`;
+    async function showDetail(tgl, rayon, periode) {
+        document.getElementById('mdl-rayon').innerText = rayon;
+        document.getElementById('mdl-tgl').innerText = tgl;
+        const body = document.getElementById('mdl-body');
+        body.innerHTML = '<tr><td colspan="3" class="text-center">Memuat detail...</td></tr>';
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
+        modal.show();
+
+        try {
+            const res = await fetch(`/api/collection/detail-transaksi?tgl=${tgl}&rayon=${rayon}&periode=${periode}`);
+            const result = await res.json();
+            
+            if (result.data.length === 0) {
+                body.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Tidak ada rincian data.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = result.data.map(d => `
+                <tr>
+                    <td class="fw-bold">${d.nomen}</td>
+                    <td class="text-uppercase" style="font-size:0.7rem;">${d.nama || 'Tanpa Nama'}</td>
+                    <td class="text-end fw-bold text-primary">${toIDR(d.nominal)}</td>
+                </tr>`).join('');
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data.</td></tr>';
+        }
     }
 
     function renderChart(data) {
@@ -192,17 +225,10 @@
                     data: data.map(d => d.total.pct),
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(37, 99, 235, 0.05)',
-                    fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#fff'
+                    fill: true, tension: 0.4
                 }]
             },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: false, ticks: { font: { size: 9 }, callback: (v) => v + '%' } },
-                    x: { ticks: { font: { size: 9 } }, grid: { display: false } }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
@@ -214,10 +240,9 @@
 </script>
 
 <style>
-    .clickable-row:hover { background-color: #f8fafc !important; }
     .table-bordered td, .table-bordered th { border-color: #f1f5f9 !important; }
     .sticky-top { position: sticky; top: 0; z-index: 1020; }
-    .bg-primary { background-color: #2563eb !important; }
-    .btn-white { background: #fff; border: 1px solid #e2e8f0; }
+    .btn-link { color: inherit; }
+    .btn-link:hover { color: #2563eb; }
 </style>
 {% endblock %}
