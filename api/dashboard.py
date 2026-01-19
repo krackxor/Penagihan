@@ -1,12 +1,12 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.32 Robust Sync)
-Update: 2026-01-19
+API Dashboard - Sunter Dashboard Pro (V12.33 Robust Sync)
+Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ARDEBT Integration: Menarik total piutang lama dari tabel ardebt untuk audit global.
-2. Robust Realization: Menarik CURRENT & HISTORY agar box Lapangan tidak 0.
-3. N+1 Shift Alignment: Memastikan Dashboard Januari menarik realisasi Desember.
-4. Precision Sync: Menghitung sisa tagihan dengan mempertimbangkan realisasi gabungan.
+1. ARDEBT Integration: Audit piutang lama secara global.
+2. System Log Route: Perbaikan Error 404 dengan menyediakan endpoint audit log.
+3. N+1 Shift Alignment: Auto-detect periode terbaru dari Master Pelanggan.
+4. Precision Sync: COALESCE pada SUM nominal untuk mencegah nilai null.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -20,14 +20,16 @@ def get_latest_active_period(db):
     res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
     return res['periode'] if res else datetime.now().strftime('%m-%Y')
 
+# ==========================================
+# 1. ENDPOINT PUSAT KENDALI (STATISTIK)
+# ==========================================
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
-    """Endpoint Pusat Kendali: Statistik global hasil Audit Digital."""
+    """Statistik global hasil Audit Digital untuk Dashboard Utama."""
     db = get_db_connection()
     try:
         # [1] PERIODE DETECTION
         periode = request.args.get('periode') or get_latest_active_period(db)
-        
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
@@ -49,18 +51,15 @@ def get_pusat_kendali():
         res_summary = db.execute(query_summary, params).fetchone()
 
         # [3] REALISASI & ARDEBT (RECOVERY)
-        # Menarik data MB, Collection, dan Tabel Ardebt (Piutang Lama)
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
                  WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY')) as undue_nom,
                 (SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
                  WHERE periode = ? AND kategori IN ('CURRENT', 'HISTORY')) as current_nom,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama,
-                (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-                 WHERE periode = ? AND kategori = 'HISTORY') as rec_mb
+                (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama
         """
-        res_realisasi = db.execute(query_realisasi, (periode, periode, periode)).fetchone()
+        res_realisasi = db.execute(query_realisasi, (periode, periode)).fetchone()
 
         # [4] SMART LEADERBOARD (KPI PETUGAS)
         query_leaderboard = """
@@ -81,12 +80,9 @@ def get_pusat_kendali():
         total_mc = res_summary['total_nominal'] or 0
         total_undue = res_realisasi['undue_nom'] or 0
         total_current = res_realisasi['current_nom'] or 0
-        
-        # Sinergi Gabungan: Bank + Lapangan
-        realisasi_gabungan = total_undue + total_current
-        
-        # Global Debt: Piutang Lama yang belum tertagih
         piutang_lama = res_realisasi['total_piutang_lama'] or 0
+        
+        realisasi_gabungan = total_undue + total_current
 
         return jsonify({
             "status": "success",
@@ -120,6 +116,29 @@ def get_pusat_kendali():
 
     except Exception as e:
         current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
-        return jsonify({"status": "error", "message": f"Gagal Sinkronisasi Dashboard: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# 2. ENDPOINT SYSTEM LOGS (FIX 404)
+# ==========================================
+@dashboard_bp.route('/admin/system-logs', methods=['GET'])
+def get_system_logs():
+    """Audit Trail: Melihat jejak digital aktivitas Admin/Upload."""
+    db = get_db_connection()
+    try:
+        logs = db.execute("""
+            SELECT user_id, action, module, details, ip_address, created_at 
+            FROM system_logs 
+            ORDER BY created_at DESC LIMIT 50
+        """).fetchall()
+        
+        return jsonify({
+            "status": "success",
+            "data": [dict(row) for row in logs]
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
