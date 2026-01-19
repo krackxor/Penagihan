@@ -1,12 +1,12 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.35 Autopilot)
+Smart Integration Engine - Sunter Dashboard Pro (V12.60 Intelligence)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. RUTE RL JS Fix: Membersihkan format PCEZ (092/01 -> 09201) agar sinkron dengan Master.
-2. Strict Date Filter: Mengabaikan otomatis tanggal transaksi yang berbeda bulan dari periode file.
-3. ARDEBT Robust Mapping: Mendukung kolom 'JUMLAH', 'PIUTANG', dan 'SALDO' (Fix 0 baris).
-4. Shift Logic (N+1): Mengunci realisasi MB bulan N ke Dashboard periode N+1.
+1. System Log Integration: Mencatat setiap upload ke tabel 'system_logs' (Audit Trail).
+2. RUTE RL JS Fix: Normalisasi format PCEZ (092/01 -> 09201) untuk sinkronisasi master.
+3. Strict Alignment: Mengabaikan otomatis transaksi yang tidak sesuai bulan periode file.
+4. Robust Mapping: Dukungan penuh kolom 'JUMLAH' & 'PIUTANG' untuk mencegah 0 baris.
 """
 
 import pandas as pd
@@ -14,15 +14,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from flask import Blueprint, request, jsonify, session, current_app
 from core.database import get_db_connection
-from core.helpers import clean_nomen
-from processors.auto_detect import (
-    identify_file_type, 
-    detect_file_period, 
-    autopilot_extract_zona, 
-    parse_billing_date,
-    parse_flexible_date,
-    clean_val 
-)
+from core.helpers import clean_nomen, log_action # Pastikan log_action diimport
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -53,6 +45,7 @@ class UploadEngine:
     def determine_strict_logic(billing_val, payment_date_str, file_type, target_period):
         """LOGIKA AUDIT KETAT (SHIFT N+1)"""
         try:
+            from processors.auto_detect import parse_billing_date, parse_flexible_date
             billing_dt = parse_billing_date(billing_val, file_type)
             pay_dt = parse_flexible_date(payment_date_str)
             if not billing_dt or not pay_dt: return 'HISTORY'
@@ -77,6 +70,8 @@ def handle_smart_upload():
     db = get_db_connection()
     
     try:
+        from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona, parse_flexible_date
+        
         if file_name.endswith('.csv'):
             df = pd.read_csv(file, dtype=str).fillna('')
         else:
@@ -106,16 +101,13 @@ def handle_smart_upload():
 
         # [4] Processing Loop
         for _, row in df.iterrows():
-            # A. MODUL RUTE (FIX 0 BARIS)
+            # A. MODUL RUTE (FIXED PCEZ FORMAT)
             if data_type == 'RUTE':
                 c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK'])
                 c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
-                
                 raw_pcez = str(row.get(c_pcez, '')).strip()
                 p_name = str(row.get(c_name, '')).strip()
-                
                 if raw_pcez and p_name:
-                    # Normalisasi 092/01 -> 09201
                     clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
                     db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
                     row_count += 1
@@ -125,15 +117,13 @@ def handle_smart_upload():
             nomen = clean_nomen(n_raw)
             if not nomen: continue
 
-            # B. VALIDASI ALIGNMENT TANGGAL (V12.35)
+            # B. VALIDASI ALIGNMENT TANGGAL
             p_val = row.get(col_pay) if col_pay else ""
             pay_dt_obj = parse_flexible_date(p_val)
-            
             if pay_dt_obj and data_type == 'COLLECTION':
                 if pay_dt_obj.strftime('%m') != month_ref:
                     ignored_count += 1
                     continue
-            
             if pay_dt_obj and data_type == 'MB':
                 expected_m = (datetime.strptime(target_period, '%m-%Y') - relativedelta(months=1)).strftime('%m')
                 if pay_dt_obj.strftime('%m') != expected_m:
@@ -172,6 +162,15 @@ def handle_smart_upload():
                     db.execute("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume) VALUES (?, ?, ?, ?)", 
                                (nomen, p_bill, val_ardebt, UploadEngine.cast_to_float(row.get('VOLUME', 0))))
                     row_count += 1
+
+        # [5] RECORD SYSTEM LOG (AUDIT TRAIL)
+        log_action(
+            user_id=session.get('username', 'Unknown'),
+            action='UPLOAD_SUCCESS',
+            module=data_type,
+            details=f"File: {file_name} | Rows: {row_count} | Period: {target_period}",
+            ip=request.remote_addr
+        )
 
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)", 
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
