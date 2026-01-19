@@ -1,12 +1,14 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.28 Strict Audit Edition)
+API Dashboard - Sunter Dashboard Pro (V12.30 Shift Logic Edition)
 Update: 2026-01-19
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Audit Alignment: Sinkronisasi filter UNDUE, CURRENT, dan HISTORY secara ketat.
-2. N+1 Logic Sync: Mendukung pemetaan periode dashboard (Bulan Rekening N -> Dashboard N+1).
-3. Anti-Zero Recovery: Menarik nominal HISTORY agar Box Bank (Undue) mencerminkan data asli.
-4. Smart Leaderboard: Kinerja petugas kini dihitung berdasarkan irisan rute_petugas terbaru.
+1. Shift Logic Support: Dashboard Januari (N+1) secara otomatis memetakan realisasi 
+   pembayaran dari bulan Desember (N).
+2. Strict UNDUE Filter: Box Bank (Undue) hanya menampilkan nominal dari Master Bayar 
+   yang kategorinya murni 'UNDUE' (hasil filter BULAN_REK di upload engine).
+3. Analytics Sync: Menambahkan timestamp sinkronisasi (sync_ts) untuk validasi real-time.
+4. Multi-Tenant Petugas: Filter otomatis jika user yang login adalah petugas lapangan.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -29,12 +31,14 @@ def get_pusat_kendali():
     try:
         # [1] SMART PERIOD DETECTION
         # Mengunci periode agar sinkron dengan hasil deteksi otomatis saat upload.
+        # Jika Anda memilih periode 01-2026, maka seluruh realisasi bank Desember masuk ke sini.
         periode = request.args.get('periode') or get_latest_active_period(db)
         
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
         # [2] SUMMARY MC (TARGET UTAMA PERIODE AKTIF)
+        # Menghitung target nominal murni dari Master Pelanggan periode terpilih.
         query_summary = """
             SELECT 
                 COUNT(*) as total_nomen,
@@ -47,7 +51,6 @@ def get_pusat_kendali():
         """
         params = [periode]
 
-        # Filter area kerja jika user login sebagai petugas (Multi-Tenant View)
         if user_role == 'petugas' and petugas_id:
             query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
             params.append(petugas_id)
@@ -55,20 +58,24 @@ def get_pusat_kendali():
         res_summary = db.execute(query_summary, params).fetchone()
 
         # [3] REALISASI SINERGI (AUDIT CATEGORY INTEGRATION)
-        # Menghitung UNDUE (Bank) dan CURRENT (Lapangan) termasuk kategori HISTORY (Data Recovery).
-        # Inklusi 'HISTORY' dan 'ARDEBT' menjamin nominal bank tidak Rp 0 jika terjadi anomali kategori.
+        # UNDUE: Menampilkan nominal dari MB bulan N yang membayar Rekening bulan N.
+        # CURRENT: Menampilkan nominal dari Collection harian bulan N+1.
+        # HISTORY: Pemulihan piutang lama (Recovery).
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-                 WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY', 'ARDEBT')) as undue_nom,
+                 WHERE periode = ? AND kategori = 'UNDUE') as undue_nom,
                 (SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
-                 WHERE periode = ? AND kategori IN ('CURRENT', 'HISTORY', 'ARDEBT')) as current_nom
+                 WHERE periode = ? AND kategori = 'CURRENT') as current_nom,
+                (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
+                 WHERE periode = ? AND kategori = 'HISTORY') as history_mb,
+                (SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
+                 WHERE periode = ? AND kategori = 'HISTORY') as history_coll
         """
-        res_realisasi = db.execute(query_realisasi, (periode, periode)).fetchone()
+        res_realisasi = db.execute(query_realisasi, (periode, periode, periode, periode)).fetchone()
 
         # [4] SMART LEADERBOARD (KPI PETUGAS)
-        # Menghubungkan rute_petugas (PCEZ) dengan master_pelanggan untuk progres real-time.
-        # Menggunakan MAX(1, ...) untuk mencegah Zero Division Error pada pembagian persentase.
+        # Mengukur progres petugas berdasarkan area (PCEZ) yang dikelola.
         query_leaderboard = """
             SELECT 
                 r.petugas,
@@ -87,8 +94,9 @@ def get_pusat_kendali():
         total_mc = res_summary['total_nominal'] or 0
         total_undue = res_realisasi['undue_nom'] or 0
         total_current = res_realisasi['current_nom'] or 0
+        total_history = res_realisasi['history_mb'] + res_realisasi['history_coll']
         
-        # Realisasi gabungan murni hasil audit digital (Bank + Field)
+        # Realisasi gabungan: Hasil kerja bank dan lapangan periode dashboard
         realisasi_gabungan = total_undue + total_current
 
         return jsonify({
@@ -104,6 +112,7 @@ def get_pusat_kendali():
                     "mc": total_mc,
                     "undue": total_undue,
                     "current": total_current,
+                    "recovery": total_history,
                     "total_realisasi": realisasi_gabungan,
                     "sisa": max(0, total_mc - realisasi_gabungan),
                     "pct": round((realisasi_gabungan / max(1, total_mc) * 100), 2)
@@ -122,6 +131,6 @@ def get_pusat_kendali():
 
     except Exception as e:
         current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
-        return jsonify({"status": "error", "message": f"Kegagalan sinkronisasi dashboard: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"Gagal memuat dashboard: {str(e)}"}), 500
     finally:
         db.close()
