@@ -3,9 +3,9 @@ Core Helpers - Sunter Dashboard Pro (V12.60 Intelligence)
 Sinergi: API Standardizer, Data Sanitizer, GPS Validator, & Audit Logger
 
 Update V12.60:
-- Log Action Integration: Menambahkan mesin pencatat jejak digital Admin & Petugas.
+- Log Action Integration: Fix 'unexpected keyword argument' & Circular Dependency.
 - Auto-Text Shield: Proteksi IDPEL (Nomen) dari kerusakan format ilmiah Excel (E+).
-- Notag Sanitizer: Menjamin join data antar periode tetap sinkron (MC, MB, Coll).
+- GPS Data Sanitizer: Pembersihan koordinat untuk monitoring lokasi yang akurat.
 """
 
 import re
@@ -34,15 +34,16 @@ class APIResponse:
         return jsonify(response), code
 
 # ==========================================
-# 1. MODUL AUDIT & LOGGING (FIX: ImportError)
+# 1. MODUL AUDIT & LOGGING (FIXED)
 # ==========================================
 
 def log_action(user_id, action, module, details="", ip=""):
     """
     [FUNGSI: SYSTEM LOG WRITER]
-    Mencatat setiap aktivitas administratif (Upload, Update, Delete) ke tabel system_logs.
+    Mencatat aktivitas ke tabel system_logs. 
+    Argumen 'module' digunakan untuk kategori (MC, ARDEBT, RUTE, dll).
     """
-    from core.database import get_db_connection  # Local import to prevent circular dependency
+    from core.database import get_db_connection  # Import lokal untuk cegah circular import
     db = None
     try:
         db = get_db_connection()
@@ -68,21 +69,21 @@ def clean_nomen(value):
     
     val_str = str(value).strip()
     
-    # Perbaiki notasi ilmiah (Contoh: 1.23E+11)
+    # Perbaiki notasi ilmiah Excel (Contoh: 1.23E+11)
     if 'E+' in val_str.upper():
         try:
             val_str = "{:.0f}".format(float(val_str))
         except:
             pass
             
-    # Hapus '.0' di akhir (Contoh: 12345.0 -> 12345)
+    # Hapus '.0' yang sering muncul dari pembacaan pandas
     if val_str.endswith('.0'):
         val_str = val_str[:-2]
         
     return val_str.split('.')[0].replace(' ', '')
 
 def clean_notag(value):
-    """ [FUNGSI: NOTAGIHAN SANITIZER] - Join Guard """
+    """ [FUNGSI: NOTAGIHAN SANITIZER] - Alias untuk clean_nomen """
     return clean_nomen(value)
 
 def clean_coordinate(coord):
@@ -105,7 +106,7 @@ def clean_phone(phone):
     return cleaned
 
 # ==========================================
-# 3. MODUL FORMATTER & NAVIGATION
+# 3. MODUL NAVIGASI & FORMATTER
 # ==========================================
 
 def get_role_redirect(role):
