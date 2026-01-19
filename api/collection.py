@@ -17,6 +17,7 @@ collection_bp = Blueprint('collection', __name__)
 
 def get_active_period(cursor):
     """Mendeteksi periode aktif terbaru dari database (Hasil N+1 Upload)."""
+    # Mengambil periode terbaru dari Master Pelanggan sebagai jangkar dashboard
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     # Default ke periode saat ini jika database kosong
