@@ -1,5 +1,5 @@
 """
-Smart Period & Type Detector - Sunter Dashboard Pro (V12.29)
+Smart Period & Type Detector - Sunter Dashboard Pro (V12.30)
 Update: 2026-01-19
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -62,14 +62,14 @@ def parse_flexible_date(date_val):
 def detect_file_period(df, file_type):
     """
     LOGIKA GESER (N+1): 
-    1. Transaksi (Bayar/Catat) di bulan N -> Masuk Dashboard N+1.
-    2. Contoh: TGL_BAYAR 01-31 Des 2025 -> Dashboard 01-2026.
+    Digunakan untuk menentukan "Rumah" Dashboard.
+    Tgl Transaksi Desember (N) -> Dashboard Januari (N+1).
     """
     if file_type in ['RUTE', 'ARDEBT'] or not file_type: return None, None
 
     cols = [str(c).upper().strip() for c in df.columns]
     
-    # Prioritas deteksi berdasarkan TANGGAL TRANSAKSI
+    # [LOGIKA UTAMA]: Periode Dashboard ditentukan dari Tanggal Pembayaran
     mapping = {
         'MC': 'TGL_CATAT',
         'MB': 'TGL_BAYAR',
@@ -78,7 +78,7 @@ def detect_file_period(df, file_type):
     
     date_col = mapping.get(file_type)
     
-    # Fallback jika kolom spesifik tidak ditemukan
+    # Fallback jika kolom spesifik tidak ditemukan di Excel
     if not date_col or date_col not in cols:
         if 'TGL_BAYAR' in cols: date_col = 'TGL_BAYAR'
         elif 'PAY_DT' in cols: date_col = 'PAY_DT'
@@ -89,19 +89,20 @@ def detect_file_period(df, file_type):
     if not date_col or date_col not in cols: return None, None
     
     try:
+        # Scan 5 baris pertama untuk akurasi periode
         valid_rows = df[df[date_col].astype(str).str.strip() != ''].head(5)
         if valid_rows.empty: return None, None
             
         raw_date = valid_rows.iloc[0].get(date_col)
         
-        # Gunakan parser yang sesuai dengan tipe kolom
+        # Deteksi apakah kolom berisi Periode (Bulan/Tahun) atau Tanggal lengkap
         if date_col in ['BULAN_REK', 'BILL_PERIOD']:
             dt = parse_billing_date(raw_date, file_type)
         else:
             dt = parse_flexible_date(raw_date)
         
         if dt:
-            # SINKRONISASI N+1: Majukan 1 bulan dari tanggal referensi
+            # SINKRONISASI GESER: Bayar di Des 2025 -> Dashboard Jan 2026
             target_dt = dt + relativedelta(months=1)
             return target_dt.strftime('%m'), target_dt.strftime('%Y')
 
