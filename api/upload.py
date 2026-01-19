@@ -4,8 +4,9 @@ Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Argument Sync: Memperbaiki pemanggilan log_action (data_type -> module).
-2. Column Integrity: Sinkronisasi 9 parameter INSERT untuk Master Pelanggan.
+2. Column Integrity: Sinkronisasi parameter INSERT untuk Master Pelanggan & Ardebt.
 3. Row-Level Shield: Try-Except per baris untuk mencegah error 500 massal.
+4. Auto-Mapping: Pencarian kolom fleksibel (NOMEN, IDPEL, TOTAL, dsb).
 """
 
 import pandas as pd
@@ -22,17 +23,20 @@ class UploadEngine:
         """Konversi angka cerdas: Menangani format ribuan (.) dan desimal (,) Indonesia."""
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
+            # Bersihkan whitespace dan karakter non-breaking space
             s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "")
+            # Logika konversi format ID (1.000,50 -> 1000.50)
             if ',' in s_val and '.' in s_val:
                 s_val = s_val.replace('.', '').replace(',', '.')
             elif ',' in s_val:
                 s_val = s_val.replace(',', '.')
             return float(s_val)
-        except: return 0.0
+        except: 
+            return 0.0
 
     @staticmethod
     def get_column(df, possible_names):
-        """Mencari nama kolom secara fleksibel untuk mendukung berbagai format Excel."""
+        """Mencari nama kolom secara fleksibel untuk mendukung berbagai format Excel/CSV."""
         cols = {c.upper().strip(): c for c in df.columns}
         for name in possible_names:
             if name.upper() in cols:
@@ -55,18 +59,19 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 2. FILE PROCESSING
+        # 2. FILE PROCESSING (PANDAS ENGINE)
         df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         data_type = identify_file_type(df)
         
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
+        # Mapping Kolom Utama secara Otomatis
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
 
-        # Penentuan Periode
+        # Penentuan Periode Target
         if data_type in ['ARDEBT', 'RUTE']:
             target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
         else:
@@ -80,7 +85,7 @@ def handle_smart_upload():
         # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
         for index, row in df.iterrows():
             try:
-                # A. MODUL RUTE
+                # A. MODUL RUTE (Pemetaan Petugas)
                 if data_type == 'RUTE':
                     c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                     c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
@@ -92,6 +97,7 @@ def handle_smart_upload():
                         row_count += 1
                     continue
 
+                # Sanitasi Nomenklatur (ID Pelanggan)
                 n_raw = row.get(col_id) if col_id else None
                 nomen = clean_nomen(n_raw)
                 if not nomen: continue
@@ -109,7 +115,7 @@ def handle_smart_upload():
                               UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period))
                         row_count += 1
 
-                # C. MODUL ARDEBT
+                # C. MODUL ARDEBT (Tunggakan Berekor)
                 elif data_type == 'ARDEBT':
                     val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
                     if val_ardebt > 0:
@@ -119,7 +125,7 @@ def handle_smart_upload():
                         """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt, target_period))
                         row_count += 1
 
-                # D. MODUL MB & COLLECTION
+                # D. MODUL MB (Bank) & COLLECTION (Lapangan)
                 elif data_type in ['MB', 'COLLECTION']:
                     tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
                     dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
@@ -129,14 +135,15 @@ def handle_smart_upload():
             
             except Exception as row_err:
                 error_rows += 1
+                # Log error per baris ke terminal tanpa menghentikan seluruh proses
                 print(f"⚠️ Baris {index} Sync Error: {str(row_err)}")
 
-        # 4. FINALISASI & LOGGING (FIXED ARGUMENT)
+        # 4. FINALISASI & LOGGING
         log_action(
             user_id=session.get('username', 'Admin'), 
             action='UPLOAD_SUCCESS', 
-            module=data_type,  # <--- PERBAIKAN: Gunakan 'module', bukan 'data_type'
-            details=f"File: {file_name} | Success: {row_count} | Fail: {error_rows}", 
+            module=data_type,  # Perbaikan Argumen Sync
+            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows}", 
             ip=request.remote_addr
         )
         
@@ -146,7 +153,7 @@ def handle_smart_upload():
         """, (file_name, data_type, target_period, row_count, 'SUCCESS'))
         
         db.commit()
-        return jsonify({"status": "success", "message": f"Integrasi selesai. {row_count} sukses."})
+        return jsonify({"status": "success", "message": f"Integrasi selesai. {row_count} baris diproses."})
 
     except Exception as e:
         if db: db.rollback()
