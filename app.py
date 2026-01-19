@@ -6,6 +6,7 @@ Final Fixes:
 1. Blueprint Import Sync: Menghilangkan ImportError 'upload_bp'.
 2. Security Layer: Penguncian rute audit geospasial & system logs khusus Admin.
 3. UI Routing: Penambahan akses ke History Kunjungan & Monitoring Lokasi.
+4. Auto-Folder Creator: Menjamin direktori upload tersedia saat startup.
 """
 
 import os
@@ -20,7 +21,7 @@ from core.helpers import get_role_redirect
 # [IMPORT BLUEPRINTS]
 from api.auth import auth_bp
 from api.dashboard import dashboard_bp 
-from api.upload import upload_bp  # Pastikan di api/upload.py variabel bernama upload_bp
+from api.upload import upload_bp  
 from api.history import history_bp
 from api.rute import rute_bp
 from api.ardebt import ardebt_bp
@@ -39,7 +40,7 @@ def create_app():
         # Inisialisasi Database (Melahirkan tabel & migrasi kolom)
         init_db(app) 
         
-        # Folder Integrity Check
+        # Folder Integrity Check: Menjamin folder foto tidak hilang
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'materi')
@@ -73,6 +74,8 @@ def create_app():
         ]
         
         endpoint = request.endpoint
+        
+        # Jika endpoint tidak ditemukan (404) atau publik, izinkan lewat
         if not endpoint or endpoint in public_endpoints:
             return
 
@@ -82,11 +85,11 @@ def create_app():
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
-        # Proteksi Admin Only (Akses Strategis)
+        # Proteksi Admin Only (Rute Strategis)
         admin_only_endpoints = [
             'admin_dashboard', 
-            'history_kunjungan_page', 
             'monitoring_lokasi_page', 
+            'history_kunjungan_page', 
             'wa_blast_page',
             'upload.handle_smart_upload',
             'history_page' # Log Upload
@@ -94,6 +97,7 @@ def create_app():
         
         user_role = str(session.get('role', 'petugas')).lower()
         if endpoint in admin_only_endpoints and user_role != 'admin':
+            # Jika petugas mencoba akses rute admin, arahkan ke dashboard mereka
             return redirect(url_for('ardebt_page'))
 
     # --- 3. REGISTRASI BLUEPRINTS ---
@@ -150,7 +154,7 @@ def create_app():
     def history_kunjungan_page(): 
         return render_template('history_kunjungan.html')
 
-    @app.route('/admin/history-upload') # Mengubah rute agar masuk grup admin
+    @app.route('/admin/history-upload')
     def history_page(): 
         return render_template('history.html')
 
@@ -175,4 +179,5 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
+    # Host 0.0.0.0 agar bisa diakses di jaringan lokal atau server DigitalOcean/AWS
     app.run(host='0.0.0.0', port=5000, debug=True)
