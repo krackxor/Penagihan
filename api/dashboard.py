@@ -1,6 +1,6 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.21 Strict Audit Edition)
-Update: 2026-01-13
+API Dashboard - Sunter Dashboard Pro (V12.28 Strict Audit Edition)
+Update: 2026-01-19
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Audit Alignment: Sinkronisasi filter UNDUE, CURRENT, dan HISTORY secara ketat.
@@ -19,6 +19,7 @@ def get_latest_active_period(db):
     """Mendeteksi periode target penagihan terbaru di database (Hasil N+1 Upload)."""
     # Mencari periode terbaru berdasarkan data Master Pelanggan yang terakhir diunggah
     res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
+    # Fallback ke bulan berjalan jika database kosong
     return res['periode'] if res else datetime.now().strftime('%m-%Y')
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
@@ -46,7 +47,7 @@ def get_pusat_kendali():
         """
         params = [periode]
 
-        # Filter area kerja jika user login sebagai petugas
+        # Filter area kerja jika user login sebagai petugas (Multi-Tenant View)
         if user_role == 'petugas' and petugas_id:
             query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
             params.append(petugas_id)
@@ -78,7 +79,7 @@ def get_pusat_kendali():
             JOIN master_pelanggan p ON r.pcez = p.pcez
             WHERE p.periode = ?
             GROUP BY r.petugas 
-            ORDER BY pct_nomen DESC LIMIT 5
+            ORDER BY pct_nomen DESC, lunas_nomen DESC LIMIT 5
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
@@ -87,10 +88,11 @@ def get_pusat_kendali():
         total_undue = res_realisasi['undue_nom'] or 0
         total_current = res_realisasi['current_nom'] or 0
         
-        # Realisasi gabungan murni hasil audit digital
+        # Realisasi gabungan murni hasil audit digital (Bank + Field)
         realisasi_gabungan = total_undue + total_current
 
         return jsonify({
+            "status": "success",
             "summary": {
                 "periode_aktif": periode,
                 "nomen": {
@@ -107,7 +109,10 @@ def get_pusat_kendali():
                     "pct": round((realisasi_gabungan / max(1, total_mc) * 100), 2)
                 }
             },
-            "analytics": {"leaderboard": [dict(row) for row in res_leaderboard]},
+            "analytics": {
+                "leaderboard": [dict(row) for row in res_leaderboard],
+                "sync_ts": datetime.now().isoformat()
+            },
             "logs": [dict(row) for row in db.execute("""
                 SELECT nomen, petugas_name, keterangan, created_at 
                 FROM kunjungan_petugas WHERE periode = ? 
@@ -117,6 +122,6 @@ def get_pusat_kendali():
 
     except Exception as e:
         current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Kegagalan sinkronisasi dashboard: {str(e)}"}), 500
     finally:
         db.close()
