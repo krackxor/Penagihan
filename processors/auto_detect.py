@@ -1,12 +1,12 @@
 """
-Smart Period & Type Detector - Sunter Dashboard Pro (V12.30)
+Smart Period & Type Detector - Sunter Dashboard Pro (V12.31)
 Update: 2026-01-19
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Shift Logic (N+1): TGL_BAYAR Desember (1-31) otomatis masuk Dashboard Januari.
-2. Unified Key Mapping: Menjamin output periode MM-YYYY konsisten di semua tipe file.
-3. Robust Serial Fixer: Konversi angka serial Excel (46037) menjadi objek tanggal Python.
-4. Auto-Sanitizer: Pembersihan whitespace perbankan (\xa0) agar deteksi tidak gagal.
+1. Intelligent Shift Separation: MC/MB geser N+1, Collection tetap bulan berjalan.
+2. Zero-Edit Collection Fix: Memastikan pembayaran Januari mendarat di Dashboard Januari.
+3. Robust Serial Date: Penanganan otomatis angka serial Excel (46xxx) secara akurat.
+4. Auto-Sanitizer: Membersihkan karakter sampah perbankan (\xa0) agar deteksi stabil.
 """
 
 import pandas as pd
@@ -25,12 +25,12 @@ def identify_file_type(df):
     return None
 
 def clean_val(val):
-    """Membersihkan karakter sampah tersembunyi (\xa0, spasi liar, kutip)."""
+    """Membersihkan spasi non-breaking dan karakter sampah."""
     if val is None or (isinstance(val, float) and pd.isna(val)): return ""
     return str(val).replace('\xa0', ' ').replace("'", "").replace("`", "").strip()
 
 def parse_billing_date(val, file_type='MB'):
-    """SMART BILLING DETECTOR: Mengenali 122025, Des/2025, Jan-26, dll."""
+    """Parsing format bulan rekening (contoh: Des/2025, 122025)."""
     s = clean_val(val)
     if not s or s.lower() in ('nan', 'none'): return None
     try:
@@ -44,7 +44,7 @@ def parse_billing_date(val, file_type='MB'):
     return None
 
 def parse_flexible_date(date_val):
-    """EXCEL SERIAL FIXER: Mengonversi angka 46037 menjadi tanggal asli."""
+    """Konversi tanggal universal (termasuk angka Excel 46037)."""
     s = clean_val(date_val)
     if not s or s.lower() in ('nan', 'none'): return None
     try:
@@ -61,58 +61,53 @@ def parse_flexible_date(date_val):
 
 def detect_file_period(df, file_type):
     """
-    LOGIKA GESER (N+1): 
-    Digunakan untuk menentukan "Rumah" Dashboard.
-    Tgl Transaksi Desember (N) -> Dashboard Januari (N+1).
+    LOGIKA PERIOD LOCKING (V12.31):
+    - MC & MB (Target/Bank): Des -> Jan (SHIFT N+1)
+    - COLLECTION (Harian): Jan -> Jan (NO SHIFT)
     """
     if file_type in ['RUTE', 'ARDEBT'] or not file_type: return None, None
-
     cols = [str(c).upper().strip() for c in df.columns]
     
-    # [LOGIKA UTAMA]: Periode Dashboard ditentukan dari Tanggal Pembayaran
     mapping = {
         'MC': 'TGL_CATAT',
         'MB': 'TGL_BAYAR',
         'COLLECTION': 'PAY_DT'
     }
-    
     date_col = mapping.get(file_type)
     
-    # Fallback jika kolom spesifik tidak ditemukan di Excel
+    # Fallback pencarian kolom
     if not date_col or date_col not in cols:
-        if 'TGL_BAYAR' in cols: date_col = 'TGL_BAYAR'
-        elif 'PAY_DT' in cols: date_col = 'PAY_DT'
-        elif 'TGL_CATAT' in cols: date_col = 'TGL_CATAT'
-        elif 'BULAN_REK' in cols: date_col = 'BULAN_REK'
-        elif 'BILL_PERIOD' in cols: date_col = 'BILL_PERIOD'
+        for c in ['TGL_BAYAR', 'PAY_DT', 'TGL_CATAT', 'BULAN_REK', 'BILL_PERIOD']:
+            if c in cols: 
+                date_col = c
+                break
 
     if not date_col or date_col not in cols: return None, None
     
     try:
-        # Scan 5 baris pertama untuk akurasi periode
         valid_rows = df[df[date_col].astype(str).str.strip() != ''].head(5)
         if valid_rows.empty: return None, None
-            
         raw_date = valid_rows.iloc[0].get(date_col)
         
-        # Deteksi apakah kolom berisi Periode (Bulan/Tahun) atau Tanggal lengkap
-        if date_col in ['BULAN_REK', 'BILL_PERIOD']:
-            dt = parse_billing_date(raw_date, file_type)
-        else:
-            dt = parse_flexible_date(raw_date)
+        dt = parse_billing_date(raw_date, file_type) if date_col in ['BULAN_REK', 'BILL_PERIOD'] else parse_flexible_date(raw_date)
         
         if dt:
-            # SINKRONISASI GESER: Bayar di Des 2025 -> Dashboard Jan 2026
-            target_dt = dt + relativedelta(months=1)
+            # FIX UTAMA: Pisahkan Logika N+1
+            if file_type in ['MC', 'MB']:
+                # Tagihan Des mendarat di Dash Jan
+                target_dt = dt + relativedelta(months=1)
+            else:
+                # Pembayaran Lapangan Jan mendarat di Dash Jan
+                target_dt = dt
+                
             return target_dt.strftime('%m'), target_dt.strftime('%Y')
-
     except Exception as e:
         print(f"⚠️ Detection Error: {str(e)}")
         
     return None, None
 
 def autopilot_extract_zona(val):
-    """Ekstraksi PCEZ cerdas (Rayon-PC-EZ) untuk sinkronisasi rute."""
+    """Ekstraksi PCEZ cerdas (Rayon-PC-EZ)."""
     s = clean_val(val)
     if not s: return None
     digits = ''.join(filter(str.isdigit, s.split('.')[0])).zfill(9)
