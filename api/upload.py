@@ -32,6 +32,7 @@ class UploadEngine:
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
             s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "")
+            # Penanganan format: 1.000.000,00 -> 1000000.00
             if ',' in s_val and '.' in s_val:
                 s_val = s_val.replace('.', '').replace(',', '.')
             elif ',' in s_val:
