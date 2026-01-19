@@ -1,11 +1,11 @@
 """
-Flask Application - Area Service Integrated System (V7.5 Sinergi & Global Sync)
-Updated: 2026-01-12 (Fix: Monitoring Route & Guest Data Consistency)
+Flask Application - Area Service Integrated System (V12.60 Intelligence)
+Updated: 2026-01-20 (Fix: History Audit, System Logs & Multi-Role Sync)
 
-LOGIKA AKSES OPERASIONAL (Security Matrix):
-1. Level 1 (Publik/Guest): Dashboard Global (Sync), Monitoring, Youtube, & Materi.
-2. Level 2 (Petugas): Penagihan Berjalan, Ardebt, & Laporan Lapangan.
-3. Level 3 (Admin): Pusat Kendali Data, Upload Excel, & Audit Log.
+STRUKTUR AKSES (Security Matrix V12.60):
+1. Guest: Dashboard Global, Monitoring Collection, Youtube, & Materi.
+2. Petugas: Input Kunjungan, Cek Ardebt, & Monitoring Target Personal.
+3. Admin: Pusat Kendali (Admin Dashboard), History Audit, Mapping PCEZ, & System Logs.
 """
 
 import os
@@ -50,38 +50,42 @@ def create_app():
         if db is not None:
             db.close()
 
-    # --- 2. MIDDLEWARE: SECURITY LAYER ---
+    # --- 2. MIDDLEWARE: SECURITY LAYER V12.60 ---
     @app.before_request
     def security_layer():
         """
-        [GATEKEEPER]: Mengizinkan Guest melihat Dashboard & Monitoring 
-        agar data yang ditampilkan sinkron dengan data Global.
+        [GATEKEEPER]: Mengatur hak akses agar data sinkron.
+        Guest diizinkan melihat Dashboard Global dan Realisasi.
         """
         public_endpoints = [
             'index', 
-            'monitoring_collection_page',    # FIXED: Re-added to public access
-            'dashboard.get_pusat_kendali',   # API Dashboard terbuka untuk Guest
+            'monitoring_collection_page', 
+            'dashboard.get_pusat_kendali', 
             'auth.login', 
             'login_page', 
             'static', 
             'serve_kunjungan_photo', 
             'youtube_page', 
-            'materi_page',
-            'serve_materi_file'
+            'materi_page'
         ]
         
         endpoint = request.endpoint
         if not endpoint or endpoint in public_endpoints:
             return
 
+        # Proteksi Sesi
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
+        # Proteksi Khusus Admin
         admin_only_endpoints = [
-            'admin_dashboard', 'wa_blast_page', 'history_page', 
-            'monitoring_lokasi_page', 'upload.handle_upload'
+            'admin_dashboard', 
+            'history_kunjungan_page', # NEW: Audit Terproteksi
+            'monitoring_lokasi_page', 
+            'wa_blast_page',
+            'upload.handle_smart_upload'
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -108,18 +112,7 @@ def create_app():
 
     @app.route('/monitoring-collection')
     def monitoring_collection_page(): 
-        """Pusat Realisasi: Monitoring Harian (FIXED: Route Re-added)."""
         return render_template('monitoring_collection.html')
-
-    @app.route('/youtube')
-    def youtube_page():
-        return render_template('youtube.html')
-
-    @app.route('/materi')
-    def materi_page():
-        materi_dir = os.path.join(app.root_path, 'static', 'uploads', 'materi')
-        files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
-        return render_template('materi.html', files=files)
 
     @app.route('/login')
     def login_page(): 
@@ -149,9 +142,24 @@ def create_app():
     def monitoring_lokasi_page():
         return render_template('monitoring_lokasi.html')
 
-    @app.route('/history')
+    @app.route('/admin/history-kunjungan') # NEW: Route Utama History Audit
+    def history_kunjungan_page(): 
+        return render_template('history_kunjungan.html')
+
+    @app.route('/history-upload') # Log Upload File
     def history_page(): 
         return render_template('history.html')
+
+    # [KONTEN EDUKASI]
+    @app.route('/youtube')
+    def youtube_page():
+        return render_template('youtube.html')
+
+    @app.route('/materi')
+    def materi_page():
+        materi_dir = os.path.join(app.root_path, 'static', 'uploads', 'materi')
+        files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
+        return render_template('materi.html', files=files)
 
     # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
