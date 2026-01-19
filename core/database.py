@@ -1,10 +1,10 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.75 Ultimate Sync)
+Core Database Module - Sunter Dashboard Pro (V12.76 Ultimate Sync)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Self-Healing Master: Tambah kolom 'tarif' & 'kubik' otomatis (Fix: Ardebt Error).
-2. Rute Column Shield: Memastikan 'no_admin' tersedia (Fix: Error Rute List).
+1. Table Integrity: Menambahkan tabel 'upload_history' (Fix: FATAL ERROR no such table).
+2. Self-Healing Master: Tambah kolom 'tarif' & 'kubik' otomatis (Fix: Ardebt Error).
 3. Robust Multi-User: Busy Timeout 60s & WAL Mode aktif (Fix: Database is locked).
 4. Sequential Execution: Inisialisasi -> Migrasi -> Indexing -> Seeding.
 """
@@ -43,7 +43,7 @@ def init_db(app):
             check_and_create_tables(cursor)
             db.commit() 
 
-            # --- TAHAP 2: SELF-HEALING MIGRATIONS (PENTING) ---
+            # --- TAHAP 2: SELF-HEALING MIGRATIONS ---
             run_smart_migration(cursor)
             db.commit()
             
@@ -54,7 +54,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.75: Skema Master, Ardebt, & Rute Sinkron.")
+            print("✅ Database V12.76: Skema Master, Ardebt, & History Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -74,8 +74,21 @@ def check_and_create_tables(cursor):
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # 2. Riwayat Upload (FIXED: Menghilangkan Error 'no such table: upload_history')
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS upload_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            file_name TEXT, 
+            file_type TEXT, 
+            periode TEXT, 
+            row_count INTEGER DEFAULT 0, 
+            status TEXT, 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     
-    # 2. Tabel Master Pelanggan (Versi Dasar)
+    # 3. Tabel Master Pelanggan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +97,7 @@ def check_and_create_tables(cursor):
         )
     """)
 
-    # 3. Tabel Transaksi & Ardebt
+    # 4. Tabel Transaksi & Ardebt
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_bayar (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, 
@@ -106,7 +119,7 @@ def check_and_create_tables(cursor):
         )
     """)
     
-    # 4. Keamanan & Log
+    # 5. Keamanan & Log
     cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS kunjungan_petugas (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
@@ -114,19 +127,14 @@ def check_and_create_tables(cursor):
 def run_smart_migration(cursor):
     """Menambah kolom secara otomatis tanpa menghapus data yang sudah ada."""
     
-    # --- MIGRASI MASTER PELANGGAN (Fix Ardebt Engine) ---
+    # --- MIGRASI MASTER PELANGGAN ---
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
     
-    master_cols = {
-        'tarif': 'TEXT',
-        'kubik': 'REAL DEFAULT 0',
-        'nomet': 'TEXT'
-    }
+    master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT'}
     for col, dtype in master_cols.items():
         if col not in existing_master:
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
-            print(f"⚙️ Migrasi: Kolom [{col}] ditambahkan ke master_pelanggan")
 
     # --- MIGRASI KUNJUNGAN PETUGAS ---
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
