@@ -1,12 +1,12 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.28 Autopilot)
+Smart Integration Engine - Sunter Dashboard Pro (V12.30 Autopilot)
 Update: 2026-01-19
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Unified Key Mapping: Menjamin output periode MM-YYYY konsisten di seluruh loop.
-2. Forced Target Alignment: Mengunci target_period agar MC dan MB sinkron 100%.
-3. Excel Serial Fixer: Konversi otomatis angka serial (46037) menjadi tanggal asli.
-4. Robust Column Finder: Mencari variasi nama kolom (IDPEL, NOMEN, JUMLAH, NOMINAL).
+2. Shift Logic (N+1): Mengunci realisasi bulan N ke Dashboard periode N+1.
+3. Strict Logic Audit: Memastikan UNDUE memfilter BULAN_REK yang sesuai dengan target dashboard.
+4. Robust Column Finder: Pencarian kolom cerdas (IDPEL, NOMEN, JUMLAH, NOMINAL).
 """
 
 import pandas as pd
@@ -32,7 +32,6 @@ class UploadEngine:
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
             s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "")
-            # Penanganan format: 1.000.000,00 -> 1000000.00
             if ',' in s_val and '.' in s_val:
                 s_val = s_val.replace('.', '').replace(',', '.')
             elif ',' in s_val:
@@ -42,7 +41,7 @@ class UploadEngine:
 
     @staticmethod
     def get_column(df, possible_names):
-        """Mencari nama kolom secara fleksibel tanpa edit Excel."""
+        """Mencari nama kolom secara fleksibel tanpa perlu edit manual di Excel."""
         cols = {c.upper().strip(): c for c in df.columns}
         for name in possible_names:
             if name.upper() in cols:
@@ -50,21 +49,31 @@ class UploadEngine:
         return None
 
     @staticmethod
-    def determine_strict_logic(billing_val, payment_date_str, file_type):
-        """LOGIKA AUDIT: Memisahkan UNDUE (Bank) vs CURRENT (Lapangan)."""
+    def determine_strict_logic(billing_val, payment_date_str, file_type, target_period):
+        """
+        LOGIKA AUDIT KETAT (SHIFT N+1):
+        - Dashboard Januari 2026 (target_period: 01-2026)
+        - Mencari pembayaran Desember yang BULAN_REK-nya Desember 2025 -> UNDUE.
+        """
         try:
             billing_dt = parse_billing_date(billing_val, file_type)
             pay_dt = parse_flexible_date(payment_date_str)
             
             if not billing_dt or not pay_dt: return 'HISTORY'
 
-            # Audit Matching: Selisih bulan Rekening vs Bayar
+            # Parse dashboard target
+            dash_m = int(target_period.split('-')[0])
+            dash_y = int(target_period.split('-')[1])
+
+            # Audit Matching: Selisih bulan Rekening vs Tanggal Bayar
             diff = (pay_dt.year - billing_dt.year) * 12 + (pay_dt.month - billing_dt.month)
 
-            if diff == 0 and file_type == 'MB':
-                return 'UNDUE'
-            elif diff == 1 and file_type == 'COLLECTION':
-                return 'CURRENT'
+            if file_type == 'MB':
+                # UNDUE jika bulan bayar sama dengan bulan tagihan (Realisasi murni bulan berjalan)
+                if diff == 0: return 'UNDUE'
+            elif file_type == 'COLLECTION':
+                # CURRENT jika bayar di bulan berikutnya (Januari bayar tagihan Desember)
+                if diff == 1: return 'CURRENT'
             
             return 'HISTORY'
         except:
@@ -83,7 +92,7 @@ def handle_smart_upload():
     db = get_db_connection()
     
     try:
-        # [1] Load Data (CSV/Excel)
+        # [1] Load Data (Mendukung Excel & CSV Bank)
         if file_name.endswith('.csv'):
             df = pd.read_csv(file, dtype=str).fillna('')
         else:
@@ -99,13 +108,13 @@ def handle_smart_upload():
         col_bill = UploadEngine.get_column(df, ['BULAN_REK', 'BILL_PERIOD', 'PERIODE_REK'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
 
-        # [3] Penentuan Periode N+1 (Global Sync)
+        # [3] Penentuan Periode Dashboard (Logika N+1 Alignment)
         if data_type == 'ARDEBT':
             target_period = "GLOBAL-HISTORY"
         elif data_type == 'RUTE':
             target_period = datetime.now().strftime('%m-%Y')
         else:
-            # Mengunci periode agar MC dan MB mendarat di bulan yang sama (N+1)
+            # Shift Logic: Transaksi Desember mendarat di Dashboard Januari
             month, year = detect_file_period(df, data_type)
             if not month:
                 return jsonify({"status": "error", "message": "Gagal deteksi periode file"}), 400
@@ -115,7 +124,6 @@ def handle_smart_upload():
 
         # [4] Processing Loop
         for _, row in df.iterrows():
-            # A. MODUL RUTE
             if data_type == 'RUTE':
                 p_pcez = str(row.get('PCEZ', row.get('ZONA', ''))).strip()
                 p_name = str(row.get('PETUGAS', '')).strip()
@@ -124,7 +132,6 @@ def handle_smart_upload():
                     row_count += 1
                 continue
 
-            # B. MODUL MC, MB, COLLECTION
             n_raw = row.get(col_id) if col_id else None
             nomen = clean_nomen(n_raw)
             if not nomen: continue
@@ -146,16 +153,15 @@ def handle_smart_upload():
                 b_val = row.get(col_bill) if col_bill else ""
                 p_val = row.get(col_pay) if col_pay else ""
                 
-                cat = UploadEngine.determine_strict_logic(b_val, p_val, data_type)
+                # Masukkan target_period untuk audit filter kategori
+                cat = UploadEngine.determine_strict_logic(b_val, p_val, data_type, target_period)
                 tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
                 dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                 
-                # FORCED SYNC: Menggunakan target_period agar MB sinkron dengan MC
                 db.execute(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori) VALUES (?, ?, ?, ?, ?)", 
                            (nomen, p_val, UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat))
                 row_count += 1
 
-        # [5] Finalize
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)", 
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
         db.commit()
