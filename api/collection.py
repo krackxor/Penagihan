@@ -1,13 +1,14 @@
 """
-Collection API - Sunter Dashboard Pro (V12.32 Ultra Sync)
+Collection API - Sunter Dashboard Pro (V12.33 Ultra Sync)
 Update: 2026-01-19
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Unified N+1 Period Locking: Sinkronisasi otomatis antara Target MC dan Realisasi MB/Coll.
 2. Robust Current Fix: Menarik data lapangan berdasarkan join Nomen & Periode yang presisi.
-3. Field Audit Validation: Membedakan nominal hasil kunjungan petugas vs pembayaran mandiri.
+3. Strict Chronological Filter: Memastikan tabel hanya menampilkan tanggal yang sesuai 
+   dengan bulan periode (Contoh: Dashboard Jan hanya menampilkan tgl Jan).
 4. Correct Cumulative Logic: Menggabungkan saldo awal bank (UNDUE) ke tren harian lapangan.
-5. Strict SQL Ordering: Menjamin tabel urut secara kronologis (Tahun-Bulan-Hari).
+5. SQL Substring Ordering: Menjamin urutan Tahun-Bulan-Hari yang benar (DD-MM-YYYY fix).
 """
 
 from flask import Blueprint, jsonify, request
@@ -54,7 +55,7 @@ def pusat_kendali():
         """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. BOX MANDIRI - Pembayaran harian tanpa kunjungan (ATM/App/Loket)
+        # 4. BOX MANDIRI - Pembayaran harian tanpa kunjungan
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) 
             FROM collection_harian c
@@ -88,13 +89,16 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian: Grafik integrasi Saldo Bank + Progress Lapangan."""
+    """Tren Kumulatif Harian dengan Filter Bulan yang Ketat."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
+        
+        # Ambil kode bulan (MM) dari periode_req (contoh: '01' dari '01-2026')
+        target_month_code = periode_req.split('-')[0]
 
-        # Target Detail per Rayon untuk perhitungan % progress harian
+        # Target Detail per Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -104,7 +108,7 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Saldo Awal Realisasi Bank (Baseline grafik hari ke-0)
+        # Saldo Awal Realisasi Bank
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -112,7 +116,7 @@ def daily_monitor():
         """, (periode_req,))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian: Gabungan nominal harian dengan data Rayon yang sinkron
+        # [V12.33 Fix]: Filter SQL untuk membuang tanggal di luar bulan dashboard
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -121,13 +125,14 @@ def daily_monitor():
                 SUM(c.nominal) as rp_total
             FROM collection_harian c
             LEFT JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE c.periode = ?
+            WHERE c.periode = ? 
+            AND substr(c.pay_dt, 4, 2) = ? -- Filter: Bulan di Pay_dt harus sama dengan Bulan Periode
             GROUP BY c.pay_dt 
             ORDER BY 
-                substr(c.pay_dt,7,4) ASC, 
-                substr(c.pay_dt,4,2) ASC, 
-                substr(c.pay_dt,1,2) ASC
-        """, (periode_req,))
+                substr(c.pay_dt,7,4) ASC, -- Tahun
+                substr(c.pay_dt,4,2) ASC, -- Bulan
+                substr(c.pay_dt,1,2) ASC  -- Hari
+        """, (periode_req, target_month_code))
         rows = cursor.fetchall()
 
         daily_data = []
@@ -136,7 +141,6 @@ def daily_monitor():
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
-            # Akumulasi Dashboard = (Saldo Awal Bank Desember) + (Progress Lapangan Januari)
             cum_all = cum_34 + cum_35 + undue_start
             
             daily_data.append({
