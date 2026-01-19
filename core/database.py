@@ -1,12 +1,12 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.71 Full Sync)
+Core Database Module - Sunter Dashboard Pro (V12.72 Final Sync)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Transaction Column Shield: Menjamin tgl_bayar & kategori tersedia (Fix: Sync Error).
-2. Category Logic: Mendukung klasifikasi UNDUE/CURRENT untuk Dashboard N+1.
-3. Ardebt Extension: Sinkronisasi kolom periode_bill & volume pada tabel tunggakan.
-4. Robust WAL Mode: Mengaktifkan Write-Ahead Logging untuk akses multi-user.
+1. Rute Column Shield: Tambah 'no_admin' (Fix: Error Rute List / no such column).
+2. Busy Timeout Extension: Set 60s timeout (Fix: Database is locked).
+3. Transaction Integrity: Sinkronisasi nominal & kategori pada tabel transaksi.
+4. Robust WAL Mode: Mengaktifkan Write-Ahead Logging untuk akses simultan.
 """
 
 import sqlite3
@@ -18,11 +18,11 @@ def get_db_connection():
     """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        # Timeout 60 detik untuk mencegah "database is locked" saat upload besar
+        # Timeout ditingkatkan menjadi 60 detik untuk antrean proses tulis
         conn = sqlite3.connect(db_path, timeout=60)
         conn.row_factory = sqlite3.Row 
         
-        # Optimasi SQLite untuk Performa Tinggi
+        # Optimasi SQLite untuk Performa Tinggi & Multi-User
         conn.execute('PRAGMA journal_mode=WAL;')       # Izinkan baca saat tulis berlangsung
         conn.execute('PRAGMA synchronous=NORMAL;')     # Kecepatan tulis maksimal
         conn.execute('PRAGMA foreign_keys = ON;')      # Integritas data
@@ -40,25 +40,21 @@ def init_db(app):
             cursor = db.cursor()
             
             # --- TAHAP 1: INFRASTRUKTUR & MASTER ---
-            # Membuat tabel jika belum ada
             check_and_create_tables(cursor)
             db.commit() 
 
             # --- TAHAP 2: SELF-HEALING MIGRATIONS ---
-            # Menambah kolom baru ke tabel lama tanpa hapus data
             run_smart_migration(cursor)
             db.commit()
             
             # --- TAHAP 3: TURBO INDEXING ---
-            # Membuat index untuk pencarian kilat
             optimize_performance(cursor)
             
             # --- TAHAP 4: SECURITY SEEDING ---
-            # Menjamin akun admin default tersedia
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.71: Skema Fisik & Logika Upload Sinkron.")
+            print("✅ Database V12.72: Infrastruktur Rute & Transaksi Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -69,11 +65,12 @@ def init_db(app):
 def check_and_create_tables(cursor):
     """Melahirkan seluruh struktur tabel master."""
     
-    # 1. Infrastruktur Admin & Navigasi
+    # 1. Infrastruktur Admin & Navigasi (FIXED: no_admin column)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS rute_petugas (
             pcez TEXT PRIMARY KEY, 
             petugas TEXT, 
+            no_admin TEXT, 
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -81,11 +78,8 @@ def check_and_create_tables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS upload_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            file_name TEXT, 
-            file_type TEXT, 
-            periode TEXT, 
-            row_count INTEGER DEFAULT 0, 
-            status TEXT, 
+            file_name TEXT, file_type TEXT, periode TEXT, 
+            row_count INTEGER DEFAULT 0, status TEXT, 
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -94,38 +88,25 @@ def check_and_create_tables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nomen TEXT UNIQUE, 
-            nama TEXT, 
-            alamat TEXT, 
-            pcez TEXT, 
-            rayon TEXT, 
-            nominal REAL, 
-            nomet TEXT, 
-            periode TEXT, 
-            status_lunas INTEGER DEFAULT 0
+            nomen TEXT UNIQUE, nama TEXT, alamat TEXT, pcez TEXT, rayon TEXT, 
+            nominal REAL, nomet TEXT, periode TEXT, status_lunas INTEGER DEFAULT 0
         )
     """)
 
-    # 3. Tabel Transaksi (FIXED: Kolom nominal & kategori untuk Dashboard)
+    # 3. Tabel Transaksi (FIXED: Kolom nominal & kategori)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_bayar (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomen TEXT, 
-            tgl_bayar TEXT, 
-            nominal REAL DEFAULT 0, 
-            periode TEXT, 
-            kategori TEXT DEFAULT 'HISTORY'
+            nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, 
+            periode TEXT, kategori TEXT DEFAULT 'HISTORY'
         )
     """)
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS collection_harian (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomen TEXT, 
-            pay_dt TEXT, 
-            nominal REAL DEFAULT 0, 
-            periode TEXT, 
-            kategori TEXT DEFAULT 'HISTORY'
+            nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, 
+            periode TEXT, kategori TEXT DEFAULT 'HISTORY'
         )
     """)
 
@@ -133,11 +114,8 @@ def check_and_create_tables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS ardebt (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomen TEXT, 
-            periode_bill TEXT, 
-            jumlah REAL DEFAULT 0, 
-            volume REAL DEFAULT 0, 
-            periode TEXT
+            nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, 
+            volume REAL DEFAULT 0, periode TEXT
         )
     """)
     
@@ -145,10 +123,7 @@ def check_and_create_tables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT UNIQUE, 
-            password TEXT, 
-            role TEXT, 
-            petugas_id TEXT, 
+            username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, 
             last_login TIMESTAMP
         )
     """)
@@ -156,11 +131,7 @@ def check_and_create_tables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS system_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            user_id TEXT, 
-            action TEXT, 
-            module TEXT, 
-            details TEXT, 
-            ip_address TEXT, 
+            user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, 
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -174,11 +145,10 @@ def check_and_create_tables(cursor):
     """)
 
 def run_smart_migration(cursor):
-    """Menambah kolom secara dinamis jika ada update tanpa merusak data."""
+    """Menambah kolom secara dinamis tanpa merusak data."""
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing = [row['name'] for row in cursor.fetchall()]
     
-    # Daftar kolom snapshot untuk audit kunjungan
     cols = {
         'mc':'REAL', 'ardebt':'REAL', 'catatan':'TEXT', 'keterangan':'TEXT', 
         'foto_path':'TEXT', 'nama_snapshot':'TEXT', 'alamat_snapshot':'TEXT', 
@@ -212,7 +182,6 @@ def seed_default_admin(cursor):
         """, (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
 
 def get_db():
-    """Helper untuk Flask Global (g)"""
     if 'db' not in g:
         g.db = get_db_connection()
     return g.db
