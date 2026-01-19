@@ -1,12 +1,12 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.60 Intelligence)
+Smart Integration Engine - Sunter Dashboard Pro (V12.65 Stable)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. System Log Integration: Mencatat setiap upload ke tabel 'system_logs' (Audit Trail).
-2. RUTE RL JS Fix: Normalisasi format PCEZ (092/01 -> 09201) untuk sinkronisasi master.
-3. Strict Alignment: Mengabaikan otomatis transaksi yang tidak sesuai bulan periode file.
-4. Robust Mapping: Dukungan penuh kolom 'JUMLAH' & 'PIUTANG' untuk mencegah 0 baris.
+1. Column Alignment: Penyesuaian INSERT query dengan skema DB V12.63.
+2. Error Resilience: Penambahan try-except per baris agar upload tidak terhenti total.
+3. System Log Integration: Mencatat setiap aktivitas upload ke audit trail.
+4. Auto-Detect Fix: Sinkronisasi rute RL JS dengan normalisasi PCEZ.
 """
 
 import pandas as pd
@@ -14,14 +14,13 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from flask import Blueprint, request, jsonify, session, current_app
 from core.database import get_db_connection
-from core.helpers import clean_nomen, log_action # Pastikan log_action diimport
+from core.helpers import clean_nomen, log_action
 
 upload_bp = Blueprint('upload', __name__)
 
 class UploadEngine:
     @staticmethod
     def cast_to_float(value):
-        """Konversi angka cerdas: Menangani format ribuan (.) dan desimal (,) Indonesia."""
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
             s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "")
@@ -34,7 +33,6 @@ class UploadEngine:
 
     @staticmethod
     def get_column(df, possible_names):
-        """Mencari nama kolom secara fleksibel tanpa perlu edit manual di Excel."""
         cols = {c.upper().strip(): c for c in df.columns}
         for name in possible_names:
             if name.upper() in cols:
@@ -43,17 +41,14 @@ class UploadEngine:
 
     @staticmethod
     def determine_strict_logic(billing_val, payment_date_str, file_type, target_period):
-        """LOGIKA AUDIT KETAT (SHIFT N+1)"""
         try:
             from processors.auto_detect import parse_billing_date, parse_flexible_date
             billing_dt = parse_billing_date(billing_val, file_type)
             pay_dt = parse_flexible_date(payment_date_str)
             if not billing_dt or not pay_dt: return 'HISTORY'
             diff = (pay_dt.year - billing_dt.year) * 12 + (pay_dt.month - billing_dt.month)
-            if file_type == 'MB':
-                if diff == 0: return 'UNDUE'
-            elif file_type == 'COLLECTION':
-                if diff == 1: return 'CURRENT'
+            if file_type == 'MB' and diff == 0: return 'UNDUE'
+            if file_type == 'COLLECTION' and diff == 1: return 'CURRENT'
             return 'HISTORY'
         except: return 'HISTORY'
 
@@ -72,12 +67,9 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona, parse_flexible_date
         
-        if file_name.endswith('.csv'):
-            df = pd.read_csv(file, dtype=str).fillna('')
-        else:
-            df = pd.read_excel(file, dtype=str).fillna('')
-
+        df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         data_type = identify_file_type(df)
+        
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
@@ -86,7 +78,6 @@ def handle_smart_upload():
         col_bill = UploadEngine.get_column(df, ['BULAN_REK', 'BILL_PERIOD', 'PERIODE_REK'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
 
-        # [3] Penentuan Periode Dashboard
         if data_type == 'ARDEBT':
             target_period, month_ref = "GLOBAL-HISTORY", None
         elif data_type == 'RUTE':
@@ -98,90 +89,71 @@ def handle_smart_upload():
 
         row_count = 0
         ignored_count = 0
+        error_rows = 0
 
-        # [4] Processing Loop
-        for _, row in df.iterrows():
-            # A. MODUL RUTE (FIXED PCEZ FORMAT)
-            if data_type == 'RUTE':
-                c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK'])
-                c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
-                raw_pcez = str(row.get(c_pcez, '')).strip()
-                p_name = str(row.get(c_name, '')).strip()
-                if raw_pcez and p_name:
-                    clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
-                    db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
-                    row_count += 1
-                continue
-
-            n_raw = row.get(col_id) if col_id else None
-            nomen = clean_nomen(n_raw)
-            if not nomen: continue
-
-            # B. VALIDASI ALIGNMENT TANGGAL
-            p_val = row.get(col_pay) if col_pay else ""
-            pay_dt_obj = parse_flexible_date(p_val)
-            if pay_dt_obj and data_type == 'COLLECTION':
-                if pay_dt_obj.strftime('%m') != month_ref:
-                    ignored_count += 1
-                    continue
-            if pay_dt_obj and data_type == 'MB':
-                expected_m = (datetime.strptime(target_period, '%m-%Y') - relativedelta(months=1)).strftime('%m')
-                if pay_dt_obj.strftime('%m') != expected_m:
-                    ignored_count += 1
+        for index, row in df.iterrows():
+            try:
+                # A. MODUL RUTE
+                if data_type == 'RUTE':
+                    c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
+                    c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
+                    raw_pcez = str(row.get(c_pcez, '')).strip()
+                    p_name = str(row.get(c_name, '')).strip()
+                    if raw_pcez and p_name:
+                        clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
+                        db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
+                        row_count += 1
                     continue
 
-            # C. MODUL MC
-            if data_type == 'MC':
-                c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ'])
-                z = autopilot_extract_zona(row.get(c_zona))
-                if z:
-                    db.execute("""
-                        INSERT OR REPLACE INTO master_pelanggan 
-                        (nomen, nama, alamat, pcez, rayon, pc, ez, blok, nominal, nomet, periode, status_lunas)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-                    """, (nomen, row.get('NAMA_PEL'), row.get('ALM1_PEL'), z['pcez'], z['rayon'], 
-                          z['pc'], z['ez'], z['blok'], UploadEngine.cast_to_float(row.get(col_nom)), 
-                          row.get('NOMET'), target_period))
+                n_raw = row.get(col_id) if col_id else None
+                nomen = clean_nomen(n_raw)
+                if not nomen: continue
+
+                # B. MODUL MC (MASTER PELANGGAN)
+                if data_type == 'MC':
+                    c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
+                    z = autopilot_extract_zona(row.get(c_zona))
+                    if z:
+                        db.execute("""
+                            INSERT OR REPLACE INTO master_pelanggan 
+                            (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                        """, (nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), z['pcez'], z['rayon'], 
+                              UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period))
+                        row_count += 1
+
+                # C. MODUL ARDEBT
+                elif data_type == 'ARDEBT':
+                    val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
+                    if val_ardebt > 0:
+                        db.execute("""
+                            INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume, periode) 
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt, 
+                              UploadEngine.cast_to_float(row.get('VOLUME', 0)), target_period))
+                        row_count += 1
+
+                # D. MODUL MB & COLLECTION
+                elif data_type in ['MB', 'COLLECTION']:
+                    tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
+                    dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
+                    db.execute(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode) VALUES (?, ?, ?, ?)", 
+                               (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period))
                     row_count += 1
+            
+            except Exception as e:
+                error_rows += 1
+                print(f"⚠️ Error Row {index}: {str(e)}")
 
-            # D. MODUL MB & COLLECTION
-            elif data_type in ['MB', 'COLLECTION']:
-                b_val = row.get(col_bill) if col_bill else ""
-                cat = UploadEngine.determine_strict_logic(b_val, p_val, data_type, target_period)
-                tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
-                dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
-                db.execute(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori) VALUES (?, ?, ?, ?, ?)", 
-                           (nomen, p_val, UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat))
-                row_count += 1
-
-            # E. MODUL ARDEBT
-            elif data_type == 'ARDEBT':
-                p_bill = str(row.get('PERIODE_BILL', row.get('PERIODE', '-'))).strip()
-                val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
-                if val_ardebt > 0:
-                    db.execute("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume) VALUES (?, ?, ?, ?)", 
-                               (nomen, p_bill, val_ardebt, UploadEngine.cast_to_float(row.get('VOLUME', 0))))
-                    row_count += 1
-
-        # [5] RECORD SYSTEM LOG (AUDIT TRAIL)
-        log_action(
-            user_id=session.get('username', 'Unknown'),
-            action='UPLOAD_SUCCESS',
-            module=data_type,
-            details=f"File: {file_name} | Rows: {row_count} | Period: {target_period}",
-            ip=request.remote_addr
-        )
-
-        db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)", 
-                   (file_name, data_type, target_period, row_count, 'SUCCESS'))
+        # FINALISASI
+        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"File: {file_name} | Success: {row_count} | Error: {error_rows}", request.remote_addr)
+        db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)", (file_name, data_type, target_period, row_count, 'SUCCESS'))
         db.commit()
         
-        msg = f"Sukses: {row_count} baris mendarat di Dashboard {target_period}."
-        if ignored_count > 0: msg += f" ({ignored_count} baris diabaikan karena beda bulan)."
-        return jsonify({"status": "success", "message": msg})
+        return jsonify({"status": "success", "message": f"Upload selesai. {row_count} baris sukses, {error_rows} gagal."})
 
     except Exception as e:
         if db: db.rollback()
-        return jsonify({"status": "error", "message": f"Gagal: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"Fatal System Error: {str(e)}"}), 500
     finally:
         db.close()
