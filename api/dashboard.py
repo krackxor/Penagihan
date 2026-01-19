@@ -1,12 +1,12 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.33 Robust Sync)
+API Dashboard - Sunter Dashboard Pro (V12.35 Nomen Sync)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ARDEBT Integration: Audit piutang lama secara global.
-2. System Log Route: Perbaikan Error 404 dengan menyediakan endpoint audit log.
-3. N+1 Shift Alignment: Auto-detect periode terbaru dari Master Pelanggan.
-4. Precision Sync: COALESCE pada SUM nominal untuk mencegah nilai null.
+1. Real-Time Efficiency Sync: Menghitung efektivitas berdasarkan 'nomen' (Fix: 0% Lunas).
+2. Multi-Channel Recovery: Menggabungkan realisasi Bank (UNDUE) & Lapangan (CURRENT).
+3. System Log Audit: Menyediakan rute /admin/system-logs untuk jejak digital upload.
+4. N+1 Auto-Detect: Mengunci periode aktif berdasarkan data Master terakhir.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -33,7 +33,8 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # [2] SUMMARY MC (TARGET BULAN BERJALAN)
+        # [2] SUMMARY MC & STATUS LUNAS (Sinergi Master)
+        # Menghitung efektivitas berdasarkan data yang sudah di-flag lunas di master
         query_summary = """
             SELECT 
                 COUNT(*) as total_nomen,
@@ -50,7 +51,8 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params).fetchone()
 
-        # [3] REALISASI & ARDEBT (RECOVERY)
+        # [3] REALISASI NOMINAL (Bank vs Lapangan)
+        # Menggunakan 'nomen' sebagai kunci penghubung antar tabel transaksi
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
@@ -82,6 +84,7 @@ def get_pusat_kendali():
         total_current = res_realisasi['current_nom'] or 0
         piutang_lama = res_realisasi['total_piutang_lama'] or 0
         
+        # Sinergi Total Recovery
         realisasi_gabungan = total_undue + total_current
 
         return jsonify({
@@ -116,12 +119,12 @@ def get_pusat_kendali():
 
     except Exception as e:
         current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Gagal Sinkronisasi Dashboard: {str(e)}"}), 500
     finally:
         db.close()
 
 # ==========================================
-# 2. ENDPOINT SYSTEM LOGS (FIX 404)
+# 2. ENDPOINT SYSTEM LOGS (AUDIT TRAIL)
 # ==========================================
 @dashboard_bp.route('/admin/system-logs', methods=['GET'])
 def get_system_logs():
