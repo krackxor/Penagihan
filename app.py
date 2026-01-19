@@ -1,11 +1,11 @@
 """
-Flask Application - Area Service Integrated System (V12.60 Intelligence)
-Updated: 2026-01-20 (Fix: History Audit, System Logs & Multi-Role Sync)
-
-STRUKTUR AKSES (Security Matrix V12.60):
-1. Guest: Dashboard Global, Monitoring Collection, Youtube, & Materi.
-2. Petugas: Input Kunjungan, Cek Ardebt, & Monitoring Target Personal.
-3. Admin: Pusat Kendali (Admin Dashboard), History Audit, Mapping PCEZ, & System Logs.
+Flask Application - Area Service Integrated System (V12.67 Stable)
+Updated: 2026-01-20
+---------------------------------------------------------------------------
+Final Fixes:
+1. Blueprint Import Sync: Menghilangkan ImportError 'upload_bp'.
+2. Security Layer: Penguncian rute audit geospasial & system logs khusus Admin.
+3. UI Routing: Penambahan akses ke History Kunjungan & Monitoring Lokasi.
 """
 
 import os
@@ -20,7 +20,7 @@ from core.helpers import get_role_redirect
 # [IMPORT BLUEPRINTS]
 from api.auth import auth_bp
 from api.dashboard import dashboard_bp 
-from api.upload import upload_bp
+from api.upload import upload_bp  # Pastikan di api/upload.py variabel bernama upload_bp
 from api.history import history_bp
 from api.rute import rute_bp
 from api.ardebt import ardebt_bp
@@ -36,7 +36,10 @@ def create_app():
 
     # --- 1. STARTUP PROTOCOL ---
     with app.app_context():
+        # Inisialisasi Database (Melahirkan tabel & migrasi kolom)
         init_db(app) 
+        
+        # Folder Integrity Check
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'materi')
@@ -50,12 +53,12 @@ def create_app():
         if db is not None:
             db.close()
 
-    # --- 2. MIDDLEWARE: SECURITY LAYER V12.60 ---
+    # --- 2. MIDDLEWARE: SECURITY LAYER V12.67 ---
     @app.before_request
     def security_layer():
         """
-        [GATEKEEPER]: Mengatur hak akses agar data sinkron.
-        Guest diizinkan melihat Dashboard Global dan Realisasi.
+        [GATEKEEPER]: Mengontrol hak akses berdasarkan Role.
+        Public: Index, Monitoring Global, Login, Static.
         """
         public_endpoints = [
             'index', 
@@ -73,19 +76,20 @@ def create_app():
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # Proteksi Sesi
+        # Proteksi Sesi (Harus Login)
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
-        # Proteksi Khusus Admin
+        # Proteksi Admin Only (Akses Strategis)
         admin_only_endpoints = [
             'admin_dashboard', 
-            'history_kunjungan_page', # NEW: Audit Terproteksi
+            'history_kunjungan_page', 
             'monitoring_lokasi_page', 
             'wa_blast_page',
-            'upload.handle_smart_upload'
+            'upload.handle_smart_upload',
+            'history_page' # Log Upload
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -142,15 +146,15 @@ def create_app():
     def monitoring_lokasi_page():
         return render_template('monitoring_lokasi.html')
 
-    @app.route('/admin/history-kunjungan') # NEW: Route Utama History Audit
+    @app.route('/admin/history-kunjungan')
     def history_kunjungan_page(): 
         return render_template('history_kunjungan.html')
 
-    @app.route('/history-upload') # Log Upload File
+    @app.route('/admin/history-upload') # Mengubah rute agar masuk grup admin
     def history_page(): 
         return render_template('history.html')
 
-    # [KONTEN EDUKASI]
+    # [KONTEN INFORMASI]
     @app.route('/youtube')
     def youtube_page():
         return render_template('youtube.html')
