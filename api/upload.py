@@ -1,12 +1,11 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.68 Stable)
+Smart Integration Engine - Sunter Dashboard Pro (V12.69 Stable)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Column Integrity Fix: Menyelaraskan parameter INSERT dengan skema DB V12.68.
-2. Row-Level Shield: Menjamin upload tidak terhenti total jika ada data baris yang cacat.
-3. System Log Integration: Mencatat jejak audit upload ke tabel 'system_logs'.
-4. Connection Stability: Penanganan eksplisit untuk mencegah 'Database is Locked'.
+1. Argument Sync: Memperbaiki pemanggilan log_action (data_type -> module).
+2. Column Integrity: Sinkronisasi 9 parameter INSERT untuk Master Pelanggan.
+3. Row-Level Shield: Try-Except per baris untuk mencegah error 500 massal.
 """
 
 import pandas as pd
@@ -56,19 +55,18 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 2. FILE TYPE & PERIOD DETECTION
+        # 2. FILE PROCESSING
         df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         data_type = identify_file_type(df)
         
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # Mapping Kolom Universal
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
 
-        # Penentuan Periode Target
+        # Penentuan Periode
         if data_type in ['ARDEBT', 'RUTE']:
             target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
         else:
@@ -82,7 +80,7 @@ def handle_smart_upload():
         # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
         for index, row in df.iterrows():
             try:
-                # A. MODUL RUTE (Normalisasi PCEZ)
+                # A. MODUL RUTE
                 if data_type == 'RUTE':
                     c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                     c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
@@ -103,7 +101,6 @@ def handle_smart_upload():
                     c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
                     z = autopilot_extract_zona(row.get(c_zona))
                     if z:
-                        # Sinkronisasi 9 Parameter sesuai DB V12.68
                         db.execute("""
                             INSERT OR REPLACE INTO master_pelanggan 
                             (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas)
@@ -112,7 +109,7 @@ def handle_smart_upload():
                               UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period))
                         row_count += 1
 
-                # C. MODUL ARDEBT (TUNGGAKAN)
+                # C. MODUL ARDEBT
                 elif data_type == 'ARDEBT':
                     val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
                     if val_ardebt > 0:
@@ -122,7 +119,7 @@ def handle_smart_upload():
                         """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt, target_period))
                         row_count += 1
 
-                # D. MODUL MB & COLLECTION (PEMBAYARAN)
+                # D. MODUL MB & COLLECTION
                 elif data_type in ['MB', 'COLLECTION']:
                     tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
                     dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
@@ -132,26 +129,24 @@ def handle_smart_upload():
             
             except Exception as row_err:
                 error_rows += 1
-                # Cetak error baris ke terminal tanpa menghentikan proses upload
                 print(f"⚠️ Baris {index} Sync Error: {str(row_err)}")
 
-        # 4. FINALISASI & LOGGING
+        # 4. FINALISASI & LOGGING (FIXED ARGUMENT)
         log_action(
             user_id=session.get('username', 'Admin'), 
             action='UPLOAD_SUCCESS', 
-            data_type=data_type, 
+            module=data_type,  # <--- PERBAIKAN: Gunakan 'module', bukan 'data_type'
             details=f"File: {file_name} | Success: {row_count} | Fail: {error_rows}", 
             ip=request.remote_addr
         )
         
-        # Catat Riwayat Upload
         db.execute("""
             INSERT INTO upload_history (file_name, file_type, periode, row_count, status) 
             VALUES (?, ?, ?, ?, ?)
         """, (file_name, data_type, target_period, row_count, 'SUCCESS'))
         
         db.commit()
-        return jsonify({"status": "success", "message": f"Integrasi selesai. {row_count} sukses, {error_rows} baris dilewati."})
+        return jsonify({"status": "success", "message": f"Integrasi selesai. {row_count} sukses."})
 
     except Exception as e:
         if db: db.rollback()
