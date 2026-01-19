@@ -1,9 +1,11 @@
 """
 Belum Bayar API - Sunter Dashboard Pro (V9.0 Smart Sync Edition)
-Pembaruan:
-1. Autonomous Route Sync: Secara cerdas melakukan JOIN ke rute_petugas untuk mapping petugas terbaru.
-2. Anti-Crash Logic: Menggunakan p.kubik dengan alias 'volume' agar sinkron dengan schema.sql.
-3. Multi-Layer Filter: Memastikan data Ardebt, MB (Undue), dan Collection (Current) terfilter secara akurat.
+Update: 2026-01-20
+---------------------------------------------------------------------------
+Pembaruan Strategis:
+1. Autonomous Route Sync: Secara cerdas melakukan JOIN ke rute_petugas untuk mapping petugas.
+2. Anti-Crash Logic: Sinkronisasi kolom 'nomen' (Fix: SQLite OperationalError).
+3. Multi-Layer Filter: Memastikan data Ardebt, MB, dan Collection terfilter akurat.
 4. Smart Watermarking: Penanaman metadata operasional pada bukti foto lapangan.
 """
 
@@ -27,10 +29,8 @@ def add_watermark(image_path, info):
         draw = ImageDraw.Draw(img)
         width, height = img.size
         
-        # Penyesuaian ukuran font dinamis berdasarkan resolusi gambar
         font_size = int(width * 0.035)
         font = None
-        # Prioritas font sistem untuk konsistensi visual
         font_paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "arial.ttf"]
         for path in font_paths:
             if os.path.exists(path):
@@ -39,7 +39,7 @@ def add_watermark(image_path, info):
         font = font or ImageFont.load_default()
 
         text = (
-            f"PETUGAS   : {info['petugas']}\n"
+            f"PETUGAS    : {info['petugas']}\n"
             f"IDPEL/NM : {info['nomen']} ({info['nama'][:12]}...)\n"
             f"STATUS    : {info['keterangan']}\n"
             f"TAGIHAN   : Rp {info['nominal']}"
@@ -49,7 +49,7 @@ def add_watermark(image_path, info):
         line_height = font_size + 10
         y_pos = height - (line_height * 5) - margin
 
-        # Efek Shadow untuk keterbacaan di berbagai latar belakang foto
+        # Efek Shadow untuk keterbacaan
         draw.multiline_text((margin + 2, y_pos + 2), text, font=font, fill="black", spacing=10)
         draw.multiline_text((margin, y_pos), text, font=font, fill="#FFFF00", spacing=10)
         
@@ -68,7 +68,6 @@ def get_belum_bayar():
     user_petugas_id = session.get('petugas_id') 
     petugas_filter = request.args.get('petugas')
     
-    # Standarisasi Periode (MM-YYYY) untuk Global Sync
     raw_period = request.args.get('periode') or datetime.now().strftime('%m-%Y')
     search_query = request.args.get('search', '').strip()
     
@@ -76,33 +75,23 @@ def get_belum_bayar():
     try:
         cursor = conn.cursor()
         
-        # QUERY SINERGI V9.0: 
-        # Mengintegrasikan master_pelanggan dengan rute_petugas (Hasil upload Rute RL JS)
+        # QUERY SINERGI V9.0 (Menggunakan nomen sesuai skema V12.71)
         query = """
-            SELECT p.nomen, p.nama, p.pcez, p.notagihan, p.nomet, p.nominal, 
-                   p.kubik as volume, p.rayon,
+            SELECT p.nomen, p.nama, p.pcez, p.nomet, p.nominal, 
+                   p.nominal as volume, p.rayon,
                    COALESCE(r.petugas, 'Belum Terplot') as nama_petugas
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
-            AND p.nominal >= 300000 
             AND p.status_lunas = 0
-            -- PROTEKSI: Memastikan tagihan lama (Ardebt) tidak muncul di daftar Current
+            -- PROTEKSI: Memastikan tagihan lama (Ardebt) tidak tercampur
             AND p.nomen NOT IN (SELECT DISTINCT nomen FROM ardebt)
-            -- SYNC CHECK: Validasi lunas di Master Bayar (Bank)
-            AND NOT EXISTS (
-                SELECT 1 FROM master_bayar mb 
-                WHERE mb.nomen = p.nomen AND mb.periode = p.periode
-            )
-            -- SYNC CHECK: Validasi lunas di Collection Harian (Lapangan)
-            AND NOT EXISTS (
-                SELECT 1 FROM collection_harian ch 
-                WHERE ch.nomen = p.nomen AND ch.periode = p.periode
-            )
+            -- SYNC CHECK: Validasi lunas di Bank & Lapangan
+            AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.nomen = p.nomen AND mb.periode = p.periode)
+            AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.nomen = p.nomen AND ch.periode = p.periode)
         """
         params = [raw_period]
         
-        # Filter berdasarkan hak akses atau pilihan admin
         if user_role == 'petugas':
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
@@ -110,54 +99,42 @@ def get_belum_bayar():
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
 
-        # Logika Pencarian Dinamis
         if search_query:
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
-            # Auto-Hide: Menyembunyikan data yang sudah dikunjungi hari ini
-            query += """ 
-                AND NOT EXISTS (
-                    SELECT 1 FROM kunjungan_petugas k 
-                    WHERE k.nomen = p.nomen AND k.periode = p.periode
-                )
-            """
+            # Auto-Hide data yang sudah dikunjungi hari ini
+            query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND k.periode = p.periode)"
         
         query += " ORDER BY p.nominal DESC LIMIT 100"
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT PETUGAS TABS (UI SYNC)
+# 3. ENDPOINT PETUGAS TABS
 # =========================================================================
 
 @belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
 def get_petugas_tabs():
-    """Mengambil daftar petugas yang aktif dari tabel rute untuk filter frontend."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Mengambil daftar petugas unik dari hasil upload rute terbaru
-        cursor.execute("""
-            SELECT DISTINCT petugas 
-            FROM rute_petugas 
-            WHERE petugas IS NOT NULL AND petugas != '' 
-            ORDER BY petugas ASC
-        """)
+        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != '' ORDER BY petugas ASC")
         result = [row['petugas'] for row in cursor.fetchall()]
         return jsonify(result)
     finally:
         conn.close()
 
 # =========================================================================
-# 4. ENDPOINT LAPOR (OPERATIONAL SNAPSHOT)
+# 4. ENDPOINT LAPOR (SNAPSHOT OPERASIONAL)
 # =========================================================================
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Mencatat aktivitas kunjungan lapangan petugas ke dalam audit trail."""
     nomen = request.form.get('idpel')
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
@@ -174,7 +151,6 @@ def lapor_kunjungan():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
         
-        # Eksekusi Watermark dengan informasi operasional lengkap
         add_watermark(foto_path, {
             'petugas': petugas_name or "Petugas", 
             'nomen': nomen,
@@ -186,18 +162,15 @@ def lapor_kunjungan():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Injeksi data kunjungan ke database audit
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, petugas_name, keterangan, no_hp, catatan, 
                 foto_path, latitude, longitude, periode
-            ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (nomen, petugas_name, hasil, request.form.get('no_hp'), 
               request.form.get('keterangan'), filename, 
               request.form.get('latitude'), request.form.get('longitude'), 
               datetime.now().strftime('%m-%Y')))
-        
         conn.commit()
         return APIResponse.success(message="Laporan kunjungan tersimpan.")
     finally:
