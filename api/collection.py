@@ -19,6 +19,7 @@ def get_active_period(cursor):
     """Mendeteksi periode aktif terbaru dari database (Hasil N+1 Upload)."""
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
+    # Default ke periode saat ini jika database kosong
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
@@ -27,6 +28,7 @@ def pusat_kendali():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # Menggunakan periode dari request atau deteksi otomatis periode aktif terbaru (N+1)
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
         # 1. TOTAL TARGET (MC) - Target murni periode berjalan
@@ -34,6 +36,7 @@ def pusat_kendali():
         target_mc = cursor.fetchone()[0]
 
         # 2. BOX UNDUE (BANK) - Realisasi pelunasan murni + data history recovery
+        # Memasukkan kategori 'HISTORY' untuk menangani data yang meleset dari filter audit ketat saat upload
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_bayar 
@@ -93,7 +96,7 @@ def daily_monitor():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # Ambil Target per Rayon
+        # Ambil Target Detail per Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -152,6 +155,7 @@ def daily_monitor():
                 }
             })
 
+        # Kembalikan data tren harian dan ringkasan akhir bulan
         return jsonify({
             "status": "success",
             "data": daily_data,
