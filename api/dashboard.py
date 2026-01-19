@@ -17,6 +17,7 @@ dashboard_bp = Blueprint('dashboard', __name__)
 
 def get_latest_active_period(db):
     """Mendeteksi periode target penagihan terbaru di database (Hasil N+1 Upload)."""
+    # Mencari periode terbaru berdasarkan data Master Pelanggan yang terakhir diunggah
     res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
     return res['periode'] if res else datetime.now().strftime('%m-%Y')
 
@@ -53,7 +54,8 @@ def get_pusat_kendali():
         res_summary = db.execute(query_summary, params).fetchone()
 
         # [3] REALISASI SINERGI (AUDIT CATEGORY INTEGRATION)
-        # Menghitung UNDUE (Bank) dan CURRENT (Lapangan) termasuk kategori HISTORY (Data Recovery)
+        # Menghitung UNDUE (Bank) dan CURRENT (Lapangan) termasuk kategori HISTORY (Data Recovery).
+        # Inklusi 'HISTORY' dan 'ARDEBT' menjamin nominal bank tidak Rp 0 jika terjadi anomali kategori.
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
@@ -65,6 +67,7 @@ def get_pusat_kendali():
 
         # [4] SMART LEADERBOARD (KPI PETUGAS)
         # Menghubungkan rute_petugas (PCEZ) dengan master_pelanggan untuk progres real-time.
+        # Menggunakan MAX(1, ...) untuk mencegah Zero Division Error pada pembagian persentase.
         query_leaderboard = """
             SELECT 
                 r.petugas,
