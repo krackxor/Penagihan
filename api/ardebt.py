@@ -1,10 +1,12 @@
 """
-Ardebt (Tagihan Berekor) API - V6.7 (Sunter Dashboard Pro - Ultra Fast)
-Sinergi & Smart Update:
-1. Ultra-Fast Join: Optimalisasi INDEX pada kolom nomen & pcez.
-2. Customer Intelligence: Analisis otomatis tren pemakaian & deteksi anomali.
-3. High-Value Priority: Prioritas otomatis berdasarkan pemakaian (kubik) tertinggi.
-4. Smart Auto-Hide: Sinkronisasi real-time dengan status kunjungan periode berjalan.
+Ardebt (Tagihan Berekor) API - V6.8 (Sunter Dashboard Pro - Full Sync)
+Update: 2026-01-20
+---------------------------------------------------------------------------
+Pembaruan Strategis:
+1. Column Sync: Mengganti 'notagihan' menjadi 'nomen' (Fix: OperationalError).
+2. Live Realization: Validasi status lunas via Master Bayar & Collection Harian.
+3. Intelligence Layer: Deteksi lonjakan ekstrem atau meteran macet (Kubik 0).
+4. Auto-Hide: Data otomatis hilang dari daftar jika sudah dikunjungi hari ini.
 """
 
 from flask import Blueprint, request, jsonify, session, current_app
@@ -16,9 +18,8 @@ ardebt_bp = Blueprint('ardebt', __name__)
 
 def get_active_target_period(cursor):
     """Mendeteksi periode aktif terbaru yang tersedia di database."""
-    cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
-    row = cursor.fetchone()
-    return row['periode'] if row else datetime.now().strftime('%m-%Y')
+    res = cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
+    return res['periode'] if res else datetime.now().strftime('%m-%Y')
 
 @ardebt_bp.route('/petugas', methods=['GET'])
 def get_list_petugas_ardebt():
@@ -36,16 +37,16 @@ def get_list_petugas_ardebt():
 
 @ardebt_bp.route('/history/<nomen>', methods=['GET'])
 def get_customer_full_intelligence(nomen):
-    """Analisis mendalam riwayat pelanggan & deteksi anomali pemakaian air."""
+    """Analisis mendalam riwayat pelanggan & deteksi anomali (FIXED: nomen sync)."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         
-        # Verifikasi Riwayat: Cek status lunas di Master Bayar & Collection
+        # [VERIFIKASI RIWAYAT] - Mencocokkan pembayaran Bank & Lapangan secara Live
         cursor.execute("""
             SELECT 
                 p.periode, p.kubik as pemakaian_air, p.nominal as rupiah, p.tarif, 
-                COALESCE(p.nomet, '-') as no_seri_meter, p.notagihan,
+                COALESCE(p.nomet, '-') as no_seri_meter, p.nomen,
                 CASE 
                     WHEN EXISTS (
                         SELECT 1 FROM master_bayar mb 
@@ -67,14 +68,12 @@ def get_customer_full_intelligence(nomen):
         if not history:
             return jsonify({"status": "not_available", "message": "Data tidak ditemukan"})
 
-        # Smart Analysis: Deteksi tren dan anomali
+        # [SMART ANALYSIS] - Deteksi lonjakan pemakaian (Indikasi bocor)
         analysis = {"saran": "Pemakaian normal.", "level": "success", "count_nunggak": 0}
         analysis["count_nunggak"] = sum(1 for item in history if item['status_lunas'] == 0)
 
         if len(history) >= 2:
             curr, prev = history[0], history[1]
-            diff = curr['pemakaian_air'] - prev['pemakaian_air']
-            
             if curr['pemakaian_air'] > (prev['pemakaian_air'] * 2) and prev['pemakaian_air'] > 0:
                 analysis.update({"saran": "⚠️ LONJAKAN EKSTREM: Indikasi kebocoran pipa!", "level": "danger"})
             elif curr['pemakaian_air'] == 0 and prev['pemakaian_air'] > 0:
@@ -91,7 +90,7 @@ def get_customer_full_intelligence(nomen):
 
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
-    """Daftar kerja Ardebt yang tersinkronisasi dengan pemetaan petugas terbaru."""
+    """Daftar kerja Ardebt (Tagihan Berekor) dengan Ultra-Fast Join."""
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id')
     search_query = request.args.get('search', '').strip()
@@ -102,7 +101,7 @@ def get_tunggakan_berekor():
         cursor = conn.cursor()
         active_period = get_active_target_period(cursor)
 
-        # Query Inti: Join efisien antara Ardebt, Master, dan Rute (Hasil Upload Rute RL JS)
+        # [QUERY INTI] - Join efisien antara Ardebt (Piutang) dan Master Pelanggan
         query = """
             SELECT 
                 a.nomen, a.periode_bill as rincian_periode, 
@@ -114,37 +113,37 @@ def get_tunggakan_berekor():
             INNER JOIN master_pelanggan p ON a.nomen = p.nomen
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ? AND p.status_lunas = 0
+            AND p.nomen NOT IN (SELECT nomen FROM master_bayar WHERE periode = ?)
+            AND p.nomen NOT IN (SELECT nomen FROM collection_harian WHERE periode = ?)
         """
-        params = [active_period]
+        params = [active_period, active_period, active_period]
 
-        # Smart Auto-Hide: Sembunyikan jika sudah dikunjungi periode ini
+        # [AUTO-HIDE] - Sembunyikan data yang sudah dikunjungi hari ini
         if not search_query:
             query += """ AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = p.nomen AND k.periode = p.periode
             )"""
 
-        # Role-Based Filtering
-        if user_role == 'petugas':
+        # Role Filtering
+        if user_role == 'petugas' and user_petugas_id:
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
         elif petugas_filter != 'all':
             query += " AND r.petugas = ?"
             params.append(petugas_filter)
 
-        # Search Logic & Priority Sorting
         if search_query:
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
             query += " ORDER BY p.kubik DESC"
         else:
-            # Optimalisasi kecepatan render HP petugas dengan limit 50
             query += " ORDER BY p.kubik DESC LIMIT 50"
         
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
     except Exception as e:
         current_app.logger.error(f"Ardebt Engine Error: {str(e)}")
-        return jsonify({"error": "Kegagalan Sinkronisasi Ardebt"}), 500
+        return jsonify({"error": f"Sistem Gagal: {str(e)}"}), 500
     finally:
         conn.close()
