@@ -5,8 +5,7 @@ Update: 2026-01-20
 Pembaruan Strategis:
 1. Multi-Cumulative Engine: Menghitung akumulasi harian per rayon (34 & 35) secara terpisah.
 2. Dynamic Drill-down: Mendukung pengambilan detail pelanggan per klik nominal harian.
-3. Strict Chronological: Penanganan filter tanggal (DD-MM-YYYY) agar tidak "nyasar" antar bulan.
-4. Correct Baseline: Menyuntikkan saldo bank (UNDUE) sebagai modal awal kumulatif total.
+3. Baseline Injection: Menyuntikkan saldo bank (UNDUE) ke akumulasi harian.
 """
 
 from flask import Blueprint, jsonify, request
@@ -40,7 +39,7 @@ def pusat_kendali():
         """, (periode_req,))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX FIELD (PETUGAS)
+        # 3. BOX FIELD (PETUGAS) - Hanya yang ada log kunjungan
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
             WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'HISTORY')
@@ -48,7 +47,7 @@ def pusat_kendali():
         """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. BOX MANDIRI
+        # 4. BOX MANDIRI - Pembayaran lapangan tanpa log kunjungan petugas
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
             WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'HISTORY')
@@ -98,7 +97,7 @@ def daily_monitor():
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY')", (periode_req,))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian dengan Join Rayon
+        # Query Harian dengan Join Rayon & Sortir Kronologis
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
