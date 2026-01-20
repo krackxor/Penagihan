@@ -1,12 +1,12 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.45 N+1 Smart Recovery)
+API Dashboard - Sunter Dashboard Pro (V12.46 Precision Recovery)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. N+1 Smart Logic: Dashboard otomatis mencari 'bulan_rek' satu bulan sebelumnya.
-2. Real-Time Efficiency: Menghitung efektivitas berdasarkan 'nomen' secara live.
-3. System Log Audit: Endpoint /admin/system-logs untuk monitoring jejak upload.
-4. Precision Recovery: Penggabungan live data Bank (UNDUE) & Lapangan (CURRENT).
+1. Precision Filtering: Realisasi (UNDUE & CURRENT) hanya dihitung jika NOMEN terdaftar di MC periode aktif.
+2. Anti-Over Progress: Mencegah progres melebihi 100% akibat pembayaran piutang lama yang tidak terpetakan.
+3. N+1 Smart Logic: Sinkronisasi otomatis bulan rekening tagihan (N-1) untuk filter UNDUE.
+4. Live Audit: Rekonsiliasi otomatis status lunas pelanggan secara real-time.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -34,7 +34,6 @@ def get_pusat_kendali():
         petugas_id = session.get('petugas_id')
 
         # [2] LOGIKA N+1 SMART RECOVERY
-        # Konversi periode dashboard (01-2026) menjadi objek tanggal
         dt_obj = datetime.strptime(periode, '%m-%Y')
         # Mundur 1 bulan otomatis untuk mencari bulan_rek tagihan (Hasil: 122025)
         last_month = dt_obj.replace(day=1) - timedelta(days=1)
@@ -50,24 +49,28 @@ def get_pusat_kendali():
             FROM master_pelanggan 
             WHERE periode = ?
         """
-        params = [periode]
+        params_summary = [periode]
         if user_role == 'petugas' and petugas_id:
             query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
-            params.append(petugas_id)
+            params_summary.append(petugas_id)
 
-        res_summary = db.execute(query_summary, params).fetchone()
+        res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # [4] REALISASI NOMINAL (Bank vs Lapangan)
-        # Undue ditarik berdasarkan bulan_rek target (N+1), Current berdasarkan periode aktif
+        # [4] REALISASI NOMINAL PRESISI (Fix: Anti-Over 100%)
+        # Menggunakan subquery IN untuk memastikan hanya Nomen di MC bulan ini yang dihitung
         query_realisasi = """
             SELECT 
-                (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-                 WHERE bulan_rek = ? AND kategori = 'UNDUE') as undue_nom,
-                (SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
-                 WHERE periode = ? AND kategori = 'CURRENT') as current_nom,
+                (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
+                 WHERE mb.bulan_rek = ? AND mb.kategori = 'UNDUE'
+                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)) as undue_nom,
+                 
+                (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
+                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT'
+                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)) as current_nom,
+                 
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama
         """
-        res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode)).fetchone()
+        res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode, periode, periode)).fetchone()
 
         # [5] SMART LEADERBOARD (KPI PETUGAS)
         query_leaderboard = """
