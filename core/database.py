@@ -5,7 +5,7 @@ Update: 2026-01-20
 Pembaruan Strategis:
 1. Smart Undue Shield: Migrasi otomatis kolom 'bulan_rek' (Fix: Sync Error).
 2. Table Integrity: Menjamin tabel 'upload_history' & 'kunjungan_petugas' sinkron.
-3. Self-Healing Master: Auto-migrasi kolom 'tarif' & 'kubik' (Fix: Ardebt Error).
+3. WA Blast Dynamic: Penambahan kolom 'no_hp' pada master_pelanggan untuk komunikasi massal.
 4. Robust Multi-User: Busy Timeout 60s & WAL Mode aktif (Fix: Database is locked).
 """
 
@@ -54,7 +54,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.79: Kolom bulan_rek & Skema Audit Telah Sinkron.")
+            print("✅ Database V12.79: Skema WA Blast & Audit Telah Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -93,17 +93,18 @@ def check_and_create_tables(cursor):
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nomen TEXT UNIQUE, nama TEXT, alamat TEXT, pcez TEXT, rayon TEXT, 
-            nominal REAL, periode TEXT, status_lunas INTEGER DEFAULT 0
+            nominal REAL, periode TEXT, status_lunas INTEGER DEFAULT 0,
+            no_hp TEXT DEFAULT '-'
         )
     """)
 
     # 4. Tabel Realisasi & Tunggakan
-    cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY')")
-    cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY')")
+    cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
     
     # 5. Keamanan & Audit Lapangan
-    cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     
     # Tabel Kunjungan
@@ -121,11 +122,20 @@ def run_smart_migration(cursor):
     # --- MIGRASI MASTER PELANGGAN ---
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
-    for col, dtype in {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT'}.items():
+    # Tambahan no_hp untuk mendukung WA Blast Dinamis
+    master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 'no_hp': 'TEXT DEFAULT "-"'}
+    for col, dtype in master_cols.items():
         if col not in existing_master:
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+            print(f"⚙️ Migrasi: Kolom [{col}] ditambahkan ke master_pelanggan")
 
-    # --- MIGRASI SMART UNDUE (Fix: table master_bayar has no column named bulan_rek) ---
+    # --- MIGRASI USER ---
+    cursor.execute("PRAGMA table_info(users)")
+    existing_users = [row['name'] for row in cursor.fetchall()]
+    if 'no_hp' not in existing_users:
+        cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
+
+    # --- MIGRASI SMART UNDUE ---
     for table in ['master_bayar', 'collection_harian']:
         cursor.execute(f"PRAGMA table_info({table})")
         cols = [row['name'] for row in cursor.fetchall()]
