@@ -1,17 +1,17 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.40 Smart Recovery)
+API Dashboard - Sunter Dashboard Pro (V12.45 N+1 Smart Recovery)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Smart Undue Logic: Penjumlahan UNDUE kini menggunakan filter 'bulan_rek'.
-2. Nomen Consistency: Sinkronisasi efektivitas 0% dengan perbaikan relasi 'nomen'.
-3. Real-Time Sync: Menghitung realisasi gabungan (Bank + Lapangan) secara live.
-4. Audit Trail Guard: Endpoint log aktivitas admin untuk monitoring upload.
+1. N+1 Smart Logic: Dashboard otomatis mencari 'bulan_rek' satu bulan sebelumnya.
+2. Real-Time Efficiency: Menghitung efektivitas berdasarkan 'nomen' secara live.
+3. System Log Audit: Endpoint /admin/system-logs untuk monitoring jejak upload.
+4. Precision Recovery: Penggabungan live data Bank (UNDUE) & Lapangan (CURRENT).
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
 from core.database import get_db_connection
-from datetime import datetime
+from datetime import datetime, timedelta
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -33,10 +33,14 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # Logika Smart Undue: Jika periode 01-2026, maka bulan_rek target adalah 122025
-        bulan_rek_target = periode.replace('-', '') 
+        # [2] LOGIKA N+1 SMART RECOVERY
+        # Konversi periode dashboard (01-2026) menjadi objek tanggal
+        dt_obj = datetime.strptime(periode, '%m-%Y')
+        # Mundur 1 bulan otomatis untuk mencari bulan_rek tagihan (Hasil: 122025)
+        last_month = dt_obj.replace(day=1) - timedelta(days=1)
+        bulan_rek_target = last_month.strftime('%m%Y')
 
-        # [2] SUMMARY MC & STATUS LUNAS
+        # [3] SUMMARY MC & STATUS LUNAS
         query_summary = """
             SELECT 
                 COUNT(*) as total_nomen,
@@ -53,8 +57,8 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params).fetchone()
 
-        # [3] REALISASI NOMINAL (Smart Recovery Logic)
-        # Undue ditarik berdasarkan bulan_rek, Current berdasarkan periode upload
+        # [4] REALISASI NOMINAL (Bank vs Lapangan)
+        # Undue ditarik berdasarkan bulan_rek target (N+1), Current berdasarkan periode aktif
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
@@ -65,7 +69,7 @@ def get_pusat_kendali():
         """
         res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode)).fetchone()
 
-        # [4] SMART LEADERBOARD (KPI PETUGAS)
+        # [5] SMART LEADERBOARD (KPI PETUGAS)
         query_leaderboard = """
             SELECT 
                 r.petugas,
@@ -80,7 +84,7 @@ def get_pusat_kendali():
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
-        # [5] FINAL CALCULATION
+        # [6] FINAL CALCULATION
         total_mc = res_summary['total_nominal'] or 0
         total_undue = res_realisasi['undue_nom'] or 0
         total_current = res_realisasi['current_nom'] or 0
@@ -92,6 +96,7 @@ def get_pusat_kendali():
             "status": "success",
             "summary": {
                 "periode_aktif": periode,
+                "target_rekening": bulan_rek_target,
                 "nomen": {
                     "total": res_summary['total_nomen'] or 0, 
                     "bayar": res_summary['lunas_nomen'] or 0, 
