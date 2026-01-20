@@ -1,12 +1,12 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.35 Nomen Sync)
+API Dashboard - Sunter Dashboard Pro (V12.40 Smart Recovery)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Real-Time Efficiency Sync: Menghitung efektivitas berdasarkan 'nomen' (Fix: 0% Lunas).
-2. Multi-Channel Recovery: Menggabungkan realisasi Bank (UNDUE) & Lapangan (CURRENT).
-3. System Log Audit: Menyediakan rute /admin/system-logs untuk jejak digital upload.
-4. N+1 Auto-Detect: Mengunci periode aktif berdasarkan data Master terakhir.
+1. Smart Undue Logic: Penjumlahan UNDUE kini menggunakan filter 'bulan_rek'.
+2. Nomen Consistency: Sinkronisasi efektivitas 0% dengan perbaikan relasi 'nomen'.
+3. Real-Time Sync: Menghitung realisasi gabungan (Bank + Lapangan) secara live.
+4. Audit Trail Guard: Endpoint log aktivitas admin untuk monitoring upload.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -33,8 +33,10 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # [2] SUMMARY MC & STATUS LUNAS (Sinergi Master)
-        # Menghitung efektivitas berdasarkan data yang sudah di-flag lunas di master
+        # Logika Smart Undue: Jika periode 01-2026, maka bulan_rek target adalah 122025
+        bulan_rek_target = periode.replace('-', '') 
+
+        # [2] SUMMARY MC & STATUS LUNAS
         query_summary = """
             SELECT 
                 COUNT(*) as total_nomen,
@@ -51,17 +53,17 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params).fetchone()
 
-        # [3] REALISASI NOMINAL (Bank vs Lapangan)
-        # Menggunakan 'nomen' sebagai kunci penghubung antar tabel transaksi
+        # [3] REALISASI NOMINAL (Smart Recovery Logic)
+        # Undue ditarik berdasarkan bulan_rek, Current berdasarkan periode upload
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-                 WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY')) as undue_nom,
+                 WHERE bulan_rek = ? AND kategori = 'UNDUE') as undue_nom,
                 (SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
-                 WHERE periode = ? AND kategori IN ('CURRENT', 'HISTORY')) as current_nom,
+                 WHERE periode = ? AND kategori = 'CURRENT') as current_nom,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama
         """
-        res_realisasi = db.execute(query_realisasi, (periode, periode)).fetchone()
+        res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode)).fetchone()
 
         # [4] SMART LEADERBOARD (KPI PETUGAS)
         query_leaderboard = """
@@ -84,7 +86,6 @@ def get_pusat_kendali():
         total_current = res_realisasi['current_nom'] or 0
         piutang_lama = res_realisasi['total_piutang_lama'] or 0
         
-        # Sinergi Total Recovery
         realisasi_gabungan = total_undue + total_current
 
         return jsonify({
