@@ -6,7 +6,7 @@ Pembaruan Strategis:
 1. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
 2. Smart Undue Detection: Ekstraksi kolom 'BULAN_REK' untuk akurasi N+1.
 3. Row-Level Shield: Try-Except per baris untuk stabilitas upload massal.
-4. Argument Sync: Perbaikan pemanggilan log_action (data_type -> module).
+4. WA Blast Sync: Endpoint /last-session untuk penarikan data blast dari upload terbaru.
 """
 
 import pandas as pd
@@ -69,6 +69,7 @@ def handle_smart_upload():
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
         col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING'])
+        col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'TELEPON', 'WA']) # Tambahan untuk WA Blast
 
         # Penentuan Periode Target
         if data_type in ['ARDEBT', 'RUTE']:
@@ -105,13 +106,15 @@ def handle_smart_upload():
                 if data_type == 'MC':
                     c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
                     z = autopilot_extract_zona(row.get(c_zona))
+                    val_hp = str(row.get(col_hp, '-')).strip() if col_hp else '-'
+                    
                     if z:
                         db.execute("""
                             INSERT OR REPLACE INTO master_pelanggan 
-                            (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                            (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas, no_hp)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
                         """, (nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), z['pcez'], z['rayon'], 
-                              UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period))
+                              UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period, val_hp))
                         row_count += 1
 
                 # C. MODUL ARDEBT
@@ -170,5 +173,30 @@ def handle_smart_upload():
         if db: db.rollback()
         print(f"❌ FATAL ERROR: {str(e)}")
         return jsonify({"status": "error", "message": f"Sistem Error: {str(e)}"}), 500
+    finally:
+        db.close()
+
+@upload_bp.route('/last-session', methods=['GET'])
+def get_last_upload_data():
+    """Endpoint Dinamis untuk menarik data Excel terakhir (Khusus WA Blast)."""
+    db = get_db_connection()
+    try:
+        # Ambil identitas file terakhir dari history
+        last_file = db.execute("SELECT file_name FROM upload_history ORDER BY id DESC LIMIT 1").fetchone()
+        if not last_file:
+            return jsonify([])
+
+        # Ambil data dari master_pelanggan yang baru saja diupload (asumsi data MC)
+        # Menampilkan pelanggan yang belum lunas saja untuk efisiensi blast
+        data = db.execute("""
+            SELECT nomen, nama, nominal, no_hp, pcez 
+            FROM master_pelanggan 
+            WHERE status_lunas = 0
+            ORDER BY id DESC LIMIT 1000
+        """).fetchall()
+        
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
