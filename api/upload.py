@@ -1,12 +1,12 @@
 """
-Turbo Integration Engine - Sunter Dashboard Pro (V12.82 Full Turbo)
+Turbo Integration Engine - Sunter Dashboard Pro (V12.85 Smart Guard)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Full Module Batching: Mendukung RUTE dan ARDEBT dalam sistem Turbo.
-2. executemany() Integration: Eksekusi massal untuk semua tipe file agar cepat.
-3. Smart Ardebt Detection: Filter otomatis untuk nominal > 0 agar database bersih.
-4. Transaction Guard: Keamanan commit tunggal (All or Nothing).
+1. Strict Row Validation: Memvalidasi periode per baris (Fix: Data bulan lain bocor).
+2. Sync Lunas Auto-Correction: Memastikan status_lunas terupdate secara massal.
+3. Turbo Batch Execution: Menggunakan executemany() untuk stabilitas data besar.
+4. Category Enforcement: Menjamin kategori 'CURRENT' terisi untuk dashboard harian.
 """
 
 import pandas as pd
@@ -39,7 +39,7 @@ class TurboEngine:
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_turbo_upload():
-    # 1. AUTHENTICATION & FILE CHECK
+    # 1. AUTHENTICATION CHECK
     if session.get('role') != 'admin':
         return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
 
@@ -51,7 +51,7 @@ def handle_turbo_upload():
     db = get_db_connection()
     
     try:
-        from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
+        from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona, parse_flexible_date
         
         # 2. OPTIMIZED FILE LOADING
         df = pd.read_excel(file, dtype=str).fillna('') if file_name.endswith(('.xlsx', '.xls')) else pd.read_csv(file, dtype=str).fillna('')
@@ -66,17 +66,17 @@ def handle_turbo_upload():
         col_pay = TurboEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS'])
         col_brek = TurboEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING'])
 
-        # Penentuan Periode Target
-        month_ref, year_ref = detect_file_period(df, data_type)
-        target_period = f"{month_ref}-{year_ref}" if month_ref else "GLOBAL"
+        # Deteksi periode global file sebagai fallback
+        m_glob, y_glob = detect_file_period(df, data_type)
+        global_period = f"{m_glob}-{y_glob}" if m_glob else datetime.now().strftime('%m-%Y')
 
         batch_list = []
         
-        # 3. MEMORY LOOP (PROSES DATA DI MEMORI)
+        # 3. MEMORY LOOP DENGAN VALIDASI KETAT PER BARIS
         for index, row in df.iterrows():
             # A. MODUL RUTE (KHUSUS)
             if data_type == 'RUTE':
-                c_pcez = TurboEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
+                c_pcez = TurboEngine.get_column(df, ['PCEZ', 'ZONA', 'RUTE'])
                 c_name = TurboEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
                 raw_pcez = str(row.get(c_pcez, '')).strip()
                 p_name = str(row.get(c_name, '')).strip()
@@ -90,6 +90,12 @@ def handle_turbo_upload():
             nomen = clean_nomen(n_raw)
             if not nomen: continue
 
+            # --- VALIDASI PERIODE PER BARIS ---
+            # Mengecek tanggal baris untuk mencegah kebocoran bulan lain
+            row_date_raw = row.get(col_pay)
+            row_dt_obj = parse_flexible_date(row_date_raw)
+            row_period = row_dt_obj.strftime('%m-%Y') if row_dt_obj else global_period
+
             # MODUL MC
             if data_type == 'MC':
                 c_zona = TurboEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ'])
@@ -97,27 +103,24 @@ def handle_turbo_upload():
                 if z:
                     batch_list.append((nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), 
                                      z['pcez'], z['rayon'], TurboEngine.cast_to_float(row.get(col_nom)), 
-                                     row.get('NOMET', ''), target_period))
+                                     row.get('NOMET', ''), row_period))
 
             # MODUL ARDEBT
             elif data_type == 'ARDEBT':
                 val_ardebt = TurboEngine.cast_to_float(row.get(col_nom))
                 if val_ardebt > 0:
-                    batch_list.append((nomen, row.get('PERIODE_BILL', '-'), val_ardebt, target_period))
+                    batch_list.append((nomen, row.get('PERIODE_BILL', '-'), val_ardebt, row_period))
 
             # MODUL MB & COLLECTION
             elif data_type in ['MB', 'COLLECTION']:
-                b_rek = str(row.get(col_brek, '')).strip() or target_period.replace('-', '')
+                b_rek = str(row.get(col_brek, '')).strip() or row_period.replace('-', '')
                 cat = "UNDUE" if data_type == 'MB' else "CURRENT"
                 batch_list.append((nomen, row.get(col_pay, ''), TurboEngine.cast_to_float(row.get(col_nom)), 
-                                 target_period, cat, b_rek))
+                                 row_period, cat, b_rek))
 
-        # 4. EXECUTE BATCH (SANGAT CEPAT)
+        # 4. EXECUTE BATCH (TURBO MODE)
         if data_type == 'RUTE':
-            db.executemany("""
-                INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) 
-                VALUES (?, ?, CURRENT_TIMESTAMP)
-            """, batch_list)
+            db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", batch_list)
         
         elif data_type == 'MC':
             db.executemany("""
@@ -127,10 +130,7 @@ def handle_turbo_upload():
             """, batch_list)
 
         elif data_type == 'ARDEBT':
-            db.executemany("""
-                INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) 
-                VALUES (?, ?, ?, ?)
-            """, batch_list)
+            db.executemany("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) VALUES (?, ?, ?, ?)", batch_list)
         
         elif data_type in ['MB', 'COLLECTION']:
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
@@ -141,17 +141,18 @@ def handle_turbo_upload():
                 VALUES (?, ?, ?, ?, ?, ?)
             """, batch_list)
 
-            # 5. TURBO SYNC STATUS LUNAS MASSAL
+            # 5. TURBO SYNC STATUS LUNAS MASSAL (Kunci Efektivitas)
+            # Menghubungkan Nomen di Master dengan Nomen di Pembayaran secara massal
             db.execute(f"""
                 UPDATE master_pelanggan SET status_lunas = 1 
                 WHERE periode = ? AND nomen IN (SELECT nomen FROM {tbl} WHERE periode = ?)
-            """, (target_period, target_period))
+            """, (global_period, global_period))
 
-        # FINALISASI TRANSAKSI
+        # FINALISASI
         db.commit() 
-        log_action(user_id=session.get('username'), action='UPLOAD_TURBO', module=data_type, details=f"Batch: {len(batch_list)} rows")
+        log_action(user_id=session.get('username'), action='UPLOAD_TURBO', module=data_type, details=f"Sync: {len(batch_list)} baris")
         
-        return jsonify({"status": "success", "message": f"Turbo Sync {data_type} Selesai: {len(batch_list)} baris diproses."})
+        return jsonify({"status": "success", "message": f"Turbo Sync {data_type} Berhasil: {len(batch_list)} baris."})
 
     except Exception as e:
         if db: db.rollback()
