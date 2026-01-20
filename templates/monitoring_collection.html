@@ -105,21 +105,29 @@
         if (!picker) return;
         
         icon.classList.add('fa-spin');
+        // Konversi YYYY-MM ke MM-YYYY untuk kompatibilitas Database & API
         const [year, month] = picker.split('-');
         const periode = `${month}-${year}`;
 
         try {
+            // Load Ringkasan Atas
             const resSum = await fetch(`/api/collection/pusat-kendali?periode=${periode}`);
             const sumData = await resSum.json();
 
+            // Load Data Tabel Harian
             const resDaily = await fetch(`/api/collection/daily-monitor?periode=${periode}`);
             const dailyData = await resDaily.json();
             
             if (sumData.status === 'success' && dailyData.status === 'success') {
                 updateUI(sumData.summary);
                 renderTable(dailyData.data, periode);
+            } else {
+                document.getElementById('table-body').innerHTML = '<tr><td colspan="10" class="py-5 text-muted">Data tidak tersedia untuk periode ini</td></tr>';
             }
-        } catch (e) { console.error("Sync Gagal", e); }
+        } catch (e) { 
+            console.error("Sync Gagal", e); 
+            document.getElementById('table-body').innerHTML = '<tr><td colspan="10" class="py-5 text-danger">Gagal memuat data. Periksa koneksi atau format database.</td></tr>';
+        }
         finally { setTimeout(() => icon.classList.remove('fa-spin'), 800); }
     }
 
@@ -132,7 +140,14 @@
         const body = document.getElementById('table-body');
         const footer = document.getElementById('table-footer');
         
+        if (!data || data.length === 0) {
+            body.innerHTML = '<tr><td colspan="10" class="py-5 text-muted">Tidak ada transaksi tercatat pada bulan ini</td></tr>';
+            footer.innerHTML = '';
+            return;
+        }
+
         body.innerHTML = data.map(row => {
+            // Memastikan baris yang dirender hanya yang memiliki tanggal (validasi client-side tambahan)
             const tglDay = row.tgl.split('-')[0];
             const color34 = getHeatmapColor(row.r34.pct);
             const color35 = getHeatmapColor(row.r35.pct);
@@ -165,16 +180,14 @@
             </tr>`;
         }).join('');
 
-        if (data.length > 0) {
-            const last = data[data.length - 1];
-            footer.innerHTML = `
-                <tr>
-                    <td class="py-2 px-1 small">TOTAL</td>
-                    <td colspan="3" class="text-end border-start px-2 small">R34: ${(last.r34.pct || 0).toFixed(2)}%</td>
-                    <td colspan="3" class="text-end border-start px-2 small">R35: ${(last.r35.pct || 0).toFixed(2)}%</td>
-                    <td colspan="3" class="text-end bg-primary px-3 text-white">AKUMULASI: ${(last.total.pct || 0).toFixed(2)}%</td>
-                </tr>`;
-        }
+        const last = data[data.length - 1];
+        footer.innerHTML = `
+            <tr>
+                <td class="py-2 px-1 small">TOTAL</td>
+                <td colspan="3" class="text-end border-start px-2 small">R34: ${(last.r34.pct || 0).toFixed(2)}%</td>
+                <td colspan="3" class="text-end border-start px-2 small">R35: ${(last.r35.pct || 0).toFixed(2)}%</td>
+                <td colspan="3" class="text-end bg-primary px-3 text-white">AKUMULASI: ${(last.total.pct || 0).toFixed(2)}%</td>
+            </tr>`;
     }
 
     async function showDetail(tgl, rayon, periode) {
@@ -210,5 +223,7 @@
     .btn-white { background: #fff; border: 1px solid #e2e8f0; }
     .table td, .table th { border-color: #e2e8f0 !important; }
     .btn-link:hover { color: #2563eb !important; text-decoration: underline !important; }
+    /* Menghaluskan transisi heatmap */
+    .table td { transition: background 0.3s ease; }
 </style>
 {% endblock %}
