@@ -41,82 +41,89 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 1. DATABASE TUNING (Pragma untuk kecepatan maksimal)
+        # 1. ULTIMATE DATABASE TUNING
+        # Menggunakan mode memori dan menonaktifkan sinkronisasi disk selama proses upload
         db.execute("PRAGMA journal_mode = WAL")
         db.execute("PRAGMA synchronous = OFF")
-        db.execute("PRAGMA cache_size = -10000") # 10MB cache
+        db.execute("PRAGMA cache_size = -64000") # 64MB Cache
+        db.execute("PRAGMA temp_store = MEMORY")
 
-        # 2. FAST READ (Hanya baca data yang diperlukan)
-        df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
+        # 2. FAST READ
+        if file_name.endswith('.csv'):
+            df = pd.read_csv(file, dtype=str, engine='c').fillna('')
+        else:
+            df = pd.read_excel(file, dtype=str).fillna('')
+            
         data_type = identify_file_type(df)
-        
         if not data_type:
             return jsonify({"status": "error", "message": "Format tidak dikenali"}), 400
 
-        # Optimization: Mapping Kolom di luar loop
-        col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
-        col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
-        col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
-        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING'])
-        col_mc_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
-        col_rute_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
-        col_rute_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
+        # Mapping Kolom Utama (Sekali saja di luar loop)
+        col_map = {
+            'id': UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID']),
+            'nom': UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO']),
+            'pay': UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID']),
+            'brek': UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING']),
+            'mc_z': UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE']),
+            'rt_p': UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE']),
+            'rt_n': UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
+        }
 
         # Penentuan Periode
-        if data_type in ['ARDEBT', 'RUTE']:
-            target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
-        else:
+        target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
+        if data_type not in ['ARDEBT', 'RUTE']:
             month_ref, year_ref = detect_file_period(df, data_type)
-            if not month_ref: return jsonify({"status": "error", "message": "Gagal deteksi periode"}), 400
-            target_period = f"{month_ref}-{year_ref}"
+            if month_ref: target_period = f"{month_ref}-{year_ref}"
 
-        # 3. OPTIMIZED ITERATION (Gunakan to_dict('records') jauh lebih cepat dari iterrows)
+        # 3. FAST ITERATION & BATCH PREPARATION
         records = df.to_dict('records')
         batch_inserts = []
         batch_sync_lunas = []
         row_count = 0
 
-        db.execute("BEGIN") # Mulai transaksi manual
+        # Gunakan 'BEGIN IMMEDIATE' untuk mengunci DB sejak awal agar tidak ada antrean
+        db.execute("BEGIN IMMEDIATE")
 
         for row in records:
             try:
-                # A. MODUL RUTE
+                # MODUL RUTE (Sekarang menggunakan Batching)
                 if data_type == 'RUTE':
-                    raw_pcez = str(row.get(col_rute_pcez, '')).strip()
-                    p_name = str(row.get(col_rute_name, '')).strip()
+                    raw_pcez = str(row.get(col_map['rt_p'], '')).strip()
+                    p_name = str(row.get(col_map['rt_n'], '')).strip()
                     if raw_pcez and p_name:
                         clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
-                        db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
+                        batch_inserts.append((clean_pcez, p_name))
                         row_count += 1
                     continue
 
                 # Sanitasi Nomen
-                nomen = clean_nomen(row.get(col_id))
+                nomen = clean_nomen(row.get(col_map['id']))
                 if not nomen: continue
 
-                # B. BATCH MAPPING
                 if data_type == 'MC':
-                    z = autopilot_extract_zona(row.get(col_mc_zona))
+                    z = autopilot_extract_zona(row.get(col_map['mc_z']))
                     if z:
                         batch_inserts.append((nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), z['pcez'], z['rayon'], 
-                                              UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period))
+                                              UploadEngine.cast_to_float(row.get(col_map['nom'])), row.get('NOMET', ''), target_period))
                 
                 elif data_type == 'ARDEBT':
-                    val = UploadEngine.cast_to_float(row.get(col_nom))
+                    val = UploadEngine.cast_to_float(row.get(col_map['nom']))
                     if val > 0:
                         batch_inserts.append((nomen, row.get('PERIODE_BILL', '-'), val, target_period))
 
                 elif data_type in ['MB', 'COLLECTION']:
                     cat = "UNDUE" if data_type == 'MB' else "CURRENT"
-                    b_rek = str(row.get(col_brek, '')).strip() or target_period.replace('-', '')
-                    batch_inserts.append((nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
+                    b_rek = str(row.get(col_map['brek'], '')).strip() or target_period.replace('-', '')
+                    batch_inserts.append((nomen, row.get(col_map['pay'], ''), UploadEngine.cast_to_float(row.get(col_map['nom'])), target_period, cat, b_rek))
                     batch_sync_lunas.append((nomen, target_period))
                 
                 row_count += 1
             except: continue
 
-        # 4. EXECUTE MANY (Proses ribuan baris dalam milidetik)
-        if data_type == 'MC':
+        # 4. EXECUTE MANY (Inti dari Kecepatan)
+        if data_type == 'RUTE':
+            db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", batch_inserts)
+        elif data_type == 'MC':
             db.executemany("INSERT OR REPLACE INTO master_pelanggan VALUES (?,?,?,?,?,?,?,?,0)", batch_inserts)
         elif data_type == 'ARDEBT':
             db.executemany("INSERT OR REPLACE INTO ardebt VALUES (?,?,?,?)", batch_inserts)
@@ -124,20 +131,20 @@ def handle_smart_upload():
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
             tgl_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
             db.executemany(f"INSERT OR REPLACE INTO {tbl} (nomen,{tgl_col},nominal,periode,kategori,bulan_rek) VALUES (?,?,?,?,?,?)", batch_inserts)
-            db.executemany("UPDATE master_pelanggan SET status_lunas = 1 WHERE nomen = ? AND periode = ?", batch_sync_lunas)
+            # Batch Update Status Lunas
+            if batch_sync_lunas:
+                db.executemany("UPDATE master_pelanggan SET status_lunas = 1 WHERE nomen = ? AND periode = ?", batch_sync_lunas)
 
-        # Finalisasi
+        # 5. FINALISASI
+        db.commit() # Tulis semua ke disk dalam satu transaksi tunggal
+
         log_action(user_id=session.get('username', 'Admin'), action='UPLOAD_SUCCESS', module=data_type, 
-                   details=f"File: {file_name} | Sukses: {row_count} | Periode: {target_period}", ip=request.remote_addr)
+                   details=f"File: {file_name} | Sukses: {row_count}", ip=request.remote_addr)
         
-        db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?,?,?,?,'SUCCESS')", 
-                   (file_name, data_type, target_period, row_count))
-        
-        db.commit()
-        return jsonify({"status": "success", "message": f"Selesai: {row_count} baris diproses."})
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil: {row_count} baris."})
 
     except Exception as e:
         if db: db.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Gagal: {str(e)}"}), 500
     finally:
         db.close()
