@@ -1,9 +1,9 @@
 """
-Collection API - Sunter Dashboard Pro (V12.45 Smart Integration)
+Collection API - Sunter Dashboard Pro (V12.46 Precision Month Fix)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Fix Missing Records: Menampilkan data upload Excel meskipun tanpa log kunjungan fisik.
+1. Fix Month Overlap: Filter harian kini menggunakan MM-YYYY penuh agar data bulan berbeda tidak tercampur.
 2. Smart Undue Alignment: Sinkronisasi nominal bank menggunakan filter 'bulan_rek'.
 3. N+1 Precision: Memastikan perbandingan target MC vs Realisasi sinkron per periode.
 4. Auto-Baseline: Saldo UNDUE terintegrasi otomatis dalam grafik kumulatif harian.
@@ -55,7 +55,6 @@ def pusat_kendali():
         current_petugas = cursor.fetchone()[0]
 
         # 4. BOX MANDIRI - Data Upload Excel (Tanpa Log Kunjungan)
-        # REVISI: Mengambil data yang tidak memiliki log kunjungan agar tabel tidak kosong
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
             WHERE c.periode = ? AND c.kategori = 'CURRENT'
@@ -91,7 +90,6 @@ def daily_monitor():
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
-        target_month_code = periode_req.split('-')[0]
 
         # Logika N+1 untuk Bank Baseline
         dt_obj = datetime.strptime(periode_req, '%m-%Y')
@@ -116,7 +114,7 @@ def daily_monitor():
         """, (bulan_rek_target, periode_req))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian dengan Join Rayon
+        # Query Harian: Filter ketat agar hanya data di MM-YYYY yang sama yang muncul
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -125,10 +123,11 @@ def daily_monitor():
                 SUM(c.nominal) as rp_total
             FROM collection_harian c
             LEFT JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE c.periode = ? AND substr(c.pay_dt, 4, 2) = ?
+            WHERE c.periode = ? 
+            AND substr(c.pay_dt, 4, 7) = ? 
             GROUP BY c.pay_dt 
             ORDER BY substr(c.pay_dt,7,4) ASC, substr(c.pay_dt,4,2) ASC, substr(c.pay_dt,1,2) ASC
-        """, (periode_req, target_month_code))
+        """, (periode_req, periode_req))
         rows = cursor.fetchall()
 
         daily_data = []
@@ -137,7 +136,6 @@ def daily_monitor():
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
-            # Akumulasi Kumulatif menyertakan Saldo Bank (Undue)
             cum_all = cum_34 + cum_35 + undue_start
             
             daily_data.append({
