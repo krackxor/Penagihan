@@ -1,5 +1,5 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.78 Ultimate Sync)
+Core Database Module - Sunter Dashboard Pro (V12.79 Ultimate Sync)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -54,7 +54,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.78: Kolom bulan_rek & Skema Audit Telah Sinkron.")
+            print("✅ Database V12.79: Kolom bulan_rek & Skema Audit Telah Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
