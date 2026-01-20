@@ -4,12 +4,12 @@
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1 text-dark"><i class="fab fa-whatsapp me-2 text-success"></i>WA Blast Strategis</h4>
-            <p class="text-muted small mb-0">Komunikasi Massal & Notifikasi Otomatis</p>
+            <h4 class="fw-bold mb-1 text-dark"><i class="fab fa-whatsapp me-2 text-success"></i>WA Blast Dinamis</h4>
+            <p class="text-muted small mb-0">Komunikasi Massal Mandiri via Browser</p>
         </div>
         <div id="status-koneksi">
             <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 border border-success-subtle">
-                <i class="fas fa-check-circle me-1"></i> Gateway Ready
+                <i class="fas fa-browser me-1"></i> Browser Mode Active
             </span>
         </div>
     </div>
@@ -20,12 +20,12 @@
                 <div class="bg-success-subtle text-success rounded-3 p-2 me-2">
                     <i class="fas fa-user-shield"></i>
                 </div>
-                <h6 class="fw-bold mb-0 small text-uppercase">Nomor Admin (Pengirim)</h6>
+                <h6 class="fw-bold mb-0 small text-uppercase">Input Nomor Admin</h6>
             </div>
             <div class="mb-2">
-                <label class="form-label small fw-bold text-muted">WhatsApp Admin untuk Balasan Pelanggan</label>
+                <label class="form-label small fw-bold text-muted">Nomor WhatsApp Admin (Untuk Balasan)</label>
                 <input type="tel" id="admin-phone-input" class="form-control border-0 bg-light rounded-3 py-2 fw-bold" placeholder="Contoh: 62812345678">
-                <small class="text-muted" style="font-size: 10px;">* Nomor ini akan otomatis masuk ke variabel {no_admin} di pesan.</small>
+                <small class="text-muted" style="font-size: 10px;">* Nomor ini akan menggantikan variabel {no_admin} di pesan.</small>
             </div>
         </div>
     </div>
@@ -36,20 +36,20 @@
                 <div class="bg-primary-subtle text-primary rounded-3 p-2 me-2">
                     <i class="fas fa-sliders-h"></i>
                 </div>
-                <h6 class="fw-bold mb-0 small text-uppercase">Protokol Blast</h6>
+                <h6 class="fw-bold mb-0 small text-uppercase">Konfigurasi Pesan</h6>
             </div>
             
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Kategori Pesan & Sumber Data</label>
+                <label class="form-label small fw-bold text-muted">Kategori Target & Template</label>
                 <select id="target-filter" class="form-select border-0 bg-light rounded-3 shadow-none py-2 fw-bold text-dark" onchange="handleTargetChange()">
-                    <option value="current">Tagihan Berjalan (Current Database)</option>
-                    <option value="ardebt">Tunggakan Piutang (Ardebt Database)</option>
-                    <option value="last_upload">Manual: Data Excel Terakhir (Upload Baru)</option>
+                    <option value="current">Tagihan Berjalan (Current)</option>
+                    <option value="ardebt">Tunggakan Piutang (Ardebt)</option>
+                    <option value="last_upload">Data Excel (Manual Upload)</option>
                 </select>
             </div>
 
             <div class="mb-3">
-                <label class="form-label small fw-bold text-muted">Narasi Pesan (Dinamis)</label>
+                <label class="form-label small fw-bold text-muted">Struktur Narasi Pesan</label>
                 <textarea id="msg-template" class="form-control border-0 bg-light rounded-3 small py-3 shadow-none" rows="7"></textarea>
                 <div class="mt-2 d-flex flex-wrap gap-1">
                     <span class="badge bg-white text-muted border px-2 py-1" style="font-size: 0.6rem;">{nama}</span>
@@ -71,25 +71,26 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h2 class="fw-bold mb-0 text-dark font-monospace" id="target-count">0</h2>
-                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem;">Antrean Terverifikasi</small>
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem;">Target Terdeteksi</small>
                     </div>
                     <button onclick="startBlast()" id="btn-start" class="btn btn-success rounded-pill px-5 fw-bold shadow-sm py-2">
-                        TRANSMISI SEKARANG <i class="fas fa-paper-plane ms-2"></i>
+                        MULAI BLAST <i class="fas fa-paper-plane ms-2"></i>
                     </button>
                 </div>
             </div>
         </div>
 
         <div class="card border-0 shadow-lg rounded-4 bg-dark overflow-hidden">
-            <div class="card-header bg-transparent border-0 pt-3 px-3">
+            <div class="card-header bg-transparent border-0 pt-3 px-3 d-flex justify-content-between align-items-center">
                 <h6 class="text-white-50 fw-bold mb-0 small">TRANSMISSION ENGINE LOG</h6>
+                <div id="blast-percent-text" class="text-success fw-bold small">0%</div>
             </div>
             <div class="card-body">
                 <div class="progress mb-3 bg-secondary bg-opacity-25" style="height: 6px;">
                     <div id="blast-progress" class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 0%"></div>
                 </div>
                 <div id="log-list" class="small text-white-50 overflow-auto rounded-3 p-3 bg-black bg-opacity-50" style="max-height: 200px; font-family: 'Courier New';">
-                    <span class="text-info">> System Ready. Menunggu perintah...</span>
+                    <span class="text-info">> Menunggu inisialisasi...</span>
                 </div>
             </div>
         </div>
@@ -99,37 +100,33 @@
 <script>
 let targetList = [];
 
-// DEFINISI TEMPLATE PESAN
+// DEFINISI TEMPLATE DINAMIS
 const templates = {
     current: `Yth. Bapak/Ibu *{nama}*,
-Mengingatkan tagihan air IDPEL: *{nomen}* periode ini sebesar *Rp {nominal}*.
-Mohon lakukan pembayaran tepat waktu.
+Mengingatkan tagihan air IDPEL: *{nomen}* sebesar *Rp {nominal}*.
+Mohon lakukan pembayaran tepat waktu melalui kanal resmi.
 
-Info Admin: *{no_admin}*`,
+Hubungi Admin: *{no_admin}*
+Terima kasih.`,
 
     ardebt: `PEMBERITAHUAN TUNGGAKAN!
 Yth. *{nama}* (ID: *{nomen}*),
 Terdapat tunggakan piutang sebesar *Rp {nominal}*.
-Mohon segera lakukan pelunasan.
+Mohon segera selesaikan pembayaran agar terhindar dari pemutusan.
 
 Info Admin: *{no_admin}*`,
 
     last_upload: `Halo *{nama}*,
-Informasi tagihan IDPEL *{nomen}* sebesar *Rp {nominal}*.
-Segera bayar di kanal resmi.
+Informasi tagihan khusus IDPEL *{nomen}*.
+Jumlah kewajiban: *Rp {nominal}*.
 
-Info Admin: *{no_admin}*`
+Kontak Admin: *{no_admin}*`
 };
 
 function handleTargetChange() {
     const filter = document.getElementById('target-filter').value;
     document.getElementById('msg-template').value = templates[filter];
-    resetPreview();
-}
-
-function resetPreview() {
     document.getElementById('preview-section').classList.add('d-none');
-    targetList = [];
 }
 
 async function previewBlast() {
@@ -137,17 +134,21 @@ async function previewBlast() {
     Swal.fire({ title: 'Menganalisis Data...', didOpen: () => Swal.showLoading() });
 
     try {
-        const endpoint = filter === 'ardebt' ? '/api/ardebt?petugas=all' : '/api/belum-bayar?petugas=all';
+        // Pemilihan endpoint berdasarkan kategori target
+        let endpoint = filter === 'ardebt' ? '/api/ardebt?petugas=all' : '/api/belum-bayar?petugas=all';
+        if (filter === 'last_upload') endpoint = '/api/upload/last-session';
+
         const res = await fetch(endpoint);
         const data = await res.json();
         
-        targetList = data.filter(item => item.no_hp && item.no_hp !== '-' && item.no_hp.length > 8);
+        // Filter nomor HP yang valid
+        targetList = data.filter(item => item.no_hp && item.no_hp.length > 8);
         
         document.getElementById('target-count').innerText = targetList.length;
         document.getElementById('preview-section').classList.remove('d-none');
         Swal.close();
     } catch (e) {
-        Swal.fire('Error', 'Gagal sinkronisasi data.', 'error');
+        Swal.fire('Error', 'Gagal memuat pangkalan data.', 'error');
     }
 }
 
@@ -157,48 +158,69 @@ async function startBlast() {
     const btn = document.getElementById('btn-start');
     const logList = document.getElementById('log-list');
 
-    if (!adminPhone) return Swal.fire('Error', 'Masukkan nomor admin!', 'error');
+    if (!adminPhone) return Swal.fire('Error', 'Input nomor admin diperlukan!', 'error');
+
+    const confirm = await Swal.fire({
+        title: 'Konfirmasi Transmisi',
+        text: `Kirim ke ${targetList.length} pelanggan? Gunakan satu jendela tunggal.`,
+        icon: 'warning',
+        showCancelButton: true
+    });
+
+    if (!confirm.isConfirmed) return;
 
     btn.disabled = true;
-    logList.innerHTML = '';
+    let blastWindow = window.open('', 'WA_Blast_Controller', 'width=900,height=700');
 
     for (let i = 0; i < targetList.length; i++) {
         const item = targetList[i];
+        
+        // Normalisasi Nomor
         let phone = item.no_hp.replace(/[^0-9]/g, '');
         if (phone.startsWith('0')) phone = '62' + phone.substring(1);
 
+        // Susun Pesan Dinamis
         let message = template
             .replace(/{nama}/g, item.nama || "Pelanggan")
             .replace(/{nomen}/g, item.nomen || "-")
             .replace(/{nominal}/g, Number(item.nominal || 0).toLocaleString('id-ID'))
             .replace(/{no_admin}/g, adminPhone);
 
-        const logEntry = document.createElement('div');
-        logEntry.innerHTML = `> Mengirim ke ${phone}... `;
-        logList.prepend(logEntry);
-
-        try {
-            await fetch('/api/wa-gateway/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number: phone, message: message })
-            });
-            logEntry.innerHTML += '<span class="text-success">TERKIRIM ✓</span>';
-        } catch (e) {
-            logEntry.innerHTML += '<span class="text-danger">GAGAL!</span>';
+        // Eksekusi Single Window
+        const waUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+        if (blastWindow) {
+            blastWindow.location.href = waUrl;
+            blastWindow.focus();
         }
+
+        // Update Log
+        const logEntry = document.createElement('div');
+        logEntry.innerHTML = `> [${i+1}/${targetList.length}] Menyiapkan pesan untuk ${item.nama}...`;
+        logList.prepend(logEntry);
 
         const percent = Math.round(((i + 1) / targetList.length) * 100);
         document.getElementById('blast-progress').style.width = percent + '%';
-        
-        await new Promise(r => setTimeout(r, 4000));
+        document.getElementById('blast-percent-text').innerText = percent + '%';
+
+        // Delay Keamanan (Anti-Block)
+        const delay = Math.floor(Math.random() * (18000 - 12000 + 1)) + 12000;
+        await new Promise(r => setTimeout(r, delay));
+        logEntry.innerHTML += '<span class="text-success"> READY ✓</span>';
     }
-    
-    Swal.fire('Selesai', 'Seluruh pesan telah diproses.', 'success');
+
+    Swal.fire('Selesai', 'Seluruh antrean telah diproses.', 'success');
     btn.disabled = false;
 }
 
-// Inisialisasi awal
+// Inisialisasi Default
 document.addEventListener('DOMContentLoaded', handleTargetChange);
 </script>
+
+<style>
+    .bg-primary-subtle { background-color: #eff6ff !important; }
+    .bg-success-subtle { background-color: #f0fdf4 !important; }
+    .progress-bar { transition: width 0.8s ease; }
+    #log-list::-webkit-scrollbar { width: 4px; }
+    #log-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+</style>
 {% endblock %}
