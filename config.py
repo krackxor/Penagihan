@@ -4,6 +4,7 @@ Sinergi & Smart Update:
 1. Smart Directory: Otomatis membangun infrastruktur folder yang diperlukan (Autopilot).
 2. Environment Intelligence: Mendeteksi secara cerdas apakah berjalan di server atau lokal.
 3. Security Hardening: Pengamanan kunci rahasia dan limitasi upload file besar.
+4. WA Blast Sync: Parameter pendukung untuk pengiriman pesan mandiri.
 """
 
 import os
@@ -36,7 +37,12 @@ class Config:
     # Format file yang diizinkan untuk menjamin integritas data penagihan.
     ALLOWED_EXTENSIONS = {'xls', 'xlsx', 'csv', 'png', 'jpg', 'jpeg'}
 
-    # --- 5. SMART AUTOPILOT INITIALIZATION ---
+    # --- 5. WA GATEWAY CONFIG (INTEGRASI MODUL) ---
+    # Meskipun menggunakan Browser Mode, parameter ini tetap disediakan sebagai fallback/cadangan.
+    WA_GATEWAY_URL = os.environ.get('WA_GATEWAY_URL') or ""
+    WA_GATEWAY_KEY = os.environ.get('WA_GATEWAY_KEY') or ""
+
+    # --- 6. SMART AUTOPILOT INITIALIZATION ---
     @staticmethod
     def init_app(app):
         """
@@ -65,7 +71,7 @@ class Config:
         # Menambahkan konfigurasi tambahan untuk Flask jika diperlukan
         app.config.from_object(Config)
 
-# --- 6. VARIAN KONFIGURASI (OPTIONAL) ---
+# --- 7. VARIAN KONFIGURASI (OPTIONAL) ---
 class ProductionConfig(Config):
     """Konfigurasi khusus saat aplikasi sudah online di server (Production)."""
     DEBUG = False
