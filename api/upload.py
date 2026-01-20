@@ -1,12 +1,12 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.69 Stable)
+Smart Integration Engine - Sunter Dashboard Pro (V12.70 Stable)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Argument Sync: Memperbaiki pemanggilan log_action (data_type -> module).
-2. Column Integrity: Sinkronisasi parameter INSERT untuk Master Pelanggan & Ardebt.
-3. Row-Level Shield: Try-Except per baris untuk mencegah error 500 massal.
-4. Auto-Mapping: Pencarian kolom fleksibel (NOMEN, IDPEL, TOTAL, dsb).
+1. Smart Undue Detection: Menambahkan ekstraksi kolom 'BULAN_REK' untuk akurasi dashboard.
+2. Argument Sync: Memperbaiki pemanggilan log_action (data_type -> module).
+3. Column Integrity: Sinkronisasi parameter INSERT untuk Master Pelanggan & Ardebt.
+4. Row-Level Shield: Try-Except per baris untuk mencegah error 500 massal.
 """
 
 import pandas as pd
@@ -23,9 +23,7 @@ class UploadEngine:
         """Konversi angka cerdas: Menangani format ribuan (.) dan desimal (,) Indonesia."""
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
-            # Bersihkan whitespace dan karakter non-breaking space
             s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "")
-            # Logika konversi format ID (1.000,50 -> 1000.50)
             if ',' in s_val and '.' in s_val:
                 s_val = s_val.replace('.', '').replace(',', '.')
             elif ',' in s_val:
@@ -70,8 +68,9 @@ def handle_smart_upload():
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
+        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING']) # Kolom baru untuk Smart Undue
 
-        # Penentuan Periode Target
+        # Penentuan Periode Target Dashboard
         if data_type in ['ARDEBT', 'RUTE']:
             target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
         else:
@@ -97,7 +96,7 @@ def handle_smart_upload():
                         row_count += 1
                     continue
 
-                # Sanitasi Nomenklatur (ID Pelanggan)
+                # Sanitasi Nomenklatur
                 n_raw = row.get(col_id) if col_id else None
                 nomen = clean_nomen(n_raw)
                 if not nomen: continue
@@ -129,21 +128,27 @@ def handle_smart_upload():
                 elif data_type in ['MB', 'COLLECTION']:
                     tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
                     dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
-                    db.execute(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode) VALUES (?, ?, ?, ?)", 
-                               (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period))
+                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
+                    
+                    # Smart Detect Bulan Rekening
+                    b_rek = str(row.get(col_brek, '')).strip() if col_brek else target_period.replace('-', '')
+                    
+                    db.execute(f"""
+                        INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     row_count += 1
             
             except Exception as row_err:
                 error_rows += 1
-                # Log error per baris ke terminal tanpa menghentikan seluruh proses
                 print(f"⚠️ Baris {index} Sync Error: {str(row_err)}")
 
         # 4. FINALISASI & LOGGING
         log_action(
             user_id=session.get('username', 'Admin'), 
             action='UPLOAD_SUCCESS', 
-            module=data_type,  # Perbaikan Argumen Sync
-            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows}", 
+            module=data_type, 
+            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows} | Periode: {target_period}", 
             ip=request.remote_addr
         )
         
@@ -153,7 +158,7 @@ def handle_smart_upload():
         """, (file_name, data_type, target_period, row_count, 'SUCCESS'))
         
         db.commit()
-        return jsonify({"status": "success", "message": f"Integrasi selesai. {row_count} baris diproses."})
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} selesai. {row_count} baris diproses."})
 
     except Exception as e:
         if db: db.rollback()
