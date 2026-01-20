@@ -7,6 +7,7 @@ Final Fixes:
 2. Security Layer: Penguncian rute audit geospasial & system logs khusus Admin.
 3. UI Routing: Penambahan akses ke History Kunjungan & Monitoring Lokasi.
 4. Auto-Folder Creator: Menjamin direktori upload tersedia saat startup.
+5. WA Blast Route Fix: Menambahkan rute eksplisit 'wa_blast_page' untuk mencegah BuildError di Admin Dashboard.
 """
 
 import os
@@ -153,6 +154,10 @@ def create_app():
     @app.route('/admin/history-kunjungan')
     def history_kunjungan_page(): 
         return render_template('history_kunjungan.html')
+
+    @app.route('/admin/wa-blast')
+    def wa_blast_page():
+        return render_template('wa_blast.html')
 
     @app.route('/admin/history-upload')
     def history_page(): 
