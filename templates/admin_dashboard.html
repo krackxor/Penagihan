@@ -443,6 +443,32 @@ async function loadUsers() {
     } catch (e) { body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Akses API Keamanan Gagal.</td></tr>'; }
 }
 
+async function deleteUser(id) {
+    const result = await Swal.fire({
+        title: 'Apakah anda yakin?',
+        text: "User akan dihapus permanen dari sistem!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, hapus!'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const res = await fetch(`/api/auth/users/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                Swal.fire('Terhapus!', 'User telah dihapus.', 'success');
+                loadUsers();
+            } else {
+                Swal.fire('Gagal!', 'Gagal menghapus user.', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error!', 'Kesalahan koneksi.', 'error');
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => { 
     checkDataStatus(); 
 });
