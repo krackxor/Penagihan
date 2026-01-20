@@ -1,36 +1,40 @@
 """
-Turbo Integration Engine - Sunter Dashboard Pro (V12.87 Ultimate Precision)
+Smart Integration Engine - Sunter Dashboard Pro (V12.71 Stable)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. N-1 Billing Alignment: Otomatis set bulan_rek ke bulan sebelumnya untuk tipe MB agar UNDUE muncul.
-2. Strict Row Validation: Memvalidasi periode per baris untuk mencegah kebocoran data.
-3. Turbo Batch Execution: Menggunakan executemany() untuk stabilitas data besar tanpa menghapus fungsi.
-4. Category Enforcement: Menjamin kategori 'CURRENT' & 'UNDUE' terisi dengan presisi.
+1. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
+2. Smart Undue Detection: Ekstraksi kolom 'BULAN_REK' untuk akurasi N+1.
+3. Row-Level Shield: Try-Except per baris untuk stabilitas upload massal.
+4. Argument Sync: Perbaikan pemanggilan log_action (data_type -> module).
 """
 
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen, log_action
 
 upload_bp = Blueprint('upload', __name__)
 
-class TurboEngine:
+class UploadEngine:
     @staticmethod
     def cast_to_float(value):
-        """Konversi angka cerdas untuk format ribuan/desimal Indonesia."""
+        """Konversi angka cerdas: Menangani format ribuan (.) dan desimal (,) Indonesia."""
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
-            s_val = str(value).replace('\xa0', '').replace(' ', '').replace(',', '.')
+            s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "")
+            if ',' in s_val and '.' in s_val:
+                s_val = s_val.replace('.', '').replace(',', '.')
+            elif ',' in s_val:
+                s_val = s_val.replace(',', '.')
             return float(s_val)
         except: 
             return 0.0
 
     @staticmethod
     def get_column(df, possible_names):
-        """Mencari nama kolom secara fleksibel untuk berbagai format."""
+        """Mencari nama kolom secara fleksibel untuk mendukung berbagai format Excel/CSV."""
         cols = {c.upper().strip(): c for c in df.columns}
         for name in possible_names:
             if name.upper() in cols:
@@ -38,119 +42,133 @@ class TurboEngine:
         return None
 
 @upload_bp.route('/upload', methods=['POST'])
-def handle_turbo_upload():
+def handle_smart_upload():
     # 1. AUTHENTICATION CHECK
     if session.get('role') != 'admin':
         return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
 
-    file = request.files.get('file')
-    if not file:
+    if 'file' not in request.files:
         return jsonify({"status": "error", "message": "File tidak dideteksi"}), 400
     
+    file = request.files['file']
     file_name = file.filename
     db = get_db_connection()
     
     try:
-        from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona, parse_flexible_date
+        from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 2. OPTIMIZED FILE LOADING
-        df = pd.read_excel(file, dtype=str).fillna('') if file_name.endswith(('.xlsx', '.xls')) else pd.read_csv(file, dtype=str).fillna('')
+        # 2. FILE PROCESSING (PANDAS ENGINE)
+        df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         data_type = identify_file_type(df)
         
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
         # Mapping Kolom Utama
-        col_id = TurboEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
-        col_nom = TurboEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR'])
-        col_pay = TurboEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS'])
-        col_brek = TurboEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING'])
+        col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
+        col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
+        col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
+        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING'])
 
-        # Deteksi periode global file sebagai fallback
-        m_glob, y_glob = detect_file_period(df, data_type)
-        global_period = f"{m_glob}-{y_glob}" if m_glob else datetime.now().strftime('%m-%Y')
+        # Penentuan Periode Target
+        if data_type in ['ARDEBT', 'RUTE']:
+            target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
+        else:
+            month_ref, year_ref = detect_file_period(df, data_type)
+            if not month_ref: return jsonify({"status": "error", "message": "Gagal deteksi periode file"}), 400
+            target_period = f"{month_ref}-{year_ref}"
 
-        batch_list = []
-        
-        # 3. MEMORY LOOP DENGAN VALIDASI KETAT PER BARIS
+        row_count = 0
+        error_rows = 0
+
+        # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
         for index, row in df.iterrows():
-            # A. MODUL RUTE (KHUSUS)
-            if data_type == 'RUTE':
-                c_pcez = TurboEngine.get_column(df, ['PCEZ', 'ZONA', 'RUTE'])
-                c_name = TurboEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
-                raw_pcez = str(row.get(c_pcez, '')).strip()
-                p_name = str(row.get(c_name, '')).strip()
-                if raw_pcez and p_name:
-                    clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
-                    batch_list.append((clean_pcez, p_name))
-                continue
+            try:
+                # A. MODUL RUTE
+                if data_type == 'RUTE':
+                    c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
+                    c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
+                    raw_pcez = str(row.get(c_pcez, '')).strip()
+                    p_name = str(row.get(c_name, '')).strip()
+                    if raw_pcez and p_name:
+                        clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
+                        db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
+                        row_count += 1
+                    continue
 
-            # B. MODUL DENGAN NOMENKLATUR (MC, MB, COLL, ARDEBT)
-            n_raw = row.get(col_id)
-            nomen = clean_nomen(n_raw)
-            if not nomen: continue
+                # Sanitasi Nomenklatur
+                n_raw = row.get(col_id) if col_id else None
+                nomen = clean_nomen(n_raw)
+                if not nomen: continue
 
-            # --- VALIDASI PERIODE PER BARIS ---
-            row_date_raw = row.get(col_pay)
-            row_dt_obj = parse_flexible_date(row_date_raw)
-            row_period = row_dt_obj.strftime('%m-%Y') if row_dt_obj else global_period
+                # B. MODUL MASTER PELANGGAN (MC)
+                if data_type == 'MC':
+                    c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
+                    z = autopilot_extract_zona(row.get(c_zona))
+                    if z:
+                        db.execute("""
+                            INSERT OR REPLACE INTO master_pelanggan 
+                            (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                        """, (nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), z['pcez'], z['rayon'], 
+                              UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period))
+                        row_count += 1
 
-            # MODUL MC
-            if data_type == 'MC':
-                c_zona = TurboEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ'])
-                z = autopilot_extract_zona(row.get(c_zona))
-                if z:
-                    batch_list.append((nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), 
-                                     z['pcez'], z['rayon'], TurboEngine.cast_to_float(row.get(col_nom)), 
-                                     row.get('NOMET', ''), row_period))
+                # C. MODUL ARDEBT
+                elif data_type == 'ARDEBT':
+                    val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
+                    if val_ardebt > 0:
+                        db.execute("""
+                            INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) 
+                            VALUES (?, ?, ?, ?)
+                        """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt, target_period))
+                        row_count += 1
 
-            # MODUL ARDEBT
-            elif data_type == 'ARDEBT':
-                val_ardebt = TurboEngine.cast_to_float(row.get(col_nom))
-                if val_ardebt > 0:
-                    batch_list.append((nomen, row.get('PERIODE_BILL', '-'), val_ardebt, row_period))
+                # D. MODUL MB (Bank) & COLLECTION (Lapangan)
+                elif data_type in ['MB', 'COLLECTION']:
+                    tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
+                    dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
+                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
+                    b_rek = str(row.get(col_brek, '')).strip() if col_brek else target_period.replace('-', '')
+                    
+                    # 1. Simpan data transaksi
+                    db.execute(f"""
+                        INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
+                    
+                    # 2. REAL-TIME SYNC: Ubah status di master_pelanggan menjadi Lunas
+                    db.execute("""
+                        UPDATE master_pelanggan SET status_lunas = 1 
+                        WHERE nomen = ? AND periode = ?
+                    """, (nomen, target_period))
+                    
+                    row_count += 1
+            
+            except Exception as row_err:
+                error_rows += 1
+                print(f"⚠️ Baris {index} Sync Error: {str(row_err)}")
 
-            # MODUL MB (BANK) & COLLECTION (LAPANGAN)
-            elif data_type in ['MB', 'COLLECTION']:
-                # SMART ALIGNMENT: MB (Bank) harus diarahkan ke Bulan Rekening tagihan (N-1)
-                # Hal ini krusial agar box UNDUE tidak Rp 0 di Dashboard Januari
-                if data_type == 'MB' and row_dt_obj:
-                    # Contoh: Bayar Jan 2026 -> Menagih Des 2025 (bulan_rek: 122025)
-                    last_month_obj = row_dt_obj.replace(day=1) - timedelta(days=1)
-                    b_rek = last_month_obj.strftime('%m%Y')
-                else:
-                    b_rek = str(row.get(col_brek, '')).strip() or row_period.replace('-', '')
-                
-                cat = "UNDUE" if data_type == 'MB' else "CURRENT"
-                batch_list.append((nomen, row.get(col_pay, ''), TurboEngine.cast_to_float(row.get(col_nom)), 
-                                 row_period, cat, b_rek))
-
-        # 4. EXECUTE BATCH (SANGAT CEPAT)
-        if data_type == 'RUTE':
-            db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", batch_list)
-        elif data_type == 'MC':
-            db.executemany("INSERT OR REPLACE INTO master_pelanggan (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)", batch_list)
-        elif data_type == 'ARDEBT':
-            db.executemany("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) VALUES (?, ?, ?, ?)", batch_list)
-        elif data_type in ['MB', 'COLLECTION']:
-            tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
-            dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
-            db.executemany(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) VALUES (?, ?, ?, ?, ?, ?)", batch_list)
-
-            # 5. TURBO SYNC STATUS LUNAS MASSAL (Kunci Efektivitas)
-            db.execute(f"""
-                UPDATE master_pelanggan SET status_lunas = 1 
-                WHERE periode = ? AND nomen IN (SELECT nomen FROM {tbl} WHERE periode = ?)
-            """, (global_period, global_period))
-
-        # FINALISASI TRANSAKSI
-        db.commit() 
-        log_action(user_id=session.get('username'), action='UPLOAD_TURBO', module=data_type, details=f"Sync: {len(batch_list)} baris")
+        # 4. FINALISASI & LOGGING
+        log_action(
+            user_id=session.get('username', 'Admin'), 
+            action='UPLOAD_SUCCESS', 
+            module=data_type, 
+            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows} | Periode: {target_period}", 
+            ip=request.remote_addr
+        )
         
-        return jsonify({"status": "success", "message": f"Turbo Sync {data_type} Berhasil: {len(batch_list)} baris."})
+        db.execute("""
+            INSERT INTO upload_history (file_name, file_type, periode, row_count, status) 
+            VALUES (?, ?, ?, ?, ?)
+        """, (file_name, data_type, target_period, row_count, 'SUCCESS'))
+        
+        db.commit()
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} selesai. {row_count} baris diproses."})
 
     except Exception as e:
         if db: db.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"❌ FATAL ERROR: {str(e)}")
+        return jsonify({"status": "error", "message": f"Sistem Error: {str(e)}"}), 500
     finally:
         db.close()
