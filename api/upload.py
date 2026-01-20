@@ -1,16 +1,16 @@
 """
-Turbo Integration Engine - Sunter Dashboard Pro (V12.85 Smart Guard)
+Turbo Integration Engine - Sunter Dashboard Pro (V12.87 Ultimate Precision)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Strict Row Validation: Memvalidasi periode per baris (Fix: Data bulan lain bocor).
-2. Sync Lunas Auto-Correction: Memastikan status_lunas terupdate secara massal.
-3. Turbo Batch Execution: Menggunakan executemany() untuk stabilitas data besar.
-4. Category Enforcement: Menjamin kategori 'CURRENT' terisi untuk dashboard harian.
+1. N-1 Billing Alignment: Otomatis set bulan_rek ke bulan sebelumnya untuk tipe MB agar UNDUE muncul.
+2. Strict Row Validation: Memvalidasi periode per baris untuk mencegah kebocoran data.
+3. Turbo Batch Execution: Menggunakan executemany() untuk stabilitas data besar tanpa menghapus fungsi.
+4. Category Enforcement: Menjamin kategori 'CURRENT' & 'UNDUE' terisi dengan presisi.
 """
 
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen, log_action
@@ -91,7 +91,6 @@ def handle_turbo_upload():
             if not nomen: continue
 
             # --- VALIDASI PERIODE PER BARIS ---
-            # Mengecek tanggal baris untuk mencegah kebocoran bulan lain
             row_date_raw = row.get(col_pay)
             row_dt_obj = parse_flexible_date(row_date_raw)
             row_period = row_dt_obj.strftime('%m-%Y') if row_dt_obj else global_period
@@ -111,44 +110,40 @@ def handle_turbo_upload():
                 if val_ardebt > 0:
                     batch_list.append((nomen, row.get('PERIODE_BILL', '-'), val_ardebt, row_period))
 
-            # MODUL MB & COLLECTION
+            # MODUL MB (BANK) & COLLECTION (LAPANGAN)
             elif data_type in ['MB', 'COLLECTION']:
-                b_rek = str(row.get(col_brek, '')).strip() or row_period.replace('-', '')
+                # SMART ALIGNMENT: MB (Bank) harus diarahkan ke Bulan Rekening tagihan (N-1)
+                # Hal ini krusial agar box UNDUE tidak Rp 0 di Dashboard Januari
+                if data_type == 'MB' and row_dt_obj:
+                    # Contoh: Bayar Jan 2026 -> Menagih Des 2025 (bulan_rek: 122025)
+                    last_month_obj = row_dt_obj.replace(day=1) - timedelta(days=1)
+                    b_rek = last_month_obj.strftime('%m%Y')
+                else:
+                    b_rek = str(row.get(col_brek, '')).strip() or row_period.replace('-', '')
+                
                 cat = "UNDUE" if data_type == 'MB' else "CURRENT"
                 batch_list.append((nomen, row.get(col_pay, ''), TurboEngine.cast_to_float(row.get(col_nom)), 
                                  row_period, cat, b_rek))
 
-        # 4. EXECUTE BATCH (TURBO MODE)
+        # 4. EXECUTE BATCH (SANGAT CEPAT)
         if data_type == 'RUTE':
             db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", batch_list)
-        
         elif data_type == 'MC':
-            db.executemany("""
-                INSERT OR REPLACE INTO master_pelanggan 
-                (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-            """, batch_list)
-
+            db.executemany("INSERT OR REPLACE INTO master_pelanggan (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)", batch_list)
         elif data_type == 'ARDEBT':
             db.executemany("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) VALUES (?, ?, ?, ?)", batch_list)
-        
         elif data_type in ['MB', 'COLLECTION']:
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
             dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
-            
-            db.executemany(f"""
-                INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, batch_list)
+            db.executemany(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) VALUES (?, ?, ?, ?, ?, ?)", batch_list)
 
             # 5. TURBO SYNC STATUS LUNAS MASSAL (Kunci Efektivitas)
-            # Menghubungkan Nomen di Master dengan Nomen di Pembayaran secara massal
             db.execute(f"""
                 UPDATE master_pelanggan SET status_lunas = 1 
                 WHERE periode = ? AND nomen IN (SELECT nomen FROM {tbl} WHERE periode = ?)
             """, (global_period, global_period))
 
-        # FINALISASI
+        # FINALISASI TRANSAKSI
         db.commit() 
         log_action(user_id=session.get('username'), action='UPLOAD_TURBO', module=data_type, details=f"Sync: {len(batch_list)} baris")
         
