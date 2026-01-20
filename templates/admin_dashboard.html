@@ -20,6 +20,16 @@
             </button>
         </li>
         <li class="nav-item">
+            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-history">
+                <i class="fas fa-history me-2"></i> Riwayat Kunjungan
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-wa-blast">
+                <i class="fab fa-whatsapp me-2"></i> WA Blast
+            </button>
+        </li>
+        <li class="nav-item">
             <button class="nav-link rounded-3" data-bs-toggle="tab" data-bs-target="#tab-sync" onclick="checkDataStatus()">
                 <i class="fas fa-sync-alt me-2"></i> Integrasi Data
             </button>
@@ -48,20 +58,15 @@
                     <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-map-marked-alt text-danger me-2"></i>Audit Geospasial Petugas</h5>
-                            <div class="btn-group gap-2">
-                                <a href="{{ url_for('history_kunjungan_page') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold">
-                                    <i class="fas fa-history me-1"></i> History Riwayat
-                                </a>
-                                <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
-                                    <i class="fas fa-expand-arrows-alt me-1"></i> Mode Interaktif
-                                </a>
-                            </div>
+                            <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
+                                <i class="fas fa-expand-arrows-alt me-1"></i> Mode Interaktif
+                            </a>
                         </div>
-                        <p class="text-muted small mb-4">Verifikasi validitas laporan melalui analisis titik koordinat GPS presisi tinggi yang terekam secara otomatis.</p>
-                        <div class="bg-light p-4 rounded-4 border border-dashed text-center">
+                        <p class="text-muted small mb-4">Verifikasi validitas personil melalui analisis titik koordinat GPS presisi tinggi yang terekam secara otomatis.</p>
+                        <div class="bg-light p-5 rounded-4 border border-dashed text-center">
                             <i class="fas fa-globe-asia fa-3x text-secondary mb-3"></i>
                             <h6 class="fw-bold">Validasi Geo-Tagging Operasional</h6>
-                            <p class="small text-secondary px-md-5">Pastikan personel berada dalam radius lokasi pelanggan saat transmisi data laporan.</p>
+                            <p class="small text-secondary px-md-5 mb-4">Pastikan personel berada dalam radius lokasi pelanggan saat transmisi data laporan.</p>
                             <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-dark rounded-pill px-5 shadow">Buka Visualisasi Peta</a>
                         </div>
                     </div>
@@ -82,6 +87,43 @@
                             <p class="small text-secondary mb-0">Seluruh protokol pengiriman laporan wajib menyertakan verifikasi lokasi (Latitude & Longitude).</p>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-history">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-history text-primary me-2"></i>Audit Riwayat Kunjungan</h5>
+                    <a href="{{ url_for('history_kunjungan_page') }}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+                        <i class="fas fa-external-link-alt me-2"></i> Buka Arsip Lengkap
+                    </a>
+                </div>
+                <p class="text-muted small mb-4">Cari dan tinjau kembali seluruh aktivitas kunjungan yang telah dilakukan berdasarkan rentang waktu dan identitas petugas.</p>
+                <div class="bg-light p-4 rounded-4 border text-center">
+                    <i class="fas fa-folder-open fa-3x text-primary mb-3"></i>
+                    <h6 class="fw-bold">Database Aktivitas Lapangan</h6>
+                    <p class="small text-muted mb-0">Data mencakup Foto Kunjungan, Koordinat GPS, dan Keterangan Hasil Tagihan.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-wa-blast">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-success"><i class="fab fa-whatsapp me-2"></i>WhatsApp Gateway Center</h5>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">Gateway Ready</span>
+                </div>
+                <p class="text-muted small">Fitur pengiriman pesan massal untuk notifikasi penagihan, peringatan jatuh tempo, atau pesan edukasi ke pelanggan.</p>
+                <div class="alert alert-info border-0 rounded-4 small mb-4">
+                    <i class="fas fa-info-circle me-2"></i> Gunakan fitur ini secara bijak untuk menghindari pemblokiran nomor oleh pihak WhatsApp.
+                </div>
+                <div class="text-center py-5">
+                    <i class="fas fa-paper-plane fa-3x text-success mb-3"></i>
+                    <h6 class="fw-bold mb-4">Manajemen Notifikasi Massal</h6>
+                    <a href="{{ url_for('wa_blast_page') }}" class="btn btn-success rounded-pill px-5 py-2 fw-bold shadow">
+                        BUKA PANEL WA BLAST
+                    </a>
                 </div>
             </div>
         </div>
@@ -222,7 +264,7 @@
 <script>
 const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-// 1. FUNGSI DINAMIS: CEK STATUS DATA
+// 1. CEK STATUS DATA
 async function checkDataStatus() {
     const list = document.getElementById('data-status-list');
     try {
@@ -343,8 +385,8 @@ function filterMapping() {
 
 function editMapping(pcez, petugas, no_admin) {
     document.getElementById('edit_pcez').value = pcez;
-    document.getElementById('edit_petugas').value = petugas === 'null' || !petugas ? '' : petugas;
-    document.getElementById('edit_no_admin').value = no_admin === 'null' || !no_admin ? '' : no_admin;
+    document.getElementById('edit_petugas').value = (petugas === 'null' || !petugas) ? '' : petugas;
+    document.getElementById('edit_no_admin').value = (no_admin === 'null' || !no_admin) ? '' : no_admin;
     new bootstrap.Modal(document.getElementById('editMappingModal')).show();
 }
 
