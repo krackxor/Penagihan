@@ -4,7 +4,7 @@
     <div class="mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h3 class="fw-bold text-dark mb-0"><i class="fas fa-tower-control-panel me-2 text-danger"></i>Pusat Manajemen Strategis</h3>
-            <p class="text-muted small">Area Service Enterprise v12.6.0 - Integritas Data Aktif</p>
+            <p class="text-muted small">Area Service Enterprise v12.8.5 - Live Integritas</p>
         </div>
         <div id="status-indicator" class="d-none d-md-block">
             <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
@@ -58,7 +58,6 @@
                             </div>
                         </div>
                         <p class="text-muted small mb-4">Verifikasi validitas laporan melalui analisis titik koordinat GPS presisi tinggi yang terekam secara otomatis.</p>
-                        
                         <div class="bg-light p-4 rounded-4 border border-dashed text-center">
                             <i class="fas fa-globe-asia fa-3x text-secondary mb-3"></i>
                             <h6 class="fw-bold">Validasi Geo-Tagging Operasional</h6>
@@ -96,10 +95,10 @@
                             <i class="fas fa-file-invoice fa-3x text-success mb-3"></i>
                             <p class="mb-2 fw-bold">Pilih atau Seret File Master (Excel)</p>
                             <p class="mb-3 text-secondary small">Auto-Detection: Master Pelanggan (MC), Lunas (MB), atau Tagihan (Ardebt)</p>
-                            <input type="file" id="excelFile" class="form-control d-none" accept=".xlsx, .xls">
+                            <input type="file" id="excelFile" class="form-control d-none" accept=".xlsx, .xls, .csv">
                             <div id="file-name-preview" class="mt-2 small fw-bold text-primary"></div>
                         </div>
-                        <button class="btn btn-primary w-100 fw-bold rounded-pill py-3 shadow" onclick="uploadData()">
+                        <button id="btn-upload-execute" class="btn btn-primary w-100 fw-bold rounded-pill py-3 shadow" onclick="uploadData()">
                             <i class="fas fa-microchip me-2"></i> EKSEKUSI SINKRONISASI SISTEM
                         </button>
                     </div>
@@ -108,7 +107,10 @@
                     <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
                         <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-database text-info me-2"></i>Integritas Pangkalan Data</h5>
                         <div id="data-status-list">
-                            <div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                            <div class="text-center py-5">
+                                <div class="spinner-border text-primary"></div>
+                                <p class="small text-muted mt-2">Menghubungkan ke pusat data...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -150,9 +152,7 @@
                         <thead class="bg-light">
                             <tr><th>WAKTU</th><th>USER</th><th>AKSI</th><th>MODUL</th><th>DETAIL</th></tr>
                         </thead>
-                        <tbody id="systemLogsBody">
-                            <tr><td colspan="5" class="text-center py-4">Memuat jejak digital...</td></tr>
-                        </tbody>
+                        <tbody id="systemLogsBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -182,26 +182,26 @@
 <div class="modal fade" id="editMappingModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4 shadow-lg">
-            <div class="modal-body p-4 text-center">
-                <div class="mb-3">
+            <div class="modal-body p-4">
+                <div class="text-center mb-4">
                     <i class="fas fa-edit fa-3x text-primary mb-2"></i>
                     <h5 class="fw-bold">Update Delegasi Wilayah</h5>
                     <p class="small text-muted">Sinkronisasikan personel dengan zona kerja</p>
                 </div>
-                <form id="mappingForm" class="text-start">
+                <form id="mappingForm">
                     <div class="mb-3">
                         <label class="small fw-bold text-muted">Identitas Rute (PCEZ)</label>
                         <input type="text" id="edit_pcez" class="form-control bg-light border-0 fw-bold" readonly>
                     </div>
                     <div class="mb-3">
                         <label class="small fw-bold text-muted">Nama Petugas</label>
-                        <input type="text" id="edit_petugas" class="form-control text-uppercase">
+                        <input type="text" id="edit_petugas" class="form-control text-uppercase" placeholder="INPUT NAMA LENGKAP">
                     </div>
                     <div class="mb-4">
-                        <label class="small fw-bold text-muted">WhatsApp Supervisor</label>
-                        <input type="tel" id="edit_no_admin" class="form-control" placeholder="62812...">
+                        <label class="small fw-bold text-muted">WhatsApp Supervisor (Format 62)</label>
+                        <input type="tel" id="edit_no_admin" class="form-control" placeholder="Contoh: 62812345678">
                     </div>
-                    <button type="button" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow" onclick="saveMapping()">SIMPAN</button>
+                    <button type="button" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow" onclick="saveMapping()">SIMPAN PERUBAHAN</button>
                 </form>
             </div>
         </div>
@@ -213,56 +213,124 @@
     .nav-pills .nav-link { color: #475569; font-weight: 600; padding: 14px; transition: 0.3s; }
     .border-dashed { border: 2px dashed #cbd5e1; transition: all 0.3s; cursor: pointer; }
     .border-dashed:hover { border-color: #0d6efd; background-color: #f0f7ff !important; }
+    .status-card { transition: transform 0.2s; border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
+    .status-card:last-child { border-bottom: none; }
+    .status-card:hover { transform: translateX(5px); }
 </style>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 <script>
-/**
- * SEMUA FUNGSI ASLI DIPERTAHANKAN
- */
+const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-// 1. LOGIKA UPLOAD
+// 1. FUNGSI DINAMIS: CEK STATUS DATA
+async function checkDataStatus() {
+    const list = document.getElementById('data-status-list');
+    try {
+        const res = await fetch('/api/dashboard/pusat-kendali');
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            const s = result.summary;
+            list.innerHTML = `
+                <div class="status-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0 fw-bold">Master Customer (MC)</h6>
+                            <small class="text-muted">Periode: ${s.periode_aktif}</small>
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary rounded-pill">${s.nomen.total.toLocaleString()} Unit</span>
+                    </div>
+                </div>
+                <div class="status-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0 fw-bold">Realisasi Bank (UNDUE)</h6>
+                            <small class="text-muted">Target: ${s.target_rekening}</small>
+                        </div>
+                        <span class="badge bg-success-subtle text-success rounded-pill">${toIDR(s.rupiah.undue)}</span>
+                    </div>
+                </div>
+                <div class="status-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0 fw-bold">Realisasi Lapangan</h6>
+                            <small class="text-muted">Kunjungan Petugas</small>
+                        </div>
+                        <span class="badge bg-info-subtle text-info rounded-pill">${toIDR(s.rupiah.current)}</span>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-top">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="small fw-bold">Progress Akumulasi</span>
+                        <span class="small fw-bold text-primary">${s.rupiah.pct}%</span>
+                    </div>
+                    <div class="progress rounded-pill" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${s.rupiah.pct}%"></div>
+                    </div>
+                </div>
+                <div class="mt-3 text-center">
+                    <small class="text-muted italic" style="font-size: 0.65rem;">Terakhir Sinkron: ${moment(result.analytics.sync_ts).format('HH:mm:ss')}</small>
+                </div>
+            `;
+        }
+    } catch (e) {
+        list.innerHTML = `<div class="alert alert-danger small">Gagal Sinkronisasi API: ${e.message}</div>`;
+    }
+}
+
+// 2. LOGIKA UPLOAD
 document.getElementById('excelFile').onchange = function() {
     if(this.files[0]) {
         document.getElementById('file-name-preview').innerHTML = 
-            `<div class="alert alert-primary py-2 mb-0"><i class="fas fa-check-circle me-2"></i>Berkas Siap: ${this.files[0].name}</div>`;
+            `<div class="alert alert-primary py-2 mb-0 border-0"><i class="fas fa-file-excel me-2"></i>Siap: ${this.files[0].name}</div>`;
     }
 };
 
 async function uploadData() {
     const fileInput = document.getElementById('excelFile');
-    if (fileInput.files.length === 0) return Swal.fire('Info', 'Pilih berkas Excel.', 'info');
+    const btn = document.getElementById('btn-upload-execute');
+    if (fileInput.files.length === 0) return Swal.fire('Peringatan', 'Pilih file terlebih dahulu.', 'warning');
+
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
-    Swal.fire({ title: 'Menganalisis...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> SEDANG MEMPROSES...`;
+
+    Swal.fire({ title: 'Mengintegrasikan Data...', text: 'Jangan tutup halaman ini', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
     try {
         const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
         const result = await res.json();
         if (res.ok) {
-            Swal.fire('Sukses', result.message, 'success');
+            Swal.fire('Berhasil', result.message, 'success');
             checkDataStatus();
         } else {
-            Swal.fire('Gagal', result.error, 'error');
+            Swal.fire('Gagal', result.message || 'Error Server', 'error');
         }
-    } catch (e) { Swal.fire('Error', 'Gagal koneksi.', 'error'); }
+    } catch (e) {
+        Swal.fire('Error', 'Gagal terhubung ke server.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-microchip me-2"></i> EKSEKUSI SINKRONISASI SISTEM`;
+    }
 }
 
-// 2. LOGIKA MAPPING
+// 3. MANAJEMEN MAPPING
 async function loadMapping() {
     try {
         const res = await fetch('/api/rute/list');
         const data = await res.json();
-        let html = '';
-        data.forEach(row => {
-            html += `<tr class="mapping-row" data-search="${row.pcez} ${row.petugas}">
-                <td class="fw-bold text-dark">${row.pcez}</td>
-                <td class="text-uppercase small fw-bold text-primary">${row.petugas || 'UNMAPPED'}</td>
-                <td class="small text-muted">+${row.no_admin || '-'}</td>
+        document.getElementById('mappingTableBody').innerHTML = data.map(row => `
+            <tr class="mapping-row" data-search="${row.pcez} ${row.petugas}">
+                <td class="fw-bold">${row.pcez}</td>
+                <td><span class="badge ${row.petugas ? 'bg-primary-subtle text-primary' : 'bg-light text-muted'} px-3">${row.petugas || 'UNMAPPED'}</span></td>
+                <td class="small text-muted">${row.no_admin ? '+' + row.no_admin : '-'}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-light border rounded-pill px-3" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">UPDATE</button>
+                    <button class="btn btn-sm btn-dark rounded-pill px-3" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">EDIT</button>
                 </td>
-            </tr>`;
-        });
-        document.getElementById('mappingTableBody').innerHTML = html;
+            </tr>
+        `).join('');
     } catch (e) { console.error(e); }
 }
 
@@ -275,8 +343,8 @@ function filterMapping() {
 
 function editMapping(pcez, petugas, no_admin) {
     document.getElementById('edit_pcez').value = pcez;
-    document.getElementById('edit_petugas').value = petugas === 'UNMAPPED' ? '' : petugas;
-    document.getElementById('edit_no_admin').value = no_admin === '-' ? '' : no_admin;
+    document.getElementById('edit_petugas').value = petugas === 'null' || !petugas ? '' : petugas;
+    document.getElementById('edit_no_admin').value = no_admin === 'null' || !no_admin ? '' : no_admin;
     new bootstrap.Modal(document.getElementById('editMappingModal')).show();
 }
 
@@ -290,34 +358,48 @@ async function saveMapping() {
         if (res.ok) { 
             bootstrap.Modal.getInstance(document.getElementById('editMappingModal')).hide(); 
             loadMapping(); 
-            Swal.fire('Sukses', 'Data diperbarui.', 'success');
+            Swal.fire('Sukses', 'Delegasi Wilayah Diperbarui.', 'success');
         }
-    } catch (e) { Swal.fire('Gagal', 'Error koneksi.', 'error'); }
+    } catch (e) { Swal.fire('Gagal', 'Gagal menyimpan.', 'error'); }
 }
 
-// 3. FUNGSI BARU: LOG SISTEM
+// 4. LOG SISTEM & USER
 async function loadSystemLogs() {
     const body = document.getElementById('systemLogsBody');
     try {
-        const res = await fetch('/api/admin/system-logs');
+        const res = await fetch('/api/dashboard/admin/system-logs');
         const result = await res.json();
         if (result.status === 'success') {
             body.innerHTML = result.data.map(log => `
                 <tr>
-                    <td class="text-muted" style="font-size: 0.7rem;">${moment(log.created_at).format('DD/MM HH:mm')}</td>
+                    <td class="text-muted" style="font-size: 0.75rem;">${moment(log.created_at).format('DD/MM HH:mm:ss')}</td>
                     <td class="fw-bold">${log.user_id}</td>
-                    <td><span class="badge bg-danger-subtle text-danger" style="font-size: 0.6rem;">${log.action}</span></td>
-                    <td><span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.6rem;">${log.module}</span></td>
-                    <td class="small text-truncate" style="max-width: 200px;">${log.details}</td>
+                    <td><span class="badge bg-danger-subtle text-danger" style="font-size: 0.65rem;">${log.action}</span></td>
+                    <td class="small text-muted">${log.module}</td>
+                    <td class="small text-truncate" style="max-width: 250px;">${log.details}</td>
                 </tr>
-            `).join('') || '<tr><td colspan="5" class="text-center py-3">Kosong</td></tr>';
+            `).join('') || '<tr><td colspan="5" class="text-center py-4">Tidak ada log terbaru.</td></tr>';
         }
-    } catch (e) { body.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat log.</td></tr>'; }
+    } catch (e) { body.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Gagal memuat log audit.</td></tr>'; }
 }
 
-// 4. LOGIKA LAINNYA
-async function checkDataStatus() { /* Fungsi asli Anda ... */ }
-async function loadUsers() { /* Fungsi asli Anda ... */ }
+async function loadUsers() {
+    const body = document.getElementById('userListBody');
+    try {
+        const res = await fetch('/api/auth/users');
+        const data = await res.json();
+        body.innerHTML = data.map(u => `
+            <tr>
+                <td class="fw-bold">${u.username}</td>
+                <td><span class="badge bg-dark rounded-pill">${u.role.toUpperCase()}</span></td>
+                <td class="small text-muted">${u.petugas_id || 'FULL ACCESS'}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteUser(${u.id})"><i class="fas fa-trash-alt"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) { body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Akses API Keamanan Gagal.</td></tr>'; }
+}
 
 document.addEventListener('DOMContentLoaded', () => { 
     checkDataStatus(); 
