@@ -1,16 +1,17 @@
 """
-Collection API - Sunter Dashboard Pro (V12.42 Multi-Cumulative)
+Collection API - Sunter Dashboard Pro (V12.45 Smart Integration)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Multi-Cumulative Engine: Menghitung akumulasi harian per rayon (34 & 35) secara terpisah.
-2. Dynamic Drill-down: Mendukung pengambilan detail pelanggan per klik nominal harian.
-3. Baseline Injection: Menyuntikkan saldo bank (UNDUE) ke akumulasi harian.
+1. Fix Missing Records: Menampilkan data upload Excel meskipun tanpa log kunjungan fisik.
+2. Smart Undue Alignment: Sinkronisasi nominal bank menggunakan filter 'bulan_rek'.
+3. N+1 Precision: Memastikan perbandingan target MC vs Realisasi sinkron per periode.
+4. Auto-Baseline: Saldo UNDUE terintegrasi otomatis dalam grafik kumulatif harian.
 """
 
 from flask import Blueprint, jsonify, request
 from core.database import get_db_connection
-from datetime import datetime
+from datetime import datetime, timedelta
 
 collection_bp = Blueprint('collection', __name__)
 
@@ -27,30 +28,37 @@ def pusat_kendali():
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
+        
+        # Logika N+1 Smart: Ambil bulan rekening tagihan (Januari menagih Desember)
+        dt_obj = datetime.strptime(periode_req, '%m-%Y')
+        last_month = dt_obj.replace(day=1) - timedelta(days=1)
+        bulan_rek_target = last_month.strftime('%m%Y')
 
-        # 1. TOTAL TARGET (MC)
+        # 1. TOTAL TARGET MC (Master Customer)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (BANK)
+        # 2. BOX UNDUE (BANK) - Berdasarkan Bulan Rekening
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-            WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY', 'ARDEBT')
-        """, (periode_req,))
+            WHERE bulan_rek = ? AND kategori = 'UNDUE'
+            AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
+        """, (bulan_rek_target, periode_req))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX FIELD (PETUGAS) - Hanya yang ada log kunjungan
+        # 3. BOX FIELD (PETUGAS) - Realisasi dari kunjungan fisik
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
-            WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'HISTORY')
+            WHERE c.periode = ? AND c.kategori = 'CURRENT'
             AND EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = c.nomen AND k.periode = c.periode)
         """, (periode_req,))
         current_petugas = cursor.fetchone()[0]
 
-        # 4. BOX MANDIRI - Pembayaran lapangan tanpa log kunjungan petugas
+        # 4. BOX MANDIRI - Data Upload Excel (Tanpa Log Kunjungan)
+        # REVISI: Mengambil data yang tidak memiliki log kunjungan agar tabel tidak kosong
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
-            WHERE c.periode = ? AND c.kategori IN ('CURRENT', 'HISTORY')
+            WHERE c.periode = ? AND c.kategori = 'CURRENT'
             AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = c.nomen AND k.periode = c.periode)
         """, (periode_req,))
         current_mandiri = cursor.fetchone()[0]
@@ -60,6 +68,8 @@ def pusat_kendali():
         return jsonify({
             "status": "success",
             "summary": {
+                "periode": periode_req,
+                "target_rekening": bulan_rek_target,
                 "target_mc": target_mc,
                 "realisasi": {
                     "total": total_realisasi, 
@@ -76,12 +86,17 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian dengan Penambahan Kumulatif per Rayon."""
+    """Tren Kumulatif Harian per Rayon (34 & 35) + Baseline Bank."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         target_month_code = periode_req.split('-')[0]
+
+        # Logika N+1 untuk Bank Baseline
+        dt_obj = datetime.strptime(periode_req, '%m-%Y')
+        last_month = dt_obj.replace(day=1) - timedelta(days=1)
+        bulan_rek_target = last_month.strftime('%m%Y')
 
         # Target Detail per Rayon
         cursor.execute("""
@@ -93,11 +108,15 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Saldo Awal Realisasi Bank (Baseline)
-        cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_bayar WHERE periode = ? AND kategori IN ('UNDUE', 'HISTORY')", (periode_req,))
+        # Saldo Awal Realisasi Bank (Baseline UNDUE)
+        cursor.execute("""
+            SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
+            WHERE bulan_rek = ? AND kategori = 'UNDUE'
+            AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
+        """, (bulan_rek_target, periode_req))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian dengan Join Rayon & Sortir Kronologis
+        # Query Harian dengan Join Rayon
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -118,7 +137,7 @@ def daily_monitor():
         for r in rows:
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
-            # Akumulasi Kumulatif Total menyertakan Saldo Bank (Undue)
+            # Akumulasi Kumulatif menyertakan Saldo Bank (Undue)
             cum_all = cum_34 + cum_35 + undue_start
             
             daily_data.append({
@@ -146,7 +165,7 @@ def daily_monitor():
 
 @collection_bp.route('/detail-transaksi', methods=['GET'])
 def detail_transaksi():
-    """Drill-down Engine: Menampilkan rincian pelanggan per rayon/tanggal."""
+    """Drill-down: Rincian pelanggan per rayon/tanggal."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -157,7 +176,7 @@ def detail_transaksi():
         query = """
             SELECT c.nomen, p.nama, c.nominal
             FROM collection_harian c
-            LEFT JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
+            INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
             WHERE c.pay_dt = ? AND p.rayon = ? AND c.periode = ?
             ORDER BY c.nominal DESC
         """
