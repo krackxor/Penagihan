@@ -1,12 +1,12 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.77 Ultimate Sync)
+Core Database Module - Sunter Dashboard Pro (V12.78 Ultimate Sync)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Table Integrity: Menjamin tabel 'upload_history' & 'kunjungan_petugas' sinkron.
-2. Self-Healing Master: Auto-migrasi kolom 'tarif' & 'kubik' (Fix: Ardebt Error).
-3. Robust Multi-User: Busy Timeout 60s & WAL Mode aktif (Fix: Database is locked).
-4. Full Audit Path: Menambahkan metadata snapshot pada tabel kunjungan.
+1. Smart Undue Shield: Migrasi otomatis kolom 'bulan_rek' (Fix: Sync Error).
+2. Table Integrity: Menjamin tabel 'upload_history' & 'kunjungan_petugas' sinkron.
+3. Self-Healing Master: Auto-migrasi kolom 'tarif' & 'kubik' (Fix: Ardebt Error).
+4. Robust Multi-User: Busy Timeout 60s & WAL Mode aktif (Fix: Database is locked).
 """
 
 import sqlite3
@@ -54,7 +54,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.77: Seluruh Skema & Kolom Audit Telah Sinkron.")
+            print("✅ Database V12.78: Kolom bulan_rek & Skema Audit Telah Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -106,7 +106,7 @@ def check_and_create_tables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     
-    # Tabel Kunjungan dengan Kolom Nomenklatur yang Benar
+    # Tabel Kunjungan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -118,19 +118,26 @@ def check_and_create_tables(cursor):
 def run_smart_migration(cursor):
     """Menambah kolom secara otomatis tanpa merusak data lama."""
     
-    # --- MIGRASI MASTER PELANGGAN (Fix Ardebt Error) ---
+    # --- MIGRASI MASTER PELANGGAN ---
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
-    
-    master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT'}
-    for col, dtype in master_cols.items():
+    for col, dtype in {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT'}.items():
         if col not in existing_master:
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
 
-    # --- MIGRASI KUNJUNGAN PETUGAS (Fix Audit Error) ---
+    # --- MIGRASI SMART UNDUE (Fix: table master_bayar has no column named bulan_rek) ---
+    for table in ['master_bayar', 'collection_harian']:
+        cursor.execute(f"PRAGMA table_info({table})")
+        cols = [row['name'] for row in cursor.fetchall()]
+        if 'bulan_rek' not in cols:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
+            print(f"⚙️ Migrasi: Kolom [bulan_rek] ditambahkan ke {table}")
+        if 'kategori' not in cols:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN kategori TEXT DEFAULT 'HISTORY'")
+
+    # --- MIGRASI KUNJUNGAN PETUGAS ---
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_kunjungan = [row['name'] for row in cursor.fetchall()]
-    
     kunjungan_cols = {
         'petugas_name':'TEXT', 'keterangan':'TEXT', 'foto_path':'TEXT', 
         'latitude':'TEXT', 'longitude':'TEXT', 'periode':'TEXT',
@@ -146,6 +153,7 @@ def optimize_performance(cursor):
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
+        "CREATE INDEX IF NOT EXISTS idx_mb_brek ON master_bayar (bulan_rek)",
         "CREATE INDEX IF NOT EXISTS idx_ch_nomen_per ON collection_harian (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)"
     ]
