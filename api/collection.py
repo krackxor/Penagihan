@@ -1,12 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V12.45 Smart Integration)
+Collection API - Sunter Dashboard Pro (V12.46 Robust Daily Sync)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Fix Missing Records: Menampilkan data upload Excel meskipun tanpa log kunjungan fisik.
-2. Smart Undue Alignment: Sinkronisasi nominal bank menggunakan filter 'bulan_rek'.
-3. N+1 Precision: Memastikan perbandingan target MC vs Realisasi sinkron per periode.
-4. Auto-Baseline: Saldo UNDUE terintegrasi otomatis dalam grafik kumulatif harian.
+1. Robust Daily Query: Menghapus filter substr kaku untuk mendukung berbagai format tanggal.
+2. Baseline Bank Injection: Menggunakan 'bulan_rek' (N-1) untuk saldo awal UNDUE harian.
+3. Rayon Drill-down Fix: Menggunakan INNER JOIN untuk validasi identitas rayon pelanggan.
+4. Auto-Mapping Mandiri: Sinkronisasi real-time data upload Excel ke tabel harian.
 """
 
 from flask import Blueprint, jsonify, request
@@ -38,7 +38,7 @@ def pusat_kendali():
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (BANK) - Berdasarkan Bulan Rekening
+        # 2. BOX UNDUE (BANK) - Berdasarkan Bulan Rekening Tagihan
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
             WHERE bulan_rek = ? AND kategori = 'UNDUE'
@@ -46,7 +46,7 @@ def pusat_kendali():
         """, (bulan_rek_target, periode_req))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX FIELD (PETUGAS) - Realisasi dari kunjungan fisik
+        # 3. BOX FIELD (PETUGAS) - Berdasarkan Log Kunjungan
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
             WHERE c.periode = ? AND c.kategori = 'CURRENT'
@@ -55,7 +55,6 @@ def pusat_kendali():
         current_petugas = cursor.fetchone()[0]
 
         # 4. BOX MANDIRI - Data Upload Excel (Tanpa Log Kunjungan)
-        # REVISI: Mengambil data yang tidak memiliki log kunjungan agar tabel tidak kosong
         cursor.execute("""
             SELECT COALESCE(SUM(c.nominal), 0) FROM collection_harian c
             WHERE c.periode = ? AND c.kategori = 'CURRENT'
@@ -91,9 +90,8 @@ def daily_monitor():
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
-        target_month_code = periode_req.split('-')[0]
 
-        # Logika N+1 untuk Bank Baseline
+        # Logika N+1 untuk Saldo Awal Bank (UNDUE)
         dt_obj = datetime.strptime(periode_req, '%m-%Y')
         last_month = dt_obj.replace(day=1) - timedelta(days=1)
         bulan_rek_target = last_month.strftime('%m%Y')
@@ -116,7 +114,7 @@ def daily_monitor():
         """, (bulan_rek_target, periode_req))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian dengan Join Rayon
+        # Query Harian: Menggunakan format tanggal fleksibel & Join Rayon
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -125,10 +123,10 @@ def daily_monitor():
                 SUM(c.nominal) as rp_total
             FROM collection_harian c
             LEFT JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE c.periode = ? AND substr(c.pay_dt, 4, 2) = ?
+            WHERE c.periode = ?
             GROUP BY c.pay_dt 
-            ORDER BY substr(c.pay_dt,7,4) ASC, substr(c.pay_dt,4,2) ASC, substr(c.pay_dt,1,2) ASC
-        """, (periode_req, target_month_code))
+            ORDER BY c.pay_dt ASC
+        """, (periode_req,))
         rows = cursor.fetchall()
 
         daily_data = []
