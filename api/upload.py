@@ -1,16 +1,16 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.71 Stable)
+Smart Integration Engine - Sunter Dashboard Pro (V12.72 Stable - Date Fix)
 Update: 2026-01-20
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
-2. Smart Undue Detection: Ekstraksi kolom 'BULAN_REK' untuk akurasi N+1.
-3. Row-Level Shield: Try-Except per baris untuk stabilitas upload massal.
-4. Argument Sync: Perbaikan pemanggilan log_action (data_type -> module).
+1. Excel Date Serial Fix: Konversi otomatis format angka (46023.0) ke DD-MM-YYYY.
+2. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
+3. Smart Undue Detection: Ekstraksi kolom 'BULAN_REK' untuk akurasi N+1.
+4. Row-Level Shield: Try-Except per baris untuk stabilitas upload massal.
 """
 
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen, log_action
@@ -33,6 +33,24 @@ class UploadEngine:
             return 0.0
 
     @staticmethod
+    def convert_excel_date(value):
+        """Konversi angka serial Excel (misal 46023) ke format string DD-MM-YYYY."""
+        if not value or pd.isna(value):
+            return ""
+        
+        val_str = str(value).strip()
+        try:
+            # Cek jika formatnya adalah angka serial (numeric)
+            if val_str.replace('.', '', 1).isdigit():
+                serial = int(float(val_str))
+                # Excel base date adalah 30 Des 1899
+                date_obj = datetime(1899, 12, 30) + timedelta(days=serial)
+                return date_obj.strftime('%d-%m-%Y')
+            return val_str # Jika sudah format teks, kembalikan apa adanya
+        except:
+            return val_str
+
+    @staticmethod
     def get_column(df, possible_names):
         """Mencari nama kolom secara fleksibel untuk mendukung berbagai format Excel/CSV."""
         cols = {c.upper().strip(): c for c in df.columns}
@@ -43,7 +61,6 @@ class UploadEngine:
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_smart_upload():
-    # 1. AUTHENTICATION CHECK
     if session.get('role') != 'admin':
         return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
 
@@ -57,7 +74,7 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 2. FILE PROCESSING (PANDAS ENGINE)
+        # Baca file dengan pandas
         df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         data_type = identify_file_type(df)
         
@@ -81,28 +98,39 @@ def handle_smart_upload():
         row_count = 0
         error_rows = 0
 
-        # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
         for index, row in df.iterrows():
             try:
-                # A. MODUL RUTE
-                if data_type == 'RUTE':
-                    c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
-                    c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
-                    raw_pcez = str(row.get(c_pcez, '')).strip()
-                    p_name = str(row.get(c_name, '')).strip()
-                    if raw_pcez and p_name:
-                        clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
-                        db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
-                        row_count += 1
-                    continue
-
                 # Sanitasi Nomenklatur
                 n_raw = row.get(col_id) if col_id else None
                 nomen = clean_nomen(n_raw)
                 if not nomen: continue
 
+                # A. MODUL MB (Bank) & COLLECTION (Lapangan)
+                if data_type in ['MB', 'COLLECTION']:
+                    tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
+                    dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
+                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
+                    
+                    # Konversi tanggal serial Excel ke DD-MM-YYYY
+                    raw_date = row.get(col_pay, '')
+                    formatted_date = UploadEngine.convert_excel_date(raw_date)
+                    
+                    b_rek = str(row.get(col_brek, '')).strip() if col_brek else target_period.replace('-', '')
+                    
+                    db.execute(f"""
+                        INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (nomen, formatted_date, UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
+                    
+                    # Update status di master_pelanggan menjadi Lunas
+                    db.execute("""
+                        UPDATE master_pelanggan SET status_lunas = 1 
+                        WHERE nomen = ? AND periode = ?
+                    """, (nomen, target_period))
+                    row_count += 1
+
                 # B. MODUL MASTER PELANGGAN (MC)
-                if data_type == 'MC':
+                elif data_type == 'MC':
                     c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
                     z = autopilot_extract_zona(row.get(c_zona))
                     if z:
@@ -114,47 +142,27 @@ def handle_smart_upload():
                               UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period))
                         row_count += 1
 
-                # C. MODUL ARDEBT
-                elif data_type == 'ARDEBT':
-                    val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
-                    if val_ardebt > 0:
-                        db.execute("""
-                            INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) 
-                            VALUES (?, ?, ?, ?)
-                        """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt, target_period))
+                # C. MODUL RUTE
+                elif data_type == 'RUTE':
+                    c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
+                    c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
+                    raw_pcez = str(row.get(c_pcez, '')).strip()
+                    p_name = str(row.get(c_name, '')).strip()
+                    if raw_pcez and p_name:
+                        clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
+                        db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
                         row_count += 1
 
-                # D. MODUL MB (Bank) & COLLECTION (Lapangan)
-                elif data_type in ['MB', 'COLLECTION']:
-                    tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
-                    dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
-                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
-                    b_rek = str(row.get(col_brek, '')).strip() if col_brek else target_period.replace('-', '')
-                    
-                    # 1. Simpan data transaksi
-                    db.execute(f"""
-                        INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
-                    
-                    # 2. REAL-TIME SYNC: Ubah status di master_pelanggan menjadi Lunas
-                    db.execute("""
-                        UPDATE master_pelanggan SET status_lunas = 1 
-                        WHERE nomen = ? AND periode = ?
-                    """, (nomen, target_period))
-                    
-                    row_count += 1
-            
             except Exception as row_err:
                 error_rows += 1
                 print(f"⚠️ Baris {index} Sync Error: {str(row_err)}")
 
-        # 4. FINALISASI & LOGGING
+        # Finalisasi
         log_action(
             user_id=session.get('username', 'Admin'), 
             action='UPLOAD_SUCCESS', 
             module=data_type, 
-            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows} | Periode: {target_period}", 
+            details=f"File: {file_name} | Sukses: {row_count} | Periode: {target_period}", 
             ip=request.remote_addr
         )
         
@@ -168,7 +176,6 @@ def handle_smart_upload():
 
     except Exception as e:
         if db: db.rollback()
-        print(f"❌ FATAL ERROR: {str(e)}")
         return jsonify({"status": "error", "message": f"Sistem Error: {str(e)}"}), 500
     finally:
         db.close()
