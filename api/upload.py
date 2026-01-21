@@ -1,16 +1,16 @@
 """
 Smart Integration Engine - Sunter Dashboard Pro (V12.71 Stable)
-Update: 2026-01-20
+Update: 2026-01-21
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
-2. Smart Undue Detection: Ekstraksi kolom 'BULAN_REK' untuk akurasi N+1.
+2. Precision Undue Sync: Mengunci format 'bulan_rek' ke MMYYYY untuk konsistensi Dashboard N-1.
 3. Row-Level Shield: Try-Except per baris untuk stabilitas upload massal.
 4. WA Blast Sync: Endpoint /last-session untuk penarikan data blast dari upload terbaru.
 """
 
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen, log_action
@@ -68,8 +68,8 @@ def handle_smart_upload():
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
-        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING'])
-        col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'TELEPON', 'WA']) # Tambahan untuk WA Blast
+        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING', 'PERIODE'])
+        col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'TELEPON', 'WA'])
 
         # Penentuan Periode Target
         if data_type in ['ARDEBT', 'RUTE']:
@@ -132,7 +132,17 @@ def handle_smart_upload():
                     tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
                     dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                     cat = "UNDUE" if data_type == 'MB' else "CURRENT"
-                    b_rek = str(row.get(col_brek, '')).strip() if col_brek else target_period.replace('-', '')
+                    
+                    # LOGIKA SINKRONISASI BULAN REKENING (Precision Recovery)
+                    raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
+                    if not raw_brek or len(raw_brek) < 6:
+                        # Fallback: Hitung N-1 dari target_period (Contoh: Dashboard 01-2026 -> b_rek 122025)
+                        dt_obj = datetime.strptime(target_period, '%m-%Y')
+                        last_month = dt_obj.replace(day=1) - timedelta(days=1)
+                        b_rek = last_month.strftime('%m%Y')
+                    else:
+                        # Gunakan data asli jika sudah MMYYYY (Misal: 122025)
+                        b_rek = raw_brek
                     
                     # 1. Simpan data transaksi
                     db.execute(f"""
@@ -154,10 +164,10 @@ def handle_smart_upload():
 
         # 4. FINALISASI & LOGGING
         log_action(
-            user_id=session.get('username', 'Admin'), 
-            action='UPLOAD_SUCCESS', 
-            module=data_type, 
-            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows} | Periode: {target_period}", 
+            user_id=session.get('username', 'Admin'),
+            action='UPLOAD_SUCCESS',
+            module=data_type,
+            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows} | Periode: {target_period}",
             ip=request.remote_addr
         )
         
@@ -187,7 +197,6 @@ def get_last_upload_data():
             return jsonify([])
 
         # Ambil data dari master_pelanggan yang baru saja diupload (asumsi data MC)
-        # Menampilkan pelanggan yang belum lunas saja untuk efisiensi blast
         data = db.execute("""
             SELECT nomen, nama, nominal, no_hp, pcez 
             FROM master_pelanggan 
