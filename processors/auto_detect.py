@@ -5,7 +5,8 @@ Update: 2026-01-21
 Pembaruan Strategis:
 1. Intelligent Type Detection: Penambahan fleksibilitas kolom NO_HP & WA.
 2. Multi-Column Fallback: Mendeteksi MC meski header kolom bervariasi.
-3. Intelligent Shift Separation: MC/MB otomatis geser N+1.
+3. Intelligent Shift Separation: MC/MB otomatis geser N+1 (PENTING untuk Undue).
+4. Strict Mode: Mengunci deteksi kolom untuk menjamin konsistensi data.
 """
 
 import pandas as pd
@@ -101,8 +102,6 @@ def detect_file_period(df, file_type):
                 break
 
     if not date_col or date_col not in cols: 
-        # Jika benar-benar tidak ada kolom tanggal (seperti file manual blast), 
-        # gunakan bulan berjalan sebagai fallback agar tidak error
         now = datetime.now()
         return now.strftime('%m'), now.strftime('%Y')
     
@@ -122,9 +121,12 @@ def detect_file_period(df, file_type):
         if not dt: 
             dt = datetime.now()
         
+        # FIX STRATEGIS UNTUK UNDUE:
+        # MC dan MB (Bank) dipaksa bergeser 1 bulan ke depan (N+1) agar sinkron dengan Dashboard.
         if file_type in ['MC', 'MB']:
             target_dt = dt + relativedelta(months=1)
         else:
+            # Collection (Lapangan) tetap di bulan transaksi tersebut.
             target_dt = dt
             
         return target_dt.strftime('%m'), target_dt.strftime('%Y')
@@ -136,7 +138,6 @@ def autopilot_extract_zona(val):
     """Ekstraksi PCEZ cerdas."""
     s = clean_val(val)
     if not s: return None
-    # Jika format zona aneh (misal hanya teks), kembalikan default
     try:
         digits = ''.join(filter(str.isdigit, s.split('.')[0])).zfill(9)
         return {
