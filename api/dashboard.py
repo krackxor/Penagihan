@@ -1,12 +1,12 @@
 """
 API Dashboard - Sunter Dashboard Pro (V12.46 Precision Recovery)
-Update: 2026-01-20
+Update: 2026-01-21
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Precision Filtering: Realisasi (UNDUE & CURRENT) hanya dihitung jika NOMEN terdaftar di MC periode aktif.
 2. Anti-Over Progress: Mencegah progres melebihi 100% akibat pembayaran piutang lama yang tidak terpetakan.
 3. N+1 Smart Logic: Sinkronisasi otomatis bulan rekening tagihan (N-1) untuk filter UNDUE.
-4. Live Audit: Rekonsiliasi otomatis status lunas pelanggan secara real-time.
+4. Robust Performance: Optimasi subquery untuk menangani dataset besar (Fix: Dashboard Lag).
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
