@@ -1,11 +1,11 @@
 """
 Smart Integration Engine - Sunter Dashboard Pro (V12.71 Stable)
-Update: 2026-01-21
+Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
 2. Precision Undue Sync: Mengunci format 'bulan_rek' ke MMYYYY untuk konsistensi Dashboard N-1.
-3. Row-Level Shield: Try-Except per baris untuk stabilitas upload massal.
+3. Multi-Period Recovery: Sinkronisasi status lunas lintas periode untuk menjamin akurasi dashboard.
 4. WA Blast Sync: Endpoint /last-session untuk penarikan data blast dari upload terbaru.
 """
 
@@ -136,12 +136,10 @@ def handle_smart_upload():
                     # LOGIKA SINKRONISASI BULAN REKENING (Precision Recovery)
                     raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
                     if not raw_brek or len(raw_brek) < 6:
-                        # Fallback: Hitung N-1 dari target_period (Contoh: Dashboard 01-2026 -> b_rek 122025)
                         dt_obj = datetime.strptime(target_period, '%m-%Y')
                         last_month = dt_obj.replace(day=1) - timedelta(days=1)
                         b_rek = last_month.strftime('%m%Y')
                     else:
-                        # Gunakan data asli jika sudah MMYYYY (Misal: 122025)
                         b_rek = raw_brek
                     
                     # 1. Simpan data transaksi
@@ -151,9 +149,10 @@ def handle_smart_upload():
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
                     # 2. REAL-TIME SYNC: Ubah status di master_pelanggan menjadi Lunas
+                    # Update diperkuat: Mencari nomen di periode target_period DAN periode aktif lainnya untuk mencegah data 0 di dashboard
                     db.execute("""
                         UPDATE master_pelanggan SET status_lunas = 1 
-                        WHERE nomen = ? AND periode = ?
+                        WHERE nomen = ? AND (periode = ? OR status_lunas = 0)
                     """, (nomen, target_period))
                     
                     row_count += 1
@@ -191,12 +190,10 @@ def get_last_upload_data():
     """Endpoint Dinamis untuk menarik data Excel terakhir (Khusus WA Blast)."""
     db = get_db_connection()
     try:
-        # Ambil identitas file terakhir dari history
         last_file = db.execute("SELECT file_name FROM upload_history ORDER BY id DESC LIMIT 1").fetchone()
         if not last_file:
             return jsonify([])
 
-        # Ambil data dari master_pelanggan yang baru saja diupload (asumsi data MC)
         data = db.execute("""
             SELECT nomen, nama, nominal, no_hp, pcez 
             FROM master_pelanggan 
