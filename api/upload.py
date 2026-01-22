@@ -136,6 +136,7 @@ def handle_smart_upload():
                     # LOGIKA SINKRONISASI BULAN REKENING (Precision Recovery)
                     raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
                     if not raw_brek or len(raw_brek) < 6:
+                        # Fallback: Hitung N-1 dari target_period (Dashboard Jan -> Rek Des)
                         dt_obj = datetime.strptime(target_period, '%m-%Y')
                         last_month = dt_obj.replace(day=1) - timedelta(days=1)
                         b_rek = last_month.strftime('%m%Y')
@@ -149,7 +150,7 @@ def handle_smart_upload():
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
                     # 2. REAL-TIME SYNC: Ubah status di master_pelanggan menjadi Lunas
-                    # Update diperkuat: Mencari nomen di periode target_period DAN periode aktif lainnya untuk mencegah data 0 di dashboard
+                    # Sinkronisasi lintas periode untuk menjamin data tampil di dashboard
                     db.execute("""
                         UPDATE master_pelanggan SET status_lunas = 1 
                         WHERE nomen = ? AND (periode = ? OR status_lunas = 0)
@@ -187,7 +188,7 @@ def handle_smart_upload():
 
 @upload_bp.route('/last-session', methods=['GET'])
 def get_last_upload_data():
-    """Endpoint Dinamis untuk menarik data Excel terakhir (Khusus WA Blast)."""
+    """Endpoint Dinamis untuk menarik data Excel terakhir (WA Blast)."""
     db = get_db_connection()
     try:
         last_file = db.execute("SELECT file_name FROM upload_history ORDER BY id DESC LIMIT 1").fetchone()
