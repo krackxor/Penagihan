@@ -92,7 +92,7 @@ def handle_smart_upload():
                     raw_pcez = str(row.get(c_pcez, '')).strip()
                     p_name = str(row.get(c_name, '')).strip()
                     if raw_pcez and p_name:
-                        # Update: Jangan menghapus '/' agar sinkron dengan kolom PCEZ di master_pelanggan
+                        # FIX: Jangan menghapus '/' atau '.' agar sinkron dengan master_pelanggan
                         clean_pcez = raw_pcez
                         db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
                         row_count += 1
