@@ -69,6 +69,7 @@ def save_rute_manual():
         return APIResponse.error("ID Rute (PCEZ) dan Nama Petugas wajib diisi")
 
     try:
+        # Gunakan TRIM pada pcez untuk memastikan integritas data
         db.execute("""
             INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -99,7 +100,7 @@ def mass_update_petugas():
 
     db = get_db_connection()
     try:
-        # Persiapan batch data untuk eksekusi berperforma tinggi
+        # Persiapan batch data untuk eksekusi berperforma tinggi dengan pembersihan spasi
         batch_data = [(p.strip(), petugas, no_admin) for p in pcez_list]
         
         db.executemany("""
