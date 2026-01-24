@@ -85,14 +85,14 @@ def handle_smart_upload():
         # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
         for index, row in df.iterrows():
             try:
-                # A. MODUL RUTE (Update Logic)
+                # A. MODUL RUTE (BAGIAN YANG DIPERBARUI)
                 if data_type == 'RUTE':
                     c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                     c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
                     raw_pcez = str(row.get(c_pcez, '')).strip()
                     p_name = str(row.get(c_name, '')).strip()
                     if raw_pcez and p_name:
-                        # FIX: Jangan menghapus '/' atau '.' agar sinkron dengan master_pelanggan
+                        # UPDATE: Tetap gunakan format asli (misal 092/01) agar sinkron dengan Master Pelanggan
                         clean_pcez = raw_pcez
                         db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
                         row_count += 1
