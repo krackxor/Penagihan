@@ -3,9 +3,9 @@ Smart Integration Engine - Sunter Dashboard Pro (V12.71 Stable)
 Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
-2. Precision Undue Sync: Mengunci format 'bulan_rek' ke MMYYYY untuk konsistensi Dashboard N-1.
-3. Multi-Period Recovery: Sinkronisasi status lunas lintas periode untuk menjamin akurasi dashboard.
+1. Fix PCEZ Format: Mendukung format asli (misal 092/01) agar sinkron dengan Master Pelanggan.
+2. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
+3. Precision Undue Sync: Mengunci format 'bulan_rek' ke MMYYYY untuk konsistensi Dashboard N-1.
 4. WA Blast Sync: Endpoint /last-session untuk penarikan data blast dari upload terbaru.
 """
 
@@ -85,14 +85,15 @@ def handle_smart_upload():
         # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
         for index, row in df.iterrows():
             try:
-                # A. MODUL RUTE
+                # A. MODUL RUTE (Update Logic)
                 if data_type == 'RUTE':
                     c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                     c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
                     raw_pcez = str(row.get(c_pcez, '')).strip()
                     p_name = str(row.get(c_name, '')).strip()
                     if raw_pcez and p_name:
-                        clean_pcez = raw_pcez.replace('/', '').replace('.', '').replace('-', '')
+                        # Update: Jangan menghapus '/' agar sinkron dengan kolom PCEZ di master_pelanggan
+                        clean_pcez = raw_pcez
                         db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
                         row_count += 1
                     continue
@@ -133,24 +134,19 @@ def handle_smart_upload():
                     dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                     cat = "UNDUE" if data_type == 'MB' else "CURRENT"
                     
-                    # LOGIKA SINKRONISASI BULAN REKENING (Precision Recovery)
                     raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
                     if not raw_brek or len(raw_brek) < 6:
-                        # Fallback: Hitung N-1 dari target_period (Dashboard Jan -> Rek Des)
                         dt_obj = datetime.strptime(target_period, '%m-%Y')
                         last_month = dt_obj.replace(day=1) - timedelta(days=1)
                         b_rek = last_month.strftime('%m%Y')
                     else:
                         b_rek = raw_brek
                     
-                    # 1. Simpan data transaksi
                     db.execute(f"""
                         INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
-                    # 2. REAL-TIME SYNC: Ubah status di master_pelanggan menjadi Lunas
-                    # Sinkronisasi lintas periode untuk menjamin data tampil di dashboard
                     db.execute("""
                         UPDATE master_pelanggan SET status_lunas = 1 
                         WHERE nomen = ? AND (periode = ? OR status_lunas = 0)
