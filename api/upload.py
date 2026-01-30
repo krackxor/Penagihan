@@ -23,6 +23,7 @@ upload_bp = Blueprint('upload', __name__)
 class UploadEngine:
     @staticmethod
     def cast_to_float(value):
+        """Konversi angka cerdas: Menangani format ribuan (.) dan desimal (,) Indonesia."""
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
             s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "")
@@ -36,6 +37,7 @@ class UploadEngine:
 
     @staticmethod
     def get_column(df, possible_names):
+        """Mencari nama kolom secara fleksibel."""
         cols = {c.upper().strip(): c for c in df.columns}
         for name in possible_names:
             if name.upper() in cols:
@@ -44,6 +46,7 @@ class UploadEngine:
 
     @staticmethod
     def clean_bulan_rek(value):
+        """Membersihkan format bulan rekening menjadi MMYYYY."""
         if not value or pd.isna(value): return ""
         clean_val = ''.join(filter(str.isdigit, str(value)))
         if len(clean_val) == 6:
@@ -67,7 +70,7 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 1. OPTIMASI PEMBACAAN FILE
+        # 1. OPTIMASI PEMBACAAN FILE (Gunakan engine 'c' untuk CSV)
         if file_name.lower().endswith('.csv'):
             df = pd.read_csv(file, dtype=str, engine='c', low_memory=False).fillna('')
         else:
@@ -97,14 +100,12 @@ def handle_smart_upload():
             target_period = f"{month_ref}-{year_ref}"
 
         # 2. POLA CERDAS: LIST PREPARATION (RAM BUFFERING)
-        # Mengumpulkan data di memori untuk sekali tembak (Bulk)
         bulk_main = []
         bulk_update = []
         bulk_rute = []
         
         records = df.to_dict('records') # Jauh lebih cepat dibanding iterrows()
         for row in records:
-            # Case Khusus Modul Rute
             if data_type == 'RUTE':
                 c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                 c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
@@ -145,7 +146,7 @@ def handle_smart_upload():
                     bulk_main.append((nomen, row.get('PERIODE_BILL', '-'), nominal, target_period))
 
         # 3. FAST EXECUTION PHASE (BULK INJECTION)
-        db.execute("PRAGMA synchronous = OFF")
+        db.execute("PRAGMA synchronous = OFF") # Mode turbo sementara
         db.execute("BEGIN TRANSACTION")
 
         if data_type == 'RUTE':
