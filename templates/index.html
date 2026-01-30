@@ -15,7 +15,10 @@
                         Monitoring Realisasi Global 🌏
                     {% endif %}
                 </h4>
-                <p class="text-muted small mb-0" id="display-date">Memuat tanggal...</p>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <p class="text-muted small mb-0" id="display-date">Memuat tanggal...</p>
+                    <span id="label-target-rek" class="badge bg-dark text-white rounded-pill" style="font-size: 0.55rem; letter-spacing: 0.5px;">TARGET: --</span>
+                </div>
                 {% if session.get('petugas_id') and session.get('petugas_id') != 'ALL' %}
                     <span class="badge bg-primary text-white rounded-pill mt-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">ZONA KERJA: {{ session['petugas_id'] }}</span>
                 {% endif %}
@@ -36,13 +39,13 @@
     <div class="row g-2 mb-3">
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">TOTAL NOMEN</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">TOTAL NOMEN (MC)</small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-primary border-4">
-                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">TARGET NOMINAL</small>
+                <small class="text-muted d-block mb-1 fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">TARGET NOMINAL (MC)</small>
                 <h6 class="fw-bold mb-0 text-primary" id="g-nom-mc">Rp 0</h6>
             </div>
         </div>
@@ -50,7 +53,7 @@
 
     <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Efektivitas Penagihan (Nomen)</small>
+            <small class="opacity-75 fw-bold text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Efektivitas Penagihan (Progres Gabungan)</small>
             <h1 class="fw-bold mb-0" id="stat-percent" style="font-size: 4rem; letter-spacing: -2px;">0%</h1>
             
             <div class="progress my-3 bg-white bg-opacity-10" style="height: 12px; border-radius: 20px;">
@@ -61,13 +64,13 @@
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">UNDUE</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">UNDUE (BANK)</small>
                         <span class="fw-bold d-block text-info" id="val-undue" style="font-size: 0.85rem;">Rp 0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block opacity-75" style="font-size: 0.55rem;">CURRENT</small>
+                        <small class="d-block opacity-75" style="font-size: 0.55rem;">CURRENT (LAPANGAN)</small>
                         <span class="fw-bold d-block text-warning" id="val-current" style="font-size: 0.85rem;">Rp 0</span>
                     </div>
                 </div>
@@ -127,7 +130,7 @@
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         
-        // Default: Set filter ke bulan dashboard aktif (N+1 dari hari ini)
+        // Auto-set filter periode sesuai periode aktif sistem (MM-YYYY)
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         
@@ -152,25 +155,28 @@
 
             const s = result.summary;
 
-            // Update UI Summary
+            // Update Label Target Rekening (N-1 Logic Visualization)
+            document.getElementById('label-target-rek').innerText = `REK TAGIHAN: ${s.target_rekening}`;
+
+            // Update UI Summary (Data MC)
             document.getElementById('g-nomen-mc').innerText = s.nomen.total.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(s.rupiah.mc);
             
-            // Progress Calculation
-            const pct = s.nomen.total > 0 ? Math.round((s.nomen.bayar / s.nomen.total) * 100) : 0;
+            // Progress Calculation (Berdasarkan Nominal Realisasi vs Target MC)
+            const pct = s.rupiah.pct || 0;
             document.getElementById('stat-percent').innerText = pct + '%';
             document.getElementById('prog-bar').style.width = pct + '%';
-            document.getElementById('stat-realisasi').innerText = `${s.nomen.bayar.toLocaleString()} Lunas dari ${s.nomen.total.toLocaleString()} Target`;
+            document.getElementById('stat-realisasi').innerText = `${s.nomen.bayar.toLocaleString()} Unit Lunas dari ${s.nomen.total.toLocaleString()} Target Nomen`;
 
-            // Bank vs Field
+            // Bank vs Field (UNDUE vs CURRENT)
             document.getElementById('val-undue').innerText = toIDR(s.rupiah.undue);
             document.getElementById('val-current').innerText = toIDR(s.rupiah.current);
 
             // Outstanding
             document.getElementById('stat-sisa-nom').innerText = toIDR(s.rupiah.sisa);
-            document.getElementById('stat-sisa-nomen').innerText = `${s.nomen.belum.toLocaleString()} Nomen`;
+            document.getElementById('stat-sisa-nomen').innerText = `${s.nomen.belum.toLocaleString()} Nomen Belum`;
 
-            // Leaderboard
+            // Leaderboard & Analytics
             renderLeaderboard(result.analytics.leaderboard);
             if (USER_ROLE === 'admin') renderChart(result.analytics.leaderboard);
 
@@ -178,7 +184,7 @@
             renderLiveLogs(result.logs);
 
         } catch (e) { 
-            console.error("Sync Failure:", e); 
+            console.error("Dashboard Sync Failure:", e); 
         } finally { 
             setTimeout(() => icon.classList.remove('fa-spin'), 800); 
         }
@@ -200,7 +206,7 @@
                             <small class="text-muted" style="font-size: 0.6rem;">${o.lunas_nomen} Lunas / ${o.target_nomen} Target</small>
                         </div>
                     </div>
-                    <span class="badge ${i === 0 ? 'bg-warning' : 'bg-light text-dark'} rounded-pill" style="font-size: 0.7rem;">${o.pct_nomen}%</span>
+                    <span class="badge ${i === 0 ? 'bg-warning text-dark' : 'bg-light text-dark'} rounded-pill" style="font-size: 0.7rem;">${o.pct_nomen}%</span>
                 </div>
             </div>`).join('');
     }
