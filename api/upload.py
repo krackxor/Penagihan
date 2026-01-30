@@ -1,12 +1,14 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.71 Stable)
+Smart Integration Engine - Sunter Dashboard Pro (V12.72 Ultimate Sync)
 Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Fix PCEZ Format: Mendukung format asli (misal 092/01) agar sinkron dengan Master Pelanggan.
-2. Real-time Lunas Sync: Otomatis mengubah status_lunas di master_pelanggan saat upload.
-3. Precision Undue Sync: Mengunci format 'bulan_rek' ke MMYYYY untuk konsistensi Dashboard N-1.
-4. WA Blast Sync: Endpoint /last-session untuk penarikan data blast dari upload terbaru.
+1. Multi-Column Sync: Menjamin tabel 'collection_harian' mengisi kolom 'periode' 
+   agar terdeteksi di Dashboard Utama.
+2. N-1 Auto Mapper: Jika 'bulan_rek' kosong, sistem otomatis memetakan ke 
+   bulan tagihan (N-1) secara presisi.
+3. Persistent Lunas: Query update lunas diperkuat untuk mencocokkan periode 
+   target secara eksplisit.
 """
 
 import pandas as pd
@@ -68,7 +70,7 @@ def handle_smart_upload():
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
-        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING', 'PERIODE'])
+        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING', 'PERIODE', 'BILL_PERIOD'])
         col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'TELEPON', 'WA'])
 
         # Penentuan Periode Target
@@ -85,16 +87,14 @@ def handle_smart_upload():
         # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
         for index, row in df.iterrows():
             try:
-                # A. MODUL RUTE (BAGIAN YANG DIPERBARUI)
+                # A. MODUL RUTE
                 if data_type == 'RUTE':
                     c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                     c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
                     raw_pcez = str(row.get(c_pcez, '')).strip()
                     p_name = str(row.get(c_name, '')).strip()
                     if raw_pcez and p_name:
-                        # UPDATE: Tetap gunakan format asli (misal 092/01) agar sinkron dengan Master Pelanggan
-                        clean_pcez = raw_pcez
-                        db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (clean_pcez, p_name))
+                        db.execute("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (raw_pcez, p_name))
                         row_count += 1
                     continue
 
@@ -123,34 +123,45 @@ def handle_smart_upload():
                     val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
                     if val_ardebt > 0:
                         db.execute("""
-                            INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) 
-                            VALUES (?, ?, ?, ?)
-                        """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt, target_period))
+                            INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah) 
+                            VALUES (?, ?, ?)
+                        """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt))
                         row_count += 1
 
                 # D. MODUL MB (Bank) & COLLECTION (Lapangan)
                 elif data_type in ['MB', 'COLLECTION']:
-                    tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
-                    dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
-                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
+                    # Update Strategis: Memisahkan kolom input agar sinkron dengan schema.sql
+                    if data_type == 'MB':
+                        tbl = "master_bayar"
+                        dt_col = "tgl_bayar"
+                        cat = "UNDUE"
+                    else:
+                        tbl = "collection_harian"
+                        dt_col = "pay_dt"
+                        cat = "CURRENT"
                     
+                    # Logika Penentuan Bulan Rekening (N-1 Logic)
                     raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
-                    if not raw_brek or len(raw_brek) < 6:
+                    if not raw_brek or len(raw_brek) < 4:
+                        # Jika kolom Bulan Rek kosong, hitung otomatis dari periode target (N-1)
                         dt_obj = datetime.strptime(target_period, '%m-%Y')
                         last_month = dt_obj.replace(day=1) - timedelta(days=1)
                         b_rek = last_month.strftime('%m%Y')
                     else:
-                        b_rek = raw_brek
+                        # Bersihkan format bulan rek (hilangkan tanda baca jika ada)
+                        b_rek = raw_brek.replace('-', '').replace('/', '')
                     
+                    # Eksekusi Insert (Menyertakan kolom 'periode' untuk collection_harian agar dashboard terbaca)
                     db.execute(f"""
                         INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
+                    # Sinkronisasi Status Lunas ke Master Pelanggan secara Real-time
                     db.execute("""
-                        UPDATE master_pelanggan SET status_lunas = 1 
-                        WHERE nomen = ? AND (periode = ? OR status_lunas = 0)
-                    """, (nomen, target_period))
+                        UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = ?
+                        WHERE nomen = ? AND periode = ?
+                    """, (str(row.get(col_pay, '')), nomen, target_period))
                     
                     row_count += 1
             
