@@ -1,12 +1,13 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.95 Multi-Audit Sync)
+API Dashboard - Sunter Dashboard Pro (V12.99 Multi-Audit Sync & Stability)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ Pusat Kendali: Menampilkan rincian Total dan Split Area (34 & 35).
-2. ✅ Audit Digital: Memecah Undue & Collection ke Kategori 34 & 35 secara akurat.
-3. ✅ Anti-Overflow: Filter ketat bulan_rek (N-1 untuk Undue, N untuk Current).
-4. ✅ Robust Column Shield: Pengecekan skema dinamis untuk tipe data MC.
+1. ✅ Stability Fix: Menjamin variabel 'undue_rek_target' selalu terdefinisi (Fix 500 error).
+2. ✅ Pusat Kendali: Menampilkan rincian Total dan Split Area (34 & 35).
+3. ✅ Audit Digital: Memecah Undue & Collection ke Kategori 34 & 35 secara akurat.
+4. ✅ Anti-Overflow: Filter ketat bulan_rek (N-1 untuk Undue, N untuk Current).
+5. ✅ Robust Column Shield: Pengecekan skema dinamis untuk tipe data MC & Collection.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -19,41 +20,44 @@ dashboard_bp = Blueprint('dashboard', __name__)
 def get_latest_active_period(db):
     """Mendeteksi periode target penagihan terbaru."""
     try:
-        res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
-        return res['periode'] if res else datetime.now().strftime('%m-%Y')
+        res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone() #
+        return res['periode'] if res else datetime.now().strftime('%m-%Y') #
     except:
-        return datetime.now().strftime('%m-%Y')
+        return datetime.now().strftime('%m-%Y') #
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
     """Statistik global hasil Audit Digital untuk Dashboard Utama."""
-    db = get_db_connection()
+    db = get_db_connection() #
     try:
         # [1] PERIODE DETECTION
-        periode = request.args.get('periode') or get_latest_active_period(db)
-        user_role = str(session.get('role', 'guest')).lower()
-        petugas_id = session.get('petugas_id')
+        periode = request.args.get('periode') or get_latest_active_period(db) #
+        user_role = str(session.get('role', 'guest')).lower() #
+        petugas_id = session.get('petugas_id') #
 
-        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment)
+        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment) - FIX NAMEERROR
         try:
             dt_obj = datetime.strptime(periode, '%m-%Y')
             # Undue Target (Tagihan bulan lalu): e.g., Jan 2026 -> 122025
-            bulan_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
+            undue_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
             # Current Target (Tagihan bulan berjalan): e.g., Jan 2026 -> 012026
             current_rek_target = dt_obj.strftime('%m%Y')
+            # Variabel untuk label frontend
+            bulan_rek_target = undue_rek_target
         except:
-            bulan_rek_target = periode.replace('-', '')
+            undue_rek_target = periode.replace('-', '')
             current_rek_target = periode.replace('-', '')
+            bulan_rek_target = undue_rek_target
 
         # [3] DYNAMIC SCHEMA CHECK
-        cursor = db.execute("PRAGMA table_info(master_pelanggan)")
-        cols = [row['name'] for row in cursor.fetchall()]
-        tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else ""
+        cursor = db.execute("PRAGMA table_info(master_pelanggan)") #
+        cols = [row['name'] for row in cursor.fetchall()] #
+        tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else "" #
         
         # Pengecekan kolom collection
-        cursor_ch = db.execute("PRAGMA table_info(collection_harian)")
-        ch_cols = [row['name'] for row in cursor_ch.fetchall()]
-        ch_filter_col = "bulan_rek" if "bulan_rek" in ch_cols else "bill_period"
+        cursor_ch = db.execute("PRAGMA table_info(collection_harian)") #
+        ch_cols = [row['name'] for row in cursor_ch.fetchall()] #
+        ch_filter_col = "bulan_rek" if "bulan_rek" in ch_cols else "bill_period" #
 
         # [4] SUMMARY MC & STATUS LUNAS (TOTAL)
         query_summary = f"""
@@ -64,13 +68,13 @@ def get_pusat_kendali():
                 COALESCE(SUM(CASE WHEN status_lunas = 0 THEN 1 ELSE 0 END), 0) as sisa_nomen
             FROM master_pelanggan 
             WHERE periode = ? {tipe_filter}
-        """
-        params_summary = [periode]
+        """ #
+        params_summary = [periode] #
         if user_role == 'petugas' and petugas_id:
-            query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
-            params_summary.append(petugas_id)
+            query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)" #
+            params_summary.append(petugas_id) #
 
-        res_summary = db.execute(query_summary, params_summary).fetchone()
+        res_summary = db.execute(query_summary, params_summary).fetchone() #
 
         # ✅ [5] SPLIT AUDIT QUERY (34 & 35) - Mencegah Progress > 100%
         query_audit = f"""
@@ -101,13 +105,13 @@ def get_pusat_kendali():
                  
                 -- GLOBAL PIUTANG LAMA
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
-        """
+        """ #
         
         audit = db.execute(query_audit, (
-            periode, periode, periode, bulan_rek_target, periode, periode, current_rek_target, # Area 34
+            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 34
             periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 35
             periode # Ardebt
-        )).fetchone()
+        )).fetchone() #
 
         # [6] LEADERBOARD (Fungsi Asli)
         query_leaderboard = f"""
@@ -121,14 +125,14 @@ def get_pusat_kendali():
             WHERE p.periode = ? {tipe_filter}
             GROUP BY r.petugas 
             ORDER BY pct_nomen DESC, lunas_nomen DESC LIMIT 5
-        """
-        res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
+        """ #
+        res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall() #
 
         # [7] FINAL MAPPING & CALCULATION
-        total_mc = res_summary['total_nominal'] or 0
-        undue_total = audit['undue_34'] + audit['undue_35']
-        current_total = audit['current_34'] + audit['current_35']
-        realisasi_gabungan = undue_total + current_total
+        total_mc = res_summary['total_nominal'] or 0 #
+        undue_total = audit['undue_34'] + audit['undue_35'] #
+        current_total = audit['current_34'] + audit['current_35'] #
+        realisasi_gabungan = undue_total + current_total #
 
         return jsonify({
             "status": "success",
@@ -174,21 +178,21 @@ def get_pusat_kendali():
                 FROM kunjungan_petugas WHERE periode = ? 
                 ORDER BY created_at DESC LIMIT 10
             """, (periode,)).fetchall()]
-        })
+        }) #
 
     except Exception as e:
-        current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        current_app.logger.error(f"Dashboard Sync Error: {str(e)}") #
+        return jsonify({"status": "error", "message": str(e)}), 500 #
     finally:
-        db.close()
+        db.close() #
 
 @dashboard_bp.route('/admin/system-logs', methods=['GET'])
 def get_system_logs():
-    db = get_db_connection()
+    db = get_db_connection() #
     try:
-        logs = db.execute("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50").fetchall()
-        return jsonify({"status": "success", "data": [dict(row) for row in logs]})
+        logs = db.execute("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50").fetchall() #
+        return jsonify({"status": "success", "data": [dict(row) for row in logs]}) #
     except:
-        return jsonify({"status": "error", "message": "Logs table not ready"}), 200
+        return jsonify({"status": "error", "message": "Logs table not ready"}), 200 #
     finally:
-        db.close()
+        db.close() #
