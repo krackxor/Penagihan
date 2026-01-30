@@ -1,7 +1,7 @@
 -- =========================================================================
--- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.1 ULTRA SYNC)
+-- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.2 ULTRA SYNC)
 -- Updated: 2026-01-22
--- Fokus: Perbaikan Sinkronisasi Realisasi, WA Blast, & Integritas Periode
+-- Fokus: Perbaikan Validasi UNDUE/CURRENT, WA Blast, & Integrity Protection
 -- =========================================================================
 
 -- 1. SISTEM AKSES & KEAMANAN
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     kubik REAL DEFAULT 0,               
     nominal REAL DEFAULT 0,             
     cust_type TEXT,
-    tipe TEXT DEFAULT 'MC',
+    tipe TEXT DEFAULT 'MC',             -- Pembeda data target (MC)
     periode TEXT,                       -- Format MM-YYYY
     no_hp TEXT,                         -- Tambahan untuk WA Blast Sync
     is_prioritas INTEGER DEFAULT 0,     
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
 CREATE TABLE IF NOT EXISTS rute_petugas (
     pcez TEXT PRIMARY KEY,              
     petugas TEXT NOT NULL,              
-    no_admin TEXT,                      
+    no_admin TEXT,                      -- Nomor WhatsApp Supervisor
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -56,27 +56,27 @@ CREATE TABLE IF NOT EXISTS rute_petugas (
 CREATE TABLE IF NOT EXISTS master_bayar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    bulan_rek TEXT,                     -- Format MMYYYY (Fix Undue Sync)
+    bulan_rek TEXT,                     -- Format MMYYYY (Penting untuk filter UNDUE)
     notagihan TEXT,
     tgl_bayar TEXT,
     nominal REAL DEFAULT 0,
-    periode TEXT,                       -- MM-YYYY (Match dengan periode aktif MC)
+    periode TEXT,                       -- MM-YYYY (Label periode saat upload)
     kategori TEXT DEFAULT 'UNDUE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(nomen, periode, bulan_rek)   -- Update: Mencegah duplikasi pembayaran rek sama         
+    UNIQUE(nomen, periode, bulan_rek)   -- Mencegah duplikasi jika bayar beberapa rek sekaligus         
 );
 
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
     notag TEXT,
-    bill_period TEXT,
+    bill_period TEXT,                   -- Periode tagihan (Des/2025)
     bill_reason TEXT,
     nominal REAL DEFAULT 0,
     pay_dt TEXT,
     freeze_dttm TEXT,
     vol_collect REAL DEFAULT 0,
-    periode TEXT,                       -- MM-YYYY (Kolom wajib untuk Dashboard CURRENT)
+    periode TEXT,                       -- MM-YYYY (Kunci Dashboard CURRENT)
     kategori TEXT DEFAULT 'CURRENT',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, periode, notag)
@@ -114,6 +114,16 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    action TEXT,
+    module TEXT,
+    details TEXT,
+    ip_address TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS upload_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_name TEXT,
@@ -136,7 +146,7 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- B. Sinkronisasi Lunas Otomatis
+-- B. Sinkronisasi Lunas Otomatis (Fix: Nomen + Periode Alignment)
 CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
 AFTER INSERT ON master_bayar
 FOR EACH ROW
@@ -155,7 +165,7 @@ BEGIN
     WHERE nomen = NEW.nomen AND periode = NEW.periode;
 END;
 
--- C. Reversal Status (Saat Delete/Re-upload)
+-- C. Reversal Status (Saat Delete/Re-upload History)
 CREATE TRIGGER IF NOT EXISTS trg_reversal_lunas_mb
 AFTER DELETE ON master_bayar
 FOR EACH ROW
@@ -167,8 +177,8 @@ END;
 
 -- 6. INDEX OPTIMIZATION (ULTRA-FAST JOIN)
 CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan(nomen, periode);
-CREATE INDEX IF NOT EXISTS idx_mc_pcez_sync ON master_pelanggan(pcez, periode);
+CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan(pcez);
 CREATE INDEX IF NOT EXISTS idx_mb_sync ON master_bayar(nomen, periode, kategori);
 CREATE INDEX IF NOT EXISTS idx_mb_brek ON master_bayar(bulan_rek);
 CREATE INDEX IF NOT EXISTS idx_coll_sync ON collection_harian(nomen, periode, kategori);
-CREATE INDEX IF NOT EXISTS idx_kunjungan_per ON kunjungan_petugas(periode);
+CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas(nomen, periode);
