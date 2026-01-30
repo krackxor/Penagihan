@@ -1,14 +1,14 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.76 Ultimate Sync)
+API Dashboard - Sunter Dashboard Pro (V12.77 Ultimate Sync)
 Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Dynamic Realisasi Sync: Memperbaiki filter query CURRENT agar merujuk ke kolom 
+1. Target Lock Mechanism: Mengunci perhitungan TOTAL NOMEN dan TARGET NOMINAL 
+   hanya pada data dengan tipe='MC' agar tidak bertambah saat upload MB.
+2. Dynamic Realisasi Sync: Memperbaiki filter query CURRENT agar merujuk ke kolom 
    'periode' yang telah ditambahkan di tabel collection_harian.
-2. N-1 Baseline Alignment: Menyelaraskan format 'bulan_rek_target' (mmYYYY) agar 
+3. N-1 Baseline Alignment: Menyelaraskan format 'bulan_rek_target' (mmYYYY) agar 
    cocok dengan hasil sanitasi mesin upload.
-3. Cross-Period Validation: Menjamin realisasi tetap terdeteksi meskipun periode 
-   transaksi dan periode master memiliki dependensi N+1.
 4. Strict Nomen Matching: Memastikan nominal hanya dihitung jika NOMEN terdaftar 
    di Master Pelanggan periode aktif (Anti-Over Progress).
 """
@@ -44,7 +44,7 @@ def get_pusat_kendali():
         last_month = dt_obj.replace(day=1) - timedelta(days=1)
         bulan_rek_target = last_month.strftime('%m%Y')
 
-        # [3] SUMMARY MC & STATUS LUNAS
+        # [3] SUMMARY MC & STATUS LUNAS (FIX: Mengunci Target agar tidak bertambah saat upload MB)
         query_summary = """
             SELECT 
                 COUNT(*) as total_nomen,
@@ -52,7 +52,7 @@ def get_pusat_kendali():
                 COALESCE(SUM(CASE WHEN status_lunas = 1 THEN 1 ELSE 0 END), 0) as lunas_nomen,
                 COALESCE(SUM(CASE WHEN status_lunas = 0 THEN 1 ELSE 0 END), 0) as sisa_nomen
             FROM master_pelanggan 
-            WHERE periode = ?
+            WHERE periode = ? AND tipe = 'MC'
         """
         params_summary = [periode]
         if user_role == 'petugas' and petugas_id:
@@ -67,11 +67,11 @@ def get_pusat_kendali():
             SELECT 
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
                  WHERE (mb.bulan_rek = ? OR mb.periode = ?) AND mb.kategori = 'UNDUE'
-                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)) as undue_nom,
+                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? AND tipe = 'MC')) as undue_nom,
                  
                 (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
                  WHERE ch.periode = ? AND ch.kategori = 'CURRENT'
-                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)) as current_nom,
+                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? AND tipe = 'MC')) as current_nom,
                  
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama
         """
@@ -92,7 +92,7 @@ def get_pusat_kendali():
                 ROUND((CAST(SUM(p.status_lunas) AS FLOAT) / MAX(1, COUNT(p.id))) * 100, 1) as pct_nomen
             FROM rute_petugas r
             JOIN master_pelanggan p ON r.pcez = p.pcez
-            WHERE p.periode = ?
+            WHERE p.periode = ? AND p.tipe = 'MC'
             GROUP BY r.petugas 
             ORDER BY pct_nomen DESC, lunas_nomen DESC LIMIT 5
         """
