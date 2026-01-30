@@ -1,6 +1,6 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.98 Ultra-Bulk Sync)
-Update: 2026-01-31
+Smart Integration Engine - Sunter Dashboard Pro (V12.99 Period Logic Fix)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Teknologi Unggulan:
 1. executemany() Bulk Injection: Mengirim puluhan ribu baris data dalam satu 
@@ -11,6 +11,7 @@ Teknologi Unggulan:
    timeout koneksi browser (Gagal terhubung ke server).
 4. Strict Integrity: Memisahkan perintah INSERT (untuk MC) dan UPDATE (untuk MB)
    agar angka target dashboard tetap akurat (Target Lock).
+5. ✅ FIX: Periode Logic - MC/MB/Ardebt bulan 11 → periode 12, Collection bulan 12 → periode 12
 """
 
 import pandas as pd
@@ -132,10 +133,18 @@ def handle_smart_upload():
                     ))
             
             elif data_type in ['MB', 'COLLECTION']:
+                # ✅ FIX PERIODE LOGIC:
+                # MB/Collection sudah di-shift ke periode yang benar oleh detect_file_period()
+                # Jadi target_period sudah benar (misal: 12-2025 untuk file bulan 11)
+                # Kita hanya perlu memastikan bulan_rek juga konsisten
+                
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
+                
+                # ✅ PERBAIKAN: Jika bulan_rek kosong, gunakan target_period (BUKAN mundur 1 bulan)
                 if not b_rek:
+                    # Karena target_period sudah di-shift (11 → 12), langsung pakai
                     dt_obj = datetime.strptime(target_period, '%m-%Y')
-                    b_rek = (dt_obj.replace(day=1) - timedelta(days=1)).strftime('%m%Y')
+                    b_rek = dt_obj.strftime('%m%Y')  # ✅ Hapus logika mundur 1 bulan
                 
                 cat = "UNDUE" if data_type == 'MB' else "CURRENT"
                 tgl_transaksi = str(row.get(col_pay, ''))
@@ -144,6 +153,8 @@ def handle_smart_upload():
                 bulk_update.append((tgl_transaksi, nomen, target_period))
 
             elif data_type == 'ARDEBT':
+                # ✅ Ardebt juga sudah di-shift oleh detect_file_period()
+                # Jadi langsung pakai target_period yang sudah benar
                 if nominal > 0:
                     bulk_main.append((nomen, row.get('PERIODE_BILL', '-'), nominal, target_period))
 
