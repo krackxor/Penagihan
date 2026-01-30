@@ -1,9 +1,9 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.99 Multi-Audit Sync & Stability)
+API Dashboard - Sunter Dashboard Pro (V12.99.1 Stability & Area Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ Stability Fix: Menjamin variabel 'undue_rek_target' selalu terdefinisi (Fix 500 error).
+1. ✅ FIX RpNaN: Menjamin 'undue_rek_target' & 'current_rek_target' selalu terdefinisi.
 2. ✅ Pusat Kendali: Menampilkan rincian Total dan Split Area (34 & 35).
 3. ✅ Audit Digital: Memecah Undue & Collection ke Kategori 34 & 35 secara akurat.
 4. ✅ Anti-Overflow: Filter ketat bulan_rek (N-1 untuk Undue, N untuk Current).
@@ -20,44 +20,44 @@ dashboard_bp = Blueprint('dashboard', __name__)
 def get_latest_active_period(db):
     """Mendeteksi periode target penagihan terbaru."""
     try:
-        res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone() #
-        return res['periode'] if res else datetime.now().strftime('%m-%Y') #
+        res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
+        return res['periode'] if res else datetime.now().strftime('%m-%Y')
     except:
-        return datetime.now().strftime('%m-%Y') #
+        return datetime.now().strftime('%m-%Y')
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
     """Statistik global hasil Audit Digital untuk Dashboard Utama."""
-    db = get_db_connection() #
+    db = get_db_connection()
     try:
         # [1] PERIODE DETECTION
-        periode = request.args.get('periode') or get_latest_active_period(db) #
-        user_role = str(session.get('role', 'guest')).lower() #
-        petugas_id = session.get('petugas_id') #
+        periode = request.args.get('periode') or get_latest_active_period(db)
+        user_role = str(session.get('role', 'guest')).lower()
+        petugas_id = session.get('petugas_id')
 
-        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment) - FIX NAMEERROR
+        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment) - SOLUSI RpNaN
         try:
             dt_obj = datetime.strptime(periode, '%m-%Y')
             # Undue Target (Tagihan bulan lalu): e.g., Jan 2026 -> 122025
             undue_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
             # Current Target (Tagihan bulan berjalan): e.g., Jan 2026 -> 012026
             current_rek_target = dt_obj.strftime('%m%Y')
-            # Variabel untuk label frontend
-            bulan_rek_target = undue_rek_target
+            bulan_rek_target = undue_rek_target # Untuk label frontend
         except:
+            # Fallback jika parsing gagal agar variabel tetap ada (Mencegah NameError)
             undue_rek_target = periode.replace('-', '')
             current_rek_target = periode.replace('-', '')
             bulan_rek_target = undue_rek_target
 
         # [3] DYNAMIC SCHEMA CHECK
-        cursor = db.execute("PRAGMA table_info(master_pelanggan)") #
-        cols = [row['name'] for row in cursor.fetchall()] #
-        tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else "" #
+        cursor = db.execute("PRAGMA table_info(master_pelanggan)")
+        cols = [row['name'] for row in cursor.fetchall()]
+        tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else ""
         
-        # Pengecekan kolom collection
-        cursor_ch = db.execute("PRAGMA table_info(collection_harian)") #
-        ch_cols = [row['name'] for row in cursor_ch.fetchall()] #
-        ch_filter_col = "bulan_rek" if "bulan_rek" in ch_cols else "bill_period" #
+        # Pengecekan kolom collection secara dinamis
+        cursor_ch = db.execute("PRAGMA table_info(collection_harian)")
+        ch_cols = [row['name'] for row in cursor_ch.fetchall()]
+        ch_filter_col = "bulan_rek" if "bulan_rek" in ch_cols else "bill_period"
 
         # [4] SUMMARY MC & STATUS LUNAS (TOTAL)
         query_summary = f"""
@@ -68,15 +68,16 @@ def get_pusat_kendali():
                 COALESCE(SUM(CASE WHEN status_lunas = 0 THEN 1 ELSE 0 END), 0) as sisa_nomen
             FROM master_pelanggan 
             WHERE periode = ? {tipe_filter}
-        """ #
-        params_summary = [periode] #
+        """
+        params_summary = [periode]
         if user_role == 'petugas' and petugas_id:
-            query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)" #
-            params_summary.append(petugas_id) #
+            query_summary += " AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
+            params_summary.append(petugas_id)
 
-        res_summary = db.execute(query_summary, params_summary).fetchone() #
+        res_summary = db.execute(query_summary, params_summary).fetchone()
 
         # ✅ [5] SPLIT AUDIT QUERY (34 & 35) - Mencegah Progress > 100%
+        # Menggunakan join untuk memastikan filter area (pcez) akurat
         query_audit = f"""
             SELECT 
                 -- AREA 34
@@ -105,15 +106,15 @@ def get_pusat_kendali():
                  
                 -- GLOBAL PIUTANG LAMA
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
-        """ #
+        """
         
         audit = db.execute(query_audit, (
-            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 34
-            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 35
-            periode # Ardebt
-        )).fetchone() #
+            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Parameter Area 34
+            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Parameter Area 35
+            periode # Parameter Ardebt
+        )).fetchone()
 
-        # [6] LEADERBOARD (Fungsi Asli)
+        # [6] LEADERBOARD
         query_leaderboard = f"""
             SELECT 
                 r.petugas,
@@ -125,14 +126,14 @@ def get_pusat_kendali():
             WHERE p.periode = ? {tipe_filter}
             GROUP BY r.petugas 
             ORDER BY pct_nomen DESC, lunas_nomen DESC LIMIT 5
-        """ #
-        res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall() #
+        """
+        res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
         # [7] FINAL MAPPING & CALCULATION
-        total_mc = res_summary['total_nominal'] or 0 #
-        undue_total = audit['undue_34'] + audit['undue_35'] #
-        current_total = audit['current_34'] + audit['current_35'] #
-        realisasi_gabungan = undue_total + current_total #
+        total_mc = res_summary['total_nominal'] or 0
+        undue_total = (audit['undue_34'] or 0) + (audit['undue_35'] or 0)
+        current_total = (audit['current_34'] or 0) + (audit['current_35'] or 0)
+        realisasi_gabungan = undue_total + current_total
 
         return jsonify({
             "status": "success",
@@ -158,15 +159,15 @@ def get_pusat_kendali():
                     "target": audit['target_34'],
                     "undue": audit['undue_34'],
                     "current": audit['current_34'],
-                    "total": audit['undue_34'] + audit['current_34'],
-                    "percent": round(((audit['undue_34'] + audit['current_34']) / max(1, audit['target_34']) * 100), 2)
+                    "total": (audit['undue_34'] or 0) + (audit['current_34'] or 0),
+                    "percent": round((((audit['undue_34'] or 0) + (audit['current_34'] or 0)) / max(1, audit['target_34'] or 1) * 100), 2)
                 },
                 "area_35": {
                     "target": audit['target_35'],
                     "undue": audit['undue_35'],
                     "current": audit['current_35'],
-                    "total": audit['undue_35'] + audit['current_35'],
-                    "percent": round(((audit['undue_35'] + audit['current_35']) / max(1, audit['target_35']) * 100), 2)
+                    "total": (audit['undue_35'] or 0) + (audit['current_35'] or 0),
+                    "percent": round((((audit['undue_35'] or 0) + (audit['current_35'] or 0)) / max(1, audit['target_35'] or 1) * 100), 2)
                 }
             },
             "analytics": {
@@ -178,21 +179,21 @@ def get_pusat_kendali():
                 FROM kunjungan_petugas WHERE periode = ? 
                 ORDER BY created_at DESC LIMIT 10
             """, (periode,)).fetchall()]
-        }) #
+        })
 
     except Exception as e:
-        current_app.logger.error(f"Dashboard Sync Error: {str(e)}") #
-        return jsonify({"status": "error", "message": str(e)}), 500 #
+        current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close() #
+        db.close()
 
 @dashboard_bp.route('/admin/system-logs', methods=['GET'])
 def get_system_logs():
-    db = get_db_connection() #
+    db = get_db_connection()
     try:
-        logs = db.execute("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50").fetchall() #
-        return jsonify({"status": "success", "data": [dict(row) for row in logs]}) #
+        logs = db.execute("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50").fetchall()
+        return jsonify({"status": "success", "data": [dict(row) for row in logs]})
     except:
-        return jsonify({"status": "error", "message": "Logs table not ready"}), 200 #
+        return jsonify({"status": "error", "message": "Logs table not ready"}), 200
     finally:
-        db.close() #
+        db.close()
