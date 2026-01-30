@@ -1,14 +1,14 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.76 Ultimate Sync)
-Update: 2026-01-22
+Smart Integration Engine - Sunter Dashboard Pro (V12.80 Ultimate Sync)
+Update: 2026-01-30
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Target Lock Mechanism: Mencegah file MB/Collection menambah row di master_pelanggan.
-   Total Nomen & Target Nominal kini terkunci hanya dari file MC.
-2. Auto Bulan Rek Sanitizer: Membersihkan format (misal: 12/2025, 12-2025, 92025) 
-   secara otomatis menjadi format standar MMYYYY.
-3. Persistent Lunas: Query update lunas diperkuat untuk mencocokkan periode 
-   target secara eksplisit tanpa merusak struktur data target.
+1. Force Identification: Mendeteksi kolom 'BULAN_REK' atau 'TGL_BAYAR' untuk 
+   memaksa tipe data menjadi MB/UNDUE (Mencegah target MC bertambah liar).
+2. Target Lock Mechanism: Menggunakan query UPDATE untuk status lunas agar 
+   Total Nomen & Target Nominal terkunci hanya dari file MC awal.
+3. Auto Bulan Rek Sanitizer: Membersihkan format (misal: 12/2025 -> 122025) 
+   secara otomatis agar sinkron dengan dashboard.
 """
 
 import pandas as pd
@@ -47,20 +47,15 @@ class UploadEngine:
     def clean_bulan_rek(value):
         """OTOMATIS: Membersihkan format bulan rekening (misal: 12/2025 -> 122025)."""
         if not value or pd.isna(value): return ""
-        # Ambil hanya angka saja
         clean_val = ''.join(filter(str.isdigit, str(value)))
-        
-        # Standarisasi ke 6 digit (MMYYYY)
         if len(clean_val) == 6:
             return clean_val
         elif len(clean_val) == 5:
-            # Jika 92025 (September), jadikan 092025
             return "0" + clean_val
         return clean_val
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_smart_upload():
-    # 1. AUTHENTICATION CHECK
     if session.get('role') != 'admin':
         return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
 
@@ -74,7 +69,6 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 2. FILE PROCESSING (PANDAS ENGINE)
         df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         data_type = identify_file_type(df)
         
@@ -88,6 +82,11 @@ def handle_smart_upload():
         col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING', 'PERIODE', 'BILL_PERIOD'])
         col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'TELEPON', 'WA'])
 
+        # --- LOGIKA PROTEKSI: FORCE IDENTIFICATION ---
+        # Jika file dideteksi MC tapi memiliki kolom Bulan Rek atau Tgl Bayar, paksa jadi MB
+        if data_type == 'MC' and (col_brek or col_pay):
+            data_type = 'MB'
+
         # Penentuan Periode Target
         if data_type in ['ARDEBT', 'RUTE']:
             target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
@@ -99,10 +98,8 @@ def handle_smart_upload():
         row_count = 0
         error_rows = 0
 
-        # 3. PROCESSING LOOP
         for index, row in df.iterrows():
             try:
-                # A. MODUL RUTE
                 if data_type == 'RUTE':
                     c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                     c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
@@ -113,7 +110,6 @@ def handle_smart_upload():
                         row_count += 1
                     continue
 
-                # Sanitasi Nomenklatur
                 n_raw = row.get(col_id) if col_id else None
                 nomen = clean_nomen(n_raw)
                 if not nomen: continue
@@ -143,31 +139,29 @@ def handle_smart_upload():
                         """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt))
                         row_count += 1
 
-                # D. MODUL MB (Bank) & COLLECTION (Lapangan) - REALISASI (JANGAN TAMBAH ROW MC)
+                # D. MODUL MB & COLLECTION - REALISASI (TIDAK BOLEH MENAMBAH ROW MC)
                 elif data_type in ['MB', 'COLLECTION']:
                     if data_type == 'MB':
                         tbl, dt_col, cat = "master_bayar", "tgl_bayar", "UNDUE"
                     else:
                         tbl, dt_col, cat = "collection_harian", "pay_dt", "CURRENT"
                     
-                    # LOGIKA PEMBERSIHAN OTOMATIS: User tidak perlu edit Excel
                     raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
                     b_rek = UploadEngine.clean_bulan_rek(raw_brek)
                     
-                    # Fallback jika kolom kosong (Logika N-1)
                     if not b_rek:
                         dt_obj = datetime.strptime(target_period, '%m-%Y')
                         last_month = dt_obj.replace(day=1) - timedelta(days=1)
                         b_rek = last_month.strftime('%m%Y')
                     
-                    # 1. Simpan ke Tabel Realisasi
+                    # 1. Simpan ke Tabel Transaksi
                     db.execute(f"""
                         INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
-                    # 2. UPDATE STATUS LUNAS PADA MC (Hanya update data yang SUDAH ADA)
-                    # Ini mencegah MB terhitung sebagai "Total Nomen Baru" di dashboard
+                    # 2. HANYA Update status lunas pada target MC yang sudah ada
+                    # Ini mencegah MB terhitung sebagai "Nomen Baru" di dashboard
                     db.execute("""
                         UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = ?
                         WHERE nomen = ? AND periode = ? AND tipe = 'MC'
@@ -179,19 +173,16 @@ def handle_smart_upload():
                 error_rows += 1
                 print(f"⚠️ Baris {index} Sync Error: {str(row_err)}")
 
-        # 4. FINALISASI & LOGGING
         log_action(
             user_id=session.get('username', 'Admin'),
             action='UPLOAD_SUCCESS',
             module=data_type,
-            details=f"File: {file_name} | Sukses: {row_count} | Gagal: {error_rows} | Periode: {target_period}",
+            details=f"File: {file_name} | Sukses: {row_count} | Periode: {target_period}",
             ip=request.remote_addr
         )
         
-        db.execute("""
-            INSERT INTO upload_history (file_name, file_type, periode, row_count, status) 
-            VALUES (?, ?, ?, ?, ?)
-        """, (file_name, data_type, target_period, row_count, 'SUCCESS'))
+        db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)",
+                   (file_name, data_type, target_period, row_count, 'SUCCESS'))
         
         db.commit()
         return jsonify({"status": "success", "message": f"Integrasi {data_type} selesai. {row_count} baris diproses."})
@@ -204,7 +195,6 @@ def handle_smart_upload():
 
 @upload_bp.route('/last-session', methods=['GET'])
 def get_last_upload_data():
-    """Endpoint Dinamis untuk menarik data Excel terakhir (WA Blast)."""
     db = get_db_connection()
     try:
         last_file = db.execute("SELECT file_name FROM upload_history ORDER BY id DESC LIMIT 1").fetchone()
