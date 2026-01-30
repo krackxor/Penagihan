@@ -1,14 +1,14 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.75 Ultimate Sync)
+Smart Integration Engine - Sunter Dashboard Pro (V12.76 Ultimate Sync)
 Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Auto Bulan Rek Sanitizer: Membersihkan format (misal: 12/2025, 12-2025, 92025) 
+1. Target Lock Mechanism: Mencegah file MB/Collection menambah row di master_pelanggan.
+   Total Nomen & Target Nominal kini terkunci hanya dari file MC.
+2. Auto Bulan Rek Sanitizer: Membersihkan format (misal: 12/2025, 12-2025, 92025) 
    secara otomatis menjadi format standar MMYYYY.
-2. Multi-Column Sync: Menjamin tabel 'collection_harian' mengisi kolom 'periode' 
-   agar terdeteksi di Dashboard Utama.
 3. Persistent Lunas: Query update lunas diperkuat untuk mencocokkan periode 
-   target secara eksplisit.
+   target secara eksplisit tanpa merusak struktur data target.
 """
 
 import pandas as pd
@@ -118,7 +118,7 @@ def handle_smart_upload():
                 nomen = clean_nomen(n_raw)
                 if not nomen: continue
 
-                # B. MODUL MASTER PELANGGAN (MC)
+                # B. MODUL MASTER PELANGGAN (MC) - HANYA INI YANG BOLEH MENAMBAH TARGET
                 if data_type == 'MC':
                     c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
                     z = autopilot_extract_zona(row.get(c_zona))
@@ -127,8 +127,8 @@ def handle_smart_upload():
                     if z:
                         db.execute("""
                             INSERT OR REPLACE INTO master_pelanggan 
-                            (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas, no_hp)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                            (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, status_lunas, no_hp, tipe)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'MC')
                         """, (nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), z['pcez'], z['rayon'], 
                               UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period, val_hp))
                         row_count += 1
@@ -143,7 +143,7 @@ def handle_smart_upload():
                         """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt))
                         row_count += 1
 
-                # D. MODUL MB (Bank) & COLLECTION (Lapangan)
+                # D. MODUL MB (Bank) & COLLECTION (Lapangan) - REALISASI (JANGAN TAMBAH ROW MC)
                 elif data_type in ['MB', 'COLLECTION']:
                     if data_type == 'MB':
                         tbl, dt_col, cat = "master_bayar", "tgl_bayar", "UNDUE"
@@ -160,15 +160,17 @@ def handle_smart_upload():
                         last_month = dt_obj.replace(day=1) - timedelta(days=1)
                         b_rek = last_month.strftime('%m%Y')
                     
+                    # 1. Simpan ke Tabel Realisasi
                     db.execute(f"""
                         INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
-                    # Sinkronisasi status lunas ke Master Pelanggan
+                    # 2. UPDATE STATUS LUNAS PADA MC (Hanya update data yang SUDAH ADA)
+                    # Ini mencegah MB terhitung sebagai "Total Nomen Baru" di dashboard
                     db.execute("""
                         UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = ?
-                        WHERE nomen = ? AND periode = ?
+                        WHERE nomen = ? AND periode = ? AND tipe = 'MC'
                     """, (str(row.get(col_pay, '')), nomen, target_period))
                     
                     row_count += 1
@@ -211,7 +213,7 @@ def get_last_upload_data():
         data = db.execute("""
             SELECT nomen, nama, nominal, no_hp, pcez 
             FROM master_pelanggan 
-            WHERE status_lunas = 0
+            WHERE status_lunas = 0 AND tipe = 'MC'
             ORDER BY id DESC LIMIT 1000
         """).fetchall()
         return jsonify([dict(row) for row in data])
