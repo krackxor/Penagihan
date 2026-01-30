@@ -1,14 +1,15 @@
 """
-Collection API - Sunter Dashboard Pro (V12.97 Strict & Split Area)
+Collection API - Sunter Dashboard Pro (V12.98 Stability & Area Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX NameError: Memastikan variabel 'undue_rek_target' didefinisikan dengan benar.
-2. ✅ Split Area Logic: Membagi realisasi harian ke kategori 34 dan 35.
+1. ✅ FIX NameError: Menjamin variabel 'undue_rek_target' & 'current_rek_target' 
+   selalu terdefinisi untuk mencegah Error 500.
+2. ✅ Split Area Logic: Memisahkan realisasi harian ke kategori 34 dan 35 secara akurat.
 3. ✅ Strict Period Alignment: 
    - UNDUE (Bank) memfilter Rekening N-1 (e.g., Tagihan Des dibayar Jan).
    - CURRENT (Koleksi) memfilter Rekening Berjalan (e.g., Tagihan Jan dibayar Jan).
-4. ✅ Anti-Overflow Shield: Filter ketat bulan_rek menjamin progress tidak > 100%.
+4. ✅ Anti-Overflow Shield: Filter ketat bulan_rek menjamin progres tidak > 100%.
 5. ✅ Zero-Record Shield: Proteksi terhadap baris tanggal kosong pada query harian.
 """
 
@@ -33,7 +34,7 @@ def pusat_kendali():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        # ✅ LOGIKA PERIODE KETAT (Mencegah NameError)
+        # ✅ LOGIKA PERIODE KETAT (Pencegahan NameError & Perbaikan RpNaN)
         try:
             dt_obj = datetime.strptime(periode_req, '%m-%Y')
             undue_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
@@ -91,7 +92,7 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian per Rayon (34 & 35) dengan Filter Periode Ketat."""
+    """Tren Kumulatif Harian per Area (34 & 35) dengan Filter Periode Ketat."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -106,7 +107,7 @@ def daily_monitor():
             undue_rek_target = periode_req.replace('-', '')
             current_rek_target = periode_req.replace('-', '')
 
-        # 1. Target Rayon
+        # 1. Target Area (Berdasarkan PCEZ 34/35)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN pcez LIKE '34%' THEN nominal ELSE 0 END), 0) as target_34,
@@ -153,6 +154,7 @@ def daily_monitor():
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
             
+            # Akumulasi Harian = Current Kumulatif + Saldo Awal Undue Area
             total_area_34 = cum_34 + undue_34
             total_area_35 = cum_35 + undue_35
             cum_all = total_area_34 + total_area_35
@@ -187,7 +189,7 @@ def detail_transaksi():
     try:
         cursor = conn.cursor()
         tgl = request.args.get('tgl')
-        area = request.args.get('area') 
+        area = request.args.get('area') # '34' atau '35'
         periode = request.args.get('periode')
 
         query = """
