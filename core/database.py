@@ -1,14 +1,15 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.80 Ultimate Sync)
-Update: 2026-01-22
+Core Database Module - Sunter Dashboard Pro (V12.82 Ultimate Sync)
+Update: 2026-01-30
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Real-time Lunas Support: Migrasi otomatis kolom 'tgl_lunas' pada master_pelanggan.
-2. Full Schema Alignment: Menjamin tabel 'collection_harian' memiliki kolom 'periode' 
+1. Target Lock Mechanism: Migrasi otomatis kolom 'tipe' pada master_pelanggan 
+   untuk membedakan data Target (MC) dan data bayar.
+2. Real-time Lunas Support: Migrasi otomatis kolom 'tgl_lunas' pada master_pelanggan.
+3. Full Schema Alignment: Menjamin tabel 'collection_harian' memiliki kolom 'periode' 
    untuk sinkronisasi Dashboard Utama.
-3. Multi-Indexed Search: Menambahkan index pada pcez dan kategori untuk akselerasi 
+4. Multi-Indexed Search: Menambahkan index pada pcez dan kategori untuk akselerasi 
    Leaderboard dan Pusat Kendali.
-4. Robust Multi-User: Tetap mempertahankan WAL Mode & Busy Timeout 60s.
 """
 
 import sqlite3
@@ -56,7 +57,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.80: Skema Realisasi & Tgl Lunas Telah Sinkron.")
+            print("✅ Database V12.82: Kolom [tipe] & [tgl_lunas] Telah Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -90,13 +91,13 @@ def check_and_create_tables(cursor):
         )
     """)
     
-    # 3. Master Pelanggan (Data Target)
+    # 3. Master Pelanggan (Data Target) - Ditambahkan tipe='MC'
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nomen TEXT, nama TEXT, alamat TEXT, pcez TEXT, rayon TEXT, 
             nominal REAL, periode TEXT, status_lunas INTEGER DEFAULT 0,
-            no_hp TEXT DEFAULT '-', tgl_lunas TEXT
+            no_hp TEXT DEFAULT '-', tgl_lunas TEXT, tipe TEXT DEFAULT 'MC'
         )
     """)
 
@@ -124,13 +125,15 @@ def run_smart_migration(cursor):
     # --- MIGRASI MASTER PELANGGAN ---
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
-    # Tambahan tgl_lunas untuk Dashboard Real-time
+    
+    # Tambahan kolom kritikal untuk dashboard terbaru
     master_cols = {
         'tarif': 'TEXT', 
         'kubik': 'REAL DEFAULT 0', 
         'nomet': 'TEXT', 
         'no_hp': 'TEXT DEFAULT "-"',
-        'tgl_lunas': 'TEXT'
+        'tgl_lunas': 'TEXT',
+        'tipe': "TEXT DEFAULT 'MC'"  # KUNCI PERBAIKAN: Agar target tidak bertambah saat up MB
     }
     for col, dtype in master_cols.items():
         if col not in existing_master:
@@ -149,12 +152,10 @@ def run_smart_migration(cursor):
         cols = [row['name'] for row in cursor.fetchall()]
         if 'bulan_rek' not in cols:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
-            print(f"⚙️ Migrasi: Kolom [bulan_rek] ditambahkan ke {table}")
         if 'kategori' not in cols:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN kategori TEXT DEFAULT 'HISTORY'")
         if 'periode' not in cols:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
-            print(f"⚙️ Migrasi: Kolom [periode] ditambahkan ke {table}")
 
     # --- MIGRASI KUNJUNGAN PETUGAS ---
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
@@ -174,11 +175,10 @@ def optimize_performance(cursor):
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan (pcez)",
+        "CREATE INDEX IF NOT EXISTS idx_mc_tipe ON master_pelanggan (tipe)",
         "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mb_brek ON master_bayar (bulan_rek)",
-        "CREATE INDEX IF NOT EXISTS idx_mb_kat ON master_bayar (kategori)",
         "CREATE INDEX IF NOT EXISTS idx_ch_nomen_per ON collection_harian (nomen, periode)",
-        "CREATE INDEX IF NOT EXISTS idx_ch_kat ON collection_harian (kategori)",
         "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)"
     ]
     for idx in indices:
