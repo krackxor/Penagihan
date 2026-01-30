@@ -1,5 +1,5 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.79 Period Logic Fix)
+API Dashboard - Sunter Dashboard Pro (V12.80 Ultra Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -7,8 +7,9 @@ Pembaruan Strategis:
    dinamis untuk mencegah Error 500 (no such column).
 2. Target Lock Mechanism: Mengunci perhitungan TOTAL NOMEN dan TARGET NOMINAL 
    hanya pada data MC (jika kolom tersedia).
-3. ✅ FIX: Period Alignment - Hapus logika N-1, langsung pakai periode untuk UNDUE
-4. Strict Nomen Matching: Anti-Over Progress protection.
+3. ✅ FIX: Period Alignment - Menggunakan periode murni untuk sinkronisasi.
+4. ✅ FIX: Undue Filter - Menambahkan filter bulan_rek agar nominal realisasi 
+   tidak meluap (Anti-Over Progress > 100%).
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -35,10 +36,9 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # ✅ [2] FIX PERIODE LOGIC: Hapus logika N-1
-        # Karena MB bulan 11 sudah di-shift jadi periode 12-2025 saat upload,
-        # kita langsung pakai periode tanpa mundur 1 bulan
-        bulan_rek_target = periode.replace('-', '')  # 12-2025 → 122025
+        # ✅ [2] FIX PERIODE LOGIC
+        # bulan_rek_target digunakan untuk memfilter pembayaran agar sesuai bulan tagihan
+        bulan_rek_target = periode.replace('-', '')  # Contoh: 01-2026 -> 012026
 
         # [3] DYNAMIC SCHEMA CHECK (Mencegah Error 'no such column: tipe')
         cursor = db.execute("PRAGMA table_info(master_pelanggan)")
@@ -62,11 +62,12 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # ✅ [5] FIX REALISASI NOMINAL: Langsung filter pakai periode
+        # ✅ [5] FIX REALISASI NOMINAL: Tambahkan filter bulan_rek agar tidak > 100%
         query_realisasi = f"""
             SELECT 
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
                  WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
+                 AND mb.bulan_rek = ? 
                  AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? {tipe_filter})) as undue_nom,
                  
                 (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
@@ -75,7 +76,8 @@ def get_pusat_kendali():
                  
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
         """
-        res_realisasi = db.execute(query_realisasi, (periode, periode, periode, periode, periode)).fetchone()
+        # Parameter: (periode_mb, bulan_rek_mb, periode_mc, periode_coll, periode_mc, periode_ardebt)
+        res_realisasi = db.execute(query_realisasi, (periode, bulan_rek_target, periode, periode, periode, periode)).fetchone()
 
         # [6] LEADERBOARD
         query_leaderboard = f"""
