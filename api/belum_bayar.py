@@ -1,11 +1,11 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V9.0 Smart Sync Edition)
-Update: 2026-01-20
+Belum Bayar API - Sunter Dashboard Pro (V9.1 Period Logic Fix)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Autonomous Route Sync: Secara cerdas melakukan JOIN ke rute_petugas untuk mapping petugas.
 2. Anti-Crash Logic: Sinkronisasi kolom 'nomen' (Fix: SQLite OperationalError).
-3. Multi-Layer Filter: Memastikan data Ardebt, MB, dan Collection terfilter akurat.
+3. ✅ FIX: Multi-Layer Filter dengan validasi periode yang konsisten
 4. Smart Watermarking: Penanaman metadata operasional pada bukti foto lapangan.
 """
 
@@ -75,7 +75,8 @@ def get_belum_bayar():
     try:
         cursor = conn.cursor()
         
-        # QUERY SINERGI V9.0 (Menggunakan nomen sesuai skema V12.71)
+        # ✅ QUERY SINERGI V9.1: Filter periode yang konsisten
+        # Semua filter (MC, MB, Collection, Ardebt) menggunakan kolom 'periode' yang sama
         query = """
             SELECT p.nomen, p.nama, p.pcez, p.nomet, p.nominal, 
                    p.nominal as volume, p.rayon,
@@ -84,13 +85,13 @@ def get_belum_bayar():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
             AND p.status_lunas = 0
-            -- PROTEKSI: Memastikan tagihan lama (Ardebt) tidak tercampur
-            AND p.nomen NOT IN (SELECT DISTINCT nomen FROM ardebt)
-            -- SYNC CHECK: Validasi lunas di Bank & Lapangan
+            -- ✅ PROTEKSI: Filter Ardebt dengan periode yang sama
+            AND p.nomen NOT IN (SELECT DISTINCT nomen FROM ardebt WHERE periode = ?)
+            -- ✅ SYNC CHECK: Validasi lunas di Bank & Lapangan dengan periode yang sama
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.nomen = p.nomen AND mb.periode = p.periode)
             AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.nomen = p.nomen AND ch.periode = p.periode)
         """
-        params = [raw_period]
+        params = [raw_period, raw_period]
         
         if user_role == 'petugas':
             query += " AND r.petugas = ?"
