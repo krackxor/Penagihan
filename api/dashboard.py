@@ -1,20 +1,18 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.82 Ultra Sync)
+API Dashboard - Sunter Dashboard Pro (V12.95 Multi-Audit Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Robust Column Shield: Menambahkan pengecekan tipe secara dinamis.
-2. Target Lock Mechanism: Mengunci perhitungan target hanya pada data MC.
-3. ✅ FIX: Period Alignment - Menggunakan periode murni untuk sinkronisasi data.
-4. ✅ FIX: Undue Filter Logic - Menambahkan filter bulan_rek (N-1) agar nominal 
-   realisasi akurat (Anti-Over Progress & Anti-Zero Realization).
-5. ✅ FIX: Target Label - Sinkronisasi tampilan target rekening (e.g., 01-2026 -> 122025).
+1. ✅ Pusat Kendali: Menampilkan rincian Total dan Split Area (34 & 35).
+2. ✅ Audit Digital: Memecah Undue & Collection ke Kategori 34 & 35 secara akurat.
+3. ✅ Anti-Overflow: Filter ketat bulan_rek (N-1 untuk Undue, N untuk Current).
+4. ✅ Robust Column Shield: Pengecekan skema dinamis untuk tipe data MC.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
 from core.database import get_db_connection
 from datetime import datetime
-from dateutil.relativedelta import relativedelta # Dibutuhkan untuk logika N-1
+from dateutil.relativedelta import relativedelta # Dibutuhkan untuk logika N-1 & N
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -36,21 +34,28 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # ✅ [2] FIX PERIODE LOGIC (N-1 Alignment)
-        # Mengonversi periode dashboard (e.g., 01-2026) menjadi bulan rekening target (e.g., 122025)
+        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment)
         try:
             dt_obj = datetime.strptime(periode, '%m-%Y')
-            target_dt = dt_obj - relativedelta(months=1)
-            bulan_rek_target = target_dt.strftime('%m%Y')
+            # Undue Target (Tagihan bulan lalu): e.g., Jan 2026 -> 122025
+            bulan_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
+            # Current Target (Tagihan bulan berjalan): e.g., Jan 2026 -> 012026
+            current_rek_target = dt_obj.strftime('%m%Y')
         except:
             bulan_rek_target = periode.replace('-', '')
+            current_rek_target = periode.replace('-', '')
 
-        # [3] DYNAMIC SCHEMA CHECK (Mencegah Error 'no such column: tipe')
+        # [3] DYNAMIC SCHEMA CHECK
         cursor = db.execute("PRAGMA table_info(master_pelanggan)")
         cols = [row['name'] for row in cursor.fetchall()]
         tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else ""
+        
+        # Pengecekan kolom collection
+        cursor_ch = db.execute("PRAGMA table_info(collection_harian)")
+        ch_cols = [row['name'] for row in cursor_ch.fetchall()]
+        ch_filter_col = "bulan_rek" if "bulan_rek" in ch_cols else "bill_period"
 
-        # [4] SUMMARY MC & STATUS LUNAS
+        # [4] SUMMARY MC & STATUS LUNAS (TOTAL)
         query_summary = f"""
             SELECT 
                 COUNT(*) as total_nomen,
@@ -67,24 +72,44 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # ✅ [5] FIX REALISASI NOMINAL: Menggunakan bulan_rek_target untuk UNDUE
-        query_realisasi = f"""
+        # ✅ [5] SPLIT AUDIT QUERY (34 & 35) - Mencegah Progress > 100%
+        query_audit = f"""
             SELECT 
+                -- AREA 34
+                (SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan 
+                 WHERE periode = ? AND pcez LIKE '34%' {tipe_filter}) as target_34,
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
-                 WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
-                 AND mb.bulan_rek = ? 
-                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? {tipe_filter})) as undue_nom,
-                 
+                 JOIN master_pelanggan mp ON mb.nomen = mp.nomen AND mp.periode = ?
+                 WHERE mb.periode = ? AND mb.kategori = 'UNDUE' 
+                 AND mb.bulan_rek = ? AND mp.pcez LIKE '34%') as undue_34,
                 (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
-                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT'
-                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? {tipe_filter})) as current_nom,
+                 JOIN master_pelanggan mp ON ch.nomen = mp.nomen AND mp.periode = ?
+                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT' 
+                 AND ch.{ch_filter_col} = ? AND mp.pcez LIKE '34%') as current_34,
+
+                -- AREA 35
+                (SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan 
+                 WHERE periode = ? AND pcez LIKE '35%' {tipe_filter}) as target_35,
+                (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
+                 JOIN master_pelanggan mp ON mb.nomen = mp.nomen AND mp.periode = ?
+                 WHERE mb.periode = ? AND mb.kategori = 'UNDUE' 
+                 AND mb.bulan_rek = ? AND mp.pcez LIKE '35%') as undue_35,
+                (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
+                 JOIN master_pelanggan mp ON ch.nomen = mp.nomen AND mp.periode = ?
+                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT' 
+                 AND ch.{ch_filter_col} = ? AND mp.pcez LIKE '35%') as current_35,
                  
+                -- GLOBAL PIUTANG LAMA
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
         """
-        # Mapping: (periode_upload, target_rekening_n1, periode_mc, periode_coll, periode_mc, periode_ardebt)
-        res_realisasi = db.execute(query_realisasi, (periode, bulan_rek_target, periode, periode, periode, periode)).fetchone()
+        
+        audit = db.execute(query_audit, (
+            periode, periode, periode, bulan_rek_target, periode, periode, current_rek_target, # Area 34
+            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 35
+            periode # Ardebt
+        )).fetchone()
 
-        # [6] LEADERBOARD
+        # [6] LEADERBOARD (Fungsi Asli)
         query_leaderboard = f"""
             SELECT 
                 r.petugas,
@@ -99,12 +124,11 @@ def get_pusat_kendali():
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
-        # [7] FINAL MAPPING
+        # [7] FINAL MAPPING & CALCULATION
         total_mc = res_summary['total_nominal'] or 0
-        total_undue = res_realisasi['undue_nom'] or 0
-        total_current = res_realisasi['current_nom'] or 0
-        piutang_lama = res_realisasi['total_piutang_lama'] or 0
-        realisasi_gabungan = total_undue + total_current
+        undue_total = audit['undue_34'] + audit['undue_35']
+        current_total = audit['current_34'] + audit['current_35']
+        realisasi_gabungan = undue_total + current_total
 
         return jsonify({
             "status": "success",
@@ -118,12 +142,27 @@ def get_pusat_kendali():
                 },
                 "rupiah": {
                     "mc": total_mc,
-                    "undue": total_undue,
-                    "current": total_current,
-                    "piutang_lama": piutang_lama,
+                    "undue_total": undue_total,
+                    "current_total": current_total,
+                    "piutang_lama": audit['total_piutang_lama'] or 0,
                     "total_realisasi": realisasi_gabungan,
-                    "sisa": max(0, total_mc - realisasi_gabungan),
                     "pct": round((realisasi_gabungan / max(1, total_mc) * 100), 2)
+                }
+            },
+            "audit_digital": {
+                "area_34": {
+                    "target": audit['target_34'],
+                    "undue": audit['undue_34'],
+                    "current": audit['current_34'],
+                    "total": audit['undue_34'] + audit['current_34'],
+                    "percent": round(((audit['undue_34'] + audit['current_34']) / max(1, audit['target_34']) * 100), 2)
+                },
+                "area_35": {
+                    "target": audit['target_35'],
+                    "undue": audit['undue_35'],
+                    "current": audit['current_35'],
+                    "total": audit['undue_35'] + audit['current_35'],
+                    "percent": round(((audit['undue_35'] + audit['current_35']) / max(1, audit['target_35']) * 100), 2)
                 }
             },
             "analytics": {
