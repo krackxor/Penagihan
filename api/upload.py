@@ -1,19 +1,18 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.02 Stability & NaN Fix)
+Smart Integration Engine - Sunter Dashboard Pro (V13.01 Stability Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Teknologi Unggulan:
 1. executemany() Bulk Injection: Mengirim puluhan ribu baris data secara instant.
-2. ✅ FIX RpNaN: Sinkronisasi otomatis bulan_rek (N-1 untuk MB, N untuk COLL) 
-   jika kolom bulan_rek di file sumber kosong.
-3. ✅ Anti-Timeout: Menghapus redundansi update manual dan mengandalkan Trigger 
-   Database (schema.sql) untuk sinkronisasi status lunas.
-4. ✅ Efisiensi I/O: Optimasi PRAGMA MEMORY untuk penulisan data skala besar.
+2. ✅ FIX: Anti-Timeout - Menghapus redundansi update manual di level aplikasi 
+   dan mengandalkan Trigger Database (schema.sql) untuk sinkronisasi status lunas.
+3. ✅ FIX: Efisiensi I/O - Menghilangkan beban transaksi ganda yang menyebabkan 
+   koneksi terputus saat upload file MB/Collection yang besar.
+4. Memory Buffering: Pemrosesan data sepenuhnya di RAM sebelum commit.
 """
 
 import pandas as pd
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta # Dibutuhkan untuk sinkronisasi N-1
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
 from core.helpers import clean_nomen, log_action
@@ -127,20 +126,10 @@ def handle_smart_upload():
                     ))
             
             elif data_type in ['MB', 'COLLECTION']:
-                # ✅ FIX RpNaN: Sinkronisasi bulan_rek dengan Dashboard (V13.02)
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
-                
                 if not b_rek:
-                    try:
-                        dt_obj = datetime.strptime(target_period, '%m-%Y')
-                        # Realisasi Bank (MB/UNDUE) dipaksa ke N-1 agar sinkron dengan Dashboard Jan->Des
-                        if data_type == 'MB':
-                            b_rek = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
-                        else:
-                            # Realisasi Lapangan (COLL) tetap di bulan berjalan (N)
-                            b_rek = dt_obj.strftime('%m%Y')
-                    except:
-                        b_rek = target_period.replace('-', '')
+                    dt_obj = datetime.strptime(target_period, '%m-%Y')
+                    b_rek = dt_obj.strftime('%m%Y') 
                 
                 cat = "UNDUE" if data_type == 'MB' else "CURRENT"
                 tgl_transaksi = str(row.get(col_pay, ''))
@@ -152,7 +141,7 @@ def handle_smart_upload():
 
         # 3. ATOMIC INJECTION
         db.execute("PRAGMA synchronous = OFF") 
-        db.execute("PRAGMA journal_mode = MEMORY") 
+        db.execute("PRAGMA journal_mode = MEMORY") # Optimasi tambahan untuk upload besar
         db.execute("BEGIN TRANSACTION")
 
         if data_type == 'RUTE':
@@ -170,7 +159,7 @@ def handle_smart_upload():
             dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
             
             # Hanya Insert Transaksi. 
-            # Status Lunas di-handle otomatis oleh TRIGGER database untuk efisiensi I/O.
+            # Status Lunas pada tabel master_pelanggan akan diupdate otomatis oleh TRIGGER di database.
             db.executemany(f"""
                 INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                 VALUES (?, ?, ?, ?, ?, ?)

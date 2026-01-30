@@ -1,19 +1,20 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.99.2 Ultra Stability & Area Sync)
+API Dashboard - Sunter Dashboard Pro (V12.82 Ultra Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX RpNaN (Final): Memaksa semua output database menjadi float/int untuk 
-   menghindari error kalkulasi JavaScript di frontend.
-2. ✅ Stability Fix: Menjamin variabel 'undue_rek_target' selalu terdefinisi.
-3. ✅ Audit Digital Area: Pemisahan realisasi ke kategori 34 & 35 secara otomatis.
-4. ✅ Anti-Overflow: Filter ketat bulan_rek (N-1 untuk Undue, N untuk Current).
+1. Robust Column Shield: Menambahkan pengecekan tipe secara dinamis.
+2. Target Lock Mechanism: Mengunci perhitungan target hanya pada data MC.
+3. ✅ FIX: Period Alignment - Menggunakan periode murni untuk sinkronisasi data.
+4. ✅ FIX: Undue Filter Logic - Menambahkan filter bulan_rek (N-1) agar nominal 
+   realisasi akurat (Anti-Over Progress & Anti-Zero Realization).
+5. ✅ FIX: Target Label - Sinkronisasi tampilan target rekening (e.g., 01-2026 -> 122025).
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
 from core.database import get_db_connection
 from datetime import datetime
-from dateutil.relativedelta import relativedelta # Dibutuhkan untuk logika N-1 & N
+from dateutil.relativedelta import relativedelta # Dibutuhkan untuk logika N-1
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -35,30 +36,21 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment) - FIX NAMEERROR & RpNaN
+        # ✅ [2] FIX PERIODE LOGIC (N-1 Alignment)
+        # Mengonversi periode dashboard (e.g., 01-2026) menjadi bulan rekening target (e.g., 122025)
         try:
             dt_obj = datetime.strptime(periode, '%m-%Y')
-            # Undue Target (Tagihan bulan lalu): e.g., Jan 2026 -> 122025
-            undue_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
-            # Current Target (Tagihan bulan berjalan): e.g., Jan 2026 -> 012026
-            current_rek_target = dt_obj.strftime('%m%Y')
-            bulan_rek_target = undue_rek_target
+            target_dt = dt_obj - relativedelta(months=1)
+            bulan_rek_target = target_dt.strftime('%m%Y')
         except:
-            undue_rek_target = periode.replace('-', '')
-            current_rek_target = periode.replace('-', '')
-            bulan_rek_target = undue_rek_target
+            bulan_rek_target = periode.replace('-', '')
 
-        # [3] DYNAMIC SCHEMA CHECK
+        # [3] DYNAMIC SCHEMA CHECK (Mencegah Error 'no such column: tipe')
         cursor = db.execute("PRAGMA table_info(master_pelanggan)")
         cols = [row['name'] for row in cursor.fetchall()]
         tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else ""
-        
-        # Pengecekan kolom collection secara dinamis
-        cursor_ch = db.execute("PRAGMA table_info(collection_harian)")
-        ch_cols = [row['name'] for row in cursor_ch.fetchall()]
-        ch_filter_col = "bulan_rek" if "bulan_rek" in ch_cols else "bill_period"
 
-        # [4] SUMMARY MC & STATUS LUNAS (TOTAL)
+        # [4] SUMMARY MC & STATUS LUNAS
         query_summary = f"""
             SELECT 
                 COUNT(*) as total_nomen,
@@ -75,44 +67,24 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # ✅ [5] SPLIT AUDIT QUERY (34 & 35) - Mencegah Progress > 100%
-        query_audit = f"""
+        # ✅ [5] FIX REALISASI NOMINAL: Menggunakan bulan_rek_target untuk UNDUE
+        query_realisasi = f"""
             SELECT 
-                -- AREA 34
-                (SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan 
-                 WHERE periode = ? AND pcez LIKE '34%' {tipe_filter}) as target_34,
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
-                 JOIN master_pelanggan mp ON mb.nomen = mp.nomen AND mp.periode = ?
-                 WHERE mb.periode = ? AND mb.kategori = 'UNDUE' 
-                 AND mb.bulan_rek = ? AND mp.pcez LIKE '34%') as undue_34,
-                (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
-                 JOIN master_pelanggan mp ON ch.nomen = mp.nomen AND mp.periode = ?
-                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT' 
-                 AND ch.{ch_filter_col} = ? AND mp.pcez LIKE '34%') as current_34,
-
-                -- AREA 35
-                (SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan 
-                 WHERE periode = ? AND pcez LIKE '35%' {tipe_filter}) as target_35,
-                (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
-                 JOIN master_pelanggan mp ON mb.nomen = mp.nomen AND mp.periode = ?
-                 WHERE mb.periode = ? AND mb.kategori = 'UNDUE' 
-                 AND mb.bulan_rek = ? AND mp.pcez LIKE '35%') as undue_35,
-                (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
-                 JOIN master_pelanggan mp ON ch.nomen = mp.nomen AND mp.periode = ?
-                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT' 
-                 AND ch.{ch_filter_col} = ? AND mp.pcez LIKE '35%') as current_35,
+                 WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
+                 AND mb.bulan_rek = ? 
+                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? {tipe_filter})) as undue_nom,
                  
-                -- GLOBAL PIUTANG LAMA
+                (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
+                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT'
+                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? {tipe_filter})) as current_nom,
+                 
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
         """
-        
-        audit = db.execute(query_audit, (
-            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 34
-            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 35
-            periode # Ardebt
-        )).fetchone()
+        # Mapping: (periode_upload, target_rekening_n1, periode_mc, periode_coll, periode_mc, periode_ardebt)
+        res_realisasi = db.execute(query_realisasi, (periode, bulan_rek_target, periode, periode, periode, periode)).fetchone()
 
-        # [6] LEADERBOARD (Fungsi Asli)
+        # [6] LEADERBOARD
         query_leaderboard = f"""
             SELECT 
                 r.petugas,
@@ -127,25 +99,12 @@ def get_pusat_kendali():
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
-        # ✅ [7] FINAL CASTING & CALCULATION - MENCEGAH RpNaN
-        # Memaksa semua data menjadi float untuk kalkulasi JavaScript yang aman
-        total_mc = float(res_summary['total_nominal'] or 0)
-        
-        # Area 34
-        t34 = float(audit['target_34'] or 0)
-        u34 = float(audit['undue_34'] or 0)
-        c34 = float(audit['current_34'] or 0)
-        sum34 = u34 + c34
-        
-        # Area 35
-        t35 = float(audit['target_35'] or 0)
-        u35 = float(audit['undue_35'] or 0)
-        c35 = float(audit['current_35'] or 0)
-        sum35 = u35 + c35
-        
-        undue_total = u34 + u35
-        current_total = c34 + c35
-        realisasi_gabungan = undue_total + current_total
+        # [7] FINAL MAPPING
+        total_mc = res_summary['total_nominal'] or 0
+        total_undue = res_realisasi['undue_nom'] or 0
+        total_current = res_realisasi['current_nom'] or 0
+        piutang_lama = res_realisasi['total_piutang_lama'] or 0
+        realisasi_gabungan = total_undue + total_current
 
         return jsonify({
             "status": "success",
@@ -153,33 +112,18 @@ def get_pusat_kendali():
                 "periode_aktif": periode,
                 "target_rekening": bulan_rek_target,
                 "nomen": {
-                    "total": int(res_summary['total_nomen'] or 0), 
-                    "bayar": int(res_summary['lunas_nomen'] or 0), 
-                    "belum": int(res_summary['sisa_nomen'] or 0)
+                    "total": res_summary['total_nomen'] or 0, 
+                    "bayar": res_summary['lunas_nomen'] or 0, 
+                    "belum": res_summary['sisa_nomen'] or 0
                 },
                 "rupiah": {
                     "mc": total_mc,
-                    "undue_total": undue_total,
-                    "current_total": current_total,
-                    "piutang_lama": float(audit['total_piutang_lama'] or 0),
+                    "undue": total_undue,
+                    "current": total_current,
+                    "piutang_lama": piutang_lama,
                     "total_realisasi": realisasi_gabungan,
-                    "pct": round((realisasi_gabungan / max(1.0, total_mc) * 100), 2)
-                }
-            },
-            "audit_digital": {
-                "area_34": {
-                    "target": t34,
-                    "undue": u34,
-                    "current": c34,
-                    "total": sum34,
-                    "percent": round((sum34 / max(1.0, t34) * 100), 2)
-                },
-                "area_35": {
-                    "target": t35,
-                    "undue": u35,
-                    "current": c35,
-                    "total": sum35,
-                    "percent": round((sum35 / max(1.0, t35) * 100), 2)
+                    "sisa": max(0, total_mc - realisasi_gabungan),
+                    "pct": round((realisasi_gabungan / max(1, total_mc) * 100), 2)
                 }
             },
             "analytics": {
