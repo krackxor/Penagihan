@@ -1,13 +1,13 @@
 """
-Collection API - Sunter Dashboard Pro (V12.47 Strict Period Guard)
-Update: 2026-01-20
+Collection API - Sunter Dashboard Pro (V12.48 Period Logic Fix)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Strict Period Filtering: Menjamin data yang tampil 100% hanya milik periode 
    pilihan (Fix: Data bulan lain bocor ke tabel harian).
 2. Multi-Format Sorting: Menangani pengurutan tanggal secara kronologis meskipun 
    format di database bercampur (DD-MM vs YYYY-MM).
-3. Baseline Recovery: Saldo Bank (UNDUE) ditarik berdasarkan bulan_rek tagihan (N-1).
+3. ✅ FIX: Baseline Recovery - UNDUE langsung pakai periode (bukan N-1)
 4. Zero-Record Shield: Mengabaikan baris tanggal kosong pada hasil query harian.
 """
 
@@ -31,21 +31,21 @@ def pusat_kendali():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        # Logika N+1 Smart: Ambil bulan rekening tagihan (Januari menagih Desember)
-        dt_obj = datetime.strptime(periode_req, '%m-%Y')
-        last_month = dt_obj.replace(day=1) - timedelta(days=1)
-        bulan_rek_target = last_month.strftime('%m%Y')
+        # ✅ FIX PERIODE LOGIC: Hapus logika N-1
+        # Karena MB bulan 11 sudah di-shift jadi periode 12-2025 saat upload,
+        # kita langsung pakai periode untuk filter UNDUE
+        bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
 
         # 1. TOTAL TARGET MC (Master Customer)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (BANK) - Filter ketat berdasarkan bulan_rek tagihan
+        # ✅ 2. BOX UNDUE (BANK) - Filter langsung pakai periode
         cursor.execute("""
             SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
-            WHERE mb.bulan_rek = ? AND mb.kategori = 'UNDUE'
+            WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
             AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
-        """, (bulan_rek_target, periode_req))
+        """, (periode_req, periode_req))
         undue_val = cursor.fetchone()[0]
 
         # 3. BOX FIELD (PETUGAS) & BOX MANDIRI
@@ -91,10 +91,8 @@ def daily_monitor():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # Baseline Bank N+1
-        dt_obj = datetime.strptime(periode_req, '%m-%Y')
-        last_month = dt_obj.replace(day=1) - timedelta(days=1)
-        bulan_rek_target = last_month.strftime('%m%Y')
+        # ✅ FIX: Hapus logika N-1, langsung pakai periode
+        bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
 
         # Ambil Target Rayon khusus periode terpilih
         cursor.execute("""
@@ -106,12 +104,12 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Saldo Awal Bank (UNDUE)
+        # ✅ Saldo Awal Bank (UNDUE) - Filter langsung pakai periode
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-            WHERE bulan_rek = ? AND kategori = 'UNDUE'
+            WHERE periode = ? AND kategori = 'UNDUE'
             AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
-        """, (bulan_rek_target, periode_req))
+        """, (periode_req, periode_req))
         undue_start = cursor.fetchone()[0]
 
         # QUERY HARIAN: Filter c.periode = ? mencegah kebocoran data bulan lain
