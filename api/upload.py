@@ -1,12 +1,12 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.72 Ultimate Sync)
+Smart Integration Engine - Sunter Dashboard Pro (V12.75 Ultimate Sync)
 Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Multi-Column Sync: Menjamin tabel 'collection_harian' mengisi kolom 'periode' 
+1. Auto Bulan Rek Sanitizer: Membersihkan format (misal: 12/2025, 12-2025, 92025) 
+   secara otomatis menjadi format standar MMYYYY.
+2. Multi-Column Sync: Menjamin tabel 'collection_harian' mengisi kolom 'periode' 
    agar terdeteksi di Dashboard Utama.
-2. N-1 Auto Mapper: Jika 'bulan_rek' kosong, sistem otomatis memetakan ke 
-   bulan tagihan (N-1) secara presisi.
 3. Persistent Lunas: Query update lunas diperkuat untuk mencocokkan periode 
    target secara eksplisit.
 """
@@ -42,6 +42,21 @@ class UploadEngine:
             if name.upper() in cols:
                 return cols[name.upper()]
         return None
+
+    @staticmethod
+    def clean_bulan_rek(value):
+        """OTOMATIS: Membersihkan format bulan rekening (misal: 12/2025 -> 122025)."""
+        if not value or pd.isna(value): return ""
+        # Ambil hanya angka saja
+        clean_val = ''.join(filter(str.isdigit, str(value)))
+        
+        # Standarisasi ke 6 digit (MMYYYY)
+        if len(clean_val) == 6:
+            return clean_val
+        elif len(clean_val) == 5:
+            # Jika 92025 (September), jadikan 092025
+            return "0" + clean_val
+        return clean_val
 
 @upload_bp.route('/upload', methods=['POST'])
 def handle_smart_upload():
@@ -84,7 +99,7 @@ def handle_smart_upload():
         row_count = 0
         error_rows = 0
 
-        # 3. PROCESSING LOOP (ROW-LEVEL SHIELD)
+        # 3. PROCESSING LOOP
         for index, row in df.iterrows():
             try:
                 # A. MODUL RUTE
@@ -130,34 +145,27 @@ def handle_smart_upload():
 
                 # D. MODUL MB (Bank) & COLLECTION (Lapangan)
                 elif data_type in ['MB', 'COLLECTION']:
-                    # Update Strategis: Memisahkan kolom input agar sinkron dengan schema.sql
                     if data_type == 'MB':
-                        tbl = "master_bayar"
-                        dt_col = "tgl_bayar"
-                        cat = "UNDUE"
+                        tbl, dt_col, cat = "master_bayar", "tgl_bayar", "UNDUE"
                     else:
-                        tbl = "collection_harian"
-                        dt_col = "pay_dt"
-                        cat = "CURRENT"
+                        tbl, dt_col, cat = "collection_harian", "pay_dt", "CURRENT"
                     
-                    # Logika Penentuan Bulan Rekening (N-1 Logic)
+                    # LOGIKA PEMBERSIHAN OTOMATIS: User tidak perlu edit Excel
                     raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
-                    if not raw_brek or len(raw_brek) < 4:
-                        # Jika kolom Bulan Rek kosong, hitung otomatis dari periode target (N-1)
+                    b_rek = UploadEngine.clean_bulan_rek(raw_brek)
+                    
+                    # Fallback jika kolom kosong (Logika N-1)
+                    if not b_rek:
                         dt_obj = datetime.strptime(target_period, '%m-%Y')
                         last_month = dt_obj.replace(day=1) - timedelta(days=1)
                         b_rek = last_month.strftime('%m%Y')
-                    else:
-                        # Bersihkan format bulan rek (hilangkan tanda baca jika ada)
-                        b_rek = raw_brek.replace('-', '').replace('/', '')
                     
-                    # Eksekusi Insert (Menyertakan kolom 'periode' untuk collection_harian agar dashboard terbaca)
                     db.execute(f"""
                         INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
-                    # Sinkronisasi Status Lunas ke Master Pelanggan secara Real-time
+                    # Sinkronisasi status lunas ke Master Pelanggan
                     db.execute("""
                         UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = ?
                         WHERE nomen = ? AND periode = ?
@@ -188,7 +196,6 @@ def handle_smart_upload():
 
     except Exception as e:
         if db: db.rollback()
-        print(f"❌ FATAL ERROR: {str(e)}")
         return jsonify({"status": "error", "message": f"Sistem Error: {str(e)}"}), 500
     finally:
         db.close()
@@ -199,8 +206,7 @@ def get_last_upload_data():
     db = get_db_connection()
     try:
         last_file = db.execute("SELECT file_name FROM upload_history ORDER BY id DESC LIMIT 1").fetchone()
-        if not last_file:
-            return jsonify([])
+        if not last_file: return jsonify([])
 
         data = db.execute("""
             SELECT nomen, nama, nominal, no_hp, pcez 
@@ -208,9 +214,6 @@ def get_last_upload_data():
             WHERE status_lunas = 0
             ORDER BY id DESC LIMIT 1000
         """).fetchall()
-        
         return jsonify([dict(row) for row in data])
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
