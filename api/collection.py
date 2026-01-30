@@ -1,20 +1,21 @@
 """
-Collection API - Sunter Dashboard Pro (V12.96 Strict & Split Area)
+Collection API - Sunter Dashboard Pro (V12.97 Strict & Split Area)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ Split Area Logic: Membagi realisasi harian ke kategori 34 dan 35.
-2. ✅ Strict Period Alignment: 
+1. ✅ FIX NameError: Memastikan variabel 'undue_rek_target' didefinisikan dengan benar.
+2. ✅ Split Area Logic: Membagi realisasi harian ke kategori 34 dan 35.
+3. ✅ Strict Period Alignment: 
    - UNDUE (Bank) memfilter Rekening N-1 (e.g., Tagihan Des dibayar Jan).
    - CURRENT (Koleksi) memfilter Rekening Berjalan (e.g., Tagihan Jan dibayar Jan).
-3. ✅ Anti-Overflow Shield: Filter ketat bulan_rek menjamin progress tidak > 100%.
-4. ✅ Zero-Record Shield: Proteksi terhadap baris tanggal kosong pada query harian.
+4. ✅ Anti-Overflow Shield: Filter ketat bulan_rek menjamin progress tidak > 100%.
+5. ✅ Zero-Record Shield: Proteksi terhadap baris tanggal kosong pada query harian.
 """
 
 from flask import Blueprint, jsonify, request
 from core.database import get_db_connection
 from datetime import datetime
-from dateutil.relativedelta import relativedelta # Dibutuhkan untuk sinkronisasi N-1
+from dateutil.relativedelta import relativedelta 
 
 collection_bp = Blueprint('collection', __name__)
 
@@ -32,12 +33,12 @@ def pusat_kendali():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        # ✅ LOGIKA PERIODE KETAT (N-1 & N)
+        # ✅ LOGIKA PERIODE KETAT (Mencegah NameError)
         try:
             dt_obj = datetime.strptime(periode_req, '%m-%Y')
             undue_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
             current_rek_target = dt_obj.strftime('%m%Y')
-        except:
+        except Exception:
             undue_rek_target = periode_req.replace('-', '')
             current_rek_target = periode_req.replace('-', '')
 
@@ -101,11 +102,11 @@ def daily_monitor():
             dt_obj = datetime.strptime(periode_req, '%m-%Y')
             undue_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
             current_rek_target = dt_obj.strftime('%m%Y')
-        except:
+        except Exception:
             undue_rek_target = periode_req.replace('-', '')
             current_rek_target = periode_req.replace('-', '')
 
-        # 1. Target Rayon khusus periode terpilih
+        # 1. Target Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN pcez LIKE '34%' THEN nominal ELSE 0 END), 0) as target_34,
@@ -152,7 +153,6 @@ def daily_monitor():
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
             
-            # Akumulasi Harian = Current Kumulatif + Saldo Awal Undue Area
             total_area_34 = cum_34 + undue_34
             total_area_35 = cum_35 + undue_35
             cum_all = total_area_34 + total_area_35
@@ -187,10 +187,10 @@ def detail_transaksi():
     try:
         cursor = conn.cursor()
         tgl = request.args.get('tgl')
-        area = request.args.get('area') # '34' atau '35'
+        area = request.args.get('area') 
         periode = request.args.get('periode')
 
-        query = f"""
+        query = """
             SELECT c.nomen, p.nama, c.nominal
             FROM collection_harian c
             INNER JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
