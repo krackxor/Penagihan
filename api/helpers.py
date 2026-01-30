@@ -1,7 +1,7 @@
 """
 Core Helpers - Sunter Dashboard Pro
-Updated: 2026-01-10 (Smart Autopilot Version)
-Sinergi: Standarisasi Data, Server Intelligence, & Auto-Fixer Data Ilmiah.
+Updated: 2026-01-22 (Ultimate Sync Version)
+Sinergi: Standarisasi Data, Server Intelligence, Auto-Fixer Data, & Audit Logging.
 """
 
 import socket
@@ -9,7 +9,7 @@ import pytz
 import re
 import os
 from datetime import datetime
-from flask import jsonify, request
+from flask import jsonify, request, current_app
 
 class APIResponse:
     """
@@ -168,3 +168,22 @@ def get_base_url():
     Penting untuk membangun path gambar statis yang akurat di laporan.
     """
     return request.host_url.rstrip('/')
+
+def log_action(user_id, action, module, details, ip=None):
+    """
+    AUDIT TRAIL ENGINE:
+    Mencatat setiap aktivitas krusial (seperti upload data) ke dalam tabel system_logs.
+    Sinergi: Transparansi operasional dan pelacakan error jika terjadi inkonsistensi data.
+    """
+    from core.database import get_db_connection
+    db = get_db_connection()
+    try:
+        db.execute("""
+            INSERT INTO system_logs (user_id, action, module, details, ip_address)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, action, module, details, ip or request.remote_addr))
+        db.commit()
+    except Exception as e:
+        print(f"❌ Log Error: {str(e)}")
+    finally:
+        db.close()
