@@ -1,13 +1,13 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.99.1 Stability & Area Sync)
+API Dashboard - Sunter Dashboard Pro (V12.99.2 Ultra Stability & Area Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX RpNaN: Menjamin 'undue_rek_target' & 'current_rek_target' selalu terdefinisi.
-2. ✅ Pusat Kendali: Menampilkan rincian Total dan Split Area (34 & 35).
-3. ✅ Audit Digital: Memecah Undue & Collection ke Kategori 34 & 35 secara akurat.
+1. ✅ FIX RpNaN (Final): Memaksa semua output database menjadi float/int untuk 
+   menghindari error kalkulasi JavaScript di frontend.
+2. ✅ Stability Fix: Menjamin variabel 'undue_rek_target' selalu terdefinisi.
+3. ✅ Audit Digital Area: Pemisahan realisasi ke kategori 34 & 35 secara otomatis.
 4. ✅ Anti-Overflow: Filter ketat bulan_rek (N-1 untuk Undue, N untuk Current).
-5. ✅ Robust Column Shield: Pengecekan skema dinamis untuk tipe data MC & Collection.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -35,16 +35,15 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment) - SOLUSI RpNaN
+        # ✅ [2] STRICT PERIODE LOGIC (N-1 & N Alignment) - FIX NAMEERROR & RpNaN
         try:
             dt_obj = datetime.strptime(periode, '%m-%Y')
             # Undue Target (Tagihan bulan lalu): e.g., Jan 2026 -> 122025
             undue_rek_target = (dt_obj - relativedelta(months=1)).strftime('%m%Y')
             # Current Target (Tagihan bulan berjalan): e.g., Jan 2026 -> 012026
             current_rek_target = dt_obj.strftime('%m%Y')
-            bulan_rek_target = undue_rek_target # Untuk label frontend
+            bulan_rek_target = undue_rek_target
         except:
-            # Fallback jika parsing gagal agar variabel tetap ada (Mencegah NameError)
             undue_rek_target = periode.replace('-', '')
             current_rek_target = periode.replace('-', '')
             bulan_rek_target = undue_rek_target
@@ -77,7 +76,6 @@ def get_pusat_kendali():
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
         # ✅ [5] SPLIT AUDIT QUERY (34 & 35) - Mencegah Progress > 100%
-        # Menggunakan join untuk memastikan filter area (pcez) akurat
         query_audit = f"""
             SELECT 
                 -- AREA 34
@@ -109,12 +107,12 @@ def get_pusat_kendali():
         """
         
         audit = db.execute(query_audit, (
-            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Parameter Area 34
-            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Parameter Area 35
-            periode # Parameter Ardebt
+            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 34
+            periode, periode, periode, undue_rek_target, periode, periode, current_rek_target, # Area 35
+            periode # Ardebt
         )).fetchone()
 
-        # [6] LEADERBOARD
+        # [6] LEADERBOARD (Fungsi Asli)
         query_leaderboard = f"""
             SELECT 
                 r.petugas,
@@ -129,10 +127,24 @@ def get_pusat_kendali():
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
-        # [7] FINAL MAPPING & CALCULATION
-        total_mc = res_summary['total_nominal'] or 0
-        undue_total = (audit['undue_34'] or 0) + (audit['undue_35'] or 0)
-        current_total = (audit['current_34'] or 0) + (audit['current_35'] or 0)
+        # ✅ [7] FINAL CASTING & CALCULATION - MENCEGAH RpNaN
+        # Memaksa semua data menjadi float untuk kalkulasi JavaScript yang aman
+        total_mc = float(res_summary['total_nominal'] or 0)
+        
+        # Area 34
+        t34 = float(audit['target_34'] or 0)
+        u34 = float(audit['undue_34'] or 0)
+        c34 = float(audit['current_34'] or 0)
+        sum34 = u34 + c34
+        
+        # Area 35
+        t35 = float(audit['target_35'] or 0)
+        u35 = float(audit['undue_35'] or 0)
+        c35 = float(audit['current_35'] or 0)
+        sum35 = u35 + c35
+        
+        undue_total = u34 + u35
+        current_total = c34 + c35
         realisasi_gabungan = undue_total + current_total
 
         return jsonify({
@@ -141,33 +153,33 @@ def get_pusat_kendali():
                 "periode_aktif": periode,
                 "target_rekening": bulan_rek_target,
                 "nomen": {
-                    "total": res_summary['total_nomen'] or 0, 
-                    "bayar": res_summary['lunas_nomen'] or 0, 
-                    "belum": res_summary['sisa_nomen'] or 0
+                    "total": int(res_summary['total_nomen'] or 0), 
+                    "bayar": int(res_summary['lunas_nomen'] or 0), 
+                    "belum": int(res_summary['sisa_nomen'] or 0)
                 },
                 "rupiah": {
                     "mc": total_mc,
                     "undue_total": undue_total,
                     "current_total": current_total,
-                    "piutang_lama": audit['total_piutang_lama'] or 0,
+                    "piutang_lama": float(audit['total_piutang_lama'] or 0),
                     "total_realisasi": realisasi_gabungan,
-                    "pct": round((realisasi_gabungan / max(1, total_mc) * 100), 2)
+                    "pct": round((realisasi_gabungan / max(1.0, total_mc) * 100), 2)
                 }
             },
             "audit_digital": {
                 "area_34": {
-                    "target": audit['target_34'],
-                    "undue": audit['undue_34'],
-                    "current": audit['current_34'],
-                    "total": (audit['undue_34'] or 0) + (audit['current_34'] or 0),
-                    "percent": round((((audit['undue_34'] or 0) + (audit['current_34'] or 0)) / max(1, audit['target_34'] or 1) * 100), 2)
+                    "target": t34,
+                    "undue": u34,
+                    "current": c34,
+                    "total": sum34,
+                    "percent": round((sum34 / max(1.0, t34) * 100), 2)
                 },
                 "area_35": {
-                    "target": audit['target_35'],
-                    "undue": audit['undue_35'],
-                    "current": audit['current_35'],
-                    "total": (audit['undue_35'] or 0) + (audit['current_35'] or 0),
-                    "percent": round((((audit['undue_35'] or 0) + (audit['current_35'] or 0)) / max(1, audit['target_35'] or 1) * 100), 2)
+                    "target": t35,
+                    "undue": u35,
+                    "current": c35,
+                    "total": sum35,
+                    "percent": round((sum35 / max(1.0, t35) * 100), 2)
                 }
             },
             "analytics": {
