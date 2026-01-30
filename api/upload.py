@@ -9,7 +9,7 @@ Pembaruan Strategis:
    memaksa tipe data menjadi MB/UNDUE (Mencegah target MC bertambah liar).
 3. Target Lock Mechanism: Menggunakan query UPDATE untuk status lunas agar 
    Total Nomen & Target Nominal terkunci hanya dari file MC awal.
-4. Auto Bulan Rek Sanitizer: Membersihkan format (misal: 12/2025 -> 122025).
+4. Connection Stability: Mengurangi overhead I/O yang mencegah "Gagal Terhubung".
 """
 
 import pandas as pd
@@ -70,21 +70,24 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # Baca File ke Dataframe (High-Speed Read)
-        df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
+        # Baca File ke Dataframe (Optimasi Read)
+        if file_name.endswith('.csv'):
+            df = pd.read_csv(file, dtype=str).fillna('')
+        else:
+            df = pd.read_excel(file, dtype=str).fillna('')
+            
         data_type = identify_file_type(df)
-        
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
         # Mapping Kolom Utama
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
-        col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG', 'SALDO'])
+        col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
-        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING', 'PERIODE', 'BILL_PERIOD'])
+        col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING', 'PERIODE'])
         col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'TELEPON', 'WA'])
 
-        # --- LOGIKA PROTEKSI: FORCE IDENTIFICATION ---
+        # Proteksi Tipe: Jika file MC punya kolom transaksi, paksa jadi MB
         if data_type == 'MC' and (col_brek or col_pay):
             data_type = 'MB'
 
@@ -96,7 +99,8 @@ def handle_smart_upload():
             if not month_ref: return jsonify({"status": "error", "message": "Gagal deteksi periode file"}), 400
             target_period = f"{month_ref}-{year_ref}"
 
-        # --- KUNCI KECEPATAN: START BATCH TRANSACTION ---
+        # --- HIGH SPEED SYNC: ATOMIC TRANSACTION START ---
+        db.execute("PRAGMA synchronous = OFF") # Mode turbo sementara
         db.execute("BEGIN TRANSACTION")
         
         row_count = 0
@@ -104,6 +108,7 @@ def handle_smart_upload():
 
         for index, row in df.iterrows():
             try:
+                # Modul Mapping Petugas
                 if data_type == 'RUTE':
                     c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                     c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
@@ -118,6 +123,7 @@ def handle_smart_upload():
                 nomen = clean_nomen(n_raw)
                 if not nomen: continue
 
+                # Modul Target (MC)
                 if data_type == 'MC':
                     c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
                     z = autopilot_extract_zona(row.get(c_zona))
@@ -132,28 +138,16 @@ def handle_smart_upload():
                               UploadEngine.cast_to_float(row.get(col_nom)), row.get('NOMET', ''), target_period, val_hp))
                         row_count += 1
 
-                elif data_type == 'ARDEBT':
-                    val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
-                    if val_ardebt > 0:
-                        db.execute("""
-                            INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah) 
-                            VALUES (?, ?, ?)
-                        """, (nomen, row.get('PERIODE_BILL', '-'), val_ardebt))
-                        row_count += 1
-
+                # Modul Realisasi (MB & COLLECTION)
                 elif data_type in ['MB', 'COLLECTION']:
-                    if data_type == 'MB':
-                        tbl, dt_col, cat = "master_bayar", "tgl_bayar", "UNDUE"
-                    else:
-                        tbl, dt_col, cat = "collection_harian", "pay_dt", "CURRENT"
+                    tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
+                    dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
+                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
                     
-                    raw_brek = str(row.get(col_brek, '')).strip() if col_brek else ""
-                    b_rek = UploadEngine.clean_bulan_rek(raw_brek)
-                    
+                    b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
                     if not b_rek:
                         dt_obj = datetime.strptime(target_period, '%m-%Y')
-                        last_month = dt_obj.replace(day=1) - timedelta(days=1)
-                        b_rek = last_month.strftime('%m%Y')
+                        b_rek = (dt_obj.replace(day=1) - timedelta(days=1)).strftime('%m%Y')
                     
                     # 1. Simpan Transaksi
                     db.execute(f"""
@@ -161,39 +155,41 @@ def handle_smart_upload():
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (nomen, row.get(col_pay, ''), UploadEngine.cast_to_float(row.get(col_nom)), target_period, cat, b_rek))
                     
-                    # 2. Update status lunas pada MC (Hanya data yang sudah ada)
+                    # 2. Update status lunas pada MC (Target Lock Mechanism)
                     db.execute("""
                         UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = ?
                         WHERE nomen = ? AND periode = ? AND tipe = 'MC'
                     """, (str(row.get(col_pay, '')), nomen, target_period))
                     
                     row_count += 1
+
+                elif data_type == 'ARDEBT':
+                    val_ardebt = UploadEngine.cast_to_float(row.get(col_nom))
+                    if val_ardebt > 0:
+                        db.execute("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah) VALUES (?, ?, ?)",
+                                   (nomen, row.get('PERIODE_BILL', '-'), val_ardebt))
+                        row_count += 1
             
-            except Exception as row_err:
+            except:
                 error_rows += 1
                 continue
 
-        # COMMIT SEMUA SEKALIGUS (VITAL UNTUK KECEPATAN & MENCEGAH LOCKED)
+        # COMMIT SEMUA DATA SEKALIGUS KE DISK
         db.commit() 
-        # -----------------------------------------------
+        # --- HIGH SPEED SYNC: END ---
 
-        log_action(
-            user_id=session.get('username', 'Admin'),
-            action='UPLOAD_SUCCESS',
-            module=data_type,
-            details=f"FastSync: {row_count} baris sukses. File: {file_name}",
-            ip=request.remote_addr
-        )
+        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"HighSpeed: {row_count} rows. File: {file_name}")
         
+        # Log History Upload
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)",
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
         db.commit()
 
-        return jsonify({"status": "success", "message": f"Integrasi {data_type} High-Speed selesai. {row_count} baris diproses."})
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil. {row_count} baris diproses dalam hitungan detik."})
 
     except Exception as e:
         if db: db.rollback()
-        return jsonify({"status": "error", "message": f"Sistem Error: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"Integrasi Gagal: {str(e)}"}), 500
     finally:
         db.close()
 
@@ -201,9 +197,6 @@ def handle_smart_upload():
 def get_last_upload_data():
     db = get_db_connection()
     try:
-        last_file = db.execute("SELECT file_name FROM upload_history ORDER BY id DESC LIMIT 1").fetchone()
-        if not last_file: return jsonify([])
-
         data = db.execute("""
             SELECT nomen, nama, nominal, no_hp, pcez 
             FROM master_pelanggan 
