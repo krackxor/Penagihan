@@ -1,16 +1,14 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.77 Ultimate Sync)
-Update: 2026-01-22
+API Dashboard - Sunter Dashboard Pro (V12.78 Ultimate Sync)
+Update: 2026-01-30
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Target Lock Mechanism: Mengunci perhitungan TOTAL NOMEN dan TARGET NOMINAL 
-   hanya pada data dengan tipe='MC' agar tidak bertambah saat upload MB.
-2. Dynamic Realisasi Sync: Memperbaiki filter query CURRENT agar merujuk ke kolom 
-   'periode' yang telah ditambahkan di tabel collection_harian.
-3. N-1 Baseline Alignment: Menyelaraskan format 'bulan_rek_target' (mmYYYY) agar 
-   cocok dengan hasil sanitasi mesin upload.
-4. Strict Nomen Matching: Memastikan nominal hanya dihitung jika NOMEN terdaftar 
-   di Master Pelanggan periode aktif (Anti-Over Progress).
+1. Robust Column Shield: Menambahkan pengecekan keberadaan kolom 'tipe' secara 
+   dinamis untuk mencegah Error 500 (no such column).
+2. Target Lock Mechanism: Mengunci perhitungan TOTAL NOMEN dan TARGET NOMINAL 
+   hanya pada data MC (jika kolom tersedia).
+3. N-1 Baseline Alignment: Menyelaraskan format 'bulan_rek_target' (mmYYYY).
+4. Strict Nomen Matching: Anti-Over Progress protection.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -20,14 +18,13 @@ from datetime import datetime, timedelta
 dashboard_bp = Blueprint('dashboard', __name__)
 
 def get_latest_active_period(db):
-    """Mendeteksi periode target penagihan terbaru (Hasil N+1 Upload)."""
-    # Mengambil periode terakhir dari Master Pelanggan sebagai acuan dashboard
-    res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
-    return res['periode'] if res else datetime.now().strftime('%m-%Y')
+    """Mendeteksi periode target penagihan terbaru."""
+    try:
+        res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
+        return res['periode'] if res else datetime.now().strftime('%m-%Y')
+    except:
+        return datetime.now().strftime('%m-%Y')
 
-# ==========================================
-# 1. ENDPOINT PUSAT KENDALI (STATISTIK)
-# ==========================================
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
     """Statistik global hasil Audit Digital untuk Dashboard Utama."""
@@ -38,21 +35,25 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # [2] LOGIKA N+1 SMART RECOVERY (Target Bulan Rekening N-1)
+        # [2] LOGIKA N+1 (Contoh: 01-2026 -> 122025)
         dt_obj = datetime.strptime(periode, '%m-%Y')
-        # Mundur 1 bulan otomatis untuk mencari bulan_rek tagihan (Contoh: 01-2026 -> 122025)
         last_month = dt_obj.replace(day=1) - timedelta(days=1)
         bulan_rek_target = last_month.strftime('%m%Y')
 
-        # [3] SUMMARY MC & STATUS LUNAS (FIX: Mengunci Target agar tidak bertambah saat upload MB)
-        query_summary = """
+        # [3] DYNAMIC SCHEMA CHECK (Mencegah Error 'no such column: tipe')
+        cursor = db.execute("PRAGMA table_info(master_pelanggan)")
+        cols = [row['name'] for row in cursor.fetchall()]
+        tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else ""
+
+        # [4] SUMMARY MC & STATUS LUNAS
+        query_summary = f"""
             SELECT 
                 COUNT(*) as total_nomen,
                 COALESCE(SUM(nominal), 0) as total_nominal,
                 COALESCE(SUM(CASE WHEN status_lunas = 1 THEN 1 ELSE 0 END), 0) as lunas_nomen,
                 COALESCE(SUM(CASE WHEN status_lunas = 0 THEN 1 ELSE 0 END), 0) as sisa_nomen
             FROM master_pelanggan 
-            WHERE periode = ? AND tipe = 'MC'
+            WHERE periode = ? {tipe_filter}
         """
         params_summary = [periode]
         if user_role == 'petugas' and petugas_id:
@@ -61,30 +62,23 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # [4] REALISASI NOMINAL PRESISI (Fix: Undue & Current Detection)
-        # Query ini menjamin integritas: hanya menghitung nominal dari NOMEN yang ada di MC periode aktif
-        query_realisasi = """
+        # [5] REALISASI NOMINAL (UNDUE & CURRENT)
+        query_realisasi = f"""
             SELECT 
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
                  WHERE (mb.bulan_rek = ? OR mb.periode = ?) AND mb.kategori = 'UNDUE'
-                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? AND tipe = 'MC')) as undue_nom,
+                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? {tipe_filter})) as undue_nom,
                  
                 (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
                  WHERE ch.periode = ? AND ch.kategori = 'CURRENT'
-                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? AND tipe = 'MC')) as current_nom,
+                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? {tipe_filter})) as current_nom,
                  
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama
         """
-        # Parameter mapping:
-        # 1. bulan_rek_target (N-1) untuk MB
-        # 2. periode (N) untuk MB periode sync
-        # 3. periode (N) untuk validasi NOMEN di MC
-        # 4. periode (N) untuk filter Collection
-        # 5. periode (N) untuk validasi NOMEN Collection di MC
         res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode, periode, periode, periode)).fetchone()
 
-        # [5] SMART LEADERBOARD (KPI PETUGAS)
-        query_leaderboard = """
+        # [6] LEADERBOARD
+        query_leaderboard = f"""
             SELECT 
                 r.petugas,
                 COUNT(p.id) as target_nomen,
@@ -92,18 +86,17 @@ def get_pusat_kendali():
                 ROUND((CAST(SUM(p.status_lunas) AS FLOAT) / MAX(1, COUNT(p.id))) * 100, 1) as pct_nomen
             FROM rute_petugas r
             JOIN master_pelanggan p ON r.pcez = p.pcez
-            WHERE p.periode = ? AND p.tipe = 'MC'
+            WHERE p.periode = ? {tipe_filter}
             GROUP BY r.petugas 
             ORDER BY pct_nomen DESC, lunas_nomen DESC LIMIT 5
         """
         res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
 
-        # [6] FINAL CALCULATION
+        # [7] FINAL MAPPING
         total_mc = res_summary['total_nominal'] or 0
         total_undue = res_realisasi['undue_nom'] or 0
         total_current = res_realisasi['current_nom'] or 0
         piutang_lama = res_realisasi['total_piutang_lama'] or 0
-        
         realisasi_gabungan = total_undue + total_current
 
         return jsonify({
@@ -139,29 +132,17 @@ def get_pusat_kendali():
 
     except Exception as e:
         current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
-        return jsonify({"status": "error", "message": f"Gagal Sinkronisasi Dashboard: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
 
-# ==========================================
-# 2. ENDPOINT SYSTEM LOGS (AUDIT TRAIL)
-# ==========================================
 @dashboard_bp.route('/admin/system-logs', methods=['GET'])
 def get_system_logs():
-    """Audit Trail: Melihat jejak digital aktivitas Admin/Upload."""
     db = get_db_connection()
     try:
-        logs = db.execute("""
-            SELECT user_id, action, module, details, ip_address, created_at 
-            FROM system_logs 
-            ORDER BY created_at DESC LIMIT 50
-        """).fetchall()
-        
-        return jsonify({
-            "status": "success",
-            "data": [dict(row) for row in logs]
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logs = db.execute("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50").fetchall()
+        return jsonify({"status": "success", "data": [dict(row) for row in logs]})
+    except:
+        return jsonify({"status": "error", "message": "Logs table not ready"}), 200
     finally:
         db.close()
