@@ -1,13 +1,15 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.85 High-Speed Sync)
+Smart Integration Engine - Sunter Dashboard Pro (V12.86 Ultimate High-Speed)
 Update: 2026-01-30
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. High-Speed Batch Processing: Menggunakan transaksi tunggal (BEGIN TRANSACTION) 
    untuk memproses ribuan baris sekaligus tanpa mengunci database berulang kali.
-2. Force Identification: Menjamin file MB tidak pernah dianggap sebagai MC.
-3. Target Lock Mechanism: Mencegah MB menambah jumlah baris di master_pelanggan.
-4. Auto Bulan Rek Sanitizer: MM/YYYY -> MMYYYY.
+2. Force Identification: Mendeteksi kolom 'BULAN_REK' atau 'TGL_BAYAR' untuk 
+   memaksa tipe data menjadi MB/UNDUE (Mencegah target MC bertambah liar).
+3. Target Lock Mechanism: Menggunakan query UPDATE untuk status lunas agar 
+   Total Nomen & Target Nominal terkunci hanya dari file MC awal.
+4. Auto Bulan Rek Sanitizer: Membersihkan format (misal: 12/2025 -> 122025).
 """
 
 import pandas as pd
@@ -68,7 +70,7 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # Baca File ke Dataframe (Optimasi: Gunakan dtype str untuk semua kolom di awal)
+        # Baca File ke Dataframe (High-Speed Read)
         df = pd.read_csv(file, dtype=str).fillna('') if file_name.endswith('.csv') else pd.read_excel(file, dtype=str).fillna('')
         data_type = identify_file_type(df)
         
@@ -94,7 +96,7 @@ def handle_smart_upload():
             if not month_ref: return jsonify({"status": "error", "message": "Gagal deteksi periode file"}), 400
             target_period = f"{month_ref}-{year_ref}"
 
-        # --- START HIGH SPEED BATCH TRANSACTION ---
+        # --- KUNCI KECEPATAN: START BATCH TRANSACTION ---
         db.execute("BEGIN TRANSACTION")
         
         row_count = 0
@@ -169,10 +171,9 @@ def handle_smart_upload():
             
             except Exception as row_err:
                 error_rows += 1
-                # Jangan print setiap baris jika ribuan baris error, cukup lanjutkan
                 continue
 
-        # COMMIT SEMUA SEKALIGUS (INI KUNCI KECEPATAN)
+        # COMMIT SEMUA SEKALIGUS (VITAL UNTUK KECEPATAN & MENCEGAH LOCKED)
         db.commit() 
         # -----------------------------------------------
 
@@ -180,7 +181,7 @@ def handle_smart_upload():
             user_id=session.get('username', 'Admin'),
             action='UPLOAD_SUCCESS',
             module=data_type,
-            details=f"FastSync: {row_count} sukses, {error_rows} gagal. File: {file_name}",
+            details=f"FastSync: {row_count} baris sukses. File: {file_name}",
             ip=request.remote_addr
         )
         
@@ -188,7 +189,7 @@ def handle_smart_upload():
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
         db.commit()
 
-        return jsonify({"status": "success", "message": f"Integrasi {data_type} FastSync selesai. {row_count} baris diproses."})
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} High-Speed selesai. {row_count} baris diproses."})
 
     except Exception as e:
         if db: db.rollback()
