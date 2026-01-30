@@ -1,15 +1,16 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.86 High-Speed Sync)
-Update: 2026-01-30
+Core Database Module - Sunter Dashboard Pro (V12.90 Ultra-Speed Sync)
+Update: 2026-01-31
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. High-Speed Write Performance: Mengoptimalkan PRAGMA synchronous dan journal_size
-   untuk mendukung batch transaction ribuan baris tanpa bottleneck.
-2. Robust Migration Engine: Memastikan kolom 'tipe' dan 'periode' ada di semua 
-   tabel transaksi untuk mencegah Error 500 saat Dashboard filter data.
-3. Target Lock Integrity: Menjamin kolom 'tipe' memiliki default 'MC' pada 
-   tabel master_pelanggan untuk penguncian angka target.
-4. Auto-Indexing: Menambahkan index pada kolom tipe untuk akselerasi query summary.
+1. Ultra-High Write Performance: Mengaktifkan temp_store MEMORY dan turbo cache 
+   untuk mendukung Bulk Injection (executemany) puluhan ribu baris.
+2. Robust Migration Engine: Menjamin kolom 'tipe' dan 'periode' sinkron di semua 
+   tabel transaksi guna menghindari Error 500 pada Dashboard.
+3. Target Lock Integrity: Default value 'MC' pada master_pelanggan memastikan 
+   angka target dashboard tidak bergeser saat upload MB.
+4. Auto-Indexing: Indexing cerdas pada kolom 'tipe' dan 'periode' untuk 
+   akselerasi render dashboard di bawah 1 detik.
 """
 
 import sqlite3
@@ -22,15 +23,19 @@ def get_db_connection():
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
         # Timeout ditingkatkan menjadi 100 detik untuk mencegah 'Database is locked'
+        # saat proses Bulk Insert berjalan masif.
         conn = sqlite3.connect(db_path, timeout=100)
         conn.row_factory = sqlite3.Row 
         
-        # Optimasi SQLite untuk Akses Simultan (Multi-User & High Speed)
-        conn.execute('PRAGMA journal_mode=WAL;')       # Baca/Tulis bersamaan
-        conn.execute('PRAGMA synchronous=NORMAL;')     # Keseimbangan antara speed & safety
-        conn.execute('PRAGMA journal_size_limit=67108864;') # Batasi ukuran file WAL (64MB)
-        conn.execute('PRAGMA cache_size=-20000;')      # Alokasikan RAM 20MB untuk cache
-        conn.execute('PRAGMA foreign_keys = ON;')      # Integritas relasi
+        # 
+        # Optimasi SQLite untuk Akses Simultan (Multi-User & Ultra High Speed)
+        conn.execute('PRAGMA journal_mode=WAL;')       # Baca & Tulis bersamaan tanpa antri
+        conn.execute('PRAGMA synchronous=NORMAL;')     # Keseimbangan speed & data safety
+        conn.execute('PRAGMA temp_store=MEMORY;')      # Tabel sementara diproses di RAM
+        conn.execute('PRAGMA cache_size=-64000;')      # Alokasikan RAM 64MB untuk buffer database
+        conn.execute('PRAGMA journal_size_limit=67108864;') # Batasi log file WAL agar hemat disk
+        conn.execute('PRAGMA foreign_keys = ON;')      # Menjaga integritas relasi antar tabel
+        
         return conn
     except sqlite3.Error as e:
         print(f"❌ Connection Error: {e}")
@@ -59,7 +64,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.86: High-Speed Engine & Schema Tipe Telah Siap.")
+            print("✅ Database V12.90: Engine Ultra-Speed & Schema Tipe Telah Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -147,7 +152,7 @@ def run_smart_migration(cursor):
     if 'no_hp' not in existing_users:
         cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
 
-    # --- MIGRASI SMART UNDUE & PERIOD ---
+    # --- MIGRASI SMART TRANS-PERIOD ---
     for table in ['master_bayar', 'collection_harian']:
         cursor.execute(f"PRAGMA table_info({table})")
         cols = [row['name'] for row in cursor.fetchall()]
@@ -173,6 +178,7 @@ def run_smart_migration(cursor):
 
 def optimize_performance(cursor):
     """Turbo Indexing: Akselerasi join data dan filter harian."""
+    # 
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan (pcez)",
