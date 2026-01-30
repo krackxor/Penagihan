@@ -1,15 +1,15 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.82 Ultimate Sync)
+Core Database Module - Sunter Dashboard Pro (V12.86 High-Speed Sync)
 Update: 2026-01-30
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Target Lock Mechanism: Migrasi otomatis kolom 'tipe' pada master_pelanggan 
-   untuk membedakan data Target (MC) dan data bayar.
-2. Real-time Lunas Support: Migrasi otomatis kolom 'tgl_lunas' pada master_pelanggan.
-3. Full Schema Alignment: Menjamin tabel 'collection_harian' memiliki kolom 'periode' 
-   untuk sinkronisasi Dashboard Utama.
-4. Multi-Indexed Search: Menambahkan index pada pcez dan kategori untuk akselerasi 
-   Leaderboard dan Pusat Kendali.
+1. High-Speed Write Performance: Mengoptimalkan PRAGMA synchronous dan journal_size
+   untuk mendukung batch transaction ribuan baris tanpa bottleneck.
+2. Robust Migration Engine: Memastikan kolom 'tipe' dan 'periode' ada di semua 
+   tabel transaksi untuk mencegah Error 500 saat Dashboard filter data.
+3. Target Lock Integrity: Menjamin kolom 'tipe' memiliki default 'MC' pada 
+   tabel master_pelanggan untuk penguncian angka target.
+4. Auto-Indexing: Menambahkan index pada kolom tipe untuk akselerasi query summary.
 """
 
 import sqlite3
@@ -21,13 +21,15 @@ def get_db_connection():
     """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        # Timeout ditingkatkan untuk mencegah 'Database is locked' saat upload besar
-        conn = sqlite3.connect(db_path, timeout=60)
+        # Timeout ditingkatkan menjadi 100 detik untuk mencegah 'Database is locked'
+        conn = sqlite3.connect(db_path, timeout=100)
         conn.row_factory = sqlite3.Row 
         
-        # Optimasi SQLite untuk Akses Simultan (Multi-User)
+        # Optimasi SQLite untuk Akses Simultan (Multi-User & High Speed)
         conn.execute('PRAGMA journal_mode=WAL;')       # Baca/Tulis bersamaan
-        conn.execute('PRAGMA synchronous=NORMAL;')     # Performa tulis cepat
+        conn.execute('PRAGMA synchronous=NORMAL;')     # Keseimbangan antara speed & safety
+        conn.execute('PRAGMA journal_size_limit=67108864;') # Batasi ukuran file WAL (64MB)
+        conn.execute('PRAGMA cache_size=-20000;')      # Alokasikan RAM 20MB untuk cache
         conn.execute('PRAGMA foreign_keys = ON;')      # Integritas relasi
         return conn
     except sqlite3.Error as e:
@@ -57,7 +59,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.82: Kolom [tipe] & [tgl_lunas] Telah Sinkron.")
+            print("✅ Database V12.86: High-Speed Engine & Schema Tipe Telah Siap.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -91,7 +93,7 @@ def check_and_create_tables(cursor):
         )
     """)
     
-    # 3. Master Pelanggan (Data Target) - Ditambahkan tipe='MC'
+    # 3. Master Pelanggan (Data Target)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,14 +128,13 @@ def run_smart_migration(cursor):
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
     
-    # Tambahan kolom kritikal untuk dashboard terbaru
     master_cols = {
         'tarif': 'TEXT', 
         'kubik': 'REAL DEFAULT 0', 
         'nomet': 'TEXT', 
         'no_hp': 'TEXT DEFAULT "-"',
         'tgl_lunas': 'TEXT',
-        'tipe': "TEXT DEFAULT 'MC'"  # KUNCI PERBAIKAN: Agar target tidak bertambah saat up MB
+        'tipe': "TEXT DEFAULT 'MC'"
     }
     for col, dtype in master_cols.items():
         if col not in existing_master:
@@ -178,6 +179,7 @@ def optimize_performance(cursor):
         "CREATE INDEX IF NOT EXISTS idx_mc_tipe ON master_pelanggan (tipe)",
         "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mb_brek ON master_bayar (bulan_rek)",
+        "CREATE INDEX IF NOT EXISTS idx_mb_kat ON master_bayar (kategori)",
         "CREATE INDEX IF NOT EXISTS idx_ch_nomen_per ON collection_harian (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)"
     ]
