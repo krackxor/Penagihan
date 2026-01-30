@@ -1,12 +1,14 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.46 Precision Recovery)
-Update: 2026-01-21
+API Dashboard - Sunter Dashboard Pro (V12.75 Precision Recovery)
+Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Precision Filtering: Realisasi (UNDUE & CURRENT) hanya dihitung jika NOMEN terdaftar di MC periode aktif.
-2. Anti-Over Progress: Mencegah progres melebihi 100% akibat pembayaran piutang lama yang tidak terpetakan.
-3. N+1 Smart Logic: Sinkronisasi otomatis bulan rekening tagihan (N-1) untuk filter UNDUE.
-4. Robust Performance: Optimasi subquery untuk menangani dataset besar (Fix: Dashboard Lag).
+1. Dynamic Realisasi Sync: Memperbaiki filter query CURRENT agar merujuk ke kolom 
+   'periode' yang telah ditambahkan di tabel collection_harian.
+2. N-1 Baseline Alignment: Menyelaraskan format 'bulan_rek_target' (mmYYYY) agar 
+   cocok dengan hasil sanitasi mesin upload.
+3. Cross-Period Validation: Menjamin realisasi tetap terdeteksi meskipun periode 
+   transaksi dan periode master memiliki dependensi N+1.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -17,6 +19,7 @@ dashboard_bp = Blueprint('dashboard', __name__)
 
 def get_latest_active_period(db):
     """Mendeteksi periode target penagihan terbaru (Hasil N+1 Upload)."""
+    # Mengambil periode terakhir dari Master Pelanggan sebagai acuan dashboard
     res = db.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1").fetchone()
     return res['periode'] if res else datetime.now().strftime('%m-%Y')
 
@@ -33,9 +36,9 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # [2] LOGIKA N+1 SMART RECOVERY
+        # [2] LOGIKA N+1 SMART RECOVERY (Target Bulan Rekening N-1)
         dt_obj = datetime.strptime(periode, '%m-%Y')
-        # Mundur 1 bulan otomatis untuk mencari bulan_rek tagihan (Hasil: 122025)
+        # Mundur 1 bulan otomatis untuk mencari bulan_rek tagihan (Contoh: 01-2026 -> 122025)
         last_month = dt_obj.replace(day=1) - timedelta(days=1)
         bulan_rek_target = last_month.strftime('%m%Y')
 
@@ -56,12 +59,12 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # [4] REALISASI NOMINAL PRESISI (Fix: Anti-Over 100%)
-        # Menggunakan subquery IN untuk memastikan hanya Nomen di MC bulan ini yang dihitung
+        # [4] REALISASI NOMINAL PRESISI (Fix: Undue & Current Detection)
+        # Update: Menambahkan filter 'periode' pada collection_harian agar sinkron dengan MC
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
-                 WHERE mb.bulan_rek = ? AND mb.kategori = 'UNDUE'
+                 WHERE (mb.bulan_rek = ? OR mb.periode = ?) AND mb.kategori = 'UNDUE'
                  AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)) as undue_nom,
                  
                 (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
@@ -70,7 +73,8 @@ def get_pusat_kendali():
                  
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama
         """
-        res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode, periode, periode)).fetchone()
+        # Parameter: bulan_rek_target (N-1), periode (N), periode (N), periode (N), periode (N)
+        res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode, periode, periode, periode)).fetchone()
 
         # [5] SMART LEADERBOARD (KPI PETUGAS)
         query_leaderboard = """
