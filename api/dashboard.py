@@ -1,5 +1,5 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.75 Precision Recovery)
+API Dashboard - Sunter Dashboard Pro (V12.76 Ultimate Sync)
 Update: 2026-01-22
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -9,6 +9,8 @@ Pembaruan Strategis:
    cocok dengan hasil sanitasi mesin upload.
 3. Cross-Period Validation: Menjamin realisasi tetap terdeteksi meskipun periode 
    transaksi dan periode master memiliki dependensi N+1.
+4. Strict Nomen Matching: Memastikan nominal hanya dihitung jika NOMEN terdaftar 
+   di Master Pelanggan periode aktif (Anti-Over Progress).
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -60,7 +62,7 @@ def get_pusat_kendali():
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
         # [4] REALISASI NOMINAL PRESISI (Fix: Undue & Current Detection)
-        # Update: Menambahkan filter 'periode' pada collection_harian agar sinkron dengan MC
+        # Query ini menjamin integritas: hanya menghitung nominal dari NOMEN yang ada di MC periode aktif
         query_realisasi = """
             SELECT 
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
@@ -73,7 +75,12 @@ def get_pusat_kendali():
                  
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt) as total_piutang_lama
         """
-        # Parameter: bulan_rek_target (N-1), periode (N), periode (N), periode (N), periode (N)
+        # Parameter mapping:
+        # 1. bulan_rek_target (N-1) untuk MB
+        # 2. periode (N) untuk MB periode sync
+        # 3. periode (N) untuk validasi NOMEN di MC
+        # 4. periode (N) untuk filter Collection
+        # 5. periode (N) untuk validasi NOMEN Collection di MC
         res_realisasi = db.execute(query_realisasi, (bulan_rek_target, periode, periode, periode, periode)).fetchone()
 
         # [5] SMART LEADERBOARD (KPI PETUGAS)
