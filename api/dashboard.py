@@ -1,20 +1,20 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.80 Ultra Sync)
+API Dashboard - Sunter Dashboard Pro (V12.82 Ultra Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Robust Column Shield: Menambahkan pengecekan keberadaan kolom 'tipe' secara 
-   dinamis untuk mencegah Error 500 (no such column).
-2. Target Lock Mechanism: Mengunci perhitungan TOTAL NOMEN dan TARGET NOMINAL 
-   hanya pada data MC (jika kolom tersedia).
-3. ✅ FIX: Period Alignment - Menggunakan periode murni untuk sinkronisasi.
-4. ✅ FIX: Undue Filter - Menambahkan filter bulan_rek agar nominal realisasi 
-   tidak meluap (Anti-Over Progress > 100%).
+1. Robust Column Shield: Menambahkan pengecekan tipe secara dinamis.
+2. Target Lock Mechanism: Mengunci perhitungan target hanya pada data MC.
+3. ✅ FIX: Period Alignment - Menggunakan periode murni untuk sinkronisasi data.
+4. ✅ FIX: Undue Filter Logic - Menambahkan filter bulan_rek (N-1) agar nominal 
+   realisasi akurat (Anti-Over Progress & Anti-Zero Realization).
+5. ✅ FIX: Target Label - Sinkronisasi tampilan target rekening (e.g., 01-2026 -> 122025).
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
 from core.database import get_db_connection
-from datetime import datetime, timedelta
+from datetime import datetime
+from dateutil.relativedelta import relativedelta # Dibutuhkan untuk logika N-1
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -36,9 +36,14 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # ✅ [2] FIX PERIODE LOGIC
-        # bulan_rek_target digunakan untuk memfilter pembayaran agar sesuai bulan tagihan
-        bulan_rek_target = periode.replace('-', '')  # Contoh: 01-2026 -> 012026
+        # ✅ [2] FIX PERIODE LOGIC (N-1 Alignment)
+        # Mengonversi periode dashboard (e.g., 01-2026) menjadi bulan rekening target (e.g., 122025)
+        try:
+            dt_obj = datetime.strptime(periode, '%m-%Y')
+            target_dt = dt_obj - relativedelta(months=1)
+            bulan_rek_target = target_dt.strftime('%m%Y')
+        except:
+            bulan_rek_target = periode.replace('-', '')
 
         # [3] DYNAMIC SCHEMA CHECK (Mencegah Error 'no such column: tipe')
         cursor = db.execute("PRAGMA table_info(master_pelanggan)")
@@ -62,7 +67,7 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # ✅ [5] FIX REALISASI NOMINAL: Tambahkan filter bulan_rek agar tidak > 100%
+        # ✅ [5] FIX REALISASI NOMINAL: Menggunakan bulan_rek_target untuk UNDUE
         query_realisasi = f"""
             SELECT 
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
@@ -76,7 +81,7 @@ def get_pusat_kendali():
                  
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
         """
-        # Parameter: (periode_mb, bulan_rek_mb, periode_mc, periode_coll, periode_mc, periode_ardebt)
+        # Mapping: (periode_upload, target_rekening_n1, periode_mc, periode_coll, periode_mc, periode_ardebt)
         res_realisasi = db.execute(query_realisasi, (periode, bulan_rek_target, periode, periode, periode, periode)).fetchone()
 
         # [6] LEADERBOARD
