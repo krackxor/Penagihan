@@ -1,12 +1,13 @@
 """
-Ardebt (Tagihan Berekor) API - V6.8 (Sunter Dashboard Pro - Full Sync)
-Update: 2026-01-20
+Ardebt (Tagihan Berekor) API - V6.9 (Period Logic Fix)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Column Sync: Mengganti 'notagihan' menjadi 'nomen' (Fix: OperationalError).
 2. Live Realization: Validasi status lunas via Master Bayar & Collection Harian.
 3. Intelligence Layer: Deteksi lonjakan ekstrem atau meteran macet (Kubik 0).
-4. Auto-Hide: Data otomatis hilang dari daftar jika sudah dikunjungi hari ini.
+4. ✅ FIX: Auto-Hide dengan filter periode yang konsisten
+5. ✅ FIX: Join Ardebt dengan MC menggunakan periode yang sama
 """
 
 from flask import Blueprint, request, jsonify, session, current_app
@@ -101,7 +102,8 @@ def get_tunggakan_berekor():
         cursor = conn.cursor()
         active_period = get_active_target_period(cursor)
 
-        # [QUERY INTI] - Join efisien antara Ardebt (Piutang) dan Master Pelanggan
+        # ✅ [QUERY INTI V6.9] - Join dengan filter periode yang konsisten
+        # Ardebt dan MC harus pada periode yang sama
         query = """
             SELECT 
                 a.nomen, a.periode_bill as rincian_periode, 
@@ -110,7 +112,7 @@ def get_tunggakan_berekor():
                 p.tarif, p.kubik as pemakaian_air, p.pcez, p.nominal as nominal_mc,
                 COALESCE(r.petugas, 'UNMAPPED') as nama_petugas
             FROM ardebt a
-            INNER JOIN master_pelanggan p ON a.nomen = p.nomen
+            INNER JOIN master_pelanggan p ON a.nomen = p.nomen AND a.periode = p.periode
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ? AND p.status_lunas = 0
             AND p.nomen NOT IN (SELECT nomen FROM master_bayar WHERE periode = ?)
