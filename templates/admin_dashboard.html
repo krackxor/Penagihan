@@ -262,6 +262,45 @@
     </div>
 </div>
 
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="fw-bold mb-0">Registrasi User Baru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="addUserForm" onsubmit="handleRegisterUser(event)">
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted mb-1">Username</label>
+                        <input type="text" id="reg_username" class="form-control shadow-sm" placeholder="Contoh: petugas_lapangan" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted mb-1">Password</label>
+                        <input type="password" id="reg_password" class="form-control shadow-sm" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted mb-1">Level Akses</label>
+                        <select id="reg_role" class="form-select shadow-sm">
+                            <option value="petugas">Petugas Lapangan</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted mb-1">Petugas ID (Rute/PCEZ)</label>
+                        <input type="text" id="reg_petugas_id" class="form-control shadow-sm" placeholder="P01 / ALL">
+                    </div>
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted mb-1">No WhatsApp (62xxx)</label>
+                        <input type="tel" id="reg_no_hp" class="form-control shadow-sm">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-lg">AKTIFKAN AKSES USER</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     /* Admin Nav Professional */
     .nav-admin-pro { gap: 10px; }
@@ -285,15 +324,10 @@
         box-shadow: 0 4px 15px rgba(13,110,253,0.3);
         border-color: #0d6efd;
     }
-    /* Hide scrollbar but keep functionality */
     .nav-admin-pro::-webkit-scrollbar { display: none; }
-
-    /* Cards & Components */
     .card { border-radius: 1.25rem; transition: transform 0.2s ease; }
     .border-dashed { border: 2px dashed #cbd5e1 !important; transition: all 0.3s; cursor: pointer; }
     .border-dashed:hover { border-color: #0d6efd !important; background-color: #f0f7ff !important; }
-    
-    /* Custom Search Bar */
     .search-bar-pro {
         position: relative;
         background: #f1f5f9;
@@ -314,8 +348,6 @@
         outline: none;
         width: 100%;
     }
-
-    /* Modal Styling */
     .icon-box-modal {
         width: 70px;
         height: 70px;
@@ -327,24 +359,66 @@
         margin: 0 auto;
         font-size: 1.8rem;
     }
-
     .status-card { transition: transform 0.2s; border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
     .status-card:last-child { border-bottom: none; }
     .status-card:hover { transform: translateX(5px); }
-
-    /* Tablet/Mobile Professional Display */
     @media (max-width: 768px) {
         .nav-admin-pro .nav-link span { display: block; }
         .nav-admin-pro .nav-link { padding: 10px 15px; }
         .search-bar-pro { max-width: 100%; }
-        .card-body { padding: 1rem !important; }
     }
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 <script>
-// Fungsi toIDR dipindahkan ke sini agar konsisten
 const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+
+// Modal Initialization
+let userModal;
+document.addEventListener('DOMContentLoaded', () => { 
+    checkDataStatus();
+    const modalEl = document.getElementById('addUserModal');
+    if (modalEl) userModal = new bootstrap.Modal(modalEl);
+});
+
+// [LOGIC] REGISTRATION FUNCTIONS
+function showAddUserModal() {
+    document.getElementById('addUserForm').reset();
+    userModal.show();
+}
+
+async function handleRegisterUser(event) {
+    event.preventDefault();
+    const btn = event.submitter;
+    const formData = {
+        username: document.getElementById('reg_username').value,
+        password: document.getElementById('reg_password').value,
+        role: document.getElementById('reg_role').value,
+        petugas_id: document.getElementById('reg_petugas_id').value,
+        no_hp: document.getElementById('reg_no_hp').value
+    };
+
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            Swal.fire('Berhasil!', result.message, 'success');
+            userModal.hide();
+            loadUsers();
+        } else {
+            Swal.fire('Gagal', result.message, 'error');
+        }
+    } catch (e) {
+        Swal.fire('Error', 'Gagal menghubungi server registrasi', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
 
 // [LOGIC] 1. CEK STATUS DATA
 async function checkDataStatus() {
@@ -352,7 +426,6 @@ async function checkDataStatus() {
     try {
         const res = await fetch('/api/dashboard/pusat-kendali');
         const result = await res.json();
-        
         if (result.status === 'success') {
             const s = result.summary;
             list.innerHTML = `
@@ -414,20 +487,11 @@ async function uploadData() {
     const fileInput = document.getElementById('excelFile');
     const btn = document.getElementById('btn-upload-execute');
     if (fileInput.files.length === 0) return Swal.fire('Peringatan', 'Pilih file terlebih dahulu.', 'warning');
-
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
-
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> MEMPROSES...`;
-
-    Swal.fire({ 
-        title: 'Mengintegrasikan Data...', 
-        text: 'Sedang mensinkronisasi Master & Realisasi', 
-        allowOutsideClick: false, 
-        didOpen: () => Swal.showLoading() 
-    });
-
+    Swal.fire({ title: 'Mengintegrasikan Data...', text: 'Sedang mensinkronisasi Master & Realisasi', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
         const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
         const result = await res.json();
@@ -523,32 +587,32 @@ async function loadUsers() {
                 <td><span class="badge bg-dark rounded-pill" style="font-size:0.65rem">${u.role.toUpperCase()}</span></td>
                 <td class="small text-muted">${u.petugas_id || 'FULL ACCESS'}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteUser(${u.id})"><i class="fas fa-trash-alt"></i></button>
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteUser('${u.username}')"><i class="fas fa-trash-alt"></i></button>
                 </td>
             </tr>
         `).join('');
     } catch (e) { body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Akses API Keamanan Gagal.</td></tr>'; }
 }
 
-async function deleteUser(id) {
+async function deleteUser(username) {
     const result = await Swal.fire({
         title: 'Apakah anda yakin?',
-        text: "User akan dihapus permanen!",
+        text: `Akses user ${username} akan dicabut secara permanen!`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
-        cancelButtonColor: '#64748b',
         confirmButtonText: 'Ya, hapus!'
     });
 
     if (result.isConfirmed) {
         try {
-            const res = await fetch(`/api/auth/users/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                Swal.fire('Terhapus!', 'User telah dihapus.', 'success');
+            const res = await fetch(`/api/auth/delete-user/${username}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                Swal.fire('Terhapus!', data.message, 'success');
                 loadUsers();
             } else {
-                Swal.fire('Gagal!', 'Gagal menghapus user.', 'error');
+                Swal.fire('Gagal!', data.message, 'error');
             }
         } catch (e) {
             Swal.fire('Error!', 'Kesalahan koneksi.', 'error');
