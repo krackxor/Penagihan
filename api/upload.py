@@ -1,15 +1,16 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V12.95 Ultra-Bulk Sync)
+Smart Integration Engine - Sunter Dashboard Pro (V12.98 Ultra-Bulk Sync)
 Update: 2026-01-31
 ---------------------------------------------------------------------------
 Teknologi Unggulan:
 1. executemany() Bulk Injection: Mengirim puluhan ribu baris data dalam satu 
-   paket instruksi tunggal. 50x lebih cepat dari loop biasa.
+   paket instruksi tunggal. Menghilangkan overhead I/O database.
 2. Memory Buffering: Validasi dan penyusunan data dilakukan sepenuhnya di RAM 
-   sebelum menyentuh storage disk.
+   menggunakan list of tuples sebelum menyentuh storage disk.
 3. Connection Persistence: Selesai dalam hitungan detik untuk mencegah 
    timeout koneksi browser (Gagal terhubung ke server).
-4. Strict Integrity: Mempertahankan Target Lock dan Auto-Sanitizer Bulan Rek.
+4. Strict Integrity: Memisahkan perintah INSERT (untuk MC) dan UPDATE (untuk MB)
+   agar angka target dashboard tetap akurat (Target Lock).
 """
 
 import pandas as pd
@@ -87,7 +88,7 @@ def handle_smart_upload():
         col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'REKENING', 'PERIODE'])
         col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'TELEPON', 'WA'])
 
-        # Proteksi Tipe: Jika file MC punya kolom transaksi, paksa jadi MB
+        # Proteksi Tipe: Jika file MC punya kolom transaksi, paksa jadi MB (Realisasi)
         if data_type == 'MC' and (col_brek or col_pay):
             data_type = 'MB'
 
@@ -104,7 +105,8 @@ def handle_smart_upload():
         bulk_update = []
         bulk_rute = []
         
-        records = df.to_dict('records') # Jauh lebih cepat dibanding iterrows()
+        # Mengubah DataFrame ke List of Dict untuk kecepatan iterasi RAM
+        records = df.to_dict('records') 
         for row in records:
             if data_type == 'RUTE':
                 c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
@@ -145,8 +147,9 @@ def handle_smart_upload():
                 if nominal > 0:
                     bulk_main.append((nomen, row.get('PERIODE_BILL', '-'), nominal, target_period))
 
-        # 3. FAST EXECUTION PHASE (BULK INJECTION)
-        db.execute("PRAGMA synchronous = OFF") # Mode turbo sementara
+        # 3. ULTRA-FAST INJECTION PHASE (ATOMIC TRANSACTION)
+        # Menembakkan puluhan ribu baris sekaligus
+        db.execute("PRAGMA synchronous = OFF") 
         db.execute("BEGIN TRANSACTION")
 
         if data_type == 'RUTE':
@@ -163,13 +166,13 @@ def handle_smart_upload():
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
             dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
             
-            # Bulk Insert Transaksi
+            # Bulk Insert Transaksi ke tabel Realisasi
             db.executemany(f"""
                 INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                 VALUES (?, ?, ?, ?, ?, ?)
             """, bulk_main)
             
-            # Bulk Update Target MC (Target Lock Mechanism)
+            # Bulk Update Target MC (Hanya update data yang ada, angka MC tidak akan bertambah)
             db.executemany("""
                 UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = ?
                 WHERE nomen = ? AND periode = ? AND tipe = 'MC'
@@ -178,7 +181,7 @@ def handle_smart_upload():
         elif data_type == 'ARDEBT':
             db.executemany("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) VALUES (?, ?, ?, ?)", bulk_main)
 
-        # Final Log & Commit
+        # Final Log History & Atomic Commit
         row_count = len(bulk_main) if data_type != 'RUTE' else len(bulk_rute)
         db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?, ?, ?, ?, ?)",
                    (file_name, data_type, target_period, row_count, 'SUCCESS'))
@@ -186,9 +189,9 @@ def handle_smart_upload():
         db.commit()
         db.execute("PRAGMA synchronous = NORMAL")
         
-        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"BulkSync: {row_count} rows. File: {file_name}")
+        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"BulkSync: {row_count} rows processed.")
 
-        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil. {row_count} baris diproses secara instant."})
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil! {row_count} baris diproses secara instant."})
 
     except Exception as e:
         if db: db.rollback()
