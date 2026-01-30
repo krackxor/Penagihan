@@ -1,16 +1,15 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.92 Ultra-Speed Sync)
-Update: 2026-01-31
+Core Database Module - Sunter Dashboard Pro (V12.93 Stability Patch)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Ultra-High Write Performance: Mengaktifkan temp_store MEMORY dan turbo cache 
-   untuk mendukung Bulk Injection (executemany) puluhan ribu baris.
+1. Fix OperationalError: Penambahan kolom 'created_at' pada tabel 'users' via Smart Migration.
 2. Robust Migration Engine: Menjamin kolom 'tipe' dan 'periode' sinkron di semua 
    tabel transaksi guna menghindari Error 500 pada Dashboard.
-3. Target Lock Integrity: Default value 'MC' pada master_pelanggan memastikan 
+3. Ultra-High Write Performance: Mengaktifkan temp_store MEMORY dan turbo cache 
+   untuk mendukung Bulk Injection (executemany) puluhan ribu baris.
+4. Target Lock Integrity: Default value 'MC' pada master_pelanggan memastikan 
    angka target dashboard tidak bergeser saat upload MB.
-4. Auto-Indexing: Indexing cerdas pada kolom 'tipe' dan 'periode' untuk 
-   akselerasi render dashboard di bawah 1 detik.
 """
 
 import sqlite3
@@ -22,9 +21,7 @@ def get_db_connection():
     """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        # 
         # Timeout ditingkatkan menjadi 100 detik untuk mencegah 'Database is locked'
-        # saat proses Bulk Insert berjalan masif.
         conn = sqlite3.connect(db_path, timeout=100)
         conn.row_factory = sqlite3.Row 
         
@@ -64,7 +61,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.92: Engine Ultra-Speed & Schema Tipe Telah Sinkron.")
+            print("✅ Database V12.93: Engine Ultra-Speed & Schema User Telah Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -114,7 +111,19 @@ def check_and_create_tables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
     
     # 5. Keamanan & Audit Lapangan
-    cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT)")
+    # Ditambahkan created_at pada struktur dasar untuk mencegah error di masa depan
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            username TEXT UNIQUE, 
+            password TEXT, 
+            role TEXT, 
+            petugas_id TEXT, 
+            last_login TIMESTAMP, 
+            no_hp TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     
     # Tabel Kunjungan
@@ -146,11 +155,16 @@ def run_smart_migration(cursor):
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
             print(f"⚙️ Migrasi: Kolom [{col}] ditambahkan ke master_pelanggan")
 
-    # --- MIGRASI USER ---
+    # --- MIGRASI USER (FIX created_at) ---
     cursor.execute("PRAGMA table_info(users)")
     existing_users = [row['name'] for row in cursor.fetchall()]
+    
     if 'no_hp' not in existing_users:
         cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
+        
+    if 'created_at' not in existing_users:
+        cursor.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        print("⚙️ Migrasi: Kolom [created_at] ditambahkan ke tabel users")
 
     # --- MIGRASI SMART TRANS-PERIOD ---
     for table in ['master_bayar', 'collection_harian']:
@@ -178,7 +192,6 @@ def run_smart_migration(cursor):
 
 def optimize_performance(cursor):
     """Turbo Indexing: Akselerasi join data dan filter harian."""
-    # 
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan (pcez)",
