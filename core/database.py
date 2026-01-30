@@ -1,5 +1,5 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.90 Ultra-Speed Sync)
+Core Database Module - Sunter Dashboard Pro (V12.92 Ultra-Speed Sync)
 Update: 2026-01-31
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -22,12 +22,12 @@ def get_db_connection():
     """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
+        # 
         # Timeout ditingkatkan menjadi 100 detik untuk mencegah 'Database is locked'
         # saat proses Bulk Insert berjalan masif.
         conn = sqlite3.connect(db_path, timeout=100)
         conn.row_factory = sqlite3.Row 
         
-        # 
         # Optimasi SQLite untuk Akses Simultan (Multi-User & Ultra High Speed)
         conn.execute('PRAGMA journal_mode=WAL;')       # Baca & Tulis bersamaan tanpa antri
         conn.execute('PRAGMA synchronous=NORMAL;')     # Keseimbangan speed & data safety
@@ -64,7 +64,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.90: Engine Ultra-Speed & Schema Tipe Telah Sinkron.")
+            print("✅ Database V12.92: Engine Ultra-Speed & Schema Tipe Telah Sinkron.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
