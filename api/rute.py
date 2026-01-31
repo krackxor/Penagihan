@@ -1,10 +1,11 @@
 """
-Rute API - Sunter Dashboard Pro (V7.3 Sinergi Intelligence)
+Rute API - Sunter Dashboard Pro (V7.4 Sinergi Intelligence)
 Sinergi & Smart Update:
 1. Smart Autopilot V2: Sinkronisasi rute (PCEZ) dari Master Pelanggan dengan proteksi duplikasi.
-2. Case-Insensitive Sync: Standarisasi UPPER(TRIM()) pada nama petugas untuk sinkronisasi Ardebt.
-3. Load Balancing: Menghitung distribusi beban kerja pelanggan per petugas secara akurat.
-4. WhatsApp Territory Link: Integrasi nomor admin wilayah untuk pelaporan otomatis.
+2. ✅ ENHANCED: PCEZ Filter - Memastikan hanya format rute (092/01) yang masuk ke sistem mapping.
+3. Case-Insensitive Sync: Standarisasi UPPER(TRIM()) pada nama petugas untuk sinkronisasi Ardebt.
+4. Load Balancing: Menghitung distribusi beban kerja pelanggan per petugas secara akurat.
+5. WhatsApp Territory Link: Integrasi nomor admin wilayah untuk pelaporan otomatis.
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -23,8 +24,8 @@ def get_rute_list():
     """
     db = get_db_connection()
     try:
-        # Query Sinergi V7.3: Menangani sinkronisasi petugas yang tidak kedeteksi 
-        # dengan standarisasi UPPER dan TRIM pada relasi JOIN.
+        # Query Sinergi V7.4: Menambahkan filter LIKE '%/%' untuk memastikan 
+        # hanya format 092/01 yang ditampilkan, bukan kode Rayon murni.
         query = """
             SELECT 
                 m.pcez, 
@@ -35,12 +36,12 @@ def get_rute_list():
             FROM master_pelanggan m
             LEFT JOIN rute_petugas r ON TRIM(m.pcez) = TRIM(r.pcez)
             WHERE m.periode = (SELECT MAX(periode) FROM master_pelanggan)
+            AND m.pcez LIKE '%/%' 
             GROUP BY m.pcez
             ORDER BY m.pcez ASC
         """
         rows = db.execute(query).fetchall()
         
-        # Format list dictionary untuk konsumsi Frontend Dashboard
         return jsonify([dict(row) for row in rows])
     except Exception as e:
         print(f"❌ Error Rute List: {str(e)}")
@@ -53,14 +54,12 @@ def save_rute_manual():
     """
     [FUNGSI: SMART MAPPING MANUAL]
     Kegunaan: Mengunci satu rute PCEZ ke satu petugas spesifik.
-    Keamanan: Hanya untuk Level Admin.
     """
     if session.get('role') != 'admin':
         return APIResponse.error("Akses ditolak: Membutuhkan Level Administrator", code=403)
 
     db = get_db_connection()
     
-    # Standarisasi Input: Menghapus spasi dan memaksa UPPER agar sinkron dengan tabel User/Ardebt
     pcez = request.form.get('pcez', '').strip()
     petugas = request.form.get('petugas', '').strip().upper()
     no_admin = clean_phone(request.form.get('no_admin', '628123456789'))
@@ -69,7 +68,6 @@ def save_rute_manual():
         return APIResponse.error("ID Rute (PCEZ) dan Nama Petugas wajib diisi")
 
     try:
-        # Gunakan TRIM pada pcez untuk memastikan integritas data
         db.execute("""
             INSERT OR REPLACE INTO rute_petugas (pcez, petugas, no_admin, updated_at) 
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -81,11 +79,11 @@ def save_rute_manual():
     finally:
         db.close()
 
-@rute_bp.route('/ mass-update', methods=['POST'])
+@rute_bp.route('/mass-update', methods=['POST'])
 def mass_update_petugas():
     """
     [FUNGSI: BATCH PROCESSING]
-    Kegunaan: Mengalokasikan banyak rute ke satu petugas (Smart Update).
+    Kegunaan: Mengalokasikan banyak rute ke satu petugas.
     """
     if session.get('role') != 'admin':
         return APIResponse.error("Akses terbatas: Hubungi Admin Pusat", code=403)
@@ -100,7 +98,6 @@ def mass_update_petugas():
 
     db = get_db_connection()
     try:
-        # Persiapan batch data untuk eksekusi berperforma tinggi dengan pembersihan spasi
         batch_data = [(p.strip(), petugas, no_admin) for p in pcez_list]
         
         db.executemany("""
@@ -119,22 +116,23 @@ def mass_update_petugas():
 @rute_bp.route('/sync-autopilot', methods=['POST'])
 def sync_from_mc():
     """
-    [FUNGSI: AUTOPILOT SYNC V2]
-    Kegunaan: Mendeteksi rute baru dari file Excel MC secara otomatis.
-    Logika: Mendaftarkan PCEZ unik yang ada di pelanggan tetapi belum ada di mapping rute.
+    [FUNGSI: AUTOPILOT SYNC V2.1]
+    Kegunaan: Mendeteksi rute baru (format 092/01) dari Master Pelanggan secara otomatis.
     """
     db = get_db_connection()
     try:
-        # Sinergi V7.3: Menambahkan pembersihan spasi saat deteksi rute baru
+        # Sinergi V7.4: Menambahkan filter WHERE pcez LIKE '%/%' agar sistem 
+        # hanya menarik data rute asli, mengabaikan kode Rayon (34092).
         db.execute("""
             INSERT OR IGNORE INTO rute_petugas (pcez, petugas, updated_at)
             SELECT DISTINCT TRIM(pcez), 'UNMAPPED', CURRENT_TIMESTAMP
             FROM master_pelanggan
-            WHERE pcez IS NOT NULL AND pcez != ''
+            WHERE pcez IS NOT NULL 
+            AND pcez LIKE '%/%' 
             AND TRIM(pcez) NOT IN (SELECT TRIM(pcez) FROM rute_petugas)
         """)
         db.commit()
-        return APIResponse.success(message="Autopilot: Daftar Rute telah disinkronkan dengan Master Pelanggan")
+        return APIResponse.success(message="Autopilot: Daftar Rute (092/01) telah disinkronkan")
     except Exception as e:
         print(f"❌ Error Sync Autopilot: {str(e)}")
         return APIResponse.error(message="Gagal autopilot sinkronisasi", details=str(e))
