@@ -1,11 +1,11 @@
 """
-Flask Application - Area Service Integrated System (V12.68 Stable)
+Flask Application - Area Service Integrated System (V12.69 Stable)
 Updated: 2026-01-31
 ---------------------------------------------------------------------------
-Pembaruan:
-1. Full Route Mapping: Mendaftarkan 17 halaman (History Bayar, Janji Bayar, Performa, dll).
-2. Security Layer Sync: Menyesuaikan proteksi rute admin dan publik sesuai daftar terbaru.
-3. Integrity Check: Penambahan rute eksplisit untuk mendukung navigasi base.html.
+Fixes Log:
+1. Resolved 404 on /tagihan-berekor, /monitoring-lokasi, and /history.
+2. Unified UI Routing with dual-endpoint support (Admin & Global).
+3. Maintained Security Layer and Database startup protocols.
 """
 
 import os
@@ -37,7 +37,6 @@ def create_app():
     # --- 1. STARTUP PROTOCOL ---
     with app.app_context():
         init_db(app) 
-        
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'materi')
@@ -51,39 +50,28 @@ def create_app():
         if db is not None:
             db.close()
 
-    # --- 2. MIDDLEWARE: SECURITY LAYER V12.68 ---
+    # --- 2. MIDDLEWARE: SECURITY LAYER ---
     @app.before_request
     def security_layer():
-        # Endpoint yang bisa diakses tanpa login
         public_endpoints = [
-            'index', 
-            'monitoring_collection_page', 
-            'dashboard.get_pusat_kendali', 
-            'auth.login', 
-            'login_page', 
-            'static', 
-            'serve_kunjungan_photo', 
-            'youtube_page', 
-            'materi_page'
+            'index', 'monitoring_collection_page', 'dashboard.get_pusat_kendali', 
+            'auth.login', 'login_page', 'static', 'serve_kunjungan_photo', 
+            'youtube_page', 'materi_page'
         ]
         
         endpoint = request.endpoint
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # Proteksi Sesi (Harus Login)
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
-        # Proteksi Khusus Admin
+        # Proteksi Admin untuk rute sensitif
         admin_only_endpoints = [
-            'admin_dashboard', 
-            'monitoring_lokasi_page', 
-            'wa_blast_page',
-            'upload.handle_smart_upload',
-            'history_page' # Halaman log upload excel
+            'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
+            'upload.handle_smart_upload', 'history_page'
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -104,10 +92,15 @@ def create_app():
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
     
-    # [DASHBOARD & MONITORING]
     @app.route('/')
     def index(): 
         return render_template('index.html')
+
+    @app.route('/login')
+    def login_page(): 
+        if 'role' in session: 
+            return redirect(get_role_redirect(session['role']))
+        return render_template('login.html')
 
     @app.route('/performa')
     def performa_page(): 
@@ -117,17 +110,12 @@ def create_app():
     def monitoring_collection_page(): 
         return render_template('monitoring_collection.html')
 
-    @app.route('/login')
-    def login_page(): 
-        if 'role' in session: 
-            return redirect(get_role_redirect(session['role']))
-        return render_template('login.html')
-
-    # [UNIT PELAKSANA LAPANGAN]
     @app.route('/belum-bayar')
     def belum_bayar_page(): 
         return render_template('belum_bayar.html')
 
+    # FIX 404: /tagihan-berekor dan /tunggakan-berekor
+    @app.route('/tagihan-berekor')
     @app.route('/tunggakan-berekor')
     def ardebt_page(): 
         return render_template('tagihan_berekor.html')
@@ -140,7 +128,6 @@ def create_app():
     def galeri_page():
         return render_template('galeri.html')
 
-    # [RIWAYAT & ARSIP]
     @app.route('/history-bayar')
     def history_bayar_page(): 
         return render_template('history_bayar.html')
@@ -149,24 +136,27 @@ def create_app():
     def history_kunjungan_page(): 
         return render_template('history_kunjungan.html')
 
-    # [ADMINISTRASI STRATEGIS & AUDIT]
-    @app.route('/admin/dashboard')
-    def admin_dashboard(): 
-        return render_template('admin_dashboard.html')
-
-    @app.route('/admin/monitoring-lokasi')
-    def monitoring_lokasi_page():
-        return render_template('monitoring_lokasi.html')
-
-    @app.route('/admin/wa-blast')
-    def wa_blast_page():
-        return render_template('wa_blast.html')
-
+    # FIX 404: /history dan /admin/history-upload
+    @app.route('/history')
     @app.route('/admin/history-upload')
     def history_page(): 
         return render_template('history.html')
 
-    # [MEDIA & EDUKASI]
+    @app.route('/admin/dashboard')
+    def admin_dashboard(): 
+        return render_template('admin_dashboard.html')
+
+    # FIX 404: /monitoring-lokasi dan /admin/monitoring-lokasi
+    @app.route('/monitoring-lokasi')
+    @app.route('/admin/monitoring-lokasi')
+    def monitoring_lokasi_page():
+        return render_template('monitoring_lokasi.html')
+
+    @app.route('/wa-blast')
+    @app.route('/admin/wa-blast')
+    def wa_blast_page():
+        return render_template('wa_blast.html')
+
     @app.route('/youtube')
     def youtube_page():
         return render_template('youtube.html')
