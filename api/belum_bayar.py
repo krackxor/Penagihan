@@ -1,11 +1,11 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V9.1 Period Logic Fix)
+Belum Bayar API - Sunter Dashboard Pro (V9.2 Progres Audit Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Autonomous Route Sync: Secara cerdas melakukan JOIN ke rute_petugas untuk mapping petugas.
-2. Anti-Crash Logic: Sinkronisasi kolom 'nomen' (Fix: SQLite OperationalError).
-3. ✅ FIX: Multi-Layer Filter dengan validasi periode yang konsisten
+1. ✅ FIX: Schema Sync - Menambahkan kolom 'nomet' pada insert kunjungan_petugas.
+2. ✅ FEATURE: Progres Audit - Menambahkan fungsi hitung persentase kunjungan harian.
+3. Autonomous Route Sync: Secara cerdas melakukan JOIN ke rute_petugas untuk mapping petugas.
 4. Smart Watermarking: Penanaman metadata operasional pada bukti foto lapangan.
 """
 
@@ -49,7 +49,6 @@ def add_watermark(image_path, info):
         line_height = font_size + 10
         y_pos = height - (line_height * 5) - margin
 
-        # Efek Shadow untuk keterbacaan
         draw.multiline_text((margin + 2, y_pos + 2), text, font=font, fill="black", spacing=10)
         draw.multiline_text((margin, y_pos), text, font=font, fill="#FFFF00", spacing=10)
         
@@ -58,12 +57,63 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Smart Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. ENDPOINT DAFTAR TARGET (SMART SYNC LOGIC)
+# 2. ENDPOINT PROGRES AUDIT (NEW FEATURE)
+# =========================================================================
+
+@belum_bayar_bp.route('/progress', methods=['GET'])
+def get_audit_progress():
+    """Menghitung progres audit/kunjungan harian per petugas."""
+    user_petugas_id = session.get('petugas_id')
+    raw_period = datetime.now().strftime('%m-%Y')
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Hitung Total Target Belum Lunas
+        target_query = """
+            SELECT COUNT(p.nomen) as total 
+            FROM master_pelanggan p
+            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
+            WHERE p.periode = ? AND p.status_lunas = 0
+        """
+        params = [raw_period]
+        if user_petugas_id:
+            target_query += " AND r.petugas = ?"
+            params.append(user_petugas_id)
+            
+        total_target = cursor.execute(target_query, params).fetchone()['total'] or 0
+        
+        # Hitung Realisasi Kunjungan Hari Ini
+        realisasi_query = """
+            SELECT COUNT(DISTINCT k.nomen) as total
+            FROM kunjungan_petugas k
+            LEFT JOIN rute_petugas r ON (SELECT pcez FROM master_pelanggan WHERE nomen = k.nomen LIMIT 1) = r.pcez
+            WHERE k.periode = ? AND DATE(k.created_at) = DATE('now')
+        """
+        params_real = [raw_period]
+        if user_petugas_id:
+            realisasi_query += " AND r.petugas = ?"
+            params_real.append(user_petugas_id)
+            
+        total_realisasi = cursor.execute(realisasi_query, params_real).fetchone()['total'] or 0
+        
+        percentage = round((total_realisasi / total_target * 100), 1) if total_target > 0 else 0
+        
+        return jsonify({
+            "total_target": total_target,
+            "total_realisasi": total_realisasi,
+            "percentage": percentage
+        })
+    finally:
+        conn.close()
+
+# =========================================================================
+# 3. ENDPOINT DAFTAR TARGET
 # =========================================================================
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """Mengambil daftar kerja harian yang tersinkronisasi dengan Master & Rute Petugas."""
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id') 
     petugas_filter = request.args.get('petugas')
@@ -75,8 +125,6 @@ def get_belum_bayar():
     try:
         cursor = conn.cursor()
         
-        # ✅ QUERY SINERGI V9.1: Filter periode yang konsisten
-        # Semua filter (MC, MB, Collection, Ardebt) menggunakan kolom 'periode' yang sama
         query = """
             SELECT p.nomen, p.nama, p.pcez, p.nomet, p.nominal, 
                    p.nominal as volume, p.rayon,
@@ -85,9 +133,7 @@ def get_belum_bayar():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
             AND p.status_lunas = 0
-            -- ✅ PROTEKSI: Filter Ardebt dengan periode yang sama
             AND p.nomen NOT IN (SELECT DISTINCT nomen FROM ardebt WHERE periode = ?)
-            -- ✅ SYNC CHECK: Validasi lunas di Bank & Lapangan dengan periode yang sama
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.nomen = p.nomen AND mb.periode = p.periode)
             AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.nomen = p.nomen AND ch.periode = p.periode)
         """
@@ -105,7 +151,7 @@ def get_belum_bayar():
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
             # Auto-Hide data yang sudah dikunjungi hari ini
-            query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND k.periode = p.periode)"
+            query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND k.periode = p.periode AND DATE(k.created_at) = DATE('now'))"
         
         query += " ORDER BY p.nominal DESC LIMIT 100"
         cursor.execute(query, params)
@@ -116,27 +162,13 @@ def get_belum_bayar():
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT PETUGAS TABS
-# =========================================================================
-
-@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
-def get_petugas_tabs():
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != '' ORDER BY petugas ASC")
-        result = [row['petugas'] for row in cursor.fetchall()]
-        return jsonify(result)
-    finally:
-        conn.close()
-
-# =========================================================================
 # 4. ENDPOINT LAPOR (SNAPSHOT OPERASIONAL)
 # =========================================================================
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
     nomen = request.form.get('idpel')
+    nomet = request.form.get('nomet') or "-" # Ambil data nomet dari form
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
     foto = request.files.get('foto')
@@ -163,16 +195,30 @@ def lapor_kunjungan():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # FIX: Tambahkan kolom nomet agar tidak error "no column named nomet"
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
-                nomen, petugas_name, keterangan, no_hp, catatan, 
-                foto_path, latitude, longitude, periode
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nomen, petugas_name, hasil, request.form.get('no_hp'), 
+                nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
+                foto_path, latitude, longitude, periode, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """, (nomen, nomet, petugas_name, hasil, request.form.get('no_hp'), 
               request.form.get('keterangan'), filename, 
               request.form.get('latitude'), request.form.get('longitude'), 
               datetime.now().strftime('%m-%Y')))
         conn.commit()
         return APIResponse.success(message="Laporan kunjungan tersimpan.")
+    except Exception as e:
+        return APIResponse.error(f"Gagal simpan snapshot: {str(e)}")
+    finally:
+        conn.close()
+
+@belum_bayar_bp.route('/petugas-tabs', methods=['GET'])
+def get_petugas_tabs():
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != '' ORDER BY petugas ASC")
+        result = [row['petugas'] for row in cursor.fetchall()]
+        return jsonify(result)
     finally:
         conn.close()
