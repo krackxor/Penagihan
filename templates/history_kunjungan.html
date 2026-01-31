@@ -1,55 +1,55 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f1f5f9; min-height: 100vh;">
+<div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
     
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
             <h4 class="fw-bold mb-0 text-dark">
-                <i class="fas fa-history me-2 text-primary"></i>Audit Riwayat Kunjungan
+                <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Audit Riwayat Kunjungan
             </h4>
-            <p class="text-muted small mb-0">Verifikasi Snapshot Data & Lokasi Geospasial Petugas</p>
+            <p class="text-muted small mb-0 fw-semibold">Verifikasi Snapshot Data & Lokasi Geospasial Petugas</p>
         </div>
         <div class="d-flex gap-2 align-items-center">
-            <label class="small fw-bold text-muted d-none d-md-block">Periode Audit:</label>
+            <label class="small fw-800 text-muted d-none d-md-block text-uppercase" style="letter-spacing: 1px;">Periode Audit:</label>
             <input type="month" id="filter-periode" 
-                   class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-bold" 
+                   class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-800 text-primary" 
                    style="width: 170px;" onchange="loadHistory()">
         </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="btn-group btn-group-sm shadow-sm p-1 bg-white rounded-pill">
-            <button class="btn btn-dark rounded-pill px-3 filter-btn active" onclick="applyFilter('ALL', this)">Semua</button>
-            <button class="btn btn-outline-warning rounded-pill px-3 filter-btn" onclick="applyFilter('JANJI', this)">Janji Bayar</button>
-            <button class="btn btn-outline-danger rounded-pill px-3 filter-btn" onclick="applyFilter('RKS', this)">RKS/Segel</button>
-            <button class="btn btn-outline-success rounded-pill px-3 filter-btn" onclick="applyFilter('BAYAR', this)">Lunas/Bayar</button>
+        <div class="btn-group btn-group-sm shadow-sm p-1 bg-white rounded-pill border">
+            <button class="btn btn-dark rounded-pill px-3 filter-btn active fw-800" onclick="applyFilter('ALL', this)">SEMUA</button>
+            <button class="btn btn-outline-warning rounded-pill px-3 filter-btn fw-800" onclick="applyFilter('JANJI', this)">JANJI</button>
+            <button class="btn btn-outline-danger rounded-pill px-3 filter-btn fw-800" onclick="applyFilter('RKS', this)">RKS/SEGEL</button>
+            <button class="btn btn-outline-success rounded-pill px-3 filter-btn fw-800" onclick="applyFilter('BAYAR', this)">LUNAS</button>
         </div>
         <div class="text-end">
-            <span class="badge bg-white text-dark border rounded-pill px-3 py-2 shadow-sm small" id="filter-count">
-                Menghubungkan ke pangkalan data...
+            <span class="badge bg-white text-dark border rounded-pill px-3 py-2 shadow-sm fw-800" id="filter-count" style="font-size: 0.65rem;">
+                <i class="fa-solid fa-sync fa-spin me-1 text-primary"></i> MENGHUBUNGKAN...
             </span>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden border">
         <div class="table-responsive" style="max-height: 75vh;">
             <table class="table table-hover align-middle mb-0 bg-white">
                 <thead class="bg-dark text-white">
-                    <tr style="font-size: 0.7rem; letter-spacing: 0.5px; text-transform: uppercase;">
-                        <th class="ps-3 py-3">Waktu & Petugas</th>
-                        <th>Pelanggan (Snapshot)</th>
-                        <th>Alamat Audit</th>
-                        <th>Tugas (Curr/Rec)</th>
-                        <th class="text-center">Hasil / Catatan</th>
-                        <th class="text-end pe-3">Aksi</th>
+                    <tr style="font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; font-weight: 800;">
+                        <th class="ps-3 py-3 border-0">Waktu & Personel</th>
+                        <th class="border-0">Entitas Pelanggan</th>
+                        <th class="border-0">Alamat Audit</th>
+                        <th class="border-0">Tugas (Rec/Ardebt)</th>
+                        <th class="text-center border-0">Hasil / Analisis</th>
+                        <th class="text-end pe-3 border-0">Audit Tool</th>
                     </tr>
                 </thead>
                 <tbody id="history-body">
                     <tr>
                         <td colspan="6" class="text-center py-5">
                             <div class="spinner-border text-primary spinner-border-sm me-2"></div>
-                            Sinkronisasi data audit...
+                            <span class="fw-800 text-muted small">SINKRONISASI DATA AUDIT...</span>
                         </td>
                     </tr>
                 </tbody>
@@ -59,13 +59,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     let rawHistoryData = []; 
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-    // [1] LOAD DATA DARI API
     async function loadHistory() {
         const picker = document.getElementById('filter-periode').value;
         if (!picker) return;
@@ -79,11 +77,10 @@
                 applyFilter('ALL', document.querySelector('.filter-btn.active'));
             }
         } catch (e) {
-            Swal.fire('Error', 'Gagal sinkronisasi data riwayat.', 'error');
+            Swal.fire('Error System', 'Gagal sinkronisasi pangkalan data audit.', 'error');
         }
     }
 
-    // [2] LOGIKA FILTER INSTAN
     function applyFilter(criteria, btn) {
         document.querySelectorAll('.filter-btn').forEach(b => {
             b.classList.remove('btn-dark', 'active');
@@ -103,15 +100,14 @@
             });
         }
 
-        document.getElementById('filter-count').innerText = `Total: ${filtered.length} Record`;
+        document.getElementById('filter-count').innerHTML = `<i class="fa-solid fa-database me-1 text-primary"></i> ${filtered.length} RECORD TERDETEKSI`;
         renderTable(filtered);
     }
 
-    // [3] RENDER TABEL DINAMIS
     function renderTable(data) {
         const body = document.getElementById('history-body');
         if (data.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted small italic">Tidak ada data kunjungan ditemukan untuk filter ini.</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted small fw-800 italic">TIDAK ADA DATA KUNJUNGAN PADA PERIODE INI.</td></tr>';
             return;
         }
 
@@ -123,45 +119,47 @@
             else if (ket.includes('RKS') || ket.includes('SEGEL')) statusBadge = 'bg-danger';
 
             return `
-            <tr class="border-bottom">
+            <tr class="border-bottom transition-row">
                 <td class="ps-3">
-                    <div class="fw-bold text-dark" style="font-size: 0.8rem;">${moment(item.waktu).format('DD/MM/YYYY')}</div>
-                    <div class="text-primary small fw-bold">${moment(item.waktu).format('HH:mm')} WIB</div>
-                    <div class="mt-1 small text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">
-                        <i class="fas fa-user-ninja me-1"></i>${item.petugas_name}
+                    <div class="fw-800 text-dark" style="font-size: 0.75rem;">${moment(item.waktu).format('DD/MM/YYYY')}</div>
+                    <div class="text-primary small fw-800" style="font-size: 0.7rem;">${moment(item.waktu).format('HH:mm')} WIB</div>
+                    <div class="mt-1 small text-muted text-uppercase fw-800" style="font-size: 0.55rem; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-user-gear me-1 text-secondary"></i>${item.petugas_name}
                     </div>
                 </td>
                 <td>
-                    <div class="fw-bold text-dark text-uppercase" style="font-size: 0.75rem;">${item.nama || 'Entitas Konsumen'}</div>
-                    <div class="badge bg-light text-dark border mt-1" style="font-size: 0.6rem;">ID: ${item.nomen}</div>
+                    <div class="fw-800 text-dark text-uppercase" style="font-size: 0.7rem;">${item.nama || 'Entitas Pelanggan'}</div>
+                    <span class="badge bg-light text-primary border mt-1 fw-800" style="font-size: 0.6rem;">ID: ${item.nomen}</span>
                 </td>
-                <td style="max-width: 250px;">
-                    <div class="text-muted small" style="font-size: 0.65rem; line-height: 1.2;">
-                        <i class="fas fa-map-marker-alt text-danger me-1"></i>${item.alamat || '-'}
+                <td style="max-width: 220px;">
+                    <div class="text-muted fw-semibold" style="font-size: 0.65rem; line-height: 1.3;">
+                        <i class="fa-solid fa-location-dot text-danger me-1"></i>${item.alamat || '-'}
                     </div>
                 </td>
                 <td>
-                    <div class="small d-flex justify-content-between mb-1">
-                        <span class="text-muted">Current:</span> 
-                        <span class="fw-bold">${(item.mc || 0).toLocaleString()}</span>
+                    <div class="small d-flex justify-content-between mb-1 fw-semibold">
+                        <span class="text-muted">MC:</span> 
+                        <span class="fw-800">${(item.mc || 0).toLocaleString()}</span>
                     </div>
-                    <div class="small d-flex justify-content-between text-danger">
-                        <span>Ardebt:</span> 
-                        <span class="fw-bold">${(item.ardebt || 0).toLocaleString()}</span>
+                    <div class="small d-flex justify-content-between text-danger fw-semibold">
+                        <span>AR:</span> 
+                        <span class="fw-800">${(item.ardebt || 0).toLocaleString()}</span>
                     </div>
                 </td>
                 <td class="text-center">
-                    <span class="badge ${statusBadge} px-2 py-1 text-uppercase mb-1" style="font-size: 0.6rem;">${item.keterangan}</span>
-                    <div class="text-muted italic" style="font-size: 0.6rem;">"${item.catatan || '-'}"</div>
+                    <span class="badge ${statusBadge} px-2 py-1 text-uppercase mb-1 fw-800 shadow-xs" style="font-size: 0.55rem;">${item.keterangan}</span>
+                    <div class="text-muted italic fw-semibold" style="font-size: 0.6rem; max-width: 150px; margin: 0 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        "${item.catatan || '-'}"
+                    </div>
                 </td>
                 <td class="text-end pe-3">
-                    <div class="btn-group shadow-sm">
-                        <button class="btn btn-sm btn-light border" onclick="viewPhoto('${item.foto_path}')" title="Bukti Foto">
-                            <i class="fas fa-camera text-primary"></i>
+                    <div class="btn-group btn-group-sm shadow-xs border rounded-3 bg-light p-1">
+                        <button class="btn btn-white border-0" onclick="viewPhoto('${item.foto_path}')" title="Bukti Foto">
+                            <i class="fa-solid fa-camera-retro text-primary"></i>
                         </button>
                         <a href="https://www.google.com/maps?q=${item.latitude},${item.longitude}" 
-                           target="_blank" class="btn btn-sm btn-light border" title="Lokasi GPS">
-                            <i class="fas fa-map-marked-alt text-success"></i>
+                           target="_blank" class="btn btn-white border-0" title="Verifikasi Lokasi">
+                            <i class="fa-solid fa-map-location-dot text-success"></i>
                         </a>
                     </div>
                 </td>
@@ -170,16 +168,20 @@
     }
 
     function viewPhoto(path) {
-        if(!path || path === 'None') return Swal.fire('Info', 'Foto dokumentasi tidak tersedia.', 'info');
+        if(!path || path === 'None' || path === '-') return Swal.fire('Arsip Visual', 'Dokumentasi foto tidak tersedia untuk record ini.', 'info');
         Swal.fire({
             imageUrl: `/static/uploads/kunjungan/${path}`,
-            imageAlt: 'Bukti Audit Lapangan',
-            confirmButtonText: 'Tutup',
-            customClass: { popup: 'rounded-4' }
+            imageAlt: 'Snapshot Lapangan',
+            confirmButtonText: 'TUTUP AUDIT',
+            confirmButtonColor: '#0f172a',
+            background: '#fff',
+            customClass: { 
+                popup: 'rounded-5 border-0 shadow-lg',
+                confirmButton: 'rounded-pill px-4 fw-800 text-uppercase'
+            }
         });
     }
 
-    // Inisialisasi Periode Saat Ini
     document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -187,4 +189,15 @@
         loadHistory();
     });
 </script>
+
+<style>
+    .fw-800 { font-weight: 800; }
+    .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+    .transition-row { transition: background 0.2s ease; }
+    .transition-row:hover { background-color: #f8fafc !important; }
+    .btn-white { background: white; }
+    .filter-btn { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .table thead th { border-bottom: none; }
+    .italic { font-style: italic; }
+</style>
 {% endblock %}
