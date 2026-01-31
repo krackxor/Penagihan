@@ -1,12 +1,12 @@
 """
-Smart Period & Type Detector - Sunter Dashboard Pro (V12.32 Stable Sync)
-Update: 2026-01-21
+Smart Period & Type Detector - Sunter Dashboard Pro (V12.33 Enhanced Sync)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Intelligent Type Detection: Penambahan fleksibilitas kolom NO_HP & WA.
-2. Multi-Column Fallback: Mendeteksi MC meski header kolom bervariasi.
-3. Intelligent Shift Separation: MC/MB otomatis geser N+1 (PENTING untuk Undue).
-4. Strict Mode: Mengunci deteksi kolom untuk menjamin konsistensi data.
+1. Intelligent PCEZ Normalization: Memastikan format '092/01' diprioritaskan 
+   daripada penggabungan kode Rayon (34092).
+2. Multi-Format Detection: Mendukung input dengan separator (/) maupun angka rapat.
+3. Fallback Safety: Menjamin data tidak 'None' meski format tidak standar.
 """
 
 import pandas as pd
@@ -19,10 +19,9 @@ def identify_file_type(df):
     cols = [str(c).upper().strip() for c in df.columns]
     
     # --- 1. DETEKSI MASTER PELANGGAN (MC) ---
-    # Diperluas agar mengenali NO_HP, WA, NOMEN, atau IDPEL
     mc_triggers = ['ZONA_NOVAK', 'TGL_CATAT', 'NO_HP', 'WA', 'NOMEN', 'IDPEL']
     mc_matches = [c for c in mc_triggers if c in cols]
-    if len(mc_matches) >= 2: # Jika minimal ada 2 kolom cocok, anggap MC
+    if len(mc_matches) >= 2: 
         return 'MC'
 
     # --- 2. DETEKSI MASTER BAYAR (MB/REKAPAN BANK) ---
@@ -87,14 +86,9 @@ def detect_file_period(df, file_type):
     if file_type in ['RUTE', 'ARDEBT'] or not file_type: return None, None
     cols = [str(c).upper().strip() for c in df.columns]
     
-    mapping = {
-        'MC': 'TGL_CATAT',
-        'MB': 'TGL_BAYAR',
-        'COLLECTION': 'PAY_DT'
-    }
+    mapping = {'MC': 'TGL_CATAT', 'MB': 'TGL_BAYAR', 'COLLECTION': 'PAY_DT'}
     date_col = mapping.get(file_type)
     
-    # Fallback pencarian kolom tanggal
     if not date_col or date_col not in cols:
         for c in ['TGL_BAYAR', 'PAY_DT', 'TGL_CATAT', 'BULAN_REK', 'BILL_PERIOD', 'WA', 'NO_HP']:
             if c in cols: 
@@ -112,21 +106,13 @@ def detect_file_period(df, file_type):
             return now.strftime('%m'), now.strftime('%Y')
 
         raw_date = valid_rows.iloc[0].get(date_col)
+        dt = parse_billing_date(raw_date, file_type) if date_col in ['BULAN_REK', 'BILL_PERIOD'] else parse_flexible_date(raw_date)
         
-        if date_col in ['BULAN_REK', 'BILL_PERIOD']:
-            dt = parse_billing_date(raw_date, file_type)
-        else:
-            dt = parse_flexible_date(raw_date)
+        if not dt: dt = datetime.now()
         
-        if not dt: 
-            dt = datetime.now()
-        
-        # FIX STRATEGIS UNTUK UNDUE:
-        # MC dan MB (Bank) dipaksa bergeser 1 bulan ke depan (N+1) agar sinkron dengan Dashboard.
         if file_type in ['MC', 'MB']:
             target_dt = dt + relativedelta(months=1)
         else:
-            # Collection (Lapangan) tetap di bulan transaksi tersebut.
             target_dt = dt
             
         return target_dt.strftime('%m'), target_dt.strftime('%Y')
@@ -135,16 +121,56 @@ def detect_file_period(df, file_type):
         return now.strftime('%m'), now.strftime('%Y')
 
 def autopilot_extract_zona(val):
-    """Ekstraksi PCEZ cerdas."""
+    """
+    Ekstraksi PCEZ cerdas V2.
+    Mengutamakan format 092/01 agar sinkron dengan file Rute RL JS.
+    """
     s = clean_val(val)
     if not s: return None
+    
     try:
-        digits = ''.join(filter(str.isdigit, s.split('.')[0])).zfill(9)
-        return {
-            'rayon': digits[0:2], 'pc': digits[2:5], 'ez': digits[5:7],
-            'pcez': digits[0:5], 'blok': digits[7:9]
-        }
-    except:
-        return {'rayon': '00', 'pc': '000', 'ez': '00', 'pcez': '00000', 'blok': '00'}
+        # --- LOGIKA 1: Deteksi format dengan separator (092/01) ---
+        if '/' in s:
+            parts = [p.strip() for p in s.split('/')]
+            if len(parts) >= 2:
+                # Normalisasi: Pastikan 3 digit di depan dan minimal 2 di belakang (092/01)
+                pcez_clean = f"{parts[0].zfill(3)}/{parts[1].zfill(2)}"
+                return {
+                    'pcez': pcez_clean,
+                    'rayon': '34', # Default rayon sesuai konteks sistem
+                    'pc': parts[0].zfill(3),
+                    'ez': parts[1].zfill(2),
+                    'blok': '00'
+                }
 
+        # --- LOGIKA 2: Deteksi format angka rapat (3409201) ---
+        # Menghapus semua karakter non-digit
+        digits = ''.join(filter(str.isdigit, s.split('.')[0]))
+        
+        if len(digits) >= 7:
+            # Format: Rayon(2) + PC(3) + EZ(2) -> 34 092 01
+            return {
+                'rayon': digits[0:2],
+                'pc': digits[2:5],
+                'ez': digits[5:7],
+                'pcez': f"{digits[2:5]}/{digits[5:7]}", # Output: 092/01
+                'blok': digits[7:9] if len(digits) > 7 else '00'
+            }
+        elif len(digits) == 5:
+            # Format PC + EZ saja -> 092 01
+            return {
+                'rayon': '34',
+                'pc': digits[0:3],
+                'ez': digits[3:5],
+                'pcez': f"{digits[0:3]}/{digits[3:5]}",
+                'blok': '00'
+            }
+            
+        # Fallback jika angka terlalu pendek
+        return {'rayon': '00', 'pc': '000', 'ez': '00', 'pcez': s, 'blok': '00'}
+        
+    except:
+        return {'rayon': '00', 'pc': '000', 'ez': '00', 'pcez': '000/00', 'blok': '00'}
+
+# Alias untuk kompatibilitas fungsi lama
 parse_zona_novak = autopilot_extract_zona
