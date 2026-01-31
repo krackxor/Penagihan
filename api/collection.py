@@ -1,12 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V12.95 - NaN Fix & Sync Frontend)
+Collection API - Sunter Dashboard Pro (V12.96 - Date Sanitization & NaN Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX NaN: Mengembalikan 'target_mc' sebagai angka tunggal di level utama JSON.
-2. ✅ SYNC FRONTEND: Menggunakan key 'rp' dan 'cum' agar tabel monitoring terisi.
-3. ✅ DYNAMIC BREK: Otomatis mencari bulan_rek H-1 (02-2026 -> 012026).
-4. ✅ NOMINAL: Menyertakan rincian MC 34/35 dan UNDUE 34/35 di objek summary.
+1. ✅ FIX DATE: Menjamin baris pertama dan seterusnya menggunakan format Tgl-Bln-Thn.
+2. ✅ FIX NaN: Mengembalikan 'target_mc' sebagai angka tunggal di level utama JSON.
+3. ✅ SYNC FRONTEND: Menggunakan key 'rp' dan 'cum' agar tabel monitoring terisi.
+4. ✅ DYNAMIC BREK: Otomatis mencari bulan_rek H-1 (02-2026 -> 012026).
 """
 
 from flask import Blueprint, jsonify, request
@@ -33,7 +33,7 @@ def get_dynamic_bulan_rek(periode_str):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Dashboard: Fix NaN dengan mengembalikan target_mc ke format angka."""
+    """Summary Dashboard: Fix NaN dan rincian nominal transparan."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -92,7 +92,7 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren harian: Sinkronisasi key 'rp' dan 'cum' dengan frontend."""
+    """Tren harian: Perbaikan format tanggal otomatis sesuai periode."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -136,23 +136,36 @@ def daily_monitor():
         daily_data = []
         cum_f34, cum_f35 = 0, 0
         
+        # Format periode untuk sanitasi tanggal (02-2026 -> 02/2026)
+        periode_slash = periode_req.replace('-', '/')
+
         for r in rows:
-            tgl_str = str(r['tgl'])
-            if len(tgl_str) < 8: continue 
+            tgl_raw = str(r['tgl']).strip()
             
+            # SANITASI TANGGAL: Jika tanggal baris pertama salah (misal hanya angka 1)
+            # Maka sambungkan otomatis dengan bulan/tahun periode aktif.
+            if tgl_raw.isdigit() and len(tgl_raw) <= 2:
+                day = tgl_raw.zfill(2)
+                tgl_fix = f"{day}/{periode_slash}"
+            elif len(tgl_raw) < 8 and '/' in tgl_raw:
+                # Jika format pendek misal 01/02, tambahkan tahun
+                year_part = periode_req.split('-')[1]
+                tgl_fix = f"{tgl_raw}/{year_part}"
+            else:
+                tgl_fix = tgl_raw
+
             cum_f34 += r['f34']
             cum_f35 += r['f35']
             
-            # Rumus: (Kumulatif Lapangan + Total UNDUE)
             real_34 = cum_f34 + undue['u34']
             real_35 = cum_f35 + undue['u35']
             real_all = real_34 + real_35
 
             daily_data.append({
-                "tgl": tgl_str,
+                "tgl": tgl_fix,
                 "r34": {
-                    "rp": r['f34'],         # Key 'rp' untuk nominal harian
-                    "cum": real_34,        # Key 'cum' untuk kumulatif
+                    "rp": r['f34'],
+                    "cum": real_34,
                     "pct": round((real_34 / max(1, target['mc_34']) * 100), 2)
                 },
                 "r35": {
