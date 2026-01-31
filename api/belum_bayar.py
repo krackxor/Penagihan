@@ -1,12 +1,12 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V9.2 Progres Audit Sync)
+Belum Bayar API - Sunter Dashboard Pro (V9.3 Intelligence Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX: Schema Sync - Menambahkan kolom 'nomet' pada insert kunjungan_petugas agar tidak gagal snapshot.
-2. ✅ FEATURE: Progres Audit - Menambahkan fungsi hitung persentase kunjungan harian per petugas.
-3. Autonomous Route Sync: Secara cerdas melakukan JOIN ke rute_petugas untuk mapping petugas.
-4. Smart Watermarking: Penanaman metadata operasional pada bukti foto lapangan.
+1. ✅ FIX MAPPING: Sinkronisasi kolom p.alamat, p.nomet (no_seri_meter), dan p.kubik (pemakaian_air).
+2. ✅ FEATURE SYNC: Penambahan objek 'wa_data' pada respons lapor untuk auto-share WhatsApp.
+3. ✅ FIX SCHEMA: Penanganan transmisi kolom 'nomet' pada tabel kunjungan_petugas.
+4. Smart Watermarking: Metadata visual dengan identitas Belum Bayar (Warna Kuning).
 """
 
 import os, sqlite3
@@ -23,7 +23,7 @@ belum_bayar_bp = Blueprint('belum_bayar', __name__)
 # =========================================================================
 
 def add_watermark(image_path, info):
-    """Menanamkan informasi penagihan ke foto untuk validitas audit lapangan."""
+    """Menanamkan informasi penagihan ke foto bukti lapangan."""
     try:
         img = Image.open(image_path)
         draw = ImageDraw.Draw(img)
@@ -38,16 +38,18 @@ def add_watermark(image_path, info):
                 break
         font = font or ImageFont.load_default()
 
+        # Metadata Label: BELUM BAYAR (Identitas Kuning)
         text = (
             f"PETUGAS    : {info['petugas']}\n"
-            f"IDPEL/NM : {info['nomen']} ({info['nama'][:12]}...)\n"
-            f"STATUS    : {info['keterangan']}\n"
-            f"TAGIHAN   : Rp {info['nominal']}"
+            f"IDPEL/NM   : {info['nomen']} ({info['nama'][:12]}...)\n"
+            f"STATUS     : {info['keterangan']}\n"
+            f"TAGIHAN    : Rp {info['nominal']}\n"
+            f"WAKTU      : {datetime.now().strftime('%d/%m/%Y %H:%M')}"
         )
 
         margin = int(width * 0.04)
         line_height = font_size + 10
-        y_pos = height - (line_height * 5) - margin
+        y_pos = height - (line_height * 6) - margin
 
         draw.multiline_text((margin + 2, y_pos + 2), text, font=font, fill="black", spacing=10)
         draw.multiline_text((margin, y_pos), text, font=font, fill="#FFFF00", spacing=10)
@@ -57,12 +59,12 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Smart Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. ENDPOINT PROGRES AUDIT (SINKRON DENGAN ARDEBT)
+# 2. ENDPOINT PROGRES AUDIT
 # =========================================================================
 
 @belum_bayar_bp.route('/progress', methods=['GET'])
 def get_audit_progress():
-    """Menghitung progres audit/kunjungan harian per petugas (Format identik dengan Ardebt)."""
+    """Menghitung progres kunjungan harian kategori Belum Bayar."""
     user_petugas_id = session.get('petugas_id')
     raw_period = datetime.now().strftime('%m-%Y')
     
@@ -70,36 +72,35 @@ def get_audit_progress():
     try:
         cursor = conn.cursor()
         
-        # Hitung Total Target Belum Lunas (Kategori Belum Bayar)
+        # Total Target (Khusus kategori non-ardebt)
         target_query = """
             SELECT COUNT(p.nomen) as total 
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ? AND p.status_lunas = 0 AND p.tipe = 'MC'
-            AND p.nomen NOT IN (SELECT nomen FROM ardebt WHERE periode = ?)
+            AND p.nomen NOT IN (SELECT nomen FROM ardebt)
         """
-        params = [raw_period, raw_period]
-        if user_petugas_id:
+        params = [raw_period]
+        if user_petugas_id and user_petugas_id != 'ALL':
             target_query += " AND r.petugas = ?"
             params.append(user_petugas_id)
             
         total_target = cursor.execute(target_query, params).fetchone()['total'] or 0
         
-        # Hitung Realisasi Kunjungan Hari Ini
+        # Realisasi hari ini
         realisasi_query = """
             SELECT COUNT(DISTINCT k.nomen) as total
             FROM kunjungan_petugas k
             LEFT JOIN rute_petugas r ON (SELECT pcez FROM master_pelanggan WHERE nomen = k.nomen LIMIT 1) = r.pcez
             WHERE k.periode = ? AND DATE(k.created_at) = DATE('now')
-            AND k.nomen NOT IN (SELECT nomen FROM ardebt WHERE periode = ?)
+            AND k.nomen NOT IN (SELECT nomen FROM ardebt)
         """
-        params_real = [raw_period, raw_period]
-        if user_petugas_id:
+        params_real = [raw_period]
+        if user_petugas_id and user_petugas_id != 'ALL':
             realisasi_query += " AND r.petugas = ?"
             params_real.append(user_petugas_id)
             
         total_realisasi = cursor.execute(realisasi_query, params_real).fetchone()['total'] or 0
-        
         percentage = round((total_realisasi / total_target * 100), 1) if total_target > 0 else 0
         
         return jsonify({
@@ -111,16 +112,15 @@ def get_audit_progress():
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT DAFTAR TARGET
+# 3. ENDPOINT DAFTAR TARGET (FIXED MAPPING)
 # =========================================================================
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """Daftar kerja Belum Bayar dengan Auto-Hide Progres."""
+    """Daftar kerja dengan sinkronisasi variabel Alamat, Meter, dan Kubikasi."""
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id') 
     petugas_filter = request.args.get('petugas')
-    
     raw_period = request.args.get('periode') or datetime.now().strftime('%m-%Y')
     search_query = request.args.get('search', '').strip()
     
@@ -128,21 +128,25 @@ def get_belum_bayar():
     try:
         cursor = conn.cursor()
         
+        # FIXED QUERY: Menyediakan alias yang sama dengan Ardebt (no_seri_meter, pemakaian_air)
         query = """
-            SELECT p.nomen, p.nama, p.pcez, p.nomet, p.nominal, 
-                   p.nominal as volume, p.rayon,
+            SELECT p.nomen, p.nama, p.alamat, 
+                   COALESCE(p.nomet, '-') as no_seri_meter, 
+                   p.nominal, 
+                   p.kubik as pemakaian_air, 
+                   p.pcez, p.rayon,
                    COALESCE(r.petugas, 'Belum Terplot') as nama_petugas
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
             AND p.status_lunas = 0
-            AND p.nomen NOT IN (SELECT DISTINCT nomen FROM ardebt WHERE periode = ?)
+            AND p.nomen NOT IN (SELECT nomen FROM ardebt)
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.nomen = p.nomen AND mb.periode = p.periode)
             AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.nomen = p.nomen AND ch.periode = p.periode)
         """
-        params = [raw_period, raw_period]
+        params = [raw_period]
         
-        if user_role == 'petugas':
+        if user_role == 'petugas' and user_petugas_id:
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
         elif petugas_filter and petugas_filter != 'all':
@@ -153,8 +157,7 @@ def get_belum_bayar():
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
-            # Auto-Hide data yang sudah dikunjungi hari ini
-            query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND k.periode = p.periode AND DATE(k.created_at) = DATE('now'))"
+            query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND DATE(k.created_at) = DATE('now'))"
         
         query += " ORDER BY p.nominal DESC LIMIT 100"
         cursor.execute(query, params)
@@ -170,17 +173,24 @@ def get_belum_bayar():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Snapshot laporan dengan perbaikan transmisi kolom nomet."""
+    """Validasi dan transmisi snapshot dengan data respons Share WA."""
     nomen = request.form.get('idpel')
     nomet = request.form.get('nomet') or "-" 
-    petugas_name = request.form.get('petugas_name')
+    petugas_name = request.form.get('petugas_name', 'System')
     hasil = request.form.get('hasil')
-    foto = request.files.get('foto')
+    latitude = request.form.get('latitude', '0.0')
+    longitude = request.form.get('longitude', '0.0')
+    no_hp = request.form.get('no_hp', '-')
+    catatan = request.form.get('catatan', '')
+    nominal_disp = request.form.get('nominal_display', '0')
+    nama_cust = request.form.get('nama_pelanggan', 'Konsumen')
     
     if not nomen or not hasil:
-        return APIResponse.error("Data tidak lengkap", code=400)
+        return APIResponse.error("Atribut laporan tidak lengkap", code=400)
     
-    filename = None
+    foto = request.files.get('foto')
+    filename = "-"
+    
     if foto:
         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'kunjungan')
         os.makedirs(upload_folder, exist_ok=True)
@@ -189,30 +199,41 @@ def lapor_kunjungan():
         foto.save(foto_path)
         
         add_watermark(foto_path, {
-            'petugas': petugas_name or "Petugas", 
+            'petugas': petugas_name, 
             'nomen': nomen,
-            'nama': request.form.get('nama_pelanggan') or "-",
+            'nama': nama_cust,
             'keterangan': hasil,
-            'nominal': request.form.get('nominal_display') or "0"
+            'nominal': nominal_disp
         })
 
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # FIX: Sinkronisasi kolom nomet untuk mencegah kegagalan transmisi
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
                 foto_path, latitude, longitude, periode, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        """, (nomen, nomet, petugas_name, hasil, request.form.get('no_hp'), 
-              request.form.get('keterangan'), filename, 
-              request.form.get('latitude'), request.form.get('longitude'), 
-              datetime.now().strftime('%m-%Y')))
+        """, (nomen, nomet, petugas_name, hasil, no_hp, catatan, filename, 
+              latitude, longitude, datetime.now().strftime('%m-%Y')))
         conn.commit()
-        return APIResponse.success(message="Laporan kunjungan tersimpan.")
+        
+        # Integrasi Data Respons WA Blast Dinamis
+        return jsonify({
+            "status": "success",
+            "message": "Snapshot penagihan terkunci",
+            "wa_data": {
+                "petugas": petugas_name,
+                "nama": nama_cust,
+                "nomen": nomen,
+                "nomet": nomet,
+                "status": hasil,
+                "catatan": catatan,
+                "total": nominal_disp,
+                "foto_path": filename
+            }
+        })
     except Exception as e:
-        # Menangani error jika kolom nomet benar-benar belum ada di DB
         return APIResponse.error(f"Gagal simpan snapshot: {str(e)}")
     finally:
         conn.close()
@@ -223,7 +244,6 @@ def get_petugas_tabs():
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT petugas FROM rute_petugas WHERE petugas IS NOT NULL AND petugas != '' ORDER BY petugas ASC")
-        result = [row['petugas'] for row in cursor.fetchall()]
-        return jsonify(result)
+        return jsonify([row['petugas'] for row in cursor.fetchall()])
     finally:
         conn.close()
