@@ -1,7 +1,7 @@
 -- =========================================================================
--- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.2 ULTRA SYNC)
--- Updated: 2026-01-22
--- Fokus: Perbaikan Validasi UNDUE/CURRENT, WA Blast, & Integrity Protection
+-- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.3 STABILITY PATCH)
+-- Updated: 2026-02-01
+-- Fokus: Perbaikan Sinkronisasi Lunas (Fix Unit Lunas 0) & Integrity Protection
 -- =========================================================================
 
 -- 1. SISTEM AKSES & KEAMANAN
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     UNIQUE(nomen, periode)              
 );
 
--- Rute Petugas: Pemetaan administratif PCEZ ke Nama Petugas
+-- Rute Petugas
 CREATE TABLE IF NOT EXISTS rute_petugas (
     pcez TEXT PRIMARY KEY,              
     petugas TEXT NOT NULL,              
@@ -56,33 +56,33 @@ CREATE TABLE IF NOT EXISTS rute_petugas (
 CREATE TABLE IF NOT EXISTS master_bayar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
-    bulan_rek TEXT,                     -- Format MMYYYY (Penting untuk filter UNDUE)
+    bulan_rek TEXT,                     -- Format MMYYYY
     notagihan TEXT,
     tgl_bayar TEXT,
     nominal REAL DEFAULT 0,
-    periode TEXT,                       -- MM-YYYY (Label periode saat upload)
+    periode TEXT,                       -- MM-YYYY
     kategori TEXT DEFAULT 'UNDUE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(nomen, periode, bulan_rek)   -- Mencegah duplikasi jika bayar beberapa rek sekaligus         
+    UNIQUE(nomen, periode, bulan_rek)            
 );
 
 CREATE TABLE IF NOT EXISTS collection_harian (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
     notag TEXT,
-    bill_period TEXT,                   -- Periode tagihan (Des/2025)
+    bill_period TEXT,                   
     bill_reason TEXT,
     nominal REAL DEFAULT 0,
     pay_dt TEXT,
     freeze_dttm TEXT,
     vol_collect REAL DEFAULT 0,
-    periode TEXT,                       -- MM-YYYY (Kunci Dashboard CURRENT)
+    periode TEXT,                       -- MM-YYYY
     kategori TEXT DEFAULT 'CURRENT',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, periode, notag)
 );
 
--- Ardebt: Data Tunggakan Lama (Berekor)
+-- Ardebt
 CREATE TABLE IF NOT EXISTS ardebt (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS upload_history (
 
 -- 5. TRIGGER & AUTOMATION
 
--- A. Prioritas: Flag pelanggan nominal >= 300rb
+-- A. Prioritas
 CREATE TRIGGER IF NOT EXISTS trg_autopilot_priority
 AFTER INSERT ON master_pelanggan
 FOR EACH ROW
@@ -146,36 +146,47 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- B. Sinkronisasi Lunas Otomatis (Fix: Nomen + Periode Alignment)
-CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
+-- B. SINKRONISASI LUNAS OTOMATIS (PERBAIKAN: FLEXIBLE MATCHING)
+-- Menghapus trigger lama untuk update ke versi stabil
+DROP TRIGGER IF EXISTS trg_sinergi_lunas_mb;
+DROP TRIGGER IF EXISTS trg_sinergi_lunas_coll;
+
+-- Fix: Trigger MB (Master Bayar)
+-- Melakukan update status lunas hanya berdasarkan Nomen pada data MC yang belum lunas.
+CREATE TRIGGER trg_sinergi_lunas_mb
 AFTER INSERT ON master_bayar
 FOR EACH ROW
 BEGIN
     UPDATE master_pelanggan 
-    SET status_lunas = 1, tgl_lunas = NEW.tgl_bayar
-    WHERE nomen = NEW.nomen AND periode = NEW.periode;
+    SET status_lunas = 1, 
+        tgl_lunas = NEW.tgl_bayar
+    WHERE nomen = NEW.nomen 
+    AND status_lunas = 0;
 END;
 
-CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_coll
+-- Fix: Trigger Collection (Laporan Lapangan)
+CREATE TRIGGER trg_sinergi_lunas_coll
 AFTER INSERT ON collection_harian
 FOR EACH ROW
 BEGIN
     UPDATE master_pelanggan 
-    SET status_lunas = 1, tgl_lunas = NEW.pay_dt
-    WHERE nomen = NEW.nomen AND periode = NEW.periode;
+    SET status_lunas = 1, 
+        tgl_lunas = NEW.pay_dt
+    WHERE nomen = NEW.nomen 
+    AND status_lunas = 0;
 END;
 
--- C. Reversal Status (Saat Delete/Re-upload History)
+-- C. Reversal Status
 CREATE TRIGGER IF NOT EXISTS trg_reversal_lunas_mb
 AFTER DELETE ON master_bayar
 FOR EACH ROW
 BEGIN
     UPDATE master_pelanggan 
     SET status_lunas = 0, tgl_lunas = NULL
-    WHERE nomen = OLD.nomen AND periode = OLD.periode;
+    WHERE nomen = OLD.nomen;
 END;
 
--- 6. INDEX OPTIMIZATION (ULTRA-FAST JOIN)
+-- 6. INDEX OPTIMIZATION
 CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan(nomen, periode);
 CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan(pcez);
 CREATE INDEX IF NOT EXISTS idx_mb_sync ON master_bayar(nomen, periode, kategori);
