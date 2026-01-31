@@ -1,13 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V12.49 Integrity & Anti-Double Count)
+Collection API - Sunter Dashboard Pro (V12.50 Rayon-Specific Undue Alignment)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Anti-Double Counting: Realisasi dihitung berdasarkan nominal unik dari 
-   Master Pelanggan yang sudah berstatus Lunas (status_lunas=1).
-2. UI Guard: Persentase dibatasi maksimal 100% dan sisa tagihan minimal Rp 0.
-3. Strict Period Filtering: Menjamin data tetap pada koridor periode pilihan.
-4. ✅ FIX: Baseline Recovery - Sinkronisasi nominal target vs realisasi gabungan.
+1. Rayon-Specific Realization: Memisahkan nominal UNDUE (Bank) per Rayon 34 & 35.
+2. Accurate Cumulative Formula: (Cum Harian + Undue Rayon) / Target Rayon.
+3. ✅ FIX: 171% Prevention - Menghitung realisasi gabungan tanpa double count.
+4. Year-Guard Integration: Mengabaikan data tanggal yang tidak valid (format tahun).
 """
 
 from flask import Blueprint, jsonify, request
@@ -57,7 +56,6 @@ def pusat_kendali():
         current_mandiri = res_field[1] or 0
 
         # ✅ PERBAIKAN LOGIKA: Hitung Realisasi Berdasarkan Nomen yang Lunas di Master
-        # Ini mencegah 171% karena nominal diambil dari Master yang dikunci maksimal sebesar target
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) 
             FROM master_pelanggan 
@@ -65,8 +63,6 @@ def pusat_kendali():
         """, (periode_req,))
         realisasi_valid = cursor.fetchone()[0] or 0
 
-        # Jika realisasi_valid masih 0 (karena trigger belum jalan), 
-        # gunakan total_realisasi sementara tapi dibatasi (capped) ke target_mc
         total_raw = undue_val + current_petugas + current_mandiri
         total_realisasi = min(target_mc, realisasi_valid if realisasi_valid > 0 else total_raw)
 
@@ -84,7 +80,7 @@ def pusat_kendali():
                     "current_mandiri": current_mandiri
                 },
                 "sisa_tagihan": max(0, target_mc - total_realisasi),
-                "pct": round(min(100, pct_mentah), 2) # Limitasi maksimal 100%
+                "pct": round(min(100, pct_mentah), 2)
             }
         })
     finally:
@@ -92,31 +88,35 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian per Rayon dengan Filter Periode Ketat."""
+    """Tren Kumulatif Harian per Rayon dengan Filter Periode Ketat & Rumus Khusus."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # Ambil Target Rayon khusus periode terpilih
+        # 1. AMBIL TARGET MC PER RAYON
         cursor.execute("""
             SELECT 
-                COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
-                COALESCE(SUM(CASE WHEN rayon = '35' THEN nominal ELSE 0 END), 0) as target_35,
+                COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as mc_34,
+                COALESCE(SUM(CASE WHEN rayon = '35' THEN nominal ELSE 0 END), 0) as mc_35,
                 COALESCE(SUM(nominal), 0) as target_total
-            FROM master_pelanggan WHERE periode = ?
+            FROM master_pelanggan WHERE periode = ? AND tipe = 'MC'
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # Saldo Awal Bank (UNDUE) 
+        # 2. AMBIL REALISASI BANK (UNDUE) PER RAYON
         cursor.execute("""
-            SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-            WHERE periode = ? AND kategori = 'UNDUE'
-            AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
+            SELECT 
+                COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
+                COALESCE(SUM(CASE WHEN p.rayon = '35' THEN mb.nominal ELSE 0 END), 0) as undue_35,
+                COALESCE(SUM(mb.nominal), 0) as undue_total
+            FROM master_bayar mb
+            JOIN master_pelanggan p ON mb.nomen = p.nomen AND mb.periode = p.periode
+            WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
         """, (periode_req, periode_req))
-        undue_start = cursor.fetchone()[0] or 0
+        undue = dict(cursor.fetchone())
 
-        # QUERY HARIAN
+        # 3. QUERY REALISASI LAPANGAN HARIAN
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -132,21 +132,38 @@ def daily_monitor():
         rows = cursor.fetchall()
 
         daily_data = []
-        cum_34, cum_35 = 0, 0
+        cum_field_34, cum_field_35 = 0, 0
         
         for r in rows:
-            if not r['tgl']: continue 
+            # Proteksi jika tanggal hanya berisi tahun (misal: "2026")
+            if not r['tgl'] or len(str(r['tgl'])) <= 4: continue 
             
-            cum_34 += r['rp_34']
-            cum_35 += r['rp_35']
-            # Akumulasi gabungan harian + saldo awal bank
-            cum_all = min(targets['target_total'], cum_34 + cum_35 + undue_start)
+            # Kumulatif Lapangan saja
+            cum_field_34 += r['rp_34']
+            cum_field_35 += r['rp_35']
+            
+            # RUMUS: (Kumulatif Lapangan + Total Bank Rayon)
+            cum_total_34 = cum_field_34 + undue['undue_34']
+            cum_total_35 = cum_field_35 + undue['undue_35']
+            cum_all = cum_total_34 + cum_total_35
             
             daily_data.append({
                 "tgl": r['tgl'],
-                "r34": { "rp": r['rp_34'], "cum": cum_34, "pct": round(min(100, (cum_34 / max(1, targets['target_34']) * 100)), 2) },
-                "r35": { "rp": r['rp_35'], "cum": cum_35, "pct": round(min(100, (cum_35 / max(1, targets['target_35']) * 100)), 2) },
-                "total": { "rp_harian": r['rp_total'], "cum_all": cum_all, "pct": round(min(100, (cum_all / max(1, targets['target_total']) * 100)), 2) }
+                "r34": { 
+                    "rp": r['rp_34'], 
+                    "cum": cum_total_34, 
+                    "pct": round(min(100, (cum_total_34 / max(1, targets['mc_34']) * 100)), 2) 
+                },
+                "r35": { 
+                    "rp": r['rp_35'], 
+                    "cum": cum_total_35, 
+                    "pct": round(min(100, (cum_total_35 / max(1, targets['mc_35']) * 100)), 2) 
+                },
+                "total": { 
+                    "rp_harian": r['rp_total'], 
+                    "cum_all": cum_all, 
+                    "pct": round(min(100, (cum_all / max(1, targets['target_total']) * 100)), 2) 
+                }
             })
 
         return jsonify({"status": "success", "data": daily_data})
