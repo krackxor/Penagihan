@@ -191,6 +191,32 @@
         });
     });
 
+    // FUNGSI UNTUK MEMBUKA MODAL LAPOR (FIX ERROR: openModal is not defined)
+    function openModal(nomen, nama, total, nomet) {
+        document.getElementById('modal-idpel').value = nomen;
+        document.getElementById('modal-nomet-val').value = nomet;
+        document.getElementById('modal-nominal-val').value = total;
+        document.getElementById('modal-nama-hidden').value = nama;
+        
+        document.getElementById('modal-nama').innerText = nama;
+        document.getElementById('modal-sub-info').innerText = `ID: ${nomen} | Meter: ${nomet} | Tagihan: Rp ${formatIDR(total)}`;
+        
+        document.getElementById('formKunjungan').reset();
+        document.getElementById('group-janji').classList.add('d-none');
+        modalKunjungan.show();
+    }
+
+    // FUNGSI UNTUK TOGGLE INPUT TANGGAL JANJI (FIX ERROR: toggleJanjiInput is not defined)
+    function toggleJanjiInput() {
+        const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
+        const groupJanji = document.getElementById('group-janji');
+        if (isJanji) {
+            groupJanji.classList.remove('d-none');
+        } else {
+            groupJanji.classList.add('d-none');
+        }
+    }
+
     async function fetchPetugasList() {
         const select = document.getElementById('filter-petugas');
         if (select.options.length > 1) return;
@@ -260,9 +286,9 @@
                             <span class="fw-800 text-primary" style="font-size: 1.15rem;">Rp ${formatIDR(item.nominal)}</span>
                         </div>
                         <div class="btn-group">
-                            <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${item.nama}')">AUDIT</button>
+                            <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')">AUDIT</button>
                             <button class="btn btn-primary rounded-pill px-4 fw-800 shadow-sm btn-sm transition-btn" 
-                                    onclick="openModal('${item.nomen}', '${item.nama}', '${item.nominal}', '${item.no_seri_meter || '-'}')">LAPOR</button>
+                                    onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${item.nominal}', '${item.no_seri_meter || '-'}')">LAPOR</button>
                         </div>
                     </div>
                 </div>
@@ -365,11 +391,6 @@
                 <div><div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Sisa Kunjungan</div><div class="fw-800 h5 mb-0">${data.length} <small style="font-size: 0.6rem;">UNIT</small></div></div>
                 <div class="text-end"><div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Total Tagihan</div><div class="fw-800 h5 mb-0">Rp ${formatIDR(total)}</div></div>
             </div>`;
-    }
-
-    function toggleJanjiInput() {
-        const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
-        document.getElementById('group-janji').classList.toggle('d-none', !isJanji);
     }
 </script>
 
