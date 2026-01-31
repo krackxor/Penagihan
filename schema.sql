@@ -1,5 +1,5 @@
 -- =========================================================================
--- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.3 STABILITY PATCH)
+-- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.4 STABILITY PATCH)
 -- Updated: 2026-02-01
 -- Fokus: Perbaikan Sinkronisasi Lunas (Fix Unit Lunas 0) & Integrity Protection
 -- =========================================================================
@@ -146,13 +146,11 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- B. SINKRONISASI LUNAS OTOMATIS (PERBAIKAN: FLEXIBLE MATCHING)
--- Menghapus trigger lama untuk update ke versi stabil
+-- B. SINKRONISASI LUNAS OTOMATIS (FIX: FLEXIBLE MATCHING)
 DROP TRIGGER IF EXISTS trg_sinergi_lunas_mb;
 DROP TRIGGER IF EXISTS trg_sinergi_lunas_coll;
 
 -- Fix: Trigger MB (Master Bayar)
--- Melakukan update status lunas hanya berdasarkan Nomen pada data MC yang belum lunas.
 CREATE TRIGGER trg_sinergi_lunas_mb
 AFTER INSERT ON master_bayar
 FOR EACH ROW
