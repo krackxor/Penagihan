@@ -1,15 +1,14 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.93 Stability Patch)
+Core Database Module - Sunter Dashboard Pro (V12.94 Ultra-Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Fix OperationalError: Penambahan kolom 'created_at' pada tabel 'users' via Smart Migration.
-2. Robust Migration Engine: Menjamin kolom 'tipe' dan 'periode' sinkron di semua 
+1. Auto-Trigger Engine: Sinkronisasi otomatis 'status_lunas' saat upload MB/Coll.
+2. Fix OperationalError: Penambahan kolom 'created_at' pada tabel 'users' via Smart Migration.
+3. Robust Migration Engine: Menjamin kolom 'tipe' dan 'periode' sinkron di semua 
    tabel transaksi guna menghindari Error 500 pada Dashboard.
-3. Ultra-High Write Performance: Mengaktifkan temp_store MEMORY dan turbo cache 
+4. Ultra-High Write Performance: Mengaktifkan temp_store MEMORY dan turbo cache 
    untuk mendukung Bulk Injection (executemany) puluhan ribu baris.
-4. Target Lock Integrity: Default value 'MC' pada master_pelanggan memastikan 
-   angka target dashboard tidak bergeser saat upload MB.
 """
 
 import sqlite3
@@ -21,17 +20,15 @@ def get_db_connection():
     """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        # Timeout ditingkatkan menjadi 100 detik untuk mencegah 'Database is locked'
         conn = sqlite3.connect(db_path, timeout=100)
         conn.row_factory = sqlite3.Row 
         
-        # Optimasi SQLite untuk Akses Simultan (Multi-User & Ultra High Speed)
-        conn.execute('PRAGMA journal_mode=WAL;')       # Baca & Tulis bersamaan tanpa antri
-        conn.execute('PRAGMA synchronous=NORMAL;')     # Keseimbangan speed & data safety
-        conn.execute('PRAGMA temp_store=MEMORY;')      # Tabel sementara diproses di RAM
-        conn.execute('PRAGMA cache_size=-64000;')      # Alokasikan RAM 64MB untuk buffer database
-        conn.execute('PRAGMA journal_size_limit=67108864;') # Batasi log file WAL agar hemat disk
-        conn.execute('PRAGMA foreign_keys = ON;')      # Menjaga integritas relasi antar tabel
+        conn.execute('PRAGMA journal_mode=WAL;')       
+        conn.execute('PRAGMA synchronous=NORMAL;')     
+        conn.execute('PRAGMA temp_store=MEMORY;')      
+        conn.execute('PRAGMA cache_size=-64000;')      
+        conn.execute('PRAGMA journal_size_limit=67108864;') 
+        conn.execute('PRAGMA foreign_keys = ON;')      
         
         return conn
     except sqlite3.Error as e:
@@ -46,22 +43,22 @@ def init_db(app):
             db = get_db_connection()
             cursor = db.cursor()
             
-            # --- TAHAP 1: INFRASTRUKTUR DASAR ---
+            # --- TAHAP 1: INFRASTRUKTUR DASAR & TRIGGER ---
             check_and_create_tables(cursor)
             db.commit() 
 
-            # --- TAHAP 2: SELF-HEALING MIGRATIONS (Penyembuhan Mandiri) ---
+            # --- TAHAP 2: SELF-HEALING MIGRATIONS ---
             run_smart_migration(cursor)
             db.commit()
             
-            # --- TAHAP 3: TURBO INDEXING (Akselerasi Pencarian) ---
+            # --- TAHAP 3: TURBO INDEXING ---
             optimize_performance(cursor)
             
             # --- TAHAP 4: SECURITY SEEDING ---
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.93: Engine Ultra-Speed & Schema User Telah Sinkron.")
+            print("✅ Database V12.94: Engine Ultra-Sync & Auto-Trigger Aktif.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -70,7 +67,7 @@ def init_db(app):
             if db: db.close()
 
 def check_and_create_tables(cursor):
-    """Melahirkan struktur tabel utama jika belum ada."""
+    """Melahirkan struktur tabel utama & Trigger Otomatis."""
     
     # 1. Infrastruktur Rute & Admin
     cursor.execute("""
@@ -111,7 +108,6 @@ def check_and_create_tables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
     
     # 5. Keamanan & Audit Lapangan
-    # Ditambahkan created_at pada struktur dasar untuk mencegah error di masa depan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -126,7 +122,7 @@ def check_and_create_tables(cursor):
     """)
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     
-    # Tabel Kunjungan
+    # 6. Tabel Kunjungan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -135,10 +131,33 @@ def check_and_create_tables(cursor):
         )
     """)
 
+    # --- TAMBAHAN: AUTO-TRIGGER ENGINE (SOLUSI UNIT LUNAS 0) ---
+    # Trigger MB: Otomatis Update Lunas saat ada baris baru di master_bayar
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
+        AFTER INSERT ON master_bayar
+        FOR EACH ROW
+        BEGIN
+            UPDATE master_pelanggan 
+            SET status_lunas = 1, tgl_lunas = NEW.tgl_bayar
+            WHERE nomen = NEW.nomen AND status_lunas = 0;
+        END;
+    """)
+
+    # Trigger COLL: Otomatis Update Lunas saat ada baris baru di collection_harian
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_coll
+        AFTER INSERT ON collection_harian
+        FOR EACH ROW
+        BEGIN
+            UPDATE master_pelanggan 
+            SET status_lunas = 1, tgl_lunas = NEW.pay_dt
+            WHERE nomen = NEW.nomen AND status_lunas = 0;
+        END;
+    """)
+
 def run_smart_migration(cursor):
     """Menambah kolom secara otomatis tanpa merusak data lama."""
-    
-    # --- MIGRASI MASTER PELANGGAN ---
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
     
@@ -153,20 +172,16 @@ def run_smart_migration(cursor):
     for col, dtype in master_cols.items():
         if col not in existing_master:
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
-            print(f"⚙️ Migrasi: Kolom [{col}] ditambahkan ke master_pelanggan")
 
-    # --- MIGRASI USER (FIX created_at) ---
+    # Migrasi User
     cursor.execute("PRAGMA table_info(users)")
     existing_users = [row['name'] for row in cursor.fetchall()]
-    
     if 'no_hp' not in existing_users:
         cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
-        
     if 'created_at' not in existing_users:
         cursor.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-        print("⚙️ Migrasi: Kolom [created_at] ditambahkan ke tabel users")
 
-    # --- MIGRASI SMART TRANS-PERIOD ---
+    # Migrasi Trans-Period
     for table in ['master_bayar', 'collection_harian']:
         cursor.execute(f"PRAGMA table_info({table})")
         cols = [row['name'] for row in cursor.fetchall()]
@@ -177,7 +192,7 @@ def run_smart_migration(cursor):
         if 'periode' not in cols:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
 
-    # --- MIGRASI KUNJUNGAN PETUGAS ---
+    # Migrasi Kunjungan
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_kunjungan = [row['name'] for row in cursor.fetchall()]
     kunjungan_cols = {
