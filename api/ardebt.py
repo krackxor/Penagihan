@@ -1,13 +1,15 @@
 """
-Ardebt (Tagihan Berekor) API - V6.9 (Period Logic Fix)
+Ardebt (Tagihan Berekor) API - V7.0 (Global History Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Column Sync: Mengganti 'notagihan' menjadi 'nomen' (Fix: OperationalError).
-2. Live Realization: Validasi status lunas via Master Bayar & Collection Harian.
-3. Intelligence Layer: Deteksi lonjakan ekstrem atau meteran macet (Kubik 0).
-4. ✅ FIX: Auto-Hide dengan filter periode yang konsisten
-5. ✅ FIX: Join Ardebt dengan MC menggunakan periode yang sama
+1. ✅ FIX: Global Period Sync - Menghapus filter 'a.periode = p.periode' agar 
+   data Ardebt berkategori 'GLOBAL-HISTORY' dapat muncul di periode MC mana pun.
+2. ✅ FIX: Column Safety - Menghapus kolom 'a.volume' dari query karena tidak 
+   tersedia di skema tabel ardebt saat proses upload.
+3. Column Sync: Mengganti 'notagihan' menjadi 'nomen' (Fix: OperationalError).
+4. Live Realization: Validasi status lunas via Master Bayar & Collection Harian.
+5. Intelligence Layer: Deteksi lonjakan ekstrem atau meteran macet (Kubik 0).
 """
 
 from flask import Blueprint, request, jsonify, session, current_app
@@ -38,7 +40,7 @@ def get_list_petugas_ardebt():
 
 @ardebt_bp.route('/history/<nomen>', methods=['GET'])
 def get_customer_full_intelligence(nomen):
-    """Analisis mendalam riwayat pelanggan & deteksi anomali (FIXED: nomen sync)."""
+    """Analisis mendalam riwayat pelanggan & deteksi anomali."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -69,7 +71,7 @@ def get_customer_full_intelligence(nomen):
         if not history:
             return jsonify({"status": "not_available", "message": "Data tidak ditemukan"})
 
-        # [SMART ANALYSIS] - Deteksi lonjakan pemakaian (Indikasi bocor)
+        # [SMART ANALYSIS] - Deteksi lonjakan pemakaian
         analysis = {"saran": "Pemakaian normal.", "level": "success", "count_nunggak": 0}
         analysis["count_nunggak"] = sum(1 for item in history if item['status_lunas'] == 0)
 
@@ -91,7 +93,7 @@ def get_customer_full_intelligence(nomen):
 
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
-    """Daftar kerja Ardebt (Tagihan Berekor) dengan Ultra-Fast Join."""
+    """Daftar kerja Ardebt (Tagihan Berekor) dengan Ultra-Fast Join V7.0."""
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id')
     search_query = request.args.get('search', '').strip()
@@ -102,17 +104,18 @@ def get_tunggakan_berekor():
         cursor = conn.cursor()
         active_period = get_active_target_period(cursor)
 
-        # ✅ [QUERY INTI V6.9] - Join dengan filter periode yang konsisten
-        # Ardebt dan MC harus pada periode yang sama
+        # ✅ [QUERY INTI V7.0] - Sinkronisasi Ardebt (Global) dengan MC (Periode Aktif)
+        # Menghapus 'AND a.periode = p.periode' karena Ardebt dilabeli 'GLOBAL-HISTORY'.
+        # Menghapus 'a.volume' karena tidak ada di skema database ardebt.
         query = """
             SELECT 
                 a.nomen, a.periode_bill as rincian_periode, 
-                a.jumlah as nominal_ardebt, a.volume as volume_ardebt,
+                a.jumlah as nominal_ardebt,
                 p.nama, p.alamat, COALESCE(p.nomet, '-') as no_seri_meter, 
                 p.tarif, p.kubik as pemakaian_air, p.pcez, p.nominal as nominal_mc,
                 COALESCE(r.petugas, 'UNMAPPED') as nama_petugas
             FROM ardebt a
-            INNER JOIN master_pelanggan p ON a.nomen = p.nomen AND a.periode = p.periode
+            INNER JOIN master_pelanggan p ON a.nomen = p.nomen
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ? AND p.status_lunas = 0
             AND p.nomen NOT IN (SELECT nomen FROM master_bayar WHERE periode = ?)
@@ -125,6 +128,7 @@ def get_tunggakan_berekor():
             query += """ AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = p.nomen AND k.periode = p.periode
+                AND DATE(k.created_at) = DATE('now')
             )"""
 
         # Role Filtering
