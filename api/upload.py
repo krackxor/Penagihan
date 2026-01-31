@@ -1,5 +1,5 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.01 Stability Fix)
+Smart Integration Engine - Sunter Dashboard Pro (V13.02 Rute Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Teknologi Unggulan:
@@ -10,6 +10,7 @@ Teknologi Unggulan:
    koneksi terputus saat upload file MB/Collection yang besar.
 4. Memory Buffering: Pemrosesan data sepenuhnya di RAM sebelum commit.
 5. ✅ FITUR BARU: Auto-Sync Petugas - Otomatis update mapping rute saat upload MC.
+6. ✅ SMART CSV: Otomatis mendeteksi separator (koma/titik-koma) untuk file Rute.
 """
 
 import pandas as pd
@@ -70,15 +71,32 @@ def handle_smart_upload():
     try:
         from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        # 1. OPTIMASI PEMBACAAN FILE
+        # 1. SMART READ: HANDLING CSV SEPARATOR & EXCEL (FIX RUTE UNMAPPED)
         if file_name.lower().endswith('.csv'):
-            df = pd.read_csv(file, dtype=str, engine='c', low_memory=False).fillna('')
+            try:
+                # Coba baca dengan separator standar (koma)
+                df = pd.read_csv(file, dtype=str, engine='python', on_bad_lines='skip').fillna('')
+                # FIX: Jika kolom cuma 1, kemungkinan separatornya titik koma (;)
+                if len(df.columns) < 2:
+                    file.seek(0)
+                    df = pd.read_csv(file, dtype=str, sep=';', engine='python').fillna('')
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Gagal membaca CSV: {str(e)}"}), 400
         else:
             df = pd.read_excel(file, dtype=str).fillna('')
             
+        # 2. DETECTION LOGIC
         data_type = identify_file_type(df)
+
+        # FIX: Manual Detection untuk RUTE jika auto_detect gagal
         if not data_type:
-            return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
+            c_pcez_check = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'RUTE'])
+            c_petugas_check = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS', 'KOLEKTOR'])
+            if c_pcez_check and c_petugas_check:
+                data_type = 'RUTE'
+
+        if not data_type:
+            return jsonify({"status": "error", "message": "Format kolom tidak dikenali. Pastikan Header (PCEZ, PETUGAS, dll) benar."}), 400
 
         # Mapping Kolom Utama
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
@@ -97,18 +115,24 @@ def handle_smart_upload():
             if not month_ref: return jsonify({"status": "error", "message": "Gagal deteksi periode file"}), 400
             target_period = f"{month_ref}-{year_ref}"
 
-        # 2. RAM BUFFERING
+        # 3. RAM BUFFERING
         bulk_main = []
         bulk_rute = []
         
         records = df.to_dict('records') 
         for row in records:
+            # --- LOGIKA RUTE KHUSUS ---
             if data_type == 'RUTE':
                 c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
                 c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
+                
                 if row.get(c_pcez) and row.get(c_name):
-                    bulk_rute.append((str(row.get(c_pcez)).strip(), str(row.get(c_name)).strip()))
+                    pcez_clean = str(row.get(c_pcez)).strip()
+                    petugas_clean = str(row.get(c_name)).strip().upper()
+                    if len(pcez_clean) > 2 and len(petugas_clean) > 1:
+                        bulk_rute.append((pcez_clean, petugas_clean))
                 continue
+            # ---------------------------
 
             n_raw = row.get(col_id)
             nomen = clean_nomen(n_raw)
@@ -148,7 +172,7 @@ def handle_smart_upload():
                 if nominal > 0:
                     bulk_main.append((nomen, row.get('PERIODE_BILL', '-'), nominal, target_period))
 
-        # 3. ATOMIC INJECTION
+        # 4. ATOMIC INJECTION
         db.execute("PRAGMA synchronous = OFF") 
         db.execute("PRAGMA journal_mode = MEMORY") # Optimasi tambahan untuk upload besar
         db.execute("BEGIN TRANSACTION")
