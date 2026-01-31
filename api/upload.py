@@ -1,12 +1,14 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.03 Stability Fix)
+Smart Integration Engine - Sunter Dashboard Pro (V13.01 Stability Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
-Pembaruan Strategis:
-1. ✅ FIX: Year-Guard Flexible - Mengizinkan data tahun N-1 (misal 2025) masuk ke periode N (2026).
-2. executemany() Bulk Injection: Mengirim puluhan ribu baris data secara instant.
-3. ✅ FIX: Anti-Timeout - Mengandalkan Trigger Database untuk sinkronisasi status lunas.
-4. ✅ FIX: Column Mapping - Menangani kolom tanggal yang sering tertukar dengan kolom tahun.
+Teknologi Unggulan:
+1. executemany() Bulk Injection: Mengirim puluhan ribu baris data secara instant.
+2. ✅ FIX: Anti-Timeout - Menghapus redundansi update manual di level aplikasi 
+   dan mengandalkan Trigger Database (schema.sql) untuk sinkronisasi status lunas.
+3. ✅ FIX: Efisiensi I/O - Menghilangkan beban transaksi ganda yang menyebabkan 
+   koneksi terputus saat upload file MB/Collection yang besar.
+4. Memory Buffering: Pemrosesan data sepenuhnya di RAM sebelum commit.
 """
 
 import pandas as pd
@@ -87,7 +89,6 @@ def handle_smart_upload():
         if data_type == 'MC' and (col_brek or col_pay):
             data_type = 'MB'
 
-        # Deteksi Periode Target (Misal: 01-2026)
         if data_type in ['ARDEBT', 'RUTE']:
             target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
         else:
@@ -125,31 +126,13 @@ def handle_smart_upload():
                     ))
             
             elif data_type in ['MB', 'COLLECTION']:
-                # --- LOGIKA SINKRONISASI TAHUN (FIX V13.03) ---
-                target_month = target_period.split('-')[0] # 01
-                target_year = target_period.split('-')[1]  # 2026
-                
-                # Mendapatkan tahun sebelumnya (N-1) untuk transisi Desember-Januari
-                prev_year = str(int(target_year) - 1)
-
-                tgl_raw = str(row.get(col_pay, '')).strip()
-                
-                # Validasi Fleksibel: Izinkan tahun target ATAU tahun sebelumnya
-                # Ini memastikan data Desember 2025 tidak diblokir saat upload ke Januari 2026
-                if tgl_raw and (target_year not in tgl_raw and prev_year not in tgl_raw) and len(tgl_raw) > 4:
-                    continue 
-
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
                 if not b_rek:
-                    b_rek = f"{target_month}{target_year}" 
+                    dt_obj = datetime.strptime(target_period, '%m-%Y')
+                    b_rek = dt_obj.strftime('%m%Y') 
                 
-                # Normalisasi format tanggal
-                if not tgl_raw or len(tgl_raw) <= 4:
-                    tgl_transaksi = f"01/{target_month}/{target_year}"
-                else:
-                    tgl_transaksi = tgl_raw
-
                 cat = "UNDUE" if data_type == 'MB' else "CURRENT"
+                tgl_transaksi = str(row.get(col_pay, ''))
                 bulk_main.append((nomen, tgl_transaksi, nominal, target_period, cat, b_rek))
 
             elif data_type == 'ARDEBT':
@@ -158,7 +141,7 @@ def handle_smart_upload():
 
         # 3. ATOMIC INJECTION
         db.execute("PRAGMA synchronous = OFF") 
-        db.execute("PRAGMA journal_mode = WAL")
+        db.execute("PRAGMA journal_mode = MEMORY") # Optimasi tambahan untuk upload besar
         db.execute("BEGIN TRANSACTION")
 
         if data_type == 'RUTE':
@@ -175,6 +158,8 @@ def handle_smart_upload():
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
             dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
             
+            # Hanya Insert Transaksi. 
+            # Status Lunas pada tabel master_pelanggan akan diupdate otomatis oleh TRIGGER di database.
             db.executemany(f"""
                 INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -190,8 +175,8 @@ def handle_smart_upload():
         db.commit()
         db.execute("PRAGMA synchronous = NORMAL")
         
-        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"Flexible YearGuard: {row_count} rows synced to {target_period}.")
-        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil! {row_count} baris diproses untuk periode {target_period}."})
+        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"BulkSync: {row_count} rows processed.")
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil! {row_count} baris diproses."})
 
     except Exception as e:
         if db: db.rollback()

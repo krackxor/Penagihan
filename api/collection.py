@@ -1,13 +1,14 @@
 """
-Collection API - Sunter Dashboard Pro (V12.49 Dynamic Period Logic)
+Collection API - Sunter Dashboard Pro (V12.48 Period Logic Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ DYNAMIC N-1 LOGIC: Box UNDUE otomatis mengambil data bulan sebelumnya 
-   (Contoh: Dashboard Jan 2026 akan mencari MB Des 2025).
-2. Strict Period Filtering: Menjamin data harian tampil 100% milik periode aktif.
-3. Multi-Format Sorting: Menangani pengurutan tanggal secara kronologis.
-4. ✅ FIX: Baseline Recovery - Sinkronisasi otomatis saldo bank antar transisi tahun.
+1. Strict Period Filtering: Menjamin data yang tampil 100% hanya milik periode 
+   pilihan (Fix: Data bulan lain bocor ke tabel harian).
+2. Multi-Format Sorting: Menangani pengurutan tanggal secara kronologis meskipun 
+   format di database bercampur (DD-MM vs YYYY-MM).
+3. ✅ FIX: Baseline Recovery - UNDUE langsung pakai periode (bukan N-1)
+4. Zero-Record Shield: Mengabaikan baris tanggal kosong pada hasil query harian.
 """
 
 from flask import Blueprint, jsonify, request
@@ -22,44 +23,33 @@ def get_active_period(cursor):
     row = cursor.fetchone()
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
-def get_prev_period_str(periode_str):
-    """
-    Menghitung periode N-1 secara dinamis untuk penarikan saldo piutang bank.
-    Input: '01-2026' -> Output: '12-2025'
-    """
-    try:
-        dt = datetime.strptime(periode_str, '%m-%Y')
-        # Ambil tanggal 1 bulan ini, kurangi 1 hari untuk mendapatkan bulan lalu
-        prev_dt = dt.replace(day=1) - timedelta(days=1)
-        return prev_dt.strftime('%m-%Y')
-    except:
-        return periode_str
-
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Dashboard: Konsolidasi Realisasi Bank (N-1) & Lapangan (N)."""
+    """Summary Dashboard: Konsolidasi Realisasi Bank & Lapangan per Periode."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        # ✅ LOGIKA DINAMIS: Tentukan periode sumber untuk box UNDUE
-        prev_period = get_prev_period_str(periode_req)
+        # ✅ FIX PERIODE LOGIC: Hapus logika N-1
+        # Karena MB bulan 11 sudah di-shift jadi periode 12-2025 saat upload,
+        # kita langsung pakai periode untuk filter UNDUE
+        bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
 
-        # 1. TOTAL TARGET MC (Master Customer) - Periode N
+        # 1. TOTAL TARGET MC (Master Customer)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # ✅ 2. BOX UNDUE (BANK) - Mengambil data MB periode N-1
-        # Menggunakan Nomen yang terdaftar di Master Pelanggan periode saat ini (N)
+        # ✅ 2. BOX UNDUE (BANK) - Filter langsung pakai periode
         cursor.execute("""
             SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
             WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
             AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
-        """, (prev_period, periode_req))
+        """, (periode_req, periode_req))
         undue_val = cursor.fetchone()[0]
 
-        # 3. BOX FIELD (PETUGAS) & BOX MANDIRI - Periode N
+        # 3. BOX FIELD (PETUGAS) & BOX MANDIRI
+        # Filter c.periode = ? menjamin hanya data bulan pilihan yang dijumlahkan
         cursor.execute("""
             SELECT 
                 SUM(CASE WHEN EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = c.nomen AND k.periode = c.periode) 
@@ -78,8 +68,7 @@ def pusat_kendali():
         return jsonify({
             "status": "success",
             "summary": {
-                "periode_aktif": periode_req,
-                "sumber_undue": prev_period,
+                "periode": periode_req,
                 "target_mc": target_mc,
                 "realisasi": {
                     "total": total_realisasi, 
@@ -96,14 +85,16 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian dengan Saldo Awal UNDUE dari Bulan Lalu."""
+    """Tren Kumulatif Harian per Rayon dengan Filter Periode Ketat."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
-        prev_period = get_prev_period_str(periode_req)
 
-        # Target Rayon Periode N
+        # ✅ FIX: Hapus logika N-1, langsung pakai periode
+        bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
+
+        # Ambil Target Rayon khusus periode terpilih
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -113,15 +104,15 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # ✅ Saldo Awal Bank (UNDUE) dari Periode N-1
+        # ✅ Saldo Awal Bank (UNDUE) - Filter langsung pakai periode
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
             WHERE periode = ? AND kategori = 'UNDUE'
             AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
-        """, (prev_period, periode_req))
+        """, (periode_req, periode_req))
         undue_start = cursor.fetchone()[0]
 
-        # Query Harian - Periode N
+        # QUERY HARIAN: Filter c.periode = ? mencegah kebocoran data bulan lain
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -140,11 +131,10 @@ def daily_monitor():
         cum_34, cum_35 = 0, 0
         
         for r in rows:
-            if not r['tgl']: continue # Zero-Record Shield
+            if not r['tgl']: continue # Proteksi baris null
             
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
-            # Akumulasi total menyertakan saldo piutang bank bulan lalu
             cum_all = cum_34 + cum_35 + undue_start
             
             daily_data.append({

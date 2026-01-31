@@ -1,12 +1,12 @@
 """
-API Dashboard - Sunter Dashboard Pro (V12.83 Ultra Sync)
+API Dashboard - Sunter Dashboard Pro (V12.82 Ultra Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. Robust Column Shield: Menambahkan pengecekan tipe secara dinamis.
 2. Target Lock Mechanism: Mengunci perhitungan target hanya pada data MC.
 3. ✅ FIX: Period Alignment - Menggunakan periode murni untuk sinkronisasi data.
-4. ✅ FIX: Undue Filter Logic - Menggunakan logika N-1 dinamis agar nominal 
+4. ✅ FIX: Undue Filter Logic - Menambahkan filter bulan_rek (N-1) agar nominal 
    realisasi akurat (Anti-Over Progress & Anti-Zero Realization).
 5. ✅ FIX: Target Label - Sinkronisasi tampilan target rekening (e.g., 01-2026 -> 122025).
 """
@@ -26,18 +26,6 @@ def get_latest_active_period(db):
     except:
         return datetime.now().strftime('%m-%Y')
 
-def get_prev_period_str(periode_str):
-    """
-    Menghitung periode N-1 secara dinamis.
-    Input: '01-2026' -> Output: '12-2025'
-    """
-    try:
-        dt = datetime.strptime(periode_str, '%m-%Y')
-        prev_dt = dt - relativedelta(months=1)
-        return prev_dt.strftime('%m-%Y')
-    except:
-        return periode_str
-
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
     """Statistik global hasil Audit Digital untuk Dashboard Utama."""
@@ -49,9 +37,6 @@ def get_pusat_kendali():
         petugas_id = session.get('petugas_id')
 
         # ✅ [2] FIX PERIODE LOGIC (N-1 Alignment)
-        # Menghitung periode sumber untuk UNDUE (Bank)
-        prev_period = get_prev_period_str(periode)
-        
         # Mengonversi periode dashboard (e.g., 01-2026) menjadi bulan rekening target (e.g., 122025)
         try:
             dt_obj = datetime.strptime(periode, '%m-%Y')
@@ -60,7 +45,7 @@ def get_pusat_kendali():
         except:
             bulan_rek_target = periode.replace('-', '')
 
-        # [3] DYNAMIC SCHEMA CHECK
+        # [3] DYNAMIC SCHEMA CHECK (Mencegah Error 'no such column: tipe')
         cursor = db.execute("PRAGMA table_info(master_pelanggan)")
         cols = [row['name'] for row in cursor.fetchall()]
         tipe_filter = "AND tipe = 'MC'" if 'tipe' in cols else ""
@@ -82,7 +67,7 @@ def get_pusat_kendali():
 
         res_summary = db.execute(query_summary, params_summary).fetchone()
 
-        # ✅ [5] FIX REALISASI NOMINAL: Menggunakan prev_period & bulan_rek_target untuk UNDUE
+        # ✅ [5] FIX REALISASI NOMINAL: Menggunakan bulan_rek_target untuk UNDUE
         query_realisasi = f"""
             SELECT 
                 (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
@@ -96,8 +81,8 @@ def get_pusat_kendali():
                  
                 (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
         """
-        # Mapping: (periode_mb_n1, target_rekening_n1, periode_mc_n, periode_coll_n, periode_mc_n, periode_ardebt_n)
-        res_realisasi = db.execute(query_realisasi, (prev_period, bulan_rek_target, periode, periode, periode, periode)).fetchone()
+        # Mapping: (periode_upload, target_rekening_n1, periode_mc, periode_coll, periode_mc, periode_ardebt)
+        res_realisasi = db.execute(query_realisasi, (periode, bulan_rek_target, periode, periode, periode, periode)).fetchone()
 
         # [6] LEADERBOARD
         query_leaderboard = f"""
@@ -125,7 +110,6 @@ def get_pusat_kendali():
             "status": "success",
             "summary": {
                 "periode_aktif": periode,
-                "sumber_undue": prev_period, # Informasi periode MB yang ditarik (N-1)
                 "target_rekening": bulan_rek_target,
                 "nomen": {
                     "total": res_summary['total_nomen'] or 0, 
