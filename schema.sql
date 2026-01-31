@@ -1,7 +1,7 @@
 -- =========================================================================
--- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.4 STABILITY PATCH)
+-- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.5 STABILITY PATCH)
 -- Updated: 2026-02-01
--- Fokus: Perbaikan Sinkronisasi Lunas (Fix Unit Lunas 0) & Integrity Protection
+-- Fokus: Perbaikan Filter Periode pada Sinkronisasi Lunas & Integrity Protection
 -- =========================================================================
 
 -- 1. SISTEM AKSES & KEAMANAN
@@ -146,11 +146,11 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- B. SINKRONISASI LUNAS OTOMATIS (FIX: FLEXIBLE MATCHING)
+-- B. SINKRONISASI LUNAS OTOMATIS (FIX: STRICT PERIOD MATCHING)
 DROP TRIGGER IF EXISTS trg_sinergi_lunas_mb;
 DROP TRIGGER IF EXISTS trg_sinergi_lunas_coll;
 
--- Fix: Trigger MB (Master Bayar)
+-- Fix: Trigger MB (Hanya mengupdate tagihan dengan periode yang sama)
 CREATE TRIGGER trg_sinergi_lunas_mb
 AFTER INSERT ON master_bayar
 FOR EACH ROW
@@ -159,10 +159,11 @@ BEGIN
     SET status_lunas = 1, 
         tgl_lunas = NEW.tgl_bayar
     WHERE nomen = NEW.nomen 
+    AND periode = NEW.periode -- Filter agar hanya periode yang sama yang lunas
     AND status_lunas = 0;
 END;
 
--- Fix: Trigger Collection (Laporan Lapangan)
+-- Fix: Trigger Collection (Hanya mengupdate tagihan dengan periode yang sama)
 CREATE TRIGGER trg_sinergi_lunas_coll
 AFTER INSERT ON collection_harian
 FOR EACH ROW
@@ -171,17 +172,19 @@ BEGIN
     SET status_lunas = 1, 
         tgl_lunas = NEW.pay_dt
     WHERE nomen = NEW.nomen 
+    AND periode = NEW.periode -- Filter agar hanya periode yang sama yang lunas
     AND status_lunas = 0;
 END;
 
--- C. Reversal Status
+-- C. Reversal Status (Menyesuaikan periode saat data dihapus)
 CREATE TRIGGER IF NOT EXISTS trg_reversal_lunas_mb
 AFTER DELETE ON master_bayar
 FOR EACH ROW
 BEGIN
     UPDATE master_pelanggan 
     SET status_lunas = 0, tgl_lunas = NULL
-    WHERE nomen = OLD.nomen;
+    WHERE nomen = OLD.nomen
+    AND periode = OLD.periode;
 END;
 
 -- 6. INDEX OPTIMIZATION
