@@ -1,12 +1,13 @@
 """
-Collection API - Sunter Dashboard Pro (V12.97 - Garbage Data Filter & NaN Fix)
+Collection API - Sunter Dashboard Pro (V12.98 - Smart Date Repair)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FILTER DATA: Membuang baris pertama yang "salah" menggunakan filter LENGTH(pay_dt) >= 8.
-2. ✅ FIX DATE: Menjamin semua baris menggunakan format Tgl-Bln-Thn sesuai periode.
-3. ✅ FIX NaN: Mengembalikan 'target_mc' sebagai angka tunggal di level utama JSON.
-4. ✅ DYNAMIC BREK: Otomatis mencari bulan_rek H-1 (02-2026 -> 012026).
+1. ✅ DYNAMIC DATE REPAIR: Jika baris pertama hanya angka (1-31), otomatis diubah 
+   menjadi format lengkap sesuai periode yang sedang dibuka (misal: 01/02/2026).
+2. ✅ NO DATA LOSS: Tidak menghapus baris pertama (meskipun panjang karakter kurang dari 8), 
+   tetapi memperbaikinya agar sinkron dengan baris berikutnya.
+3. ✅ DYNAMIC BREK: Filter bulan_rek tetap otomatis H-1 (02-2026 -> 012026).
 """
 
 from flask import Blueprint, jsonify, request
@@ -33,7 +34,7 @@ def get_dynamic_bulan_rek(periode_str):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Dashboard: Fix NaN dan menyediakan rincian nominal transparan."""
+    """Summary Dashboard: Fix NaN dan rincian nominal transparan."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -77,8 +78,8 @@ def pusat_kendali():
             "summary": {
                 "periode": periode_req,
                 "bulan_rek_filter": brek_req,
-                "target_mc": target_total,           # Angka tunggal untuk fix NaN
-                "mc_34": target_res['mc_34'],        # Rincian tambahan
+                "target_mc": target_total,
+                "mc_34": target_res['mc_34'],
                 "mc_35": target_res['mc_35'],
                 "undue_34": undue_res['u34'],
                 "undue_35": undue_res['u35'],
@@ -92,7 +93,7 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren harian: Filter ketat untuk membuang baris pertama yang salah format."""
+    """Tren harian dengan perbaikan otomatis format tanggal agar sinkron dengan periode."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -120,7 +121,7 @@ def daily_monitor():
         """, (periode_req, brek_req))
         undue = dict(cursor.fetchone())
 
-        # 3. Lapangan Harian - DITAMBAHKAN FILTER LENGTH UNTUK MEMBUANG BARIS SALAH
+        # 3. Lapangan Harian
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -128,7 +129,7 @@ def daily_monitor():
                 SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END) as f35
             FROM collection_harian c
             JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE c.periode = ? AND LENGTH(c.pay_dt) >= 8
+            WHERE c.periode = ?
             GROUP BY c.pay_dt ORDER BY c.pay_dt ASC
         """, (periode_req,))
         rows = cursor.fetchall()
@@ -136,15 +137,20 @@ def daily_monitor():
         daily_data = []
         cum_f34, cum_f35 = 0, 0
         
-        periode_slash = periode_req.replace('-', '/')
+        # Ambil Bulan dan Tahun dari periode terpilih (misal: 02-2026)
+        month_part, year_part = periode_req.split('-')
 
         for r in rows:
             tgl_raw = str(r['tgl']).strip()
             
-            # Sanitasi Tanggal Tambahan
+            # LOGIKA PERBAIKAN DINAMIS:
+            # Jika tanggal hanya angka (1-31), sambungkan otomatis dengan periode terpilih.
             if tgl_raw.isdigit() and len(tgl_raw) <= 2:
                 day = tgl_raw.zfill(2)
-                tgl_fix = f"{day}/{periode_slash}"
+                tgl_fix = f"{day}/{month_part}/{year_part}" # Perbaikan otomatis
+            elif len(tgl_raw) < 8 and '/' in tgl_raw:
+                # Jika format 01/02, tambahkan tahun dari periode terpilih
+                tgl_fix = f"{tgl_raw}/{year_part}"
             else:
                 tgl_fix = tgl_raw
 
