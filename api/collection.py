@@ -1,13 +1,13 @@
 """
-Collection API - Sunter Dashboard Pro (V13.00 - Strict Date Range Fix)
+Collection API - Sunter Dashboard Pro (V13.01 - Final Strict Monitor Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
 1. ✅ STRICT DATE FILTER: Hanya memproses data yang memiliki format tanggal 
    sesuai dengan periode dashboard (Misal: Periode 01-2026 hanya mengambil data /01/2026).
-2. ✅ AUTO-REPAIR: Memperbaiki tanggal satu digit ("1") menjadi format lengkap ("01/01/2026").
-3. ✅ DYNAMIC BREK: Filter bulan_rek otomatis H-1 (02-2026 -> 012026).
-4. ✅ SYNC SUMMARY: Data summary pusat-kendali kini selaras dengan data tabel harian.
+2. ✅ MULTI-SEPARATOR SUPPORT: Menggunakan REPLACE pada SQL agar mendukung format 01/01 maupun 01-01.
+3. ✅ GARBAGE FILTER: Menggunakan LENGTH(pay_dt) >= 8 untuk membuang baris sampah/rusak di database.
+4. ✅ AUTO-REPAIR: Memperbaiki tanggal satu digit ("1") menjadi format lengkap sesuai periode.
 """
 
 from flask import Blueprint, jsonify, request
@@ -66,11 +66,11 @@ def pusat_kendali():
         """, (periode_req, brek_req))
         undue_res = dict(cursor.fetchone())
 
-        # 3. REALISASI LAPANGAN - DITAMBAHKAN FILTER TANGGAL KETAT
+        # 3. REALISASI LAPANGAN - DITAMBAHKAN FILTER TANGGAL KETAT & REPLACE SEPARATOR
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
             WHERE periode = ? AND kategori = 'CURRENT'
-            AND pay_dt LIKE '%' || ?
+            AND REPLACE(pay_dt, '-', '/') LIKE '%' || ?
         """, (periode_req, date_pattern))
         field_val = cursor.fetchone()[0] or 0
         
@@ -128,7 +128,7 @@ def daily_monitor():
         """, (periode_req, brek_req))
         undue = dict(cursor.fetchone())
 
-        # 3. Lapangan Harian - DITAMBAHKAN FILTER TANGGAL KETAT
+        # 3. Lapangan Harian - DITAMBAHKAN FILTER TANGGAL KETAT, REPLACE & LENGTH
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -136,7 +136,9 @@ def daily_monitor():
                 SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END) as f35
             FROM collection_harian c
             JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE c.periode = ? AND c.pay_dt LIKE '%' || ?
+            WHERE c.periode = ? 
+            AND REPLACE(c.pay_dt, '-', '/') LIKE '%' || ?
+            AND LENGTH(c.pay_dt) >= 8
             GROUP BY c.pay_dt ORDER BY c.pay_dt ASC
         """, (periode_req, date_pattern))
         rows = cursor.fetchall()
