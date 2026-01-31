@@ -1,14 +1,14 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.94 Ultra-Sync)
+Core Database Module - Sunter Dashboard Pro (V12.95 Ultra-Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Auto-Trigger Engine: Sinkronisasi otomatis 'status_lunas' saat upload MB/Coll.
-2. Fix OperationalError: Penambahan kolom 'created_at' pada tabel 'users' via Smart Migration.
-3. Robust Migration Engine: Menjamin kolom 'tipe' dan 'periode' sinkron di semua 
-   tabel transaksi guna menghindari Error 500 pada Dashboard.
-4. Ultra-High Write Performance: Mengaktifkan temp_store MEMORY dan turbo cache 
-   untuk mendukung Bulk Injection (executemany) puluhan ribu baris.
+1. ✅ FIX: Schema Sync - Menambahkan kolom 'nomet' dan 'no_hp' pada tabel 'kunjungan_petugas' 
+   untuk menghindari OperationalError saat simpan snapshot.
+2. Auto-Trigger Engine: Sinkronisasi otomatis 'status_lunas' saat upload MB/Coll.
+3. Fix OperationalError: Penambahan kolom 'created_at' pada tabel 'users' via Smart Migration.
+4. Robust Migration Engine: Menjamin kolom 'tipe' dan 'periode' sinkron di semua tabel.
+5. Ultra-High Write Performance: Optimasi PRAGMA Turbo untuk mendukung bulk injection.
 """
 
 import sqlite3
@@ -47,7 +47,7 @@ def init_db(app):
             check_and_create_tables(cursor)
             db.commit() 
 
-            # --- TAHAP 2: SELF-HEALING MIGRATIONS ---
+            # --- TAHAP 2: SELF-HEALING MIGRATIONS (TERMASUK FIX NOMET) ---
             run_smart_migration(cursor)
             db.commit()
             
@@ -58,7 +58,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.94: Engine Ultra-Sync & Auto-Trigger Aktif.")
+            print("✅ Database V12.95: Engine Ultra-Sync & Auto-Migration Aktif.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -79,20 +79,7 @@ def check_and_create_tables(cursor):
         )
     """)
 
-    # 2. Riwayat Aktivitas Upload
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS upload_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            file_name TEXT, 
-            file_type TEXT, 
-            periode TEXT, 
-            row_count INTEGER DEFAULT 0, 
-            status TEXT, 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # 3. Master Pelanggan (Data Target)
+    # 2. Master Pelanggan (Data Target)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,27 +89,7 @@ def check_and_create_tables(cursor):
         )
     """)
 
-    # 4. Tabel Realisasi & Tunggakan
-    cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
-    cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
-    
-    # 5. Keamanan & Audit Lapangan
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            username TEXT UNIQUE, 
-            password TEXT, 
-            role TEXT, 
-            petugas_id TEXT, 
-            last_login TIMESTAMP, 
-            no_hp TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-    
-    # 6. Tabel Kunjungan
+    # 3. Tabel Kunjungan (Inisialisasi Dasar)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -131,8 +98,15 @@ def check_and_create_tables(cursor):
         )
     """)
 
-    # --- TAMBAHAN: AUTO-TRIGGER ENGINE (SOLUSI UNIT LUNAS 0) ---
-    # Trigger MB: Otomatis Update Lunas saat ada baris baru di master_bayar
+    # 4. Tabel Transaksi & Lainnya
+    cursor.execute("CREATE TABLE IF NOT EXISTS upload_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT, file_type TEXT, periode TEXT, row_count INTEGER DEFAULT 0, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+
+    # --- AUTO-TRIGGER ENGINE ---
     cursor.execute("""
         CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
         AFTER INSERT ON master_bayar
@@ -144,7 +118,6 @@ def check_and_create_tables(cursor):
         END;
     """)
 
-    # Trigger COLL: Otomatis Update Lunas saat ada baris baru di collection_harian
     cursor.execute("""
         CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_coll
         AFTER INSERT ON collection_harian
@@ -157,63 +130,57 @@ def check_and_create_tables(cursor):
     """)
 
 def run_smart_migration(cursor):
-    """Menambah kolom secara otomatis tanpa merusak data lama."""
-    cursor.execute("PRAGMA table_info(master_pelanggan)")
-    existing_master = [row['name'] for row in cursor.fetchall()]
+    """Fungsi Self-Healing: Menambah kolom yang hilang secara otomatis tanpa merusak data."""
     
-    master_cols = {
-        'tarif': 'TEXT', 
-        'kubik': 'REAL DEFAULT 0', 
-        'nomet': 'TEXT', 
-        'no_hp': 'TEXT DEFAULT "-"',
-        'tgl_lunas': 'TEXT',
-        'tipe': "TEXT DEFAULT 'MC'"
-    }
-    for col, dtype in master_cols.items():
-        if col not in existing_master:
-            cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
-
-    # Migrasi User
-    cursor.execute("PRAGMA table_info(users)")
-    existing_users = [row['name'] for row in cursor.fetchall()]
-    if 'no_hp' not in existing_users:
-        cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
-    if 'created_at' not in existing_users:
-        cursor.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-
-    # Migrasi Trans-Period
-    for table in ['master_bayar', 'collection_harian']:
-        cursor.execute(f"PRAGMA table_info({table})")
-        cols = [row['name'] for row in cursor.fetchall()]
-        if 'bulan_rek' not in cols:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
-        if 'kategori' not in cols:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN kategori TEXT DEFAULT 'HISTORY'")
-        if 'periode' not in cols:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
-
-    # Migrasi Kunjungan
+    # --- MIGRATION: KUNJUNGAN PETUGAS (FIX NOMET ERROR) ---
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_kunjungan = [row['name'] for row in cursor.fetchall()]
     kunjungan_cols = {
-        'petugas_name':'TEXT', 'keterangan':'TEXT', 'foto_path':'TEXT', 
-        'latitude':'TEXT', 'longitude':'TEXT', 'periode':'TEXT',
-        'nama_snapshot':'TEXT', 'alamat_snapshot':'TEXT',
-        'mc':'REAL', 'ardebt':'REAL', 'catatan':'TEXT'
+        'nomet': 'TEXT',            # <--- SOLUSI ERROR "no column named nomet"
+        'no_hp': 'TEXT', 
+        'petugas_name':'TEXT', 
+        'keterangan':'TEXT', 
+        'foto_path':'TEXT', 
+        'latitude':'TEXT', 
+        'longitude':'TEXT', 
+        'periode':'TEXT',
+        'nama_snapshot':'TEXT', 
+        'alamat_snapshot':'TEXT',
+        'mc':'REAL', 
+        'ardebt':'REAL', 
+        'catatan':'TEXT'
     }
     for col, dtype in kunjungan_cols.items():
         if col not in existing_kunjungan:
             cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
 
+    # --- MIGRATION: MASTER PELANGGAN ---
+    cursor.execute("PRAGMA table_info(master_pelanggan)")
+    existing_master = [row['name'] for row in cursor.fetchall()]
+    master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 'no_hp': 'TEXT DEFAULT "-"', 'tgl_lunas': 'TEXT', 'tipe': "TEXT DEFAULT 'MC'"}
+    for col, dtype in master_cols.items():
+        if col not in existing_master:
+            cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+
+    # --- MIGRATION: USERS ---
+    cursor.execute("PRAGMA table_info(users)")
+    existing_users = [row['name'] for row in cursor.fetchall()]
+    if 'no_hp' not in existing_users: cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
+    if 'created_at' not in existing_users: cursor.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+
+    # --- MIGRATION: TRANSACTION TABLES ---
+    for table in ['master_bayar', 'collection_harian']:
+        cursor.execute(f"PRAGMA table_info({table})")
+        cols = [row['name'] for row in cursor.fetchall()]
+        if 'bulan_rek' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
+        if 'kategori' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN kategori TEXT DEFAULT 'HISTORY'")
+        if 'periode' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
+
 def optimize_performance(cursor):
-    """Turbo Indexing: Akselerasi join data dan filter harian."""
+    """Turbo Indexing untuk Akselerasi Query Dashboard."""
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
-        "CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan (pcez)",
-        "CREATE INDEX IF NOT EXISTS idx_mc_tipe ON master_pelanggan (tipe)",
         "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
-        "CREATE INDEX IF NOT EXISTS idx_mb_brek ON master_bayar (bulan_rek)",
-        "CREATE INDEX IF NOT EXISTS idx_mb_kat ON master_bayar (kategori)",
         "CREATE INDEX IF NOT EXISTS idx_ch_nomen_per ON collection_harian (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)"
     ]
@@ -221,7 +188,7 @@ def optimize_performance(cursor):
         cursor.execute(idx)
 
 def seed_default_admin(cursor):
-    """Menjamin akses Admin Utama."""
+    """Menjamin ketersediaan akses Administrator."""
     username = 'admin_sunter'
     cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
     if not cursor.fetchone():
