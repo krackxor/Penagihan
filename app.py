@@ -1,13 +1,11 @@
 """
-Flask Application - Area Service Integrated System (V12.67 Stable)
-Updated: 2026-01-20
+Flask Application - Area Service Integrated System (V12.68 Stable)
+Updated: 2026-01-31
 ---------------------------------------------------------------------------
-Final Fixes:
-1. Blueprint Import Sync: Menghilangkan ImportError 'upload_bp'.
-2. Security Layer: Penguncian rute audit geospasial & system logs khusus Admin.
-3. UI Routing: Penambahan akses ke History Kunjungan & Monitoring Lokasi.
-4. Auto-Folder Creator: Menjamin direktori upload tersedia saat startup.
-5. WA Blast Route Fix: Menambahkan rute eksplisit 'wa_blast_page' untuk mencegah BuildError di Admin Dashboard.
+Pembaruan:
+1. Full Route Mapping: Mendaftarkan 17 halaman (History Bayar, Janji Bayar, Performa, dll).
+2. Security Layer Sync: Menyesuaikan proteksi rute admin dan publik sesuai daftar terbaru.
+3. Integrity Check: Penambahan rute eksplisit untuk mendukung navigasi base.html.
 """
 
 import os
@@ -38,10 +36,8 @@ def create_app():
 
     # --- 1. STARTUP PROTOCOL ---
     with app.app_context():
-        # Inisialisasi Database (Melahirkan tabel & migrasi kolom)
         init_db(app) 
         
-        # Folder Integrity Check: Menjamin folder foto tidak hilang
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'materi')
@@ -55,13 +51,10 @@ def create_app():
         if db is not None:
             db.close()
 
-    # --- 2. MIDDLEWARE: SECURITY LAYER V12.67 ---
+    # --- 2. MIDDLEWARE: SECURITY LAYER V12.68 ---
     @app.before_request
     def security_layer():
-        """
-        [GATEKEEPER]: Mengontrol hak akses berdasarkan Role.
-        Public: Index, Monitoring Global, Login, Static.
-        """
+        # Endpoint yang bisa diakses tanpa login
         public_endpoints = [
             'index', 
             'monitoring_collection_page', 
@@ -75,8 +68,6 @@ def create_app():
         ]
         
         endpoint = request.endpoint
-        
-        # Jika endpoint tidak ditemukan (404) atau publik, izinkan lewat
         if not endpoint or endpoint in public_endpoints:
             return
 
@@ -86,20 +77,18 @@ def create_app():
                 return jsonify({"status": "error", "message": "Sesi Berakhir"}), 401
             return redirect(url_for('login_page'))
         
-        # Proteksi Admin Only (Rute Strategis)
+        # Proteksi Khusus Admin
         admin_only_endpoints = [
             'admin_dashboard', 
             'monitoring_lokasi_page', 
-            'history_kunjungan_page', 
             'wa_blast_page',
             'upload.handle_smart_upload',
-            'history_page' # Log Upload
+            'history_page' # Halaman log upload excel
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
         if endpoint in admin_only_endpoints and user_role != 'admin':
-            # Jika petugas mencoba akses rute admin, arahkan ke dashboard mereka
-            return redirect(url_for('ardebt_page'))
+            return redirect(url_for('index'))
 
     # --- 3. REGISTRASI BLUEPRINTS ---
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -115,9 +104,14 @@ def create_app():
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
     
+    # [DASHBOARD & MONITORING]
     @app.route('/')
     def index(): 
         return render_template('index.html')
+
+    @app.route('/performa')
+    def performa_page(): 
+        return render_template('performa.html')
 
     @app.route('/monitoring-collection')
     def monitoring_collection_page(): 
@@ -138,9 +132,22 @@ def create_app():
     def ardebt_page(): 
         return render_template('tagihan_berekor.html')
 
+    @app.route('/janji-bayar')
+    def janji_bayar_page(): 
+        return render_template('janji_bayar.html')
+
     @app.route('/galeri')
     def galeri_page():
         return render_template('galeri.html')
+
+    # [RIWAYAT & ARSIP]
+    @app.route('/history-bayar')
+    def history_bayar_page(): 
+        return render_template('history_bayar.html')
+
+    @app.route('/history-kunjungan')
+    def history_kunjungan_page(): 
+        return render_template('history_kunjungan.html')
 
     # [ADMINISTRASI STRATEGIS & AUDIT]
     @app.route('/admin/dashboard')
@@ -151,10 +158,6 @@ def create_app():
     def monitoring_lokasi_page():
         return render_template('monitoring_lokasi.html')
 
-    @app.route('/admin/history-kunjungan')
-    def history_kunjungan_page(): 
-        return render_template('history_kunjungan.html')
-
     @app.route('/admin/wa-blast')
     def wa_blast_page():
         return render_template('wa_blast.html')
@@ -163,7 +166,7 @@ def create_app():
     def history_page(): 
         return render_template('history.html')
 
-    # [KONTEN INFORMASI]
+    # [MEDIA & EDUKASI]
     @app.route('/youtube')
     def youtube_page():
         return render_template('youtube.html')
@@ -184,5 +187,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    # Host 0.0.0.0 agar bisa diakses di jaringan lokal atau server DigitalOcean/AWS
     app.run(host='0.0.0.0', port=5000, debug=True)
