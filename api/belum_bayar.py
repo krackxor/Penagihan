@@ -3,8 +3,8 @@ Belum Bayar API - Sunter Dashboard Pro (V9.2 Progres Audit Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX: Schema Sync - Menambahkan kolom 'nomet' pada insert kunjungan_petugas.
-2. ✅ FEATURE: Progres Audit - Menambahkan fungsi hitung persentase kunjungan harian.
+1. ✅ FIX: Schema Sync - Menambahkan kolom 'nomet' pada insert kunjungan_petugas agar tidak gagal snapshot.
+2. ✅ FEATURE: Progres Audit - Menambahkan fungsi hitung persentase kunjungan harian per petugas.
 3. Autonomous Route Sync: Secara cerdas melakukan JOIN ke rute_petugas untuk mapping petugas.
 4. Smart Watermarking: Penanaman metadata operasional pada bukti foto lapangan.
 """
@@ -57,12 +57,12 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Smart Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. ENDPOINT PROGRES AUDIT (NEW FEATURE)
+# 2. ENDPOINT PROGRES AUDIT (SINKRON DENGAN ARDEBT)
 # =========================================================================
 
 @belum_bayar_bp.route('/progress', methods=['GET'])
 def get_audit_progress():
-    """Menghitung progres audit/kunjungan harian per petugas."""
+    """Menghitung progres audit/kunjungan harian per petugas (Format identik dengan Ardebt)."""
     user_petugas_id = session.get('petugas_id')
     raw_period = datetime.now().strftime('%m-%Y')
     
@@ -70,14 +70,15 @@ def get_audit_progress():
     try:
         cursor = conn.cursor()
         
-        # Hitung Total Target Belum Lunas
+        # Hitung Total Target Belum Lunas (Kategori Belum Bayar)
         target_query = """
             SELECT COUNT(p.nomen) as total 
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE p.periode = ? AND p.status_lunas = 0
+            WHERE p.periode = ? AND p.status_lunas = 0 AND p.tipe = 'MC'
+            AND p.nomen NOT IN (SELECT nomen FROM ardebt WHERE periode = ?)
         """
-        params = [raw_period]
+        params = [raw_period, raw_period]
         if user_petugas_id:
             target_query += " AND r.petugas = ?"
             params.append(user_petugas_id)
@@ -90,8 +91,9 @@ def get_audit_progress():
             FROM kunjungan_petugas k
             LEFT JOIN rute_petugas r ON (SELECT pcez FROM master_pelanggan WHERE nomen = k.nomen LIMIT 1) = r.pcez
             WHERE k.periode = ? AND DATE(k.created_at) = DATE('now')
+            AND k.nomen NOT IN (SELECT nomen FROM ardebt WHERE periode = ?)
         """
-        params_real = [raw_period]
+        params_real = [raw_period, raw_period]
         if user_petugas_id:
             realisasi_query += " AND r.petugas = ?"
             params_real.append(user_petugas_id)
@@ -114,6 +116,7 @@ def get_audit_progress():
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
+    """Daftar kerja Belum Bayar dengan Auto-Hide Progres."""
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id') 
     petugas_filter = request.args.get('petugas')
@@ -167,8 +170,9 @@ def get_belum_bayar():
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
+    """Snapshot laporan dengan perbaikan transmisi kolom nomet."""
     nomen = request.form.get('idpel')
-    nomet = request.form.get('nomet') or "-" # Ambil data nomet dari form
+    nomet = request.form.get('nomet') or "-" 
     petugas_name = request.form.get('petugas_name')
     hasil = request.form.get('hasil')
     foto = request.files.get('foto')
@@ -195,7 +199,7 @@ def lapor_kunjungan():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # FIX: Tambahkan kolom nomet agar tidak error "no column named nomet"
+        # FIX: Sinkronisasi kolom nomet untuk mencegah kegagalan transmisi
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
@@ -208,6 +212,7 @@ def lapor_kunjungan():
         conn.commit()
         return APIResponse.success(message="Laporan kunjungan tersimpan.")
     except Exception as e:
+        # Menangani error jika kolom nomet benar-benar belum ada di DB
         return APIResponse.error(f"Gagal simpan snapshot: {str(e)}")
     finally:
         conn.close()
