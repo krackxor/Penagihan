@@ -1,5 +1,5 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.01 Stability Fix)
+Smart Integration Engine - Sunter Dashboard Pro (V13.02 Stability Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Teknologi Unggulan:
@@ -9,6 +9,7 @@ Teknologi Unggulan:
 3. ✅ FIX: Efisiensi I/O - Menghilangkan beban transaksi ganda yang menyebabkan 
    koneksi terputus saat upload file MB/Collection yang besar.
 4. Memory Buffering: Pemrosesan data sepenuhnya di RAM sebelum commit.
+5. ✅ ENHANCED: PCEZ Normalizer - Memastikan format rute (092/01) sinkron otomatis.
 """
 
 import pandas as pd
@@ -102,11 +103,16 @@ def handle_smart_upload():
         
         records = df.to_dict('records') 
         for row in records:
+            # PROSES KHUSUS FILE RUTE (Mapping Petugas)
             if data_type == 'RUTE':
-                c_pcez = UploadEngine.get_column(df, ['PCEZ', 'ZONA', 'ZONA_NOVAK', 'RUTE'])
+                c_pcez = UploadEngine.get_column(df, ['PCEZ', 'RUTE', 'ZONA', 'ZONA_NOVAK'])
                 c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS'])
-                if row.get(c_pcez) and row.get(c_name):
-                    bulk_rute.append((str(row.get(c_pcez)).strip(), str(row.get(c_name)).strip()))
+                raw_pcez_val = str(row.get(c_pcez, '')).strip()
+                
+                # Gunakan extractor untuk memastikan format rute konsisten (092/01)
+                z_rute = autopilot_extract_zona(raw_pcez_val)
+                if z_rute and row.get(c_name):
+                    bulk_rute.append((z_rute['pcez'], str(row.get(c_name)).strip().upper()))
                 continue
 
             n_raw = row.get(col_id)
@@ -115,8 +121,10 @@ def handle_smart_upload():
 
             nominal = UploadEngine.cast_to_float(row.get(col_nom))
 
+            # PROSES FILE MASTER PELANGGAN (MC)
             if data_type == 'MC':
-                c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
+                # Prioritaskan kolom PCEZ/RUTE untuk normalisasi zona
+                c_zona = UploadEngine.get_column(df, ['PCEZ', 'RUTE', 'ZONA_NOVAK', 'ZONA'])
                 z = autopilot_extract_zona(row.get(c_zona))
                 if z:
                     bulk_main.append((
@@ -125,6 +133,7 @@ def handle_smart_upload():
                         target_period, row.get(col_hp, '-'), 'MC'
                     ))
             
+            # PROSES FILE PEMBAYARAN (MB/COLLECTION)
             elif data_type in ['MB', 'COLLECTION']:
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
                 if not b_rek:
@@ -135,16 +144,18 @@ def handle_smart_upload():
                 tgl_transaksi = str(row.get(col_pay, ''))
                 bulk_main.append((nomen, tgl_transaksi, nominal, target_period, cat, b_rek))
 
+            # PROSES FILE ARDEBT
             elif data_type == 'ARDEBT':
                 if nominal > 0:
                     bulk_main.append((nomen, row.get('PERIODE_BILL', '-'), nominal, target_period))
 
         # 3. ATOMIC INJECTION
         db.execute("PRAGMA synchronous = OFF") 
-        db.execute("PRAGMA journal_mode = MEMORY") # Optimasi tambahan untuk upload besar
+        db.execute("PRAGMA journal_mode = MEMORY") 
         db.execute("BEGIN TRANSACTION")
 
         if data_type == 'RUTE':
+            # Gunakan REPLACE agar update nama petugas di rute yang sama tidak duplikat
             db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", bulk_rute)
         
         elif data_type == 'MC':
@@ -158,8 +169,6 @@ def handle_smart_upload():
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
             dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
             
-            # Hanya Insert Transaksi. 
-            # Status Lunas pada tabel master_pelanggan akan diupdate otomatis oleh TRIGGER di database.
             db.executemany(f"""
                 INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                 VALUES (?, ?, ?, ?, ?, ?)
