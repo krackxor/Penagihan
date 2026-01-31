@@ -1,11 +1,11 @@
 """
-Collection API - Sunter Dashboard Pro (V12.96 - Date Sanitization & NaN Fix)
+Collection API - Sunter Dashboard Pro (V12.97 - Garbage Data Filter & NaN Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX DATE: Menjamin baris pertama dan seterusnya menggunakan format Tgl-Bln-Thn.
-2. ✅ FIX NaN: Mengembalikan 'target_mc' sebagai angka tunggal di level utama JSON.
-3. ✅ SYNC FRONTEND: Menggunakan key 'rp' dan 'cum' agar tabel monitoring terisi.
+1. ✅ FILTER DATA: Membuang baris pertama yang "salah" menggunakan filter LENGTH(pay_dt) >= 8.
+2. ✅ FIX DATE: Menjamin semua baris menggunakan format Tgl-Bln-Thn sesuai periode.
+3. ✅ FIX NaN: Mengembalikan 'target_mc' sebagai angka tunggal di level utama JSON.
 4. ✅ DYNAMIC BREK: Otomatis mencari bulan_rek H-1 (02-2026 -> 012026).
 """
 
@@ -33,7 +33,7 @@ def get_dynamic_bulan_rek(periode_str):
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Dashboard: Fix NaN dan rincian nominal transparan."""
+    """Summary Dashboard: Fix NaN dan menyediakan rincian nominal transparan."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -92,7 +92,7 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren harian: Perbaikan format tanggal otomatis sesuai periode."""
+    """Tren harian: Filter ketat untuk membuang baris pertama yang salah format."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -120,7 +120,7 @@ def daily_monitor():
         """, (periode_req, brek_req))
         undue = dict(cursor.fetchone())
 
-        # 3. Lapangan Harian
+        # 3. Lapangan Harian - DITAMBAHKAN FILTER LENGTH UNTUK MEMBUANG BARIS SALAH
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -128,7 +128,7 @@ def daily_monitor():
                 SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END) as f35
             FROM collection_harian c
             JOIN master_pelanggan p ON c.nomen = p.nomen AND p.periode = c.periode
-            WHERE c.periode = ?
+            WHERE c.periode = ? AND LENGTH(c.pay_dt) >= 8
             GROUP BY c.pay_dt ORDER BY c.pay_dt ASC
         """, (periode_req,))
         rows = cursor.fetchall()
@@ -136,21 +136,15 @@ def daily_monitor():
         daily_data = []
         cum_f34, cum_f35 = 0, 0
         
-        # Format periode untuk sanitasi tanggal (02-2026 -> 02/2026)
         periode_slash = periode_req.replace('-', '/')
 
         for r in rows:
             tgl_raw = str(r['tgl']).strip()
             
-            # SANITASI TANGGAL: Jika tanggal baris pertama salah (misal hanya angka 1)
-            # Maka sambungkan otomatis dengan bulan/tahun periode aktif.
+            # Sanitasi Tanggal Tambahan
             if tgl_raw.isdigit() and len(tgl_raw) <= 2:
                 day = tgl_raw.zfill(2)
                 tgl_fix = f"{day}/{periode_slash}"
-            elif len(tgl_raw) < 8 and '/' in tgl_raw:
-                # Jika format pendek misal 01/02, tambahkan tahun
-                year_part = periode_req.split('-')[1]
-                tgl_fix = f"{tgl_raw}/{year_part}"
             else:
                 tgl_fix = tgl_raw
 
