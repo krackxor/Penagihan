@@ -67,115 +67,8 @@
     </div>
 
     <div id="summary-area" class="px-2 mb-3"></div>
-
-    <div id="list-container" class="px-2 pb-5">
-        <div class="text-center py-5">
-            <div class="spinner-border text-danger" role="status"></div>
-            <p class="mt-2 text-muted small fw-800">Menyinkronkan parameter target prioritas...</p>
-        </div>
-    </div>
+    <div id="list-container" class="px-2 pb-5"></div>
 </div>
-
-<div class="modal fade" id="modalHistory" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
-        <div class="modal-content border-0 shadow-lg rounded-5 overflow-hidden">
-            <div class="modal-header bg-dark text-white border-0 py-3 px-4">
-                <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-magnifying-glass-chart me-2 text-warning"></i>Audit Rekam Jejak Piutang</h6>
-                <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body bg-light p-4">
-                <div id="boxAnalisis" class="alert d-none mb-4 shadow-sm border-start border-4 animate__animated animate__fadeIn">
-                    <h6 class="fw-800 small mb-2 text-uppercase"><i class="fa-solid fa-microchip me-2"></i>Intelligence Analysis:</h6>
-                    <p id="txtSaran" class="mb-2 small text-dark fw-semibold">-</p>
-                    <hr class="my-2 opacity-10">
-                    <div id="txtTren" class="fw-800 text-danger" style="font-size: 0.75rem;"></div>
-                </div>
-                <div class="table-responsive rounded-4 shadow-sm bg-white border overflow-hidden">
-                    <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                        <thead class="table-dark text-center text-uppercase" style="font-size: 0.6rem; font-weight: 800;">
-                            <tr>
-                                <th class="py-3 text-start ps-4">Periode</th>
-                                <th class="py-3">Volume (m³)</th>
-                                <th class="py-3">Tagihan (Rp)</th>
-                                <th class="py-3">Gol. Tarif</th>
-                                <th class="py-3 pe-4">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableHistoryContent"></tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-800 py-2 shadow-sm" data-bs-dismiss="modal">TUTUP LAPORAN AUDIT</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="modalKunjungan" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-5 overflow-hidden">
-            <form id="formKunjungan">
-                <div class="modal-header border-0 bg-danger text-white p-3 px-4">
-                    <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-camera-retro me-2"></i>Laporan Kunjungan Ardebt</h6>
-                    <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <input type="hidden" id="modal-idpel" name="idpel">
-                    <input type="hidden" id="modal-nomet-val" name="nomet">
-                    <input type="hidden" id="modal-lat" name="latitude">
-                    <input type="hidden" id="modal-lng" name="longitude">
-                    <input type="hidden" id="modal-nominal-val" name="nominal_display">
-                    <input type="hidden" id="modal-nama-hidden">
-                    
-                    <div class="bg-danger bg-opacity-10 p-3 rounded-4 mb-4 border border-danger border-opacity-10 text-center shadow-xs">
-                        <i class="fa-solid fa-user-check fa-2x text-danger mb-2"></i>
-                        <h6 id="modal-nama" class="fw-800 mb-1 text-dark text-uppercase"></h6>
-                        <small id="modal-sub-info" class="text-muted fw-800 d-block" style="font-size: 0.6rem; letter-spacing: 0.5px;"></small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-phone me-1"></i> Kontak WhatsApp *</label>
-                        <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 shadow-none border-light-subtle fw-bold" placeholder="628..." required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-list-check me-1"></i> Hasil Koordinasi *</label>
-                        <select id="modal-hasil" name="hasil" class="form-select rounded-3 fw-800 bg-light border-0" required onchange="toggleJanjiInput()">
-                            <option value="">-- Klasifikasi Hasil --</option>
-                            <option value="Sudah Bayar">💰 Terkonfirmasi Lunas</option>
-                            <option value="Janji Bayar">🤝 Komitmen Pembayaran</option>
-                            <option value="Rumah Kosong">🏠 Tidak Bertemu Penghuni</option>
-                            <option value="Tutup Bor">🚫 Rekomendasi Segel/Tutup</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3 d-none animate__animated animate__pulse" id="group-janji">
-                        <label class="form-label small fw-800 text-danger text-uppercase" style="font-size: 0.6rem;">Batas Waktu Komitmen</label>
-                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control rounded-3 border-danger border-opacity-25 bg-danger bg-opacity-10 fw-bold text-danger">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-pen-to-square me-1"></i> Narasi Evaluasi</label>
-                        <textarea id="modal-keterangan" name="catatan" class="form-control rounded-3 shadow-none bg-light border-0" rows="2" placeholder="Detail temuan lapangan..."></textarea>
-                    </div>
-
-                    <div class="mb-0">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-camera me-1"></i> Dokumentasi Visual *</label>
-                        <input type="file" id="modal-foto" name="foto" class="form-control rounded-3 border-light-subtle" accept="image/*" capture="camera" required>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 p-4 pt-0">
-                    <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-800 shadow-lg transition-btn">
-                        <i class="fa-solid fa-paper-plane me-2"></i> TRANSMISI DATA LAPORAN
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-
 
 <script>
     let modalKunjungan, modalHistory;
@@ -192,6 +85,25 @@
             validasiDanSimpan(); 
         });
     });
+
+    // FUNGSI UTAMA UNTUK MEMBUKA MODAL LAPOR (FIX: openModal is not defined)
+    function openModal(nomen, nama, total, nomet) {
+        // Mengisi input hidden untuk transmisi data
+        document.getElementById('modal-idpel').value = nomen;
+        document.getElementById('modal-nomet-val').value = nomet;
+        document.getElementById('modal-nominal-val').value = total;
+        document.getElementById('modal-nama-hidden').value = nama;
+        
+        // Mengisi tampilan visual di dalam modal
+        document.getElementById('modal-nama').innerText = nama;
+        document.getElementById('modal-sub-info').innerText = `ID: ${nomen} | Meter: ${nomet} | Tagihan: Rp ${formatIDR(total)}`;
+        
+        // Reset form lapor
+        document.getElementById('formKunjungan').reset();
+        document.getElementById('group-janji').classList.add('d-none');
+        
+        modalKunjungan.show();
+    }
 
     async function fetchPetugasList() {
         const select = document.getElementById('filter-petugas');
@@ -261,9 +173,9 @@
                             <span class="fw-800 text-danger" style="font-size: 1.15rem;">Rp ${formatIDR(item.nominal_mc + item.nominal_ardebt)}</span>
                         </div>
                         <div class="btn-group">
-                            <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${item.nama}')">AUDIT</button>
+                            <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')">AUDIT</button>
                             <button class="btn btn-danger rounded-pill px-4 fw-800 shadow-sm btn-sm transition-btn" 
-                                    onclick="openModal('${item.nomen}', '${item.nama}', '${item.nominal_mc + item.nominal_ardebt}', '${item.no_seri_meter || '-'}')">LAPOR</button>
+                                    onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${item.nominal_mc + item.nominal_ardebt}', '${item.no_seri_meter || '-'}')">LAPOR</button>
                         </div>
                     </div>
                 </div>
@@ -370,11 +282,17 @@
 
     function toggleJanjiInput() {
         const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
-        document.getElementById('group-janji').classList.toggle('d-none', !isJanji);
+        const groupJanji = document.getElementById('group-janji');
+        if (isJanji) {
+            groupJanji.classList.remove('d-none');
+        } else {
+            groupJanji.classList.add('d-none');
+        }
     }
 </script>
 
 <style>
+    /* Styling tetap sama */
     .fw-800 { font-weight: 800; }
     .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
     .bg-danger-subtle { background-color: #fff5f5 !important; }
