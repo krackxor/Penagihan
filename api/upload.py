@@ -1,12 +1,11 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.02 Stability Fix)
+Smart Integration Engine - Sunter Dashboard Pro (V13.03 Stability Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. executemany() Bulk Injection: Mengirim puluhan ribu baris data secara instant.
-2. ✅ FIX: Year-Guard - Memastikan data tahun 2025 tidak bocor ke dashboard 2026.
-3. ✅ FIX: Anti-Timeout - Menghapus redundansi update manual di level aplikasi 
-   dan mengandalkan Trigger Database untuk sinkronisasi status lunas.
+1. ✅ FIX: Year-Guard Flexible - Mengizinkan data tahun N-1 (misal 2025) masuk ke periode N (2026).
+2. executemany() Bulk Injection: Mengirim puluhan ribu baris data secara instant.
+3. ✅ FIX: Anti-Timeout - Mengandalkan Trigger Database untuk sinkronisasi status lunas.
 4. ✅ FIX: Column Mapping - Menangani kolom tanggal yang sering tertukar dengan kolom tahun.
 """
 
@@ -126,22 +125,25 @@ def handle_smart_upload():
                     ))
             
             elif data_type in ['MB', 'COLLECTION']:
-                # --- LOGIKA SINKRONISASI TAHUN (YEAR-GUARD V13.02) ---
+                # --- LOGIKA SINKRONISASI TAHUN (FIX V13.03) ---
                 target_month = target_period.split('-')[0] # 01
                 target_year = target_period.split('-')[1]  # 2026
+                
+                # Mendapatkan tahun sebelumnya (N-1) untuk transisi Desember-Januari
+                prev_year = str(int(target_year) - 1)
 
                 tgl_raw = str(row.get(col_pay, '')).strip()
                 
-                # Validasi: Apakah baris ini berasal dari tahun/bulan yang berbeda?
-                # Jika tgl_raw mengandung "2025" tapi target adalah "2026", maka baris dilewati (Skip)
-                if tgl_raw and target_year not in tgl_raw and len(tgl_raw) > 4:
+                # Validasi Fleksibel: Izinkan tahun target ATAU tahun sebelumnya
+                # Ini memastikan data Desember 2025 tidak diblokir saat upload ke Januari 2026
+                if tgl_raw and (target_year not in tgl_raw and prev_year not in tgl_raw) and len(tgl_raw) > 4:
                     continue 
 
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
                 if not b_rek:
                     b_rek = f"{target_month}{target_year}" 
                 
-                # Normalisasi format tanggal agar seragam di DB
+                # Normalisasi format tanggal
                 if not tgl_raw or len(tgl_raw) <= 4:
                     tgl_transaksi = f"01/{target_month}/{target_year}"
                 else:
@@ -188,7 +190,7 @@ def handle_smart_upload():
         db.commit()
         db.execute("PRAGMA synchronous = NORMAL")
         
-        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"YearGuard: {row_count} rows synced to {target_period}.")
+        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"Flexible YearGuard: {row_count} rows synced to {target_period}.")
         return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil! {row_count} baris diproses untuk periode {target_period}."})
 
     except Exception as e:
