@@ -78,7 +78,7 @@ def handle_smart_upload():
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # Mapping Kolom Utama (Perbaikan: Kolom Tahun tidak masuk ke col_pay)
+        # Mapping Kolom Utama
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
@@ -88,6 +88,7 @@ def handle_smart_upload():
         if data_type == 'MC' and (col_brek or col_pay):
             data_type = 'MB'
 
+        # Deteksi Periode Target (Misal: 01-2026)
         if data_type in ['ARDEBT', 'RUTE']:
             target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
         else:
@@ -125,20 +126,24 @@ def handle_smart_upload():
                     ))
             
             elif data_type in ['MB', 'COLLECTION']:
-                # --- LOGIKA SINKRONISASI TAHUN (YEAR-GUARD) ---
+                # --- LOGIKA SINKRONISASI TAHUN (YEAR-GUARD V13.02) ---
+                target_month = target_period.split('-')[0] # 01
+                target_year = target_period.split('-')[1]  # 2026
+
+                tgl_raw = str(row.get(col_pay, '')).strip()
+                
+                # Validasi: Apakah baris ini berasal dari tahun/bulan yang berbeda?
+                # Jika tgl_raw mengandung "2025" tapi target adalah "2026", maka baris dilewati (Skip)
+                if tgl_raw and target_year not in tgl_raw and len(tgl_raw) > 4:
+                    continue 
+
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
                 if not b_rek:
-                    dt_obj = datetime.strptime(target_period, '%m-%Y')
-                    b_rek = dt_obj.strftime('%m%Y') 
+                    b_rek = f"{target_month}{target_year}" 
                 
-                # Normalisasi & Proteksi Tanggal
-                tgl_raw = str(row.get(col_pay, '')).strip()
-                target_year = target_period.split('-')[1] # Misal 2026
-                
-                # Jika data tanggal hanya berisi tahun (misal: 2025) atau tidak mengandung tahun target
-                if len(tgl_raw) <= 4 or target_year not in tgl_raw:
-                    # Paksa menjadi tanggal 1 di periode terpilih agar tidak merusak akumulasi dashboard
-                    tgl_transaksi = f"01/{target_period.replace('-', '/')}"
+                # Normalisasi format tanggal agar seragam di DB
+                if not tgl_raw or len(tgl_raw) <= 4:
+                    tgl_transaksi = f"01/{target_month}/{target_year}"
                 else:
                     tgl_transaksi = tgl_raw
 
@@ -151,7 +156,7 @@ def handle_smart_upload():
 
         # 3. ATOMIC INJECTION
         db.execute("PRAGMA synchronous = OFF") 
-        db.execute("PRAGMA journal_mode = WAL") # Gunakan WAL untuk keamanan integrasi
+        db.execute("PRAGMA journal_mode = WAL")
         db.execute("BEGIN TRANSACTION")
 
         if data_type == 'RUTE':
@@ -183,8 +188,8 @@ def handle_smart_upload():
         db.commit()
         db.execute("PRAGMA synchronous = NORMAL")
         
-        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"BulkSync: {row_count} rows processed.")
-        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil! {row_count} baris diproses."})
+        log_action(session.get('username', 'Admin'), 'UPLOAD_SUCCESS', data_type, f"YearGuard: {row_count} rows synced to {target_period}.")
+        return jsonify({"status": "success", "message": f"Integrasi {data_type} Berhasil! {row_count} baris diproses untuk periode {target_period}."})
 
     except Exception as e:
         if db: db.rollback()
