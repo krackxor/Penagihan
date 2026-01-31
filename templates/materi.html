@@ -5,37 +5,53 @@
     
     <div class="mb-4">
         <h4 class="fw-bold text-dark mb-1">
-            <i class="fas fa-book-open-reader me-2 text-primary"></i>Knowledge Center Area Service
+            <i class="fa-solid fa-graduation-cap me-2 text-primary"></i>Knowledge Center Area Service
         </h4>
-        <p class="text-muted small">Repositori Dokumentasi Teknis & Regulasi Operasional Terpadu.</p>
+        <p class="text-muted small fw-semibold">Repositori Dokumentasi Teknis & Regulasi Operasional Terpadu.</p>
     </div>
 
     <div class="row g-4">
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-3 border">
                 <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-                    <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.5px;">Katalog Literatur</h6>
-                    <span class="badge bg-light text-dark border rounded-pill" style="font-size: 0.6rem;">{{ files|length }} Berkas</span>
+                    <h6 class="fw-800 mb-0 small text-uppercase" style="letter-spacing: 1px;">Katalog Literatur</h6>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill fw-800" style="font-size: 0.6rem;">
+                        {{ files|length }} BERKAS
+                    </span>
                 </div>
-                <div class="list-group list-group-flush overflow-auto" style="max-height: 550px;">
+                
+                <div class="px-2 mb-3">
+                    <div class="input-group bg-light rounded-3 px-2 border border-light overflow-hidden">
+                        <span class="input-group-text border-0 bg-transparent ps-2">
+                            <i class="fa-solid fa-magnifying-glass text-muted small"></i>
+                        </span>
+                        <input type="text" id="searchMateri" class="form-control border-0 bg-transparent py-2 shadow-none small fw-semibold" 
+                               placeholder="Cari literatur..." onkeyup="filterMateri()">
+                    </div>
+                </div>
+
+                <div class="list-group list-group-flush overflow-auto custom-scrollbar" style="max-height: 500px;">
                     {% if files %}
                         {% for file in files %}
-                        <button class="list-group-item list-group-item-action border-0 rounded-4 mb-2 d-flex align-items-center gap-3 materi-item" 
+                        <button class="list-group-item list-group-item-action border-0 rounded-4 mb-2 d-flex align-items-center gap-3 materi-item animate__animated animate__fadeInUp" 
                                 onclick="viewDocument('{{ file }}')"
-                                data-filename="{{ file }}">
-                            <div class="icon-box rounded-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">
-                                <i class="fas {% if '.pdf' in file|lower %}fa-file-pdf text-danger{% else %}fa-file-word text-primary{% endif %} fa-lg"></i>
+                                data-filename="{{ file }}"
+                                style="animation-delay: {{ loop.index0 * 0.05 }}s">
+                            <div class="icon-box rounded-3 d-flex align-items-center justify-content-center shadow-xs" style="width: 42px; height: 42px; min-width: 42px;">
+                                <i class="fa-solid {% if '.pdf' in file|lower %}fa-file-pdf text-danger{% elif '.doc' in file|lower %}fa-file-word text-primary{% else %}fa-file-lines text-secondary{% endif %} fa-lg"></i>
                             </div>
                             <div class="text-truncate">
-                                <div class="small fw-bold text-dark text-truncate">{{ file }}</div>
-                                <small class="text-muted" style="font-size: 0.6rem;">Transmisi: Digital Link</small>
+                                <div class="small fw-800 text-dark text-truncate">{{ file }}</div>
+                                <small class="text-muted fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">
+                                    <i class="fa-solid fa-link me-1"></i>TRANSMISI: DIGITAL LINK
+                                </small>
                             </div>
                         </button>
                         {% endfor %}
                     {% else %}
                         <div class="text-center py-5">
-                            <i class="fas fa-folder-open fa-3x text-light mb-3"></i>
-                            <p class="text-muted small">Belum ada dokumen yang diunggah ke server.</p>
+                            <i class="fa-solid fa-folder-open fa-3x text-light mb-3 opacity-50"></i>
+                            <p class="text-muted small fw-800">Belum ada dokumen yang diunggah.</p>
                         </div>
                     {% endif %}
                 </div>
@@ -43,24 +59,24 @@
         </div>
 
         <div class="col-md-8">
-            <div class="card border-0 shadow-sm rounded-4 bg-white p-2 h-100" style="min-height: 700px;">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-2 h-100 border" style="min-height: 700px;">
                 <div id="viewerEmpty" class="text-center py-5 mt-5">
                     <div class="mb-4">
-                        <i class="fas fa-file-invoice fa-4x text-light opacity-50"></i>
+                        <i class="fa-solid fa-file-shield fa-4x text-light opacity-50"></i>
                     </div>
-                    <h6 class="text-muted fw-bold">Pilih dokumen dari katalog untuk visualisasi data</h6>
-                    <p class="small text-muted px-5">Regulasi dan petunjuk teknis dapat diakses secara real-time melalui enkripsi portal Area Service.</p>
+                    <h6 class="text-muted fw-800 text-uppercase" style="letter-spacing: 1px;">Pilih literatur dari katalog</h6>
+                    <p class="small text-muted px-5 fw-semibold">Regulasi dan petunjuk teknis dapat diakses secara terenkripsi melalui portal Area Service.</p>
                 </div>
                 
                 <div id="viewerActive" class="d-none h-100 animate__animated animate__fadeIn">
                     <div class="d-flex justify-content-between align-items-center mb-3 px-3 pt-2">
                         <div>
-                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">
-                                <i class="fas fa-shield-halved me-1"></i> SECURE PREVIEW
+                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem; letter-spacing: 1px;">
+                                <i class="fa-solid fa-shield-halved me-1"></i> SECURE PREVIEW
                             </span>
                         </div>
                         <div class="text-end">
-                            <small id="docTitle" class="fw-bold text-dark d-block" style="font-size: 0.75rem;"></small>
+                            <small id="docTitle" class="fw-800 text-dark d-block text-uppercase text-truncate" style="font-size: 0.7rem; max-width: 250px;"></small>
                         </div>
                     </div>
                     
@@ -77,25 +93,46 @@
 </div>
 
 <style>
-    /* Custom Styling Area Service Knowledge Center */
+    .fw-800 { font-weight: 800; }
+    .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+    
+    /* Katalog Interaction */
     .materi-item { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent !important; }
-    .materi-item .icon-box { background: #f8fafc; transition: 0.3s; }
-    .materi-item:hover { background-color: #f1f5f9; transform: translateX(5px); }
-    .materi-item:hover .icon-box { background: #fff; }
+    .materi-item .icon-box { background: #f8fafc; transition: 0.3s; border: 1px solid #f1f5f9; }
+    .materi-item:hover { background-color: #f8fafc; transform: translateX(5px); }
+    .materi-item:hover .icon-box { background: #fff; border-color: #2563eb; }
+    
     .materi-item.active { background-color: #eff6ff !important; border-left: 5px solid #2563eb !important; }
     .materi-item.active .small { color: #2563eb !important; }
     
+    /* Viewer Enhancement */
     #docFrame { box-shadow: inset 0 2px 10px rgba(0,0,0,0.02); }
     
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
     @media (max-width: 767.98px) {
         .card { min-height: auto !important; }
-        #docFrame { height: 500px !important; }
+        #docFrame { height: 550px !important; }
+        .materi-item:hover { transform: none; }
     }
 </style>
 
 <script>
     /**
-     * TRANSMISI DOKUMEN: Memuat literatur ke dalam secure iframe.
+     * FILTER MATERI: Fitur pencarian cepat katalog.
+     */
+    function filterMateri() {
+        const query = document.getElementById('searchMateri').value.toLowerCase();
+        document.querySelectorAll('.materi-item').forEach(item => {
+            const filename = item.getAttribute('data-filename').toLowerCase();
+            item.style.display = filename.includes(query) ? 'flex' : 'none';
+        });
+    }
+
+    /**
+     * TRANSMISI DOKUMEN: Memuat berkas ke iframe aman.
      */
     function viewDocument(filename) {
         const empty = document.getElementById('viewerEmpty');
@@ -103,7 +140,6 @@
         const frame = document.getElementById('docFrame');
         const titleDisplay = document.getElementById('docTitle');
         
-        // Konstruksi Endpoint Berkas
         const fileUrl = window.location.origin + '/static/uploads/materi/' + filename;
         
         titleDisplay.innerText = filename;
@@ -113,14 +149,13 @@
         const isPDF = filename.toLowerCase().endsWith('.pdf');
 
         if (isPDF) {
-            // Visualisasi Native PDF (High Stability)
             frame.src = fileUrl;
         } else {
-            // Cloud Rendering via Google API (Untuk format dokumentasi eksternal)
+            // High Reliability Google Viewer for DOCX/XLSX
             frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
         }
 
-        // Sinkronisasi State Aktif pada Katalog
+        // State Update
         document.querySelectorAll('.materi-item').forEach(item => {
             item.classList.remove('active');
             if(item.getAttribute('data-filename') === filename) {
@@ -128,10 +163,10 @@
             }
         });
 
-        // Autoscroll pada tampilan mobile untuk fokus viewer
+        // Mobile UX: Autoscroll to Viewer
         if(window.innerWidth < 768) {
             window.scrollTo({
-                top: active.offsetTop - 100,
+                top: active.offsetTop - 80,
                 behavior: 'smooth'
             });
         }
