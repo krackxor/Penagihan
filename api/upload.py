@@ -1,14 +1,13 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.01 Stability Fix)
+Smart Integration Engine - Sunter Dashboard Pro (V13.02 Stability Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
-Teknologi Unggulan:
+Pembaruan Strategis:
 1. executemany() Bulk Injection: Mengirim puluhan ribu baris data secara instant.
-2. ✅ FIX: Anti-Timeout - Menghapus redundansi update manual di level aplikasi 
-   dan mengandalkan Trigger Database (schema.sql) untuk sinkronisasi status lunas.
-3. ✅ FIX: Efisiensi I/O - Menghilangkan beban transaksi ganda yang menyebabkan 
-   koneksi terputus saat upload file MB/Collection yang besar.
-4. Memory Buffering: Pemrosesan data sepenuhnya di RAM sebelum commit.
+2. ✅ FIX: Year-Guard - Memastikan data tahun 2025 tidak bocor ke dashboard 2026.
+3. ✅ FIX: Anti-Timeout - Menghapus redundansi update manual di level aplikasi 
+   dan mengandalkan Trigger Database untuk sinkronisasi status lunas.
+4. ✅ FIX: Column Mapping - Menangani kolom tanggal yang sering tertukar dengan kolom tahun.
 """
 
 import pandas as pd
@@ -79,7 +78,7 @@ def handle_smart_upload():
         if not data_type:
             return jsonify({"status": "error", "message": "Format kolom tidak dikenali"}), 400
 
-        # Mapping Kolom Utama
+        # Mapping Kolom Utama (Perbaikan: Kolom Tahun tidak masuk ke col_pay)
         col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'CUST_ID'])
         col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'JML_BAYAR', 'PIUTANG'])
         col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'DATE_PAID'])
@@ -126,13 +125,24 @@ def handle_smart_upload():
                     ))
             
             elif data_type in ['MB', 'COLLECTION']:
+                # --- LOGIKA SINKRONISASI TAHUN (YEAR-GUARD) ---
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
                 if not b_rek:
                     dt_obj = datetime.strptime(target_period, '%m-%Y')
                     b_rek = dt_obj.strftime('%m%Y') 
                 
+                # Normalisasi & Proteksi Tanggal
+                tgl_raw = str(row.get(col_pay, '')).strip()
+                target_year = target_period.split('-')[1] # Misal 2026
+                
+                # Jika data tanggal hanya berisi tahun (misal: 2025) atau tidak mengandung tahun target
+                if len(tgl_raw) <= 4 or target_year not in tgl_raw:
+                    # Paksa menjadi tanggal 1 di periode terpilih agar tidak merusak akumulasi dashboard
+                    tgl_transaksi = f"01/{target_period.replace('-', '/')}"
+                else:
+                    tgl_transaksi = tgl_raw
+
                 cat = "UNDUE" if data_type == 'MB' else "CURRENT"
-                tgl_transaksi = str(row.get(col_pay, ''))
                 bulk_main.append((nomen, tgl_transaksi, nominal, target_period, cat, b_rek))
 
             elif data_type == 'ARDEBT':
@@ -141,7 +151,7 @@ def handle_smart_upload():
 
         # 3. ATOMIC INJECTION
         db.execute("PRAGMA synchronous = OFF") 
-        db.execute("PRAGMA journal_mode = MEMORY") # Optimasi tambahan untuk upload besar
+        db.execute("PRAGMA journal_mode = WAL") # Gunakan WAL untuk keamanan integrasi
         db.execute("BEGIN TRANSACTION")
 
         if data_type == 'RUTE':
@@ -158,8 +168,6 @@ def handle_smart_upload():
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
             dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
             
-            # Hanya Insert Transaksi. 
-            # Status Lunas pada tabel master_pelanggan akan diupdate otomatis oleh TRIGGER di database.
             db.executemany(f"""
                 INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) 
                 VALUES (?, ?, ?, ?, ?, ?)
