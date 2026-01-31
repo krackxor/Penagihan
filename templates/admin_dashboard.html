@@ -7,7 +7,7 @@
                 <h3 class="fw-bold text-dark mb-1">
                     <i class="fas fa-tower-control-panel me-2 text-danger"></i>Pusat Manajemen Strategis
                 </h3>
-                <p class="text-muted small mb-0">Area Service Enterprise v12.8.6 — Ghost-Buster Sync Active</p>
+                <p class="text-muted small mb-0">Area Service Enterprise v12.8.5 — Live Integritas</p>
             </div>
             <div class="col-12 col-md-6 d-flex justify-content-center justify-content-md-end">
                 <div id="status-indicator">
@@ -182,10 +182,7 @@
                     <table class="table align-middle table-hover">
                         <thead class="sticky-top bg-white border-bottom">
                             <tr class="small text-uppercase text-muted fw-bold">
-                                <th class="py-3">PCEZ</th>
-                                <th>PETUGAS</th>
-                                <th>BEBAN (PEL)</th> <th>WA GATEWAY</th>
-                                <th class="text-end">AKSI</th>
+                                <th class="py-3">PCEZ</th><th>PETUGAS</th><th>WA GATEWAY</th><th class="text-end">AKSI</th>
                             </tr>
                         </thead>
                         <tbody id="mappingTableBody"></tbody>
@@ -494,7 +491,7 @@ async function uploadData() {
     formData.append('file', fileInput.files[0]);
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> MEMPROSES...`;
-    Swal.fire({ title: 'Mengintegrasikan Data...', text: 'Harap Tunggu Sebentar', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Mengintegrasikan Data...', text: 'Sedang mensinkronisasi Master & Realisasi', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
         const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
         const result = await res.json();
@@ -512,7 +509,7 @@ async function uploadData() {
     }
 }
 
-// [LOGIC] 3. MAPPING PCEZ (UPDATED WITH LOAD BALANCING)
+// [LOGIC] 3. MAPPING PCEZ
 async function loadMapping() {
     try {
         const res = await fetch('/api/rute/list');
@@ -520,8 +517,7 @@ async function loadMapping() {
         document.getElementById('mappingTableBody').innerHTML = data.map(row => `
             <tr class="mapping-row" data-search="${row.pcez} ${row.petugas}">
                 <td class="fw-bold text-primary small">${row.pcez}</td>
-                <td><span class="badge ${row.petugas && row.petugas !== 'UNMAPPED' ? 'bg-primary-subtle text-primary' : 'bg-light text-muted border'} px-3 rounded-pill" style="font-size: 0.75rem;">${row.petugas || 'UNMAPPED'}</span></td>
-                <td><span class="badge bg-info-subtle text-info border border-info-subtle px-2">${row.jml_pelanggan || 0}</span></td>
+                <td><span class="badge ${row.petugas ? 'bg-primary-subtle text-primary' : 'bg-light text-muted'} px-3 rounded-pill" style="font-size: 0.75rem;">${row.petugas || 'UNMAPPED'}</span></td>
                 <td class="small text-muted">${row.no_admin ? '+' + row.no_admin : '-'}</td>
                 <td class="text-end">
                     <button class="btn btn-sm btn-white rounded-pill px-3 shadow-sm border border-primary text-primary" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">EDIT</button>
@@ -540,8 +536,8 @@ function filterMapping() {
 
 function editMapping(pcez, petugas, no_admin) {
     document.getElementById('edit_pcez').value = pcez;
-    document.getElementById('edit_petugas').value = (petugas === 'null' || !petugas || petugas === 'UNMAPPED') ? '' : petugas;
-    document.getElementById('edit_no_admin').value = (no_admin === 'null' || !no_admin || no_admin === '-') ? '' : no_admin;
+    document.getElementById('edit_petugas').value = (petugas === 'null' || !petugas) ? '' : petugas;
+    document.getElementById('edit_no_admin').value = (no_admin === 'null' || !no_admin) ? '' : no_admin;
     new bootstrap.Modal(document.getElementById('editMappingModal')).show();
 }
 
