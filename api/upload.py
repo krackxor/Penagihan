@@ -9,6 +9,7 @@ Teknologi Unggulan:
 3. ✅ FIX: Efisiensi I/O - Menghilangkan beban transaksi ganda yang menyebabkan 
    koneksi terputus saat upload file MB/Collection yang besar.
 4. Memory Buffering: Pemrosesan data sepenuhnya di RAM sebelum commit.
+5. ✅ FITUR BARU: Auto-Sync Petugas - Otomatis update mapping rute saat upload MC.
 """
 
 import pandas as pd
@@ -117,6 +118,9 @@ def handle_smart_upload():
 
             if data_type == 'MC':
                 c_zona = UploadEngine.get_column(df, ['ZONA_NOVAK', 'ZONA', 'PCEZ', 'RUTE'])
+                # [UPDATE] Deteksi kolom petugas di file MC
+                c_petugas_mc = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS', 'KOLEKTOR']) 
+                
                 z = autopilot_extract_zona(row.get(c_zona))
                 if z:
                     bulk_main.append((
@@ -124,6 +128,11 @@ def handle_smart_upload():
                         z['pcez'], z['rayon'], nominal, row.get('NOMET', ''), 
                         target_period, row.get(col_hp, '-'), 'MC'
                     ))
+                    
+                    # [UPDATE] Jika ada data petugas, masukkan ke antrian update rute
+                    nama_petugas_di_file = str(row.get(c_petugas_mc, '')).strip().upper()
+                    if nama_petugas_di_file and nama_petugas_di_file not in ['-', '', 'NAN', '0', 'NONE']:
+                        bulk_rute.append((z['pcez'], nama_petugas_di_file))
             
             elif data_type in ['MB', 'COLLECTION']:
                 b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
@@ -153,6 +162,10 @@ def handle_smart_upload():
                 (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, no_hp, tipe, status_lunas) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """, bulk_main)
+            
+            # [UPDATE] Eksekusi update rute otomatis jika bulk_rute terisi dari file MC
+            if bulk_rute:
+                 db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", bulk_rute)
         
         elif data_type in ['MB', 'COLLECTION']:
             tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
