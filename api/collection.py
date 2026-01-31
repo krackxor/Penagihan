@@ -32,15 +32,14 @@ def pusat_kendali():
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
         # ✅ FIX PERIODE LOGIC: Hapus logika N-1
-        # Karena MB bulan 11 sudah di-shift jadi periode 12-2025 saat upload,
-        # kita langsung pakai periode untuk filter UNDUE
+        # Menggunakan periode langsung untuk filter UNDUE
         bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
 
-        # 1. TOTAL TARGET MC (Master Customer)
+        # 1. TOTAL TARGET MC (Master Customer) per Periode
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # ✅ 2. BOX UNDUE (BANK) - Filter langsung pakai periode
+        # ✅ 2. BOX UNDUE (BANK) - Filter ketat per periode
         cursor.execute("""
             SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
             WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
@@ -49,7 +48,7 @@ def pusat_kendali():
         undue_val = cursor.fetchone()[0]
 
         # 3. BOX FIELD (PETUGAS) & BOX MANDIRI
-        # Filter c.periode = ? menjamin hanya data bulan pilihan yang dijumlahkan
+        # Filter k.periode = c.periode memastikan validitas kunjungan di bulan yang sama
         cursor.execute("""
             SELECT 
                 SUM(CASE WHEN EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = c.nomen AND k.periode = c.periode) 
@@ -91,9 +90,6 @@ def daily_monitor():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
 
-        # ✅ FIX: Hapus logika N-1, langsung pakai periode
-        bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
-
         # Ambil Target Rayon khusus periode terpilih
         cursor.execute("""
             SELECT 
@@ -104,7 +100,7 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # ✅ Saldo Awal Bank (UNDUE) - Filter langsung pakai periode
+        # ✅ Saldo Awal Bank (UNDUE) - Filter ketat per periode
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
             WHERE periode = ? AND kategori = 'UNDUE'
@@ -112,7 +108,7 @@ def daily_monitor():
         """, (periode_req, periode_req))
         undue_start = cursor.fetchone()[0]
 
-        # QUERY HARIAN: Filter c.periode = ? mencegah kebocoran data bulan lain
+        # QUERY HARIAN: JOIN p.periode = c.periode mencegah data tertukar antar bulan
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -131,7 +127,7 @@ def daily_monitor():
         cum_34, cum_35 = 0, 0
         
         for r in rows:
-            if not r['tgl']: continue # Proteksi baris null
+            if not r['tgl']: continue # Zero-Record Shield
             
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
@@ -158,6 +154,7 @@ def detail_transaksi():
         rayon = request.args.get('rayon')
         periode = request.args.get('periode')
 
+        # JOIN p.periode = c.periode memastikan detail data benar sesuai bulan yang dipilih
         query = """
             SELECT c.nomen, p.nama, c.nominal
             FROM collection_harian c
