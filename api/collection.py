@@ -1,11 +1,12 @@
 """
-Collection API - Sunter Dashboard Pro (V12.80 - Dynamic Rayon Nominal Fix)
+Collection API - Sunter Dashboard Pro (V12.95 - NaN Fix & Sync Frontend)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ DYNAMIC BREK: Otomatis mencari bulan_rek H-1 dari periode dashboard (02-2026 -> 012026).
-2. ✅ NOMINAL VISIBILITY: Menampilkan angka asli MC 34, MC 35, UNDUE 34, dan UNDUE 35.
-3. ✅ RUMUS: (Kumulatif Lapangan + Total UNDUE sesuai filter BREK) / Target MC.
+1. ✅ FIX NaN: Mengembalikan 'target_mc' sebagai angka tunggal di level utama JSON.
+2. ✅ SYNC FRONTEND: Menggunakan key 'rp' dan 'cum' agar tabel monitoring terisi.
+3. ✅ DYNAMIC BREK: Otomatis mencari bulan_rek H-1 (02-2026 -> 012026).
+4. ✅ NOMINAL: Menyertakan rincian MC 34/35 dan UNDUE 34/35 di objek summary.
 """
 
 from flask import Blueprint, jsonify, request
@@ -22,27 +23,24 @@ def get_active_period(cursor):
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
 
 def get_dynamic_bulan_rek(periode_str):
-    """
-    Mengubah format periode 'MM-YYYY' menjadi 'MMYYYY' satu bulan sebelumnya.
-    Contoh: '02-2026' -> '012026'
-    """
+    """Mengubah periode 'MM-YYYY' menjadi 'MMYYYY' H-1."""
     try:
         dt = datetime.strptime(periode_str, '%m-%Y')
         target_dt = dt - relativedelta(months=1)
         return target_dt.strftime('%m%Y')
     except:
-        return "122025" # Fallback
+        return "122025"
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
-    """Summary Dashboard dengan rincian nominal transparan per Rayon."""
+    """Summary Dashboard: Fix NaN dengan mengembalikan target_mc ke format angka."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         brek_req = get_dynamic_bulan_rek(periode_req)
         
-        # 1. NOMINAL TARGET MC PER RAYON
+        # 1. NOMINAL TARGET MC (Total & Per Rayon)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as mc_34,
@@ -50,42 +48,43 @@ def pusat_kendali():
                 COALESCE(SUM(nominal), 0) as mc_total
             FROM master_pelanggan WHERE periode = ? AND tipe = 'MC'
         """, (periode_req,))
-        target = dict(cursor.fetchone())
+        target_res = dict(cursor.fetchone())
 
-        # 2. NOMINAL UNDUE (BANK) PER RAYON (Filter Dinamis Bulan Rekening)
+        # 2. NOMINAL UNDUE (BANK) - Filter Dinamis
         cursor.execute("""
             SELECT 
-                COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
-                COALESCE(SUM(CASE WHEN p.rayon = '35' THEN mb.nominal ELSE 0 END), 0) as undue_35,
-                COALESCE(SUM(mb.nominal), 0) as undue_total
+                COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as u34,
+                COALESCE(SUM(CASE WHEN p.rayon = '35' THEN mb.nominal ELSE 0 END), 0) as u35,
+                COALESCE(SUM(mb.nominal), 0) as u_total
             FROM master_bayar mb
             JOIN master_pelanggan p ON mb.nomen = p.nomen AND mb.periode = p.periode
             WHERE mb.periode = ? AND mb.kategori = 'UNDUE' AND mb.bulan_rek = ?
         """, (periode_req, brek_req))
-        undue = dict(cursor.fetchone())
+        undue_res = dict(cursor.fetchone())
 
         # 3. REALISASI LAPANGAN
         cursor.execute("""
-            SELECT 
-                SUM(CASE WHEN p.rayon = '34' THEN c.nominal ELSE 0 END) as f34,
-                SUM(CASE WHEN p.rayon = '35' THEN c.nominal ELSE 0 END) as f35
-            FROM collection_harian c
-            JOIN master_pelanggan p ON c.nomen = p.nomen AND c.periode = p.periode
-            WHERE c.periode = ? AND c.kategori = 'CURRENT'
+            SELECT COALESCE(SUM(nominal), 0) FROM collection_harian 
+            WHERE periode = ? AND kategori = 'CURRENT'
         """, (periode_req,))
-        field = dict(cursor.fetchone())
+        field_val = cursor.fetchone()[0] or 0
         
-        total_realisasi_all = undue['undue_total'] + (field['f34'] or 0) + (field['f35'] or 0)
+        total_realisasi = undue_res['u_total'] + field_val
+        target_total = target_res['mc_total']
 
         return jsonify({
             "status": "success",
             "summary": {
                 "periode": periode_req,
                 "bulan_rek_filter": brek_req,
-                "target_nominal": target, # mc_34, mc_35
-                "undue_nominal": undue,   # undue_34, undue_35
-                "realisasi_total": total_realisasi_all,
-                "pct_total": round((total_realisasi_all / max(1, target['mc_total']) * 100), 2)
+                "target_mc": target_total,           # Angka tunggal untuk fix NaN
+                "mc_34": target_res['mc_34'],        # Rincian tambahan
+                "mc_35": target_res['mc_35'],
+                "undue_34": undue_res['u34'],
+                "undue_35": undue_res['u35'],
+                "realisasi": { "total": total_realisasi },
+                "sisa_tagihan": max(0, target_total - total_realisasi),
+                "pct": round((total_realisasi / max(1, target_total) * 100), 2)
             }
         })
     finally:
@@ -93,14 +92,14 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren harian dengan rincian nominal dinamis per Rayon."""
+    """Tren harian: Sinkronisasi key 'rp' dan 'cum' dengan frontend."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         brek_req = get_dynamic_bulan_rek(periode_req)
 
-        # 1. Target MC per Rayon
+        # 1. Target per Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as mc_34,
@@ -110,18 +109,18 @@ def daily_monitor():
         """, (periode_req,))
         target = dict(cursor.fetchone())
 
-        # 2. Total UNDUE per Rayon (Filter Dinamis)
+        # 2. UNDUE per Rayon (Dinamis)
         cursor.execute("""
             SELECT 
-                COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
-                COALESCE(SUM(CASE WHEN p.rayon = '35' THEN mb.nominal ELSE 0 END), 0) as undue_35
+                COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as u34,
+                COALESCE(SUM(CASE WHEN p.rayon = '35' THEN mb.nominal ELSE 0 END), 0) as u35
             FROM master_bayar mb
             JOIN master_pelanggan p ON mb.nomen = p.nomen AND mb.periode = p.periode
             WHERE mb.periode = ? AND mb.kategori = 'UNDUE' AND mb.bulan_rek = ?
         """, (periode_req, brek_req))
-        undue_total = dict(cursor.fetchone())
+        undue = dict(cursor.fetchone())
 
-        # 3. Realisasi Lapangan Harian
+        # 3. Lapangan Harian
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -144,30 +143,25 @@ def daily_monitor():
             cum_f34 += r['f34']
             cum_f35 += r['f35']
             
-            # Rumus Dinamis per Rayon
-            real_34 = cum_f34 + undue_total['undue_34']
-            real_35 = cum_f35 + undue_total['undue_35']
+            # Rumus: (Kumulatif Lapangan + Total UNDUE)
+            real_34 = cum_f34 + undue['u34']
+            real_35 = cum_f35 + undue['u35']
             real_all = real_34 + real_35
 
             daily_data.append({
                 "tgl": tgl_str,
-                "nominal_ref": {
-                    "mc_34": target['mc_34'],
-                    "mc_35": target['mc_35'],
-                    "undue_34": undue_total['undue_34'],
-                    "undue_35": undue_total['undue_35']
-                },
                 "r34": {
-                    "rp_lapangan": r['f34'],
-                    "cum_total": real_34,
+                    "rp": r['f34'],         # Key 'rp' untuk nominal harian
+                    "cum": real_34,        # Key 'cum' untuk kumulatif
                     "pct": round((real_34 / max(1, target['mc_34']) * 100), 2)
                 },
                 "r35": {
-                    "rp_lapangan": r['f35'],
-                    "cum_total": real_35,
+                    "rp": r['f35'],
+                    "cum": real_35,
                     "pct": round((real_35 / max(1, target['mc_35']) * 100), 2)
                 },
                 "total": {
+                    "rp_harian": r['f34'] + r['f35'],
                     "cum_all": real_all,
                     "pct": round((real_all / max(1, target['mc_total']) * 100), 2)
                 }
