@@ -1,11 +1,10 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.99 Silent Migration)
-Update: 2026-02-01
+Core Database Module - Sunter Dashboard Pro (V13.00 Auto-Schema Fix)
+Update: 2026-02-02
 ---------------------------------------------------------------------------
-Pembaruan Strategis:
-1. ✅ SILENT MIGRATION: Menangani 'Duplicate column' dengan try-except agar log bersih.
-2. ✅ STABILITY: Peningkatan timeout ke 300 detik & cache turbo untuk Bulk Upload.
-3. ✅ CONFLICT RESOLVER: INSERT OR IGNORE pada seeding default admin.
+Fitur Baru:
+1. ✅ AUTO MIGRATION: Otomatis mendeteksi dan menambah kolom 'tipe_bill' & 'volume' di tabel ardebt.
+2. ✅ PERFORMANCE: Tuning PRAGMA untuk kecepatan maksimal.
 """
 
 import sqlite3
@@ -56,7 +55,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.99: Engine High-Load & History Sync Aktif.")
+            print("✅ Database V13.00: Structure Updated & Ready.")
             
         except Exception as e:
             # Jika error tetap terjadi karena constraint, kita log namun jangan hentikan app
@@ -90,7 +89,10 @@ def check_and_create_tables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS upload_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT, file_type TEXT, periode TEXT, row_count INTEGER DEFAULT 0, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
+    
+    # ARDEBT (Struktur Lama, nanti di-update oleh Smart Migration)
     cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
+    
     cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 
@@ -110,7 +112,7 @@ def check_and_create_tables(cursor):
     """)
 
 def run_smart_migration(cursor):
-    """Fungsi Self-Healing: Menjamin kolom Janji Bayar & Snapshot tersedia (Silent Mode)."""
+    """Fungsi Self-Healing: Menjamin kolom Janji Bayar, Snapshot, & Ardebt tersedia."""
     
     # 1. Migrasi Kunjungan
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
@@ -124,10 +126,8 @@ def run_smart_migration(cursor):
     }
     for col, dtype in kunjungan_cols.items():
         if col not in existing_kunjungan:
-            try:
-                cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
-            except Exception:
-                pass # Skip silent jika terjadi race condition/duplikasi
+            try: cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
+            except: pass 
 
     # 2. Migrasi Master Pelanggan
     cursor.execute("PRAGMA table_info(master_pelanggan)")
@@ -135,18 +135,14 @@ def run_smart_migration(cursor):
     master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 'no_hp': 'TEXT DEFAULT "-"', 'tgl_lunas': 'TEXT', 'tipe': "TEXT DEFAULT 'MC'"}
     for col, dtype in master_cols.items():
         if col not in existing_master:
-            try:
-                cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
-            except Exception:
-                pass
+            try: cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+            except: pass
 
     # 3. Migrasi Users
     cursor.execute("PRAGMA table_info(users)")
     if 'no_hp' not in [r['name'] for r in cursor.fetchall()]:
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
-        except Exception:
-            pass
+        try: cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
+        except: pass
     
     # 4. Migrasi Transaksi
     for table in ['master_bayar', 'collection_harian']:
@@ -159,12 +155,30 @@ def run_smart_migration(cursor):
             try: cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
             except: pass
 
+    # 5. ✅ MIGRASI ARDEBT (Fitur Baru)
+    # Menambahkan kolom 'tipe_bill' dan 'volume' jika belum ada
+    cursor.execute("PRAGMA table_info(ardebt)")
+    ardebt_cols = [row['name'] for row in cursor.fetchall()]
+    
+    if 'tipe_bill' not in ardebt_cols:
+        try: 
+            print("🔧 Migrasi: Menambahkan kolom 'tipe_bill' ke tabel ardebt...")
+            cursor.execute("ALTER TABLE ardebt ADD COLUMN tipe_bill TEXT DEFAULT 'WATER'")
+        except: pass
+        
+    if 'volume' not in ardebt_cols:
+        try:
+            print("🔧 Migrasi: Menambahkan kolom 'volume' ke tabel ardebt...")
+            cursor.execute("ALTER TABLE ardebt ADD COLUMN volume REAL DEFAULT 0")
+        except: pass
+
 def optimize_performance(cursor):
     """Turbo Indexing untuk Akselerasi Query Lintas Periode."""
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
-        "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)"
+        "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)",
+        "CREATE INDEX IF NOT EXISTS idx_ardebt_nomen ON ardebt (nomen)" # Index baru untuk Ardebt
     ]
     for idx in indices:
         cursor.execute(idx)
