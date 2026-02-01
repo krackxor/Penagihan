@@ -1,7 +1,7 @@
 -- =========================================================================
--- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.4 STABILITY PATCH)
+-- SUNTER DASHBOARD PRO - DATABASE SCHEMA (V5.5 STABILITY PATCH)
 -- Updated: 2026-02-01
--- Fokus: Perbaikan Sinkronisasi Lunas (Fix Unit Lunas 0) & Integrity Protection
+-- Fokus: Fix Unique Constraint & Sinkronisasi Kolom Kunjungan (Self-Healing)
 -- =========================================================================
 
 -- 1. SISTEM AKSES & KEAMANAN
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS master_pelanggan (
     tgl_catat TEXT,                     
     stan_awal REAL DEFAULT 0,
     stan_akir REAL DEFAULT 0,
-    kubik REAL DEFAULT 0,               
+    kubik REAL DEFAULT 0,                
     nominal REAL DEFAULT 0,             
     cust_type TEXT,
     tipe TEXT DEFAULT 'MC',             -- Pembeda data target (MC)
@@ -89,11 +89,13 @@ CREATE TABLE IF NOT EXISTS ardebt (
     periode_bill TEXT,
     jumlah REAL DEFAULT 0,
     volume REAL DEFAULT 0,
+    periode TEXT,                       -- MM-YYYY (Sync Fix)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(nomen, periode_bill)
 );
 
 -- 4. MONITORING KUNJUNGAN & AUDIT TRAIL
+-- Penambahan kolom janji_bayar_dt untuk mendukung fitur monitoring
 CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nomen TEXT NOT NULL,
@@ -111,6 +113,7 @@ CREATE TABLE IF NOT EXISTS kunjungan_petugas (
     longitude TEXT,
     no_hp TEXT,
     periode TEXT,                       
+    janji_bayar_dt TEXT,                -- Kolom baru untuk scheduling
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -146,11 +149,10 @@ BEGIN
     WHERE id = NEW.id AND NEW.nominal >= 300000;
 END;
 
--- B. SINKRONISASI LUNAS OTOMATIS (FIX: FLEXIBLE MATCHING)
+-- B. SINKRONISASI LUNAS OTOMATIS
 DROP TRIGGER IF EXISTS trg_sinergi_lunas_mb;
 DROP TRIGGER IF EXISTS trg_sinergi_lunas_coll;
 
--- Fix: Trigger MB (Master Bayar)
 CREATE TRIGGER trg_sinergi_lunas_mb
 AFTER INSERT ON master_bayar
 FOR EACH ROW
@@ -162,7 +164,6 @@ BEGIN
     AND status_lunas = 0;
 END;
 
--- Fix: Trigger Collection (Laporan Lapangan)
 CREATE TRIGGER trg_sinergi_lunas_coll
 AFTER INSERT ON collection_harian
 FOR EACH ROW
@@ -184,7 +185,12 @@ BEGIN
     WHERE nomen = OLD.nomen;
 END;
 
--- 6. INDEX OPTIMIZATION
+-- 6. SEEDING SECURITY (FIX UNIQUE CONSTRAINT ERROR)
+-- Menggunakan INSERT OR IGNORE untuk mencegah Database Init Error
+INSERT OR IGNORE INTO users (username, password, role, petugas_id) 
+VALUES ('admin_sunter', 'pbkdf2:sha256:250000$tJ9...', 'admin', 'ADMIN_PUSAT');
+
+-- 7. INDEX OPTIMIZATION
 CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan(nomen, periode);
 CREATE INDEX IF NOT EXISTS idx_mc_pcez ON master_pelanggan(pcez);
 CREATE INDEX IF NOT EXISTS idx_mb_sync ON master_bayar(nomen, periode, kategori);
