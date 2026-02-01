@@ -1,11 +1,11 @@
 """
-Flask Application - Area Service Integrated System (V12.70 Stable)
+Flask Application - Area Service Integrated System (V12.71 High-Load)
 Updated: 2026-02-01
 ---------------------------------------------------------------------------
 Fixes Log:
-1. Public Access Sync: 'youtube_page' dan 'materi_page' kini bisa diakses tanpa login.
-2. Secure UI Routing: Menjaga konsistensi rute admin dan operasional petugas.
-3. Database Integrity: Mempertahankan engine ultra-sync V12.95.
+1. ✅ FIX 413: Menambahkan MAX_CONTENT_LENGTH (64MB) untuk mendukung multi-upload history.
+2. ✅ SECURITY: Memastikan 'youtube_page' dan 'materi_page' dapat diakses tanpa login.
+3. ✅ ROUTING: Mempertahankan dual-endpoint (Admin/Petugas) dan Database V12.97 sync.
 """
 
 import os
@@ -33,6 +33,10 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
+    
+    # --- FIX 413 ERROR: Konfigurasi Batas Unggahan (64 Megabyte) ---
+    # Diperlukan untuk mendukung multi-upload file Excel history berukuran besar.
+    app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024 
 
     # --- 1. STARTUP PROTOCOL ---
     with app.app_context():
@@ -60,26 +64,25 @@ def create_app():
         public_endpoints = [
             'login_page',
             'auth.login',
-            'youtube_page',    # PUBLIK: Bisa lihat video sosialisasi
-            'materi_page',     # PUBLIK: Bisa lihat materi literatur
-            'static',          # CSS, JS, Images
+            'youtube_page',    # PUBLIK: Akses video sosialisasi
+            'materi_page',     # PUBLIK: Akses literatur/materi
+            'static',          # Asset CSS/JS/Images
             'serve_kunjungan_photo'
         ]
         
         endpoint = request.endpoint
         
-        # Jika endpoint tidak ditemukan (404) atau ada di daftar publik, izinkan lewat
+        # Izinkan akses jika endpoint publik atau 404 (biarkan Flask handle)
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # PROTEKSI SESI: Selain daftar di atas, user WAJIB LOGIN
+        # PROTEKSI SESI: Paksa login untuk rute selain daftar publik di atas
         if 'role' not in session:
-            # Jika akses via API, kirim error JSON, jika via browser arahkan ke login
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Otoritas Diperlukan"}), 401
             return redirect(url_for('login_page'))
         
-        # PROTEKSI ROLE: Rute khusus Administrator
+        # PROTEKSI ROLE ADMIN: Rute eksklusif manajemen data
         admin_only_endpoints = [
             'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
             'upload.handle_smart_upload', 'history_page'
@@ -87,7 +90,6 @@ def create_app():
         
         user_role = str(session.get('role', 'petugas')).lower()
         if endpoint in admin_only_endpoints and user_role != 'admin':
-            # Jika petugas coba akses admin area, kembalikan ke dashboard utama
             return redirect(url_for('index'))
 
     # --- 3. REGISTRASI BLUEPRINTS ---
