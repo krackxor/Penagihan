@@ -1,13 +1,13 @@
 """
-History API Endpoints - Sunter Dashboard Pro (V12.49 Maps Link Fix)
+History API Endpoints - Sunter Dashboard Pro (V12.50 HTTPS Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ BACKUP DATA JOIN: Mengambil Nama/Alamat dari Master jika snapshot kosong (Fix Foto Hilang).
+1. ✅ BACKUP DATA JOIN: Mengambil Nama/Alamat dari Master jika snapshot kosong.
 2. Smart Periode Parser: Auto-konversi YYYY-MM (HTML5) ke MM-YYYY (DB Standard).
-3. Snapshot Integrity: Mengunci data Nama, Alamat, dan NOMET saat kunjungan dilakukan.
-4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta untuk akurasi audit jam kerja.
-5. ✅ WA SHARE LINK: Route khusus untuk preview thumbnail WhatsApp + Maps Data.
+3. Snapshot Integrity: Mengunci data Nama, Alamat, dan NOMET saat kunjungan.
+4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta.
+5. ✅ WA SHARE LINK: Fix HTTPS thumbnail & Maps Data.
 """
 
 import os
@@ -204,7 +204,6 @@ def public_share_visit(nomen):
     conn = get_db_connection()
     try:
         # Ambil data kunjungan TERAKHIR (hari ini/terbaru) dari nomen tersebut
-        # ✅ UPDATE: Menambahkan 'latitude' dan 'longitude' ke dalam query
         query = """
             SELECT nomen, nama_snapshot, petugas_name, keterangan, foto_path, 
                    created_at, latitude, longitude
@@ -221,7 +220,15 @@ def public_share_visit(nomen):
         
         # Buat URL Absolut untuk gambar (PENTING untuk WhatsApp)
         if row['foto_path']:
-            full_image_url = request.url_root.rstrip('/') + url_for('static', filename='uploads/kunjungan/' + row['foto_path'])
+            # 1. Ambil path gambar
+            img_path = url_for('static', filename='uploads/kunjungan/' + row['foto_path'])
+            
+            # 2. Gabungkan dengan URL Root
+            full_image_url = request.url_root.rstrip('/') + img_path
+            
+            # 3. ✅ FIX UTAMA: Paksa ganti HTTP jadi HTTPS agar WA mau baca
+            if full_image_url.startswith('http://'):
+                full_image_url = full_image_url.replace('http://', 'https://', 1)
         else:
             full_image_url = "https://placehold.co/600x400?text=No+Image"
 
