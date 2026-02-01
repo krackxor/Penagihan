@@ -6,6 +6,7 @@ Pembaruan Strategis:
 1. ✅ BACKUP DATA JOIN: Mengambil Nama/Alamat dari Master jika snapshot kosong (Fix Foto Hilang).
 2. Smart Periode Parser: Auto-konversi YYYY-MM (HTML5) ke MM-YYYY (DB Standard).
 3. Snapshot Integrity: Mengunci data Nama, Alamat, dan NOMET saat kunjungan dilakukan.
+4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta untuk akurasi audit jam kerja.
 """
 
 import os
