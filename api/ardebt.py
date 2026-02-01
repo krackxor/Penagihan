@@ -1,12 +1,11 @@
 """
-Ardebt (Tagihan Berekor) API - V7.5 (Gallery Period Match Fix)
+Ardebt (Tagihan Berekor) API - V7.6 (Real-Time Gallery Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ PERIODE MATCHING: Menyimpan kunjungan sesuai periode tagihan pelanggan 
-      (bukan periode saat ini), agar foto muncul di Galeri yang memfilter by Periode.
-2. ✅ GALLERY SYNC: Tetap menyinkronkan data ke master_pelanggan.
-3. ✅ STABILITY: Watermark & Share WA tetap aktif.
+1. ✅ REAL-TIME GALLERY: Foto muncul di galeri HARI INI, meskipun tagihan bulan lalu.
+2. ✅ DUAL DATE LOGIC: Periode tagihan tetap asli, tapi tanggal lunas/kunjungan pakai hari ini.
+3. ✅ STABILITY: Fitur Watermark & Share WA tetap aktif.
 """
 
 import os
@@ -160,11 +159,11 @@ def get_tunggakan_berekor():
         conn.close()
 
 # =========================================================================
-# 4. ENDPOINT LAPOR (PERBAIKAN: PERIODE MATCHING)
+# 4. ENDPOINT LAPOR (PERBAIKAN: LOGIKA DUAL DATE)
 # =========================================================================
 @ardebt_bp.route('/lapor', methods=['POST'])
 def lapor_ardebt():
-    """Validasi dan penyimpanan snapshot laporan Ardebt agar muncul di Galeri."""
+    """Validasi dan penyimpanan snapshot laporan Ardebt agar muncul di Galeri Hari Ini."""
     # Ekstraksi data dengan proteksi .get() untuk menghindari Error 400
     nomen = request.form.get('idpel')
     nomet = request.form.get('nomet', '-')
@@ -203,29 +202,24 @@ def lapor_ardebt():
     try:
         cursor = conn.cursor()
 
-        # ✅ FIX PENTING: AMBIL PERIODE ASLI PELANGGAN
-        # Kita harus menyimpan kunjungan dengan periode yang SAMA dengan data master_pelanggan
-        # agar Galeri bisa melakukan JOIN dan menampilkan fotonya.
+        # ✅ LOGIKA BARU: GUNAKAN PERIODE SAAT INI UNTUK FOTO/GALERI
+        # Galeri di dashboard biasanya memfilter berdasarkan periode bulan berjalan (hari ini).
+        # Jadi kita simpan kunjungan ini dengan periode "HARI INI" (misal: 02-2026)
+        # meskipun tagihannya dari bulan lalu (misal: 12-2025).
         
-        cek_periode = cursor.execute("""
-            SELECT periode FROM master_pelanggan 
-            WHERE nomen = ? AND status_lunas = 0 
-            ORDER BY id DESC LIMIT 1
-        """, (nomen,)).fetchone()
-        
-        # Jika ketemu, gunakan periode pelanggan. Jika tidak, baru pakai periode sekarang.
-        target_period = cek_periode['periode'] if cek_periode else datetime.now().strftime('%m-%Y')
+        periode_sekarang = datetime.now().strftime('%m-%Y') # Periode saat kunjungan dilakukan
 
-        # 1. Simpan ke Kunjungan Petugas (Gunakan target_period)
+        # 1. Simpan ke Kunjungan Petugas (Pakai Periode HARI INI)
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
                 foto_path, latitude, longitude, periode, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """, (nomen, nomet, petugas_name, hasil, no_hp, catatan, filename, 
-              latitude, longitude, target_period))
+              latitude, longitude, periode_sekarang))
         
-        # 2. Update Master Pelanggan (Agar statusnya terupdate)
+        # 2. Update Master Pelanggan (Agar statusnya terupdate dan muncul di Galeri)
+        # Kita update 'tgl_lunas' dengan hari ini sebagai penanda kunjungan terakhir
         cursor.execute("""
             UPDATE master_pelanggan 
             SET nomet = ?, no_hp = ?, tgl_lunas = ?
@@ -237,7 +231,7 @@ def lapor_ardebt():
         # Return data untuk pemicu otomatis Share WA di Frontend
         return jsonify({
             "status": "success",
-            "message": "Snapshot Ardebt berhasil dikunci & masuk galeri",
+            "message": "Snapshot Ardebt berhasil dikunci & masuk galeri hari ini",
             "wa_data": {
                 "petugas": petugas_name,
                 "nama": nama_cust,
