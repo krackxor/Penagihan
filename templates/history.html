@@ -7,13 +7,21 @@
             <h4 class="fw-bold mb-1 text-dark">
                 <i class="fa-solid fa-database me-2 text-primary"></i>Audit Log Operasional
             </h4>
-            <p class="text-muted small mb-0">Monitor jejak transaksi & integritas data Area Service</p>
+            <p class="text-muted small mb-0 fw-semibold">Monitor jejak transaksi & integritas data Area Service</p>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-white shadow-sm rounded-circle p-2 border animate__animated animate__rotateIn" 
                     onclick="refreshLog()">
                 <i class="fa-solid fa-arrows-rotate text-primary" id="sync-icon"></i>
             </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white border">
+        <div class="card-body p-3">
+            <label class="small fw-800 text-muted mb-2 text-uppercase" style="font-size: 0.6rem;">Filter Periode Audit</label>
+            <input type="month" id="filter-periode-log" class="form-control border-0 bg-light rounded-3 fw-bold shadow-none" 
+                   value="{{ now_period }}" onchange="refreshLog()">
         </div>
     </div>
 
@@ -32,7 +40,7 @@
 
     <div class="tab-content">
         <div class="tab-pane fade show active" id="tab-kunjungan">
-            <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white">
+            <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white border">
                 <div class="card-body p-3">
                     <div class="input-group bg-light rounded-3 px-2 border border-light overflow-hidden">
                         <span class="input-group-text border-0 bg-transparent ps-3">
@@ -69,6 +77,12 @@
     const formatIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Set default value periode ke bulan sekarang jika kosong
+        if(!document.getElementById('filter-periode-log').value) {
+            const now = new Date();
+            const month = ("0" + (now.getMonth() + 1)).slice(-2);
+            document.getElementById('filter-periode-log').value = `${now.getFullYear()}-${month}`;
+        }
         loadKunjunganLog();
     });
 
@@ -85,8 +99,17 @@
 
     async function loadKunjunganLog() {
         const container = document.getElementById('container-kunjungan');
+        const periodVal = document.getElementById('filter-periode-log').value;
+        
+        // Konversi YYYY-MM ke MM-YYYY untuk API
+        let apiPeriod = "";
+        if(periodVal) {
+            const p = periodVal.split('-');
+            apiPeriod = `${p[1]}-${p[0]}`;
+        }
+
         try {
-            const res = await fetch('/api/history/kunjungan');
+            const res = await fetch(`/api/history/kunjungan?periode=${apiPeriod}`);
             const result = await res.json();
             dataKunjungan = result.data || [];
             renderKunjungan(dataKunjungan);
@@ -103,12 +126,12 @@
         }
 
         container.innerHTML = data.map((log) => {
-            const isLunas = log.keterangan.includes('Sudah');
+            const isLunas = log.keterangan && log.keterangan.includes('Sudah');
             const badgeClass = isLunas ? 'bg-success bg-opacity-10 text-success' : 'bg-warning bg-opacity-10 text-dark';
             const totalVal = (Number(log.mc) || 0) + (Number(log.ardebt) || 0);
             
             return `
-            <div class="card border-0 shadow-sm rounded-4 mb-2 bg-white animate__animated animate__fadeInUp" onclick="showDetail('${log.id}')">
+            <div class="card border-0 shadow-sm rounded-4 mb-2 bg-white animate__animated animate__fadeInUp border" onclick="showDetail('${log.id}')">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <span class="badge bg-primary bg-opacity-10 text-primary fw-800" style="font-size: 0.6rem;">IDPEL: ${log.nomen}</span>
@@ -116,11 +139,11 @@
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="fw-800 mb-0 text-dark small text-uppercase" style="letter-spacing: 0.2px;">${log.nama}</h6>
-                            <small class="text-muted fw-bold" style="font-size: 0.65rem;"><i class="fa-solid fa-circle-user text-primary me-1"></i>${log.petugas_name}</small>
+                            <h6 class="fw-800 mb-0 text-dark small text-uppercase" style="letter-spacing: 0.2px;">${log.nama || 'Konsumen'}</h6>
+                            <small class="text-muted fw-bold" style="font-size: 0.65rem;"><i class="fa-solid fa-circle-user text-primary me-1"></i>${log.petugas_name || 'System'}</small>
                         </div>
                         <div class="text-end">
-                            <span class="badge ${badgeClass} rounded-pill mb-1 fw-800" style="font-size: 0.55rem;">${log.keterangan.toUpperCase()}</span>
+                            <span class="badge ${badgeClass} rounded-pill mb-1 fw-800" style="font-size: 0.55rem;">${(log.keterangan || 'N/A').toUpperCase()}</span>
                             <div class="fw-800 text-danger" style="font-size: 0.85rem;">${formatIDR(totalVal)}</div>
                         </div>
                     </div>
@@ -132,9 +155,9 @@
     function filterKunjungan() {
         const q = document.getElementById('searchKunjungan').value.toLowerCase();
         const filtered = dataKunjungan.filter(i => 
-            i.nama.toLowerCase().includes(q) || 
-            i.nomen.includes(q) || 
-            i.petugas_name.toLowerCase().includes(q)
+            (i.nama && i.nama.toLowerCase().includes(q)) || 
+            (i.nomen && i.nomen.includes(q)) || 
+            (i.petugas_name && i.petugas_name.toLowerCase().includes(q))
         );
         renderKunjungan(filtered);
     }
@@ -183,7 +206,7 @@
             <div class="modal-body p-4">
                 <div class="bg-light p-3 rounded-4 mb-4 border border-white">
                     <small class="text-muted d-block text-uppercase fw-800" style="font-size: 0.6rem; letter-spacing: 1px;">Entitas Pelanggan</small>
-                    <h6 class="fw-800 text-dark mb-0 mt-1 text-uppercase">${log.nama}</h6>
+                    <h6 class="fw-800 text-dark mb-0 mt-1 text-uppercase">${log.nama || 'Konsumen'}</h6>
                     <div class="mt-1">
                         <span class="badge bg-white text-primary border fw-bold" style="font-size: 0.65rem;">IDPEL: ${log.nomen}</span>
                         ${log.nomet ? `<span class="badge bg-white text-muted border fw-bold" style="font-size: 0.65rem;">METER: ${log.nomet}</span>` : ''}
@@ -193,23 +216,28 @@
                 <div class="row g-3 mb-4">
                     <div class="col-6">
                         <small class="text-muted d-block fw-800" style="font-size: 0.6rem;">KLASIFIKASI HASIL</small>
-                        <span class="badge bg-primary rounded-pill px-3 mt-1 fw-800 shadow-sm">${log.keterangan.toUpperCase()}</span>
+                        <span class="badge bg-primary rounded-pill px-3 mt-1 fw-800 shadow-sm">${(log.keterangan || 'N/A').toUpperCase()}</span>
                     </div>
                     <div class="col-6 text-end">
                         <small class="text-muted d-block fw-800" style="font-size: 0.6rem;">PELAKSANA</small>
-                        <span class="fw-800 small mt-1 d-block text-dark text-uppercase"><i class="fa-solid fa-user-check text-success me-1"></i>${log.petugas_name}</span>
+                        <span class="fw-800 small mt-1 d-block text-dark text-uppercase"><i class="fa-solid fa-user-check text-success me-1"></i>${log.petugas_name || 'System'}</span>
                     </div>
                 </div>
 
                 <div class="card border-0 bg-light rounded-4 p-3 mb-4">
                     <div class="d-flex justify-content-between mb-2">
                         <small class="text-muted fw-bold">Tagihan Berjalan</small>
-                        <span class="small fw-800 text-dark">${formatIDR(log.mc)}</span>
+                        <span class="small fw-800 text-dark">${formatIDR(log.mc || 0)}</span>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                         <small class="text-muted fw-bold">Tunggakan (Ardebt)</small>
-                        <span class="small fw-800 text-dark">${formatIDR(log.ardebt)}</span>
+                        <span class="small fw-800 text-dark">${formatIDR(log.ardebt || 0)}</span>
                     </div>
+                    ${log.janji_bayar_dt ? `
+                    <div class="d-flex justify-content-between mb-2 text-danger">
+                        <small class="fw-bold text-uppercase" style="font-size: 0.6rem;">Target Janji Bayar</small>
+                        <span class="small fw-800">${log.janji_bayar_dt}</span>
+                    </div>` : ''}
                     <hr class="my-2 opacity-10">
                     <div class="d-flex justify-content-between">
                         <span class="fw-800 small text-uppercase">Total Eksposur</span>
@@ -227,7 +255,7 @@
                 ${log.foto_path && log.foto_path !== '-' ? `
                 <div class="d-grid">
                     <a href="/static/uploads/kunjungan/${log.foto_path}" target="_blank" class="btn btn-dark rounded-pill fw-800 small py-3 shadow">
-                        <i class="fa-solid fa-image-user me-2 text-info"></i>LIHAT BUKTI VISUAL
+                        <i class="fa-solid fa-image me-2 text-info"></i>LIHAT BUKTI VISUAL
                     </a>
                 </div>` : ''}
             </div>`;
@@ -242,6 +270,5 @@
     .nav-pills .nav-link.active { background: #0f172a !important; color: #fff !important; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2); }
     .card { transition: all 0.25s ease; cursor: pointer; border: 1px solid transparent !important; }
     .card:hover { border-color: #2563eb !important; transform: translateY(-3px); box-shadow: 0 10px 25px rgba(37, 99, 235, 0.1) !important; }
-    .bg-primary-subtle { background-color: #eff6ff !important; }
 </style>
 {% endblock %}
