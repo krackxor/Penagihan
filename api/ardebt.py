@@ -1,12 +1,12 @@
 """
-Ardebt (Tagihan Berekor) API - V7.4 (Gallery Sync & Stability Update)
+Ardebt (Tagihan Berekor) API - V7.5 (Gallery Period Match Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ GALLERY SYNC: Sinkronisasi data ke master_pelanggan agar foto muncul di galeri.
-2. ✅ FEATURE SYNC: Watermark foto khusus kategori Ardebt (Warna Orange-Red).
-3. ✅ FIX: Penanganan input 'nomet' & 'no_hp' untuk integrasi Database V12.95.
-4. ✅ STABILITY: Penambahan return 'wa_data' untuk mendukung fitur Share WA Otomatis.
+1. ✅ PERIODE MATCHING: Menyimpan kunjungan sesuai periode tagihan pelanggan 
+      (bukan periode saat ini), agar foto muncul di Galeri yang memfilter by Periode.
+2. ✅ GALLERY SYNC: Tetap menyinkronkan data ke master_pelanggan.
+3. ✅ STABILITY: Watermark & Share WA tetap aktif.
 """
 
 import os
@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 ardebt_bp = Blueprint('ardebt', __name__)
 
 # =========================================================================
-# 1. LOGIKA WATERMARK (DIFERENSIASI VISUAL ARDEBT)
+# 1. LOGIKA WATERMARK (TETAP SAMA)
 # =========================================================================
 def add_watermark(image_path, info):
     """Menanamkan informasi penagihan berekor ke foto bukti lapangan."""
@@ -61,7 +61,7 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Ardebt Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. PROGRES AUDIT ARDEBT
+# 2. PROGRES AUDIT ARDEBT (TETAP SAMA)
 # =========================================================================
 @ardebt_bp.route('/progress', methods=['GET'])
 def get_ardebt_progress():
@@ -106,7 +106,7 @@ def get_ardebt_progress():
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT DAFTAR KERJA
+# 3. ENDPOINT DAFTAR KERJA (TETAP SAMA)
 # =========================================================================
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
@@ -160,11 +160,11 @@ def get_tunggakan_berekor():
         conn.close()
 
 # =========================================================================
-# 4. ENDPOINT LAPOR (SNAPSHOT & TRANSMISI)
+# 4. ENDPOINT LAPOR (PERBAIKAN: PERIODE MATCHING)
 # =========================================================================
 @ardebt_bp.route('/lapor', methods=['POST'])
 def lapor_ardebt():
-    """Validasi dan penyimpanan snapshot laporan Ardebt."""
+    """Validasi dan penyimpanan snapshot laporan Ardebt agar muncul di Galeri."""
     # Ekstraksi data dengan proteksi .get() untuk menghindari Error 400
     nomen = request.form.get('idpel')
     nomet = request.form.get('nomet', '-')
@@ -202,19 +202,30 @@ def lapor_ardebt():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        current_period = datetime.now().strftime('%m-%Y')
 
-        # 1. Simpan ke Kunjungan Petugas (Tabel Histori)
+        # ✅ FIX PENTING: AMBIL PERIODE ASLI PELANGGAN
+        # Kita harus menyimpan kunjungan dengan periode yang SAMA dengan data master_pelanggan
+        # agar Galeri bisa melakukan JOIN dan menampilkan fotonya.
+        
+        cek_periode = cursor.execute("""
+            SELECT periode FROM master_pelanggan 
+            WHERE nomen = ? AND status_lunas = 0 
+            ORDER BY id DESC LIMIT 1
+        """, (nomen,)).fetchone()
+        
+        # Jika ketemu, gunakan periode pelanggan. Jika tidak, baru pakai periode sekarang.
+        target_period = cek_periode['periode'] if cek_periode else datetime.now().strftime('%m-%Y')
+
+        # 1. Simpan ke Kunjungan Petugas (Gunakan target_period)
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
                 foto_path, latitude, longitude, periode, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """, (nomen, nomet, petugas_name, hasil, no_hp, catatan, filename, 
-              latitude, longitude, current_period))
+              latitude, longitude, target_period))
         
-        # 2. ✅ FIX: SYNC KE MASTER PELANGGAN (Kunci agar muncul di Galeri Web)
-        # Tanpa ini, foto ada di folder server tapi tidak muncul di menu Galeri
+        # 2. Update Master Pelanggan (Agar statusnya terupdate)
         cursor.execute("""
             UPDATE master_pelanggan 
             SET nomet = ?, no_hp = ?, tgl_lunas = ?
@@ -245,7 +256,7 @@ def lapor_ardebt():
         conn.close()
 
 # =========================================================================
-# 5. FUNGSI PENDUKUNG (HELPERS)
+# 5. FUNGSI PENDUKUNG (TETAP SAMA)
 # =========================================================================
 def get_active_target_period(cursor):
     """Mendeteksi periode target aktif di database."""
