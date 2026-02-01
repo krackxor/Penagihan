@@ -35,7 +35,6 @@
             padding: 0.6rem 0;
         }
 
-        /* Sidebar Glassmorphism */
         .offcanvas { border-radius: 0 25px 25px 0; border: none; width: 290px !important; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
         .offcanvas-body { overflow-y: auto; scrollbar-width: none; }
         .offcanvas-body::-webkit-scrollbar { display: none; }
@@ -135,60 +134,52 @@
             {% endif %}
 
             <div class="py-2">
-                <span class="section-label">Pusat Informasi</span>
-                <a href="/" class="nav-link-custom {% if request.path == '/' %}active-menu{% endif %}">
-                    <i class="fas fa-house-chimney-window"></i>Dashboard Performa
-                </a>
-                <a href="/performa" class="nav-link-custom {% if request.path == '/performa' %}active-menu{% endif %}">
-                    <i class="fas fa-chart-simple"></i>Analisis Kinerja
-                </a>
-                <a href="/monitoring-collection" class="nav-link-custom {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
-                    <i class="fas fa-tower-broadcast"></i>Monitoring Real-time
-                </a>
-                <a href="/monitoring-lokasi" class="nav-link-custom {% if request.path == '/monitoring-lokasi' %}active-menu{% endif %}">
-                    <i class="fas fa-map-location-dot"></i>Geospasial Petugas
-                </a>
+                {% if session.get('role') %}
+                    <span class="section-label">Pusat Informasi</span>
+                    <a href="/" class="nav-link-custom {% if request.path == '/' %}active-menu{% endif %}">
+                        <i class="fas fa-house-chimney-window"></i>Dashboard Performa
+                    </a>
+                    <a href="/performa" class="nav-link-custom {% if request.path == '/performa' %}active-menu{% endif %}">
+                        <i class="fas fa-chart-simple"></i>Analisis Kinerja
+                    </a>
+                    <a href="/monitoring-collection" class="nav-link-custom {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
+                        <i class="fas fa-tower-broadcast"></i>Monitoring Real-time
+                    </a>
+                    <a href="/monitoring-lokasi" class="nav-link-custom {% if request.path == '/monitoring-lokasi' %}active-menu{% endif %}">
+                        <i class="fas fa-map-location-dot"></i>Geospasial Petugas
+                    </a>
 
-                <div class="menu-divider"></div>
+                    <div class="menu-divider"></div>
 
-                <span class="section-label">Unit Operasional</span>
-                <a href="/belum-bayar" class="nav-link-custom {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
-                    <i class="fas fa-file-invoice-dollar"></i>Penagihan Berjalan
-                </a>
-                <a href="/tagihan-berekor" class="nav-link-custom {% if request.path == '/tagihan-berekor' %}active-menu{% endif %}">
-                    <i class="fas fa-receipt"></i>Tunggakan Berekor
-                </a>
-                <a href="/janji-bayar" class="nav-link-custom {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
-                    <i class="fas fa-calendar-check"></i>Daftar Janji Bayar
-                </a>
-                <a href="/galeri" class="nav-link-custom {% if request.path == '/galeri' %}active-menu{% endif %}">
-                    <i class="fas fa-images"></i>Galeri Snapshot
-                </a>
+                    <span class="section-label">Unit Operasional</span>
+                    <a href="/belum-bayar" class="nav-link-custom {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
+                        <i class="fas fa-file-invoice-dollar"></i>Penagihan Berjalan
+                    </a>
+                    <a href="/tagihan-berekor" class="nav-link-custom {% if request.path == '/tagihan-berekor' %}active-menu{% endif %}">
+                        <i class="fas fa-receipt"></i>Tunggakan Berekor
+                    </a>
+                    <a href="/janji-bayar" class="nav-link-custom {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
+                        <i class="fas fa-calendar-check"></i>Daftar Janji Bayar
+                    </a>
+                    <a href="/galeri" class="nav-link-custom {% if request.path == '/galeri' %}active-menu{% endif %}">
+                        <i class="fas fa-images"></i>Galeri Snapshot
+                    </a>
 
-                <div class="menu-divider"></div>
+                    <div class="menu-divider"></div>
 
-                <span class="section-label">Arsip & Log</span>
-                <a href="/history" class="nav-link-custom {% if request.path == '/history' %}active-menu{% endif %}">
-                    <i class="fas fa-folder-tree"></i>Riwayat Umum
-                </a>
-                <a href="/history-bayar" class="nav-link-custom {% if request.path == '/history-bayar' %}active-menu{% endif %}">
-                    <i class="fas fa-clock-rotate-left"></i>Riwayat Pembayaran
-                </a>
-                <a href="/history-kunjungan" class="nav-link-custom {% if request.path == '/history-kunjungan' %}active-menu{% endif %}">
-                    <i class="fas fa-route"></i>Log Kunjungan
-                </a>
-
-                <div class="menu-divider"></div>
-
-                {% if current_role == 'admin' %}
-                <span class="section-label">Strategis Admin</span>
-                <a href="/admin/dashboard" class="nav-link-custom {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
-                    <i class="fas fa-screwdriver-wrench"></i>Dashboard Administrator
-                </a>
-                <a href="/wa-blast" class="nav-link-custom {% if request.path == '/wa-blast' %}active-menu{% endif %}">
-                    <i class="fab fa-whatsapp"></i>WA Blast Gateway
-                </a>
-                <div class="menu-divider"></div>
+                    {% if current_role == 'admin' %}
+                    <span class="section-label">Strategis Admin</span>
+                    <a href="/admin/dashboard" class="nav-link-custom {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
+                        <i class="fas fa-screwdriver-wrench"></i>Dashboard Administrator
+                    </a>
+                    <a href="/wa-blast" class="nav-link-custom {% if request.path == '/wa-blast' %}active-menu{% endif %}">
+                        <i class="fab fa-whatsapp"></i>WA Blast Gateway
+                    </a>
+                    <a href="/history" class="nav-link-custom {% if request.path == '/history' %}active-menu{% endif %}">
+                        <i class="fas fa-folder-tree"></i>Audit Log Operasional
+                    </a>
+                    <div class="menu-divider"></div>
+                    {% endif %}
                 {% endif %}
 
                 <span class="section-label">Media Center</span>
@@ -215,18 +206,24 @@
     </main>
 
     <nav class="bottom-nav animate__animated animate__slideInUp">
-        <a href="/" class="nav-item-link {% if request.path == '/' %}active{% endif %}">
-            <i class="fas fa-house"></i>Home
+        <a href="/youtube" class="nav-item-link {% if request.path == '/youtube' %}active{% endif %}">
+            <i class="fab fa-youtube"></i>Video
         </a>
-        <a href="/monitoring-collection" class="nav-item-link {% if request.path == '/monitoring-collection' %}active{% endif %}">
-            <i class="fas fa-microchip"></i>Live
+        <a href="/materi" class="nav-item-link {% if request.path == '/materi' %}active{% endif %}">
+            <i class="fas fa-book-open"></i>Materi
         </a>
-        <a href="/tunggakan-berekor" class="nav-item-link {% if request.path == '/tagihan-berekor' or request.path == '/tunggakan-berekor' %}active{% endif %}">
-            <i class="fas fa-bullseye"></i>Ardebt
-        </a>
-        <a href="/galeri" class="nav-item-link {% if request.path == '/galeri' %}active{% endif %}">
-            <i class="fas fa-images"></i>Galeri
-        </a>
+        {% if session.get('role') %}
+            <a href="/monitoring-collection" class="nav-item-link {% if request.path == '/monitoring-collection' %}active{% endif %}">
+                <i class="fas fa-microchip"></i>Live
+            </a>
+            <a href="/tagihan-berekor" class="nav-item-link {% if request.path == '/tagihan-berekor' or request.path == '/tunggakan-berekor' %}active{% endif %}">
+                <i class="fas fa-bullseye"></i>Ardebt
+            </a>
+        {% else %}
+            <a href="/login" class="nav-item-link">
+                <i class="fas fa-user-lock"></i>Login
+            </a>
+        {% endif %}
         <a href="javascript:void(0)" class="nav-item-link" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
             <i class="fas fa-bars-progress"></i>Menu
         </a>
