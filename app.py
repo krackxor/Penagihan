@@ -7,6 +7,7 @@ Fixes Log:
    dapat diakses tanpa dialihkan ke menu login.
 2. ✅ FIX 413: Mempertahankan MAX_CONTENT_LENGTH (64MB) untuk multi-upload history.
 3. ✅ ROUTING: Konsistensi dual-endpoint Admin/Petugas dan Database V12.97 sync.
+4. ✅ WA SHARE LINK: Mengizinkan akses publik ke link preview share WA.
 """
 
 import os
@@ -69,11 +70,17 @@ def create_app():
             'materi_page',     # Fungsi halaman literatur materi
             'static',          # Folder CSS, JS, Images
             'serve_kunjungan_photo',
-            'index'            # Beranda/Landing Page
+            'index',           # Beranda/Landing Page
+            'history.public_share_view' # <--- WA Share Link
         ]
         
         endpoint = request.endpoint
         
+        # ✅ BYPASS LINK SHARE WA & STATIC FILE
+        # Mengizinkan akses jika URL dimulai dengan path tertentu (meskipun endpoint mungkin berbeda)
+        if request.path.startswith('/api/history/share/view/') or request.path.startswith('/static/'):
+            return None
+
         # JIKA AKSES PUBLIK: Langsung izinkan akses
         if not endpoint or endpoint in public_endpoints:
             return
