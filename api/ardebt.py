@@ -1,11 +1,12 @@
 """
-Ardebt (Tagihan Berekor) API - V7.8 (WIB Timezone Fix)
+Ardebt (Tagihan Berekor) API - V7.9 (WA Link Preview Support)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ TIMEZONE LOCK: Mengunci seluruh operasi waktu ke Asia/Jakarta (WIB).
-2. ✅ DATABASE SYNC: Menyimpan created_at dengan waktu WIB (bukan UTC server).
-3. ✅ FULL SNAPSHOT: Menyimpan data snapshot Nama & Alamat pelanggan.
+1. ✅ WA LINK PREVIEW: Menyertakan link 'share_link' di response untuk thumbnail WA.
+2. ✅ TIMEZONE LOCK: Mengunci seluruh operasi waktu ke Asia/Jakarta (WIB).
+3. ✅ DATABASE SYNC: Menyimpan created_at dengan waktu WIB.
+4. ✅ FULL SNAPSHOT: Menyimpan data snapshot Nama & Alamat pelanggan.
 """
 
 import os
@@ -160,7 +161,7 @@ def get_tunggakan_berekor():
         conn.close()
 
 # =========================================================================
-# 4. ENDPOINT LAPOR (SNAPSHOT & TIMEZONE FIX)
+# 4. ENDPOINT LAPOR (SNAPSHOT & WA PREVIEW LINK)
 # =========================================================================
 @ardebt_bp.route('/lapor', methods=['POST'])
 def lapor_ardebt():
@@ -235,6 +236,11 @@ def lapor_ardebt():
         
         conn.commit()
         
+        # ✅ GENERATE LINK PREVIEW UNTUK WHATSAPP
+        # Membuat link publik yang mengarah ke halaman share_kunjungan.html
+        base_url = request.host_url.rstrip('/') 
+        share_link = f"{base_url}/api/history/share/view/{nomen}"
+
         return jsonify({
             "status": "success",
             "message": "Laporan tersimpan (Waktu Jakarta)",
@@ -246,7 +252,8 @@ def lapor_ardebt():
                 "status": hasil,
                 "catatan": catatan,
                 "total": nominal_disp,
-                "foto_path": filename
+                "foto_path": filename,
+                "link_preview": share_link # <--- Link ini dipakai di Frontend untuk pesan WA
             }
         })
     except Exception as e:
