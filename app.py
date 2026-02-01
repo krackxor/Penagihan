@@ -1,11 +1,12 @@
 """
-Flask Application - Area Service Integrated System (V12.71 High-Load)
+Flask Application - Area Service Integrated System (V12.72 High-Load)
 Updated: 2026-02-01
 ---------------------------------------------------------------------------
 Fixes Log:
-1. ✅ FIX 413: Menambahkan MAX_CONTENT_LENGTH (64MB) untuk mendukung multi-upload history.
-2. ✅ SECURITY: Memastikan 'youtube_page' dan 'materi_page' dapat diakses tanpa login.
-3. ✅ ROUTING: Mempertahankan dual-endpoint (Admin/Petugas) dan Database V12.97 sync.
+1. ✅ PUBLIC ACCESS: Memperbaiki logika Middleware agar 'youtube_page' dan 'materi_page' 
+   dapat diakses tanpa dialihkan ke menu login.
+2. ✅ FIX 413: Mempertahankan MAX_CONTENT_LENGTH (64MB) untuk multi-upload history.
+3. ✅ ROUTING: Konsistensi dual-endpoint Admin/Petugas dan Database V12.97 sync.
 """
 
 import os
@@ -35,7 +36,6 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
     
     # --- FIX 413 ERROR: Konfigurasi Batas Unggahan (64 Megabyte) ---
-    # Diperlukan untuk mendukung multi-upload file Excel history berukuran besar.
     app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024 
 
     # --- 1. STARTUP PROTOCOL ---
@@ -58,31 +58,35 @@ def create_app():
     @app.before_request
     def security_layer():
         """
-        [GATEKEEPER]: Mengontrol hak akses.
-        Public Endpoints: Halaman yang bisa dilihat semua orang tanpa login.
+        [GATEKEEPER]: Mengontrol hak akses publik vs privat.
+        Pengecekan menggunakan endpoint Flask (nama fungsi) untuk akurasi tinggi.
         """
+        # Daftar nama fungsi yang boleh diakses publik tanpa login
         public_endpoints = [
             'login_page',
             'auth.login',
-            'youtube_page',    # PUBLIK: Akses video sosialisasi
-            'materi_page',     # PUBLIK: Akses literatur/materi
-            'static',          # Asset CSS/JS/Images
-            'serve_kunjungan_photo'
+            'youtube_page',    # Fungsi halaman video sosialisasi
+            'materi_page',     # Fungsi halaman literatur materi
+            'static',          # Folder CSS, JS, Images
+            'serve_kunjungan_photo',
+            'index'            # Beranda/Landing Page
         ]
         
         endpoint = request.endpoint
         
-        # Izinkan akses jika endpoint publik atau 404 (biarkan Flask handle)
+        # JIKA AKSES PUBLIK: Langsung izinkan akses
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # PROTEKSI SESI: Paksa login untuk rute selain daftar publik di atas
+        # JIKA AKSES PRIVAT: Cek ketersediaan sesi login
         if 'role' not in session:
+            # Jika akses via API atau AJAX, kirim JSON error 401
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Otoritas Diperlukan"}), 401
+            # Jika akses via browser ke halaman terproteksi, lempar ke login
             return redirect(url_for('login_page'))
         
-        # PROTEKSI ROLE ADMIN: Rute eksklusif manajemen data
+        # PROTEKSI ROLE KHUSUS ADMINISTRATOR
         admin_only_endpoints = [
             'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
             'upload.handle_smart_upload', 'history_page'
