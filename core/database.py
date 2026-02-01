@@ -1,12 +1,11 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.97 Ultra-Sync)
+Core Database Module - Sunter Dashboard Pro (V12.98 Ultra-Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ STABILITY: Peningkatan timeout ke 300 detik & cache turbo untuk Bulk Upload.
-2. ✅ CONFLICT RESOLVER: Busy timeout ditingkatkan agar tidak "Database Locked".
-3. ✅ HISTORY SYNC: Mendukung kelancaran upload data lintas periode (Backdate).
-4. ✅ FIX: Schema Sync - Menjamin kolom janji_bayar_dt & nomet tetap aktif.
+1. ✅ FIX: Unique Constraint Error pada users (Defensive Seeding).
+2. ✅ STABILITY: Peningkatan timeout ke 300 detik & cache turbo untuk Bulk Upload.
+3. ✅ CONFLICT RESOLVER: INSERT OR IGNORE pada seeding default admin.
 """
 
 import sqlite3
@@ -18,16 +17,14 @@ def get_db_connection():
     """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA ULTRA-TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        # Peningkatan timeout ke 300 detik (5 menit) untuk mencegah "Terputus dari Server"
         conn = sqlite3.connect(db_path, timeout=300)
         conn.row_factory = sqlite3.Row 
         
-        # Optimasi Pragma untuk penanganan ribuan baris data tanpa lag
         conn.execute('PRAGMA journal_mode=WAL;')       
         conn.execute('PRAGMA synchronous=NORMAL;')     
         conn.execute('PRAGMA temp_store=MEMORY;')      
-        conn.execute('PRAGMA cache_size=-128000;')      # Cache ditingkatkan ke 128MB
-        conn.execute('PRAGMA busy_timeout=300000;')     # Tunggu 5 menit jika database terkunci
+        conn.execute('PRAGMA cache_size=-128000;')      
+        conn.execute('PRAGMA busy_timeout=300000;')     
         conn.execute('PRAGMA journal_size_limit=67108864;') 
         conn.execute('PRAGMA foreign_keys = ON;')      
         
@@ -59,24 +56,23 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.97: Engine High-Load & History Sync Aktif.")
+            print("✅ Database V12.98: Engine High-Load & History Sync Aktif.")
             
         except Exception as e:
-            print(f"❌ Database Init Error: {e}")
+            # Jika error tetap terjadi karena constraint, kita log namun jangan hentikan app
+            print(f"⚠️ Database Init Warning/Error: {e}")
             if db: db.rollback()
         finally:
             if db: db.close()
 
 def check_and_create_tables(cursor):
     """Melahirkan struktur tabel utama & Trigger Otomatis."""
-    # 1. Infrastruktur Rute & Admin
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS rute_petugas (
             pcez TEXT PRIMARY KEY, petugas TEXT, no_admin TEXT, 
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # 2. Master Pelanggan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, nama TEXT, 
@@ -85,14 +81,12 @@ def check_and_create_tables(cursor):
             tgl_lunas TEXT, tipe TEXT DEFAULT 'MC'
         )
     """)
-    # 3. Tabel Kunjungan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, 
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # 4. Tabel Transaksi & Keamanan
     cursor.execute("CREATE TABLE IF NOT EXISTS upload_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT, file_type TEXT, periode TEXT, row_count INTEGER DEFAULT 0, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
@@ -100,7 +94,6 @@ def check_and_create_tables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 
-    # --- AUTO-TRIGGER ENGINE ---
     cursor.execute("""
         CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
         AFTER INSERT ON master_bayar BEGIN
@@ -118,8 +111,6 @@ def check_and_create_tables(cursor):
 
 def run_smart_migration(cursor):
     """Fungsi Self-Healing: Menjamin kolom Janji Bayar & Snapshot tersedia."""
-    
-    # Migrasi Kunjungan (Fix Janji Bayar & Galeri)
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_kunjungan = [row['name'] for row in cursor.fetchall()]
     kunjungan_cols = {
@@ -133,7 +124,6 @@ def run_smart_migration(cursor):
         if col not in existing_kunjungan:
             cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
 
-    # Migrasi Master Pelanggan
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
     master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 'no_hp': 'TEXT DEFAULT "-"', 'tgl_lunas': 'TEXT', 'tipe': "TEXT DEFAULT 'MC'"}
@@ -141,7 +131,6 @@ def run_smart_migration(cursor):
         if col not in existing_master:
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
 
-    # Migrasi User & Transaksi
     cursor.execute("PRAGMA table_info(users)")
     if 'no_hp' not in [r['name'] for r in cursor.fetchall()]:
         cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
@@ -163,13 +152,14 @@ def optimize_performance(cursor):
         cursor.execute(idx)
 
 def seed_default_admin(cursor):
-    """Menjamin akses Admin Utama."""
+    """Menjamin akses Admin Utama tanpa menyebabkan UNIQUE constraint error."""
     username = 'admin_sunter'
-    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
-    if not cursor.fetchone():
-        hashed_pw = generate_password_hash('admin123')
-        cursor.execute("INSERT INTO users (username, password, role, petugas_id) VALUES (?, ?, ?, ?)", 
-                       (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
+    # Menggunakan INSERT OR IGNORE sebagai proteksi lapis kedua
+    hashed_pw = generate_password_hash('admin123')
+    cursor.execute("""
+        INSERT OR IGNORE INTO users (username, password, role, petugas_id) 
+        VALUES (?, ?, ?, ?)
+    """, (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
 
 def get_db():
     if 'db' not in g:
