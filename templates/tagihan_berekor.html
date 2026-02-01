@@ -74,7 +74,7 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-5 overflow-hidden">
             <div class="modal-header bg-dark text-white border-0 py-3 px-4">
-                <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-magnifying-glass-chart me-2 text-warning"></i>Audit Rekam Jejak Piutang</h6>
+                <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-magnifying-glass-chart me-2 text-warning"></i>Audit & Rincian Tunggakan</h6>
                 <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4">
@@ -84,15 +84,31 @@
                     <hr class="my-2 opacity-10">
                     <div id="txtTren" class="fw-800 text-danger" style="font-size: 0.75rem;"></div>
                 </div>
+
+                <h6 class="fw-800 small text-danger mb-2 ps-1">RINCIAN TAGIHAN BEREKOR (ARDEBT):</h6>
+                <div class="table-responsive rounded-4 shadow-sm bg-white border overflow-hidden mb-4">
+                    <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
+                        <thead class="bg-danger text-white text-center text-uppercase" style="font-size: 0.6rem; font-weight: 800;">
+                            <tr>
+                                <th class="py-2">Periode</th>
+                                <th class="py-2">Tipe</th>
+                                <th class="py-2">Volume</th>
+                                <th class="py-2">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableArdebtContent"></tbody>
+                    </table>
+                </div>
+
+                <h6 class="fw-800 small text-primary mb-2 ps-1">HISTORY TAGIHAN BERJALAN:</h6>
                 <div class="table-responsive rounded-4 shadow-sm bg-white border overflow-hidden">
                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
-                        <thead class="table-dark text-center text-uppercase" style="font-size: 0.6rem; font-weight: 800;">
+                        <thead class="bg-primary text-white text-center text-uppercase" style="font-size: 0.6rem; font-weight: 800;">
                             <tr>
-                                <th class="py-3 text-start ps-4">Periode</th>
-                                <th class="py-3">Volume (m³)</th>
-                                <th class="py-3">Tagihan (Rp)</th>
-                                <th class="py-3">Gol. Tarif</th>
-                                <th class="py-3 pe-4">Status</th>
+                                <th class="py-2">Periode</th>
+                                <th class="py-2">Volume</th>
+                                <th class="py-2">Tagihan</th>
+                                <th class="py-2">Status</th>
                             </tr>
                         </thead>
                         <tbody id="tableHistoryContent"></tbody>
@@ -272,34 +288,39 @@
         }
     }
 
+    // ✅ UPDATE: Card menampilkan Total Tagihan & Total Lembar
     function renderCards(data) {
         const container = document.getElementById('list-container');
         if (!container) return;
-
         container.innerHTML = data.map((item) => {
             const safeNama = item.nama.replace(/'/g, "\\'");
+            // Hitung total estimasi (Ardebt + MC Bulan Ini)
+            const totalEstimasi = item.total_ardebt + item.nominal_mc;
+            
             return `
             <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp border" data-search="${item.nomen} ${item.nama}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <span class="badge bg-dark bg-opacity-5 text-dark rounded-pill px-2 py-1 fw-800" style="font-size: 9px;">${item.nama_petugas}</span>
-                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2 py-1 fw-800" style="font-size: 9px;"><i class="fa-solid fa-droplet me-1"></i>${item.pemakaian_air} m³</span>
+                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1 fw-800" style="font-size: 9px;">
+                            <i class="fa-solid fa-file-invoice me-1"></i>${item.lembar_ardebt} Lembar
+                        </span>
                     </div>
                     <h6 class="fw-800 mb-1 text-dark text-uppercase" style="font-size: 0.85rem;">${item.nama}</h6>
                     <div class="d-flex justify-content-between small mb-2 fw-bold text-muted" style="font-size: 0.65rem;">
                         <span><i class="fa-solid fa-fingerprint me-1 text-danger"></i> IDPEL: ${item.nomen}</span>
-                        <span><i class="fa-solid fa-gauge me-1 text-danger"></i> METER: ${item.no_seri_meter || '-'}</span>
+                        <span><i class="fa-solid fa-droplet me-1 text-primary"></i> ${item.total_kubik_ardebt || 0} m³</span>
                     </div>
                     <p class="text-muted mb-3 border-start border-3 border-danger border-opacity-25 ps-2 fw-semibold" style="font-size: 0.65rem; line-height: 1.3;">${item.alamat}</p>
                     <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-2">
                         <div>
-                            <small class="d-block text-muted fw-800" style="font-size: 8px; letter-spacing: 0.5px;">ESTIMASI TAGIHAN</small>
-                            <span class="fw-800 text-danger" style="font-size: 1.15rem;">Rp ${formatIDR(item.nominal_mc + item.nominal_ardebt)}</span>
+                            <small class="d-block text-muted fw-800" style="font-size: 8px; letter-spacing: 0.5px;">TOTAL ESTIMASI</small>
+                            <span class="fw-800 text-danger" style="font-size: 1.15rem;">Rp ${formatIDR(totalEstimasi)}</span>
                         </div>
                         <div class="btn-group">
                             <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${safeNama}')">AUDIT</button>
                             <button class="btn btn-danger rounded-pill px-4 fw-800 shadow-sm btn-sm transition-btn" 
-                                    onclick="openModal('${item.nomen}', '${safeNama}', '${item.nominal_mc + item.nominal_ardebt}', '${item.no_seri_meter || '-'}')">LAPOR</button>
+                                    onclick="openModal('${item.nomen}', '${safeNama}', '${totalEstimasi}', '${item.no_seri_meter || '-'}')">LAPOR</button>
                         </div>
                     </div>
                 </div>
@@ -338,7 +359,7 @@
                 Swal.fire({ icon: 'success', title: 'Data Dikunci', text: 'Snapshot operasional terkirim.' }).then(() => {
                     if(result.wa_data && result.wa_data.link_preview) {
                         result.wa_data.no_hp_pelanggan = inputNoHp ? inputNoHp.value : '-';
-                        executeShareWA(result.wa_data); // Memanggil fungsi WA
+                        executeShareWA(result.wa_data);
                     }
                     if (modalKunjungan) modalKunjungan.hide();
                     loadArdebt();
@@ -348,11 +369,8 @@
     }
 
     function executeShareWA(wa) {
-        // ✅ UPDATE: FORMAT WA DENGAN ALAMAT & LINK MAPS
         const lat = document.getElementById('modal-lat')?.value || '0';
         const lng = document.getElementById('modal-lng')?.value || '0';
-        
-        // Link Google Maps
         const gmapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
         
         const pesan = 
@@ -361,29 +379,35 @@
             `👤 *Petugas:* ${wa.petugas}%0A` +
             `🏠 *Nama:* ${wa.nama}%0A` +
             `🆔 *IDPEL:* ${wa.nomen}%0A` +
-            `📍 *Alamat:* ${wa.alamat || '-'}%0A` + // ALAMAT DITAMPILKAN
-            `🗺️ *Peta Lokasi:* ${gmapsLink}%0A` + // LINK MAPS
+            `📍 *Alamat:* ${wa.alamat || '-'}%0A` + 
+            `🗺️ *Peta Lokasi:* ${gmapsLink}%0A` +
             `📟 *No Meter:* ${wa.nomet || '-'}%0A` +
             `📞 *No HP:* ${wa.no_hp_pelanggan || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
             `📝 *Analisis:* ${wa.catatan || '-'}%0A` +
-            `💰 *PIUTANG: Rp ${formatIDR(wa.total)}*%0A%0A` +
+            `💰 *TOTAL TAGIHAN: Rp ${formatIDR(wa.total)}*%0A%0A` +
             `👉 *LIHAT FOTO KUNJUNGAN:*%0A` +
-            `${wa.link_preview}`; // LINK PREVIEW GAMBAR
+            `${wa.link_preview}`; 
 
         window.open(`https://api.whatsapp.com/send?text=${pesan}`, '_blank');
     }
 
+    // ✅ UPDATE: FUNGSI AUDIT MENAMPILKAN 2 TABEL (RINCIAN ARDEBT & HISTORY MC)
     async function showHistory(nomen, nama) {
-        const content = document.querySelector('#tableHistoryContent');
-        if (content) content.innerHTML = '<tr><td colspan="5" class="text-center py-5"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
+        const ardebtContent = document.querySelector('#tableArdebtContent');
+        const historyContent = document.querySelector('#tableHistoryContent');
+        
+        // Reset View
+        if (ardebtContent) ardebtContent.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-danger"></div></td></tr>';
+        if (historyContent) historyContent.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></td></tr>';
         
         const boxAnalisis = document.getElementById('boxAnalisis');
         if (boxAnalisis) boxAnalisis.classList.add('d-none');
         
         if (modalHistory) modalHistory.show();
 
+        // 1. Fetch History MC (Tagihan Berjalan)
         try {
             const res = await fetch(`/api/ardebt/history/${nomen}`);
             const resData = await res.json();
@@ -402,12 +426,30 @@
                         <td class="text-start ps-4 fw-bold">${h.periode}</td>
                         <td class="fw-semibold">${h.pemakaian_air}</td>
                         <td class="fw-bold">${formatIDR(h.rupiah)}</td>
-                        <td>${h.tarif}</td>
-                        <td class="pe-4"><span class="badge ${h.status_lunas == 1 ? 'bg-success' : 'bg-danger'} rounded-pill px-3">${h.status_lunas == 1 ? 'SETTLED' : 'UNPAID'}</span></td>
+                        <td><span class="badge ${h.status_lunas == 1 ? 'bg-success' : 'bg-danger'} rounded-pill px-3">${h.status_lunas == 1 ? 'LUNAS' : 'BELUM'}</span></td>
                     </tr>`).join('');
-                if (content) content.innerHTML = rows;
+                if (historyContent) historyContent.innerHTML = rows;
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("History MC Error", e); }
+
+        // 2. Fetch Rincian Ardebt (Endpoint Baru)
+        try {
+            const res2 = await fetch(`/api/ardebt/detail/${nomen}`);
+            const dataArdebt = await res2.json();
+            if (dataArdebt.length > 0) {
+                let rowsAr = dataArdebt.map(a => `
+                    <tr class="text-center align-middle fw-bold text-dark">
+                        <td>${a.periode_bill}</td>
+                        <td><span class="badge bg-secondary" style="font-size:0.6rem;">${a.tipe_bill}</span></td>
+                        <td>${a.volume}</td>
+                        <td class="text-danger">Rp ${formatIDR(a.jumlah)}</td>
+                    </tr>
+                `).join('');
+                if (ardebtContent) ardebtContent.innerHTML = rowsAr;
+            } else {
+                if (ardebtContent) ardebtContent.innerHTML = '<tr><td colspan="4" class="text-center small text-muted">Tidak ada rincian.</td></tr>';
+            }
+        } catch (e) { console.error("Ardebt Detail Error", e); }
     }
 
     function liveSearch() {
@@ -422,7 +464,7 @@
     function updateSummary(data) {
         const area = document.getElementById('summary-area');
         if (!area) return;
-        const total = data.reduce((acc, curr) => acc + (curr.nominal_mc + curr.nominal_ardebt), 0);
+        const total = data.reduce((acc, curr) => acc + (curr.total_ardebt + curr.nominal_mc), 0);
         area.innerHTML = `
             <div class="bg-danger shadow-lg rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn">
                 <div><div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Outstanding Target</div><div class="fw-800 h5 mb-0">${data.length} <small style="font-size: 0.6rem;">UNIT</small></div></div>
