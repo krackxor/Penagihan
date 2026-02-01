@@ -5,36 +5,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Kunjungan - {{ data.nomen }}</title>
 
-    <meta property="og:title" content="Laporan Kunjungan: {{ data.nama_snapshot }}">
+    <meta property="og:title" content="Laporan: {{ data.nama_snapshot }}">
     <meta property="og:description" content="Status: {{ data.keterangan }} | Petugas: {{ data.petugas_name }}">
     <meta property="og:image" content="{{ full_image_url }}">
     <meta property="og:image:width" content="800">
     <meta property="og:image:height" content="800">
     <meta property="og:type" content="website">
 
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
     <style>
-        body { background-color: #f0f2f5; font-family: sans-serif; }
-        .card-custom { max-width: 500px; margin: 20px auto; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: white; }
-        .img-area { width: 100%; height: 350px; object-fit: cover; background-color: #ddd; }
-        .status-badge { position: absolute; top: 15px; left: 15px; padding: 5px 12px; border-radius: 20px; font-weight: bold; color: white; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
+        body { background-color: #eef2f6; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .card-custom { width: 100%; max-width: 480px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); background: white; margin: 15px; }
+        .img-area { width: 100%; height: 400px; object-fit: cover; background-color: #ddd; }
+        .status-badge { 
+            position: absolute; top: 15px; left: 15px; 
+            padding: 6px 15px; border-radius: 30px; 
+            font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px;
+            color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            text-transform: uppercase;
+        }
+        .bg-lunas { background: #198754; }
+        .bg-janji { background: #ffc107; color: #000; }
+        .bg-masalah { background: #dc3545; }
+        .bg-default { background: #6c757d; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card-custom position-relative">
-            <div class="status-badge">{{ data.keterangan }}</div>
-            <img src="{{ full_image_url }}" class="img-area" alt="Foto Kunjungan">
-            <div class="p-4">
-                <h5 class="fw-bold mb-1">{{ data.nama_snapshot }}</h5>
-                <p class="text-muted small mb-3">IDPEL: {{ data.nomen }}</p>
-                
-                <div class="d-flex justify-content-between border-top pt-3">
-                    <small class="text-muted">Petugas:<br><strong>{{ data.petugas_name }}</strong></small>
-                    <small class="text-muted text-end">Waktu:<br><strong>{{ data.created_at }}</strong></small>
+
+    <div class="card-custom position-relative">
+        {% if 'BAYAR' in data.keterangan or 'LUNAS' in data.keterangan %}
+            <div class="status-badge bg-lunas"><i class="fa-solid fa-check-circle me-1"></i> {{ data.keterangan }}</div>
+        {% elif 'JANJI' in data.keterangan %}
+            <div class="status-badge bg-janji"><i class="fa-solid fa-handshake me-1"></i> {{ data.keterangan }}</div>
+        {% elif 'TUTUP' in data.keterangan or 'RKS' in data.keterangan %}
+            <div class="status-badge bg-masalah"><i class="fa-solid fa-triangle-exclamation me-1"></i> {{ data.keterangan }}</div>
+        {% else %}
+            <div class="status-badge bg-default">{{ data.keterangan }}</div>
+        {% endif %}
+
+        <img src="{{ full_image_url }}" class="img-area" alt="Foto Kunjungan">
+        
+        <div class="p-4">
+            <h5 class="fw-bold mb-1 text-dark">{{ data.nama_snapshot }}</h5>
+            <p class="text-muted small mb-3 fw-bold">IDPEL: <span class="text-primary">{{ data.nomen }}</span></p>
+            
+            {% if data.catatan and data.catatan != '-' %}
+            <div class="alert alert-light border small text-muted fst-italic mb-3">
+                <i class="fa-solid fa-quote-left me-2 text-secondary"></i>{{ data.catatan }}
+            </div>
+            {% endif %}
+
+            <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px;">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <div style="line-height: 1.2;">
+                        <small class="text-muted d-block" style="font-size: 0.65rem;">PETUGAS</small>
+                        <span class="fw-bold small text-dark">{{ data.petugas_name }}</span>
+                    </div>
+                </div>
+                <div class="text-end" style="line-height: 1.2;">
+                    <small class="text-muted d-block" style="font-size: 0.65rem;">WAKTU</small>
+                    <span class="fw-bold small text-dark">{{ data.created_at }}</span>
                 </div>
             </div>
+
+            {% if data.latitude and data.longitude and data.latitude != '0.0' %}
+            <a href="https://www.google.com/maps?q={{ data.latitude }},{{ data.longitude }}" target="_blank" 
+               class="btn btn-outline-danger w-100 rounded-pill fw-bold mt-3 shadow-sm">
+                <i class="fa-solid fa-map-location-dot me-2"></i> LIHAT LOKASI DI PETA
+            </a>
+            {% endif %}
         </div>
     </div>
+
 </body>
 </html>
