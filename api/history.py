@@ -1,5 +1,5 @@
 """
-History API Endpoints - Sunter Dashboard Pro (V12.48 Share Preview)
+History API Endpoints - Sunter Dashboard Pro (V12.49 Maps Link Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -7,7 +7,7 @@ Pembaruan Strategis:
 2. Smart Periode Parser: Auto-konversi YYYY-MM (HTML5) ke MM-YYYY (DB Standard).
 3. Snapshot Integrity: Mengunci data Nama, Alamat, dan NOMET saat kunjungan dilakukan.
 4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta untuk akurasi audit jam kerja.
-5. ✅ WA SHARE LINK: Route khusus untuk preview thumbnail WhatsApp.
+5. ✅ WA SHARE LINK: Route khusus untuk preview thumbnail WhatsApp + Maps Data.
 """
 
 import os
@@ -204,8 +204,10 @@ def public_share_visit(nomen):
     conn = get_db_connection()
     try:
         # Ambil data kunjungan TERAKHIR (hari ini/terbaru) dari nomen tersebut
+        # ✅ UPDATE: Menambahkan 'latitude' dan 'longitude' ke dalam query
         query = """
-            SELECT nomen, nama_snapshot, petugas_name, keterangan, foto_path, created_at
+            SELECT nomen, nama_snapshot, petugas_name, keterangan, foto_path, 
+                   created_at, latitude, longitude
             FROM kunjungan_petugas 
             WHERE nomen = ? 
             ORDER BY created_at DESC LIMIT 1
