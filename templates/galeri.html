@@ -118,6 +118,7 @@
         const container = document.getElementById('galeri-container');
         container.innerHTML = data.map((item, index) => {
             const fotoUrl = `/static/uploads/kunjungan/${item.foto_path}`;
+            // Ambil Jam saja dari format "DD/MM/YY HH:MM WIB"
             const labelJam = item.waktu ? item.waktu.split(' ')[1].substring(0, 5) : '--:--';
 
             return `
