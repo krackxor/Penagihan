@@ -1,11 +1,11 @@
 """
-Ardebt (Tagihan Berekor) API - V7.6 (Real-Time Gallery Fix)
+Ardebt (Tagihan Berekor) API - V7.7 (Full Data Snapshot Fix)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ REAL-TIME GALLERY: Foto muncul di galeri HARI INI, meskipun tagihan bulan lalu.
-2. ✅ DUAL DATE LOGIC: Periode tagihan tetap asli, tapi tanggal lunas/kunjungan pakai hari ini.
-3. ✅ STABILITY: Fitur Watermark & Share WA tetap aktif.
+1. ✅ FULL SNAPSHOT: Menyimpan Nama & Alamat ke tabel kunjungan (Sinkron dengan History API).
+2. ✅ REAL-TIME GALLERY: Periode foto menggunakan tanggal hari ini agar muncul di menu Galeri.
+3. ✅ DATA INTEGRITY: Mencegah data 'Unknown' pada tampilan arsip visual.
 """
 
 import os
@@ -60,18 +60,16 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Ardebt Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. PROGRES AUDIT ARDEBT (TETAP SAMA)
+# 2. PROGRES AUDIT (TETAP SAMA)
 # =========================================================================
 @ardebt_bp.route('/progress', methods=['GET'])
 def get_ardebt_progress():
-    """Menghitung progres penagihan khusus untuk data berekor."""
     user_petugas_id = session.get('petugas_id')
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         active_period = get_active_target_period(cursor)
         
-        # 1. Total Target Ardebt bulan berjalan
         target_query = """
             SELECT COUNT(a.nomen) as total 
             FROM ardebt a 
@@ -86,7 +84,6 @@ def get_ardebt_progress():
             
         total_target = cursor.execute(target_query, params).fetchone()['total'] or 0
         
-        # 2. Realisasi Kunjungan Hari Ini (Kategori Ardebt)
         real_query = """
             SELECT COUNT(DISTINCT k.nomen) as total 
             FROM kunjungan_petugas k 
@@ -96,11 +93,7 @@ def get_ardebt_progress():
         total_real = cursor.execute(real_query).fetchone()['total'] or 0
         
         percentage = round((total_real / total_target * 100), 1) if total_target > 0 else 0
-        return jsonify({
-            "total_target": total_target, 
-            "total_realisasi": total_real, 
-            "percentage": percentage
-        })
+        return jsonify({"total_target": total_target, "total_realisasi": total_real, "percentage": percentage})
     finally:
         conn.close()
 
@@ -133,18 +126,15 @@ def get_tunggakan_berekor():
         """
         params = [active_period, active_period]
 
-        # Filter Pencarian
         if search_query:
             query += " AND (p.nama LIKE ? OR p.nomen LIKE ?)"
             params.extend([f'%{search_query}%', f'%{search_query}%'])
         else:
-            # Sembunyikan yang sudah dikunjungi hari ini (kecuali sedang dicari)
             query += """ AND NOT EXISTS (
                 SELECT 1 FROM kunjungan_petugas k 
                 WHERE k.nomen = p.nomen AND DATE(k.created_at) = DATE('now')
             )"""
 
-        # Filter Hak Akses
         if user_role == 'petugas' and user_petugas_id:
             query += " AND r.petugas = ?"
             params.append(user_petugas_id)
@@ -159,12 +149,11 @@ def get_tunggakan_berekor():
         conn.close()
 
 # =========================================================================
-# 4. ENDPOINT LAPOR (PERBAIKAN: LOGIKA DUAL DATE)
+# 4. ENDPOINT LAPOR (PERBAIKAN SINKRONISASI DATA SNAPSHOT)
 # =========================================================================
 @ardebt_bp.route('/lapor', methods=['POST'])
 def lapor_ardebt():
     """Validasi dan penyimpanan snapshot laporan Ardebt agar muncul di Galeri Hari Ini."""
-    # Ekstraksi data dengan proteksi .get() untuk menghindari Error 400
     nomen = request.form.get('idpel')
     nomet = request.form.get('nomet', '-')
     petugas_name = request.form.get('petugas_name', 'System')
@@ -189,37 +178,44 @@ def lapor_ardebt():
         foto_path = os.path.join(upload_folder, filename)
         foto.save(foto_path)
         
-        # Inject Watermark
         add_watermark(foto_path, {
-            'petugas': petugas_name, 
-            'nomen': nomen,
-            'nama': nama_cust,
-            'keterangan': hasil,
-            'nominal': nominal_disp
+            'petugas': petugas_name, 'nomen': nomen, 'nama': nama_cust,
+            'keterangan': hasil, 'nominal': nominal_disp
         })
 
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
 
-        # ✅ LOGIKA BARU: GUNAKAN PERIODE SAAT INI UNTUK FOTO/GALERI
-        # Galeri di dashboard biasanya memfilter berdasarkan periode bulan berjalan (hari ini).
-        # Jadi kita simpan kunjungan ini dengan periode "HARI INI" (misal: 02-2026)
-        # meskipun tagihannya dari bulan lalu (misal: 12-2025).
+        # ✅ LANGKAH 1: AMBIL DATA LENGKAP PELANGGAN (NAMA & ALAMAT)
+        # Ini adalah kunci perbaikan! history.py mewajibkan kolom nama_snapshot & alamat_snapshot terisi.
         
-        periode_sekarang = datetime.now().strftime('%m-%Y') # Periode saat kunjungan dilakukan
+        data_pelanggan = cursor.execute("""
+            SELECT nama, alamat FROM master_pelanggan 
+            WHERE nomen = ? AND status_lunas = 0 
+            ORDER BY id DESC LIMIT 1
+        """, (nomen,)).fetchone()
+        
+        # Fallback jika data tidak ditemukan, gunakan input dari form atau default
+        real_nama = data_pelanggan['nama'] if data_pelanggan else nama_cust
+        real_alamat = data_pelanggan['alamat'] if data_pelanggan else "Alamat tidak tersedia"
+        
+        # ✅ LANGKAH 2: GUNAKAN PERIODE SAAT INI (REAL-TIME GALLERY)
+        periode_sekarang = datetime.now().strftime('%m-%Y') 
 
-        # 1. Simpan ke Kunjungan Petugas (Pakai Periode HARI INI)
+        # ✅ LANGKAH 3: SIMPAN DATA LENGKAP KE KUNJUNGAN PETUGAS
+        # Menambahkan kolom nama_snapshot dan alamat_snapshot agar sinkron dengan file history.py
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
-                foto_path, latitude, longitude, periode, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                foto_path, latitude, longitude, periode, 
+                nama_snapshot, alamat_snapshot, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """, (nomen, nomet, petugas_name, hasil, no_hp, catatan, filename, 
-              latitude, longitude, periode_sekarang))
+              latitude, longitude, periode_sekarang, 
+              real_nama, real_alamat)) # <- Data Snapshot disuntikkan di sini
         
-        # 2. Update Master Pelanggan (Agar statusnya terupdate dan muncul di Galeri)
-        # Kita update 'tgl_lunas' dengan hari ini sebagai penanda kunjungan terakhir
+        # 4. Update Master Pelanggan (Agar statusnya terupdate)
         cursor.execute("""
             UPDATE master_pelanggan 
             SET nomet = ?, no_hp = ?, tgl_lunas = ?
@@ -228,13 +224,12 @@ def lapor_ardebt():
         
         conn.commit()
         
-        # Return data untuk pemicu otomatis Share WA di Frontend
         return jsonify({
             "status": "success",
             "message": "Snapshot Ardebt berhasil dikunci & masuk galeri hari ini",
             "wa_data": {
                 "petugas": petugas_name,
-                "nama": nama_cust,
+                "nama": real_nama,
                 "nomen": nomen,
                 "nomet": nomet,
                 "status": hasil,
@@ -274,7 +269,6 @@ def get_customer_history(nomen):
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Mengambil histori 6 bulan terakhir
         history = cursor.execute("""
             SELECT periode, kubik as pemakaian_air, nominal as rupiah, tarif, status_lunas 
             FROM master_pelanggan 
