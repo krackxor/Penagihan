@@ -240,7 +240,8 @@ def get_customer_history(nomen):
         if not history: return jsonify({"status": "empty"})
         nunggak_count = sum(1 for h in history if h['status_lunas'] == 0)
         return jsonify({
-            "status": "available", "history": [dict(h) for h in history],
+            "status": "available", 
+            "history": [dict(h) for h in history],
             "analysis": {"count_nunggak": nunggak_count, "level": "danger" if nunggak_count >= 2 else "warning", "saran": "Tindakan penutupan" if nunggak_count >= 3 else "Berikan edukasi"}
         })
     finally:
