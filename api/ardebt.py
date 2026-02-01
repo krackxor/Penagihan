@@ -1,10 +1,10 @@
 """
-Ardebt (Tagihan Berekor) API - V7.3 (Snapshot & Audit Feature Sync)
+Ardebt (Tagihan Berekor) API - V7.4 (Gallery Sync & Stability Update)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FEATURE SYNC: Watermark foto khusus kategori Ardebt (Warna Orange-Red).
-2. ✅ FEATURE SYNC: Progres Audit harian kategori Ardebt (Sesuai rute petugas).
+1. ✅ GALLERY SYNC: Sinkronisasi data ke master_pelanggan agar foto muncul di galeri.
+2. ✅ FEATURE SYNC: Watermark foto khusus kategori Ardebt (Warna Orange-Red).
 3. ✅ FIX: Penanganan input 'nomet' & 'no_hp' untuk integrasi Database V12.95.
 4. ✅ STABILITY: Penambahan return 'wa_data' untuk mendukung fitur Share WA Otomatis.
 """
@@ -202,21 +202,31 @@ def lapor_ardebt():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Injeksi Data ke Database V12.95 (Self-Healing Schema)
+        current_period = datetime.now().strftime('%m-%Y')
+
+        # 1. Simpan ke Kunjungan Petugas (Tabel Histori)
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
                 foto_path, latitude, longitude, periode, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """, (nomen, nomet, petugas_name, hasil, no_hp, catatan, filename, 
-              latitude, longitude, datetime.now().strftime('%m-%Y')))
+              latitude, longitude, current_period))
+        
+        # 2. ✅ FIX: SYNC KE MASTER PELANGGAN (Kunci agar muncul di Galeri Web)
+        # Tanpa ini, foto ada di folder server tapi tidak muncul di menu Galeri
+        cursor.execute("""
+            UPDATE master_pelanggan 
+            SET nomet = ?, no_hp = ?, tgl_lunas = ?
+            WHERE nomen = ? AND status_lunas = 0
+        """, (nomet, no_hp, datetime.now().strftime('%Y-%m-%d'), nomen))
         
         conn.commit()
         
         # Return data untuk pemicu otomatis Share WA di Frontend
         return jsonify({
             "status": "success",
-            "message": "Snapshot Ardebt berhasil dikunci",
+            "message": "Snapshot Ardebt berhasil dikunci & masuk galeri",
             "wa_data": {
                 "petugas": petugas_name,
                 "nama": nama_cust,
@@ -229,6 +239,7 @@ def lapor_ardebt():
             }
         })
     except Exception as e:
+        if conn: conn.rollback()
         return jsonify({"status": "error", "message": f"Database Failure: {str(e)}"}), 500
     finally:
         conn.close()
