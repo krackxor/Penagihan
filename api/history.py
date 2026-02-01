@@ -1,5 +1,5 @@
 """
-History API Endpoints - Sunter Dashboard Pro (V12.46 Fallback Logic)
+History API Endpoints - Sunter Dashboard Pro (V12.48 Share Preview)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
@@ -7,12 +7,13 @@ Pembaruan Strategis:
 2. Smart Periode Parser: Auto-konversi YYYY-MM (HTML5) ke MM-YYYY (DB Standard).
 3. Snapshot Integrity: Mengunci data Nama, Alamat, dan NOMET saat kunjungan dilakukan.
 4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta untuk akurasi audit jam kerja.
+5. ✅ WA SHARE LINK: Route khusus untuk preview thumbnail WhatsApp.
 """
 
 import os
 import pytz
 import sqlite3
-from flask import Blueprint, jsonify, request, current_app, session
+from flask import Blueprint, jsonify, request, current_app, session, render_template, url_for
 from core.database import get_db_connection
 from core.helpers import APIResponse, clean_nomen, clean_coordinate
 from datetime import datetime
@@ -178,10 +179,53 @@ def list_kunjungan():
             d = dict(row)
             d['latitude'] = clean_coordinate(d['latitude'])
             d['longitude'] = clean_coordinate(d['longitude'])
+            
+            # Format WIB untuk tampilan (Opsional, jika ingin format manual)
+            try:
+                dt_obj = datetime.strptime(d['waktu'], '%Y-%m-%d %H:%M:%S')
+                d['waktu'] = dt_obj.strftime('%d/%m/%y %H:%M') + " WIB"
+            except:
+                pass
+
             data_list.append(d)
 
         return APIResponse.success(data=data_list)
     except Exception as e:
         return APIResponse.error(f"Gagal sinkronisasi data audit: {str(e)}", code=500)
+    finally:
+        conn.close()
+
+# ==========================================
+# 4. FITUR SHARE LINK WHATSAPP (THUMBNAIL FOTO)
+# ==========================================
+@history_bp.route('/share/view/<nomen>', methods=['GET'])
+def public_share_visit(nomen):
+    """ Halaman Publik untuk Preview Link WhatsApp (Agar Thumbnail Muncul) """
+    conn = get_db_connection()
+    try:
+        # Ambil data kunjungan TERAKHIR (hari ini/terbaru) dari nomen tersebut
+        query = """
+            SELECT nomen, nama_snapshot, petugas_name, keterangan, foto_path, created_at
+            FROM kunjungan_petugas 
+            WHERE nomen = ? 
+            ORDER BY created_at DESC LIMIT 1
+        """
+        data = conn.execute(query, (nomen,)).fetchone()
+        
+        if not data:
+            return "Data kunjungan tidak ditemukan.", 404
+            
+        row = dict(data)
+        
+        # Buat URL Absolut untuk gambar (PENTING untuk WhatsApp)
+        if row['foto_path']:
+            full_image_url = request.url_root.rstrip('/') + url_for('static', filename='uploads/kunjungan/' + row['foto_path'])
+        else:
+            full_image_url = "https://placehold.co/600x400?text=No+Image"
+
+        return render_template('share_kunjungan.html', data=row, full_image_url=full_image_url)
+        
+    except Exception as e:
+        return f"Error: {str(e)}", 500
     finally:
         conn.close()
