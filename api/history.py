@@ -1,12 +1,11 @@
 """
-History API Endpoints - Sunter Dashboard Pro (V12.45 Intelligence)
-Update: 2026-01-20
+History API Endpoints - Sunter Dashboard Pro (V12.46 Fallback Logic)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Smart Periode Parser: Auto-konversi YYYY-MM (HTML5) ke MM-YYYY (DB Standard).
-2. Snapshot Integrity: Mengunci data Nama, Alamat, dan NOMET saat kunjungan dilakukan.
-3. Multi-Status Filter Support: Query dioptimalkan untuk mendukung penyaringan instan.
-4. WIB Timezone Guard: Sinkronisasi waktu Asia/Jakarta untuk akurasi audit jam kerja.
+1. ✅ BACKUP DATA JOIN: Mengambil Nama/Alamat dari Master jika snapshot kosong (Fix Foto Hilang).
+2. Smart Periode Parser: Auto-konversi YYYY-MM (HTML5) ke MM-YYYY (DB Standard).
+3. Snapshot Integrity: Mengunci data Nama, Alamat, dan NOMET saat kunjungan dilakukan.
 """
 
 import os
@@ -96,7 +95,7 @@ def simpan_kunjungan():
 
         # Mapping Data Snapshot
         val_nama    = p_info['nama'] if p_info else "Entitas Konsumen"
-        val_nomet    = p_info['nomet'] if p_info else "-"
+        val_nomet   = p_info['nomet'] if p_info else "-"
         val_alamat  = p_info['alamat'] if p_info else "-"
         val_mc      = p_info['nominal'] if p_info else 0
         val_ardebt  = a_info['total'] if a_info and a_info['total'] else 0
@@ -135,7 +134,7 @@ def simpan_kunjungan():
 
 @history_bp.route('/kunjungan', methods=['GET'])
 def list_kunjungan():
-    """ [FEED AUDIT LAPANGAN DENGAN SMART PERIODE PARSER] """
+    """ [FEED AUDIT LAPANGAN DENGAN FALLBACK DATA] """
     role    = str(session.get('role', 'guest')).lower()
     my_id   = session.get('petugas_id')
     periode_raw = request.args.get('periode')
@@ -149,21 +148,28 @@ def list_kunjungan():
 
     conn = get_db_connection()
     try:
+        # ✅ PERBAIKAN UTAMA: LEFT JOIN & COALESCE
+        # Jika k.nama_snapshot kosong (data lama), ambil dari m.nama (Master Pelanggan)
         query = """
-            SELECT id, created_at as waktu, petugas_name, nomen, nomet,
-                   nama_snapshot as nama, alamat_snapshot as alamat,
-                   keterangan, catatan, foto_path,
-                   mc, ardebt, latitude, longitude
-            FROM kunjungan_petugas
-            WHERE periode = ?
+            SELECT 
+                k.id, k.created_at as waktu, k.petugas_name, k.nomen, k.nomet,
+                COALESCE(k.nama_snapshot, m.nama, 'Tanpa Nama') as nama, 
+                COALESCE(k.alamat_snapshot, m.alamat, '-') as alamat,
+                k.keterangan, k.catatan, k.foto_path,
+                k.mc, k.ardebt, k.latitude, k.longitude
+            FROM kunjungan_petugas k
+            LEFT JOIN (
+                SELECT nomen, nama, alamat FROM master_pelanggan GROUP BY nomen
+            ) m ON k.nomen = m.nomen
+            WHERE k.periode = ?
         """
         params = [periode]
 
         if role == 'petugas':
-            query += " AND petugas_name = ?"
+            query += " AND k.petugas_name = ?"
             params.append(my_id)
 
-        rows = conn.execute(query + " ORDER BY created_at DESC").fetchall()
+        rows = conn.execute(query + " ORDER BY k.created_at DESC", params).fetchall()
         
         # Konversi ke List Dict & Bersihkan Koordinat
         data_list = []
