@@ -1,12 +1,12 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.96 Ultra-Sync)
+Core Database Module - Sunter Dashboard Pro (V12.97 Ultra-Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX: Schema Sync - Menambahkan kolom 'janji_bayar_dt' pada 'kunjungan_petugas'.
-2. ✅ FIX: Data Integrity - Menjamin kolom 'nomet', 'nama_snapshot', dan 'no_hp' aktif.
-3. ✅ FIX: 500 Error Resolver - Menghilangkan kegagalan GET pada Galeri & Janji Bayar.
-4. Ultra-High Write Performance: Optimasi PRAGMA Turbo tetap dipertahankan.
+1. ✅ STABILITY: Peningkatan timeout ke 300 detik & cache turbo untuk Bulk Upload.
+2. ✅ CONFLICT RESOLVER: Busy timeout ditingkatkan agar tidak "Database Locked".
+3. ✅ HISTORY SYNC: Mendukung kelancaran upload data lintas periode (Backdate).
+4. ✅ FIX: Schema Sync - Menjamin kolom janji_bayar_dt & nomet tetap aktif.
 """
 
 import sqlite3
@@ -15,16 +15,19 @@ from flask import current_app, g
 from werkzeug.security import generate_password_hash
 
 def get_db_connection():
-    """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA TURBO] """
+    """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA ULTRA-TURBO] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        conn = sqlite3.connect(db_path, timeout=100)
+        # Peningkatan timeout ke 300 detik (5 menit) untuk mencegah "Terputus dari Server"
+        conn = sqlite3.connect(db_path, timeout=300)
         conn.row_factory = sqlite3.Row 
         
+        # Optimasi Pragma untuk penanganan ribuan baris data tanpa lag
         conn.execute('PRAGMA journal_mode=WAL;')       
         conn.execute('PRAGMA synchronous=NORMAL;')     
         conn.execute('PRAGMA temp_store=MEMORY;')      
-        conn.execute('PRAGMA cache_size=-64000;')      
+        conn.execute('PRAGMA cache_size=-128000;')      # Cache ditingkatkan ke 128MB
+        conn.execute('PRAGMA busy_timeout=300000;')     # Tunggu 5 menit jika database terkunci
         conn.execute('PRAGMA journal_size_limit=67108864;') 
         conn.execute('PRAGMA foreign_keys = ON;')      
         
@@ -56,7 +59,7 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.96: Fix Janji Bayar & Galeri Integrity Aktif.")
+            print("✅ Database V12.97: Engine High-Load & History Sync Aktif.")
             
         except Exception as e:
             print(f"❌ Database Init Error: {e}")
@@ -82,7 +85,7 @@ def check_and_create_tables(cursor):
             tgl_lunas TEXT, tipe TEXT DEFAULT 'MC'
         )
     """)
-    # 3. Tabel Kunjungan (Inisialisasi Dasar)
+    # 3. Tabel Kunjungan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, 
@@ -116,30 +119,21 @@ def check_and_create_tables(cursor):
 def run_smart_migration(cursor):
     """Fungsi Self-Healing: Menjamin kolom Janji Bayar & Snapshot tersedia."""
     
-    # --- MIGRATION: KUNJUNGAN PETUGAS (SOLUSI 500 ERROR & DATA TIDAK MASUK) ---
+    # Migrasi Kunjungan (Fix Janji Bayar & Galeri)
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_kunjungan = [row['name'] for row in cursor.fetchall()]
     kunjungan_cols = {
-        'nomet': 'TEXT',            # Kolom No Meter
-        'no_hp': 'TEXT',            # Kolom Kontak WA
-        'petugas_name':'TEXT', 
-        'keterangan':'TEXT', 
-        'foto_path':'TEXT', 
-        'latitude':'TEXT', 
-        'longitude':'TEXT', 
-        'periode':'TEXT',
-        'nama_snapshot':'TEXT',     # Integrasi Galeri
-        'alamat_snapshot':'TEXT',   # Integrasi Galeri
-        'mc':'REAL', 
-        'ardebt':'REAL', 
-        'catatan':'TEXT',
-        'janji_bayar_dt': 'TEXT'    # Solusi Error Janji Bayar
+        'nomet': 'TEXT', 'no_hp': 'TEXT', 'petugas_name':'TEXT', 
+        'keterangan':'TEXT', 'foto_path':'TEXT', 'latitude':'TEXT', 
+        'longitude':'TEXT', 'periode':'TEXT', 'nama_snapshot':'TEXT', 
+        'alamat_snapshot':'TEXT', 'mc':'REAL', 'ardebt':'REAL', 
+        'catatan':'TEXT', 'janji_bayar_dt': 'TEXT'
     }
     for col, dtype in kunjungan_cols.items():
         if col not in existing_kunjungan:
             cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
 
-    # --- MIGRATION: MASTER PELANGGAN ---
+    # Migrasi Master Pelanggan
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
     master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 'no_hp': 'TEXT DEFAULT "-"', 'tgl_lunas': 'TEXT', 'tipe': "TEXT DEFAULT 'MC'"}
@@ -147,30 +141,29 @@ def run_smart_migration(cursor):
         if col not in existing_master:
             cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
 
-    # --- MIGRATION: USERS & TRANSACTION TABLES ---
+    # Migrasi User & Transaksi
     cursor.execute("PRAGMA table_info(users)")
-    existing_users = [row['name'] for row in cursor.fetchall()]
-    if 'no_hp' not in existing_users: cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
-    if 'created_at' not in existing_users: cursor.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    if 'no_hp' not in [r['name'] for r in cursor.fetchall()]:
+        cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
     
     for table in ['master_bayar', 'collection_harian']:
         cursor.execute(f"PRAGMA table_info({table})")
         cols = [row['name'] for row in cursor.fetchall()]
         if 'bulan_rek' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
-        if 'kategori' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN kategori TEXT")
         if 'periode' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
 
 def optimize_performance(cursor):
-    """Turbo Indexing untuk Akselerasi Query Dashboard."""
+    """Turbo Indexing untuk Akselerasi Query Lintas Periode."""
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
+        "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)"
     ]
     for idx in indices:
         cursor.execute(idx)
 
 def seed_default_admin(cursor):
-    """Menjamin ketersediaan akses Administrator."""
+    """Menjamin akses Admin Utama."""
     username = 'admin_sunter'
     cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
     if not cursor.fetchone():
