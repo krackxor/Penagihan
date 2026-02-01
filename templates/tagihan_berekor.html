@@ -338,7 +338,7 @@
                 Swal.fire({ icon: 'success', title: 'Data Dikunci', text: 'Snapshot operasional terkirim.' }).then(() => {
                     if(result.wa_data && result.wa_data.link_preview) {
                         result.wa_data.no_hp_pelanggan = inputNoHp ? inputNoHp.value : '-';
-                        executeShareWA(result.wa_data); 
+                        executeShareWA(result.wa_data); // Memanggil fungsi WA
                     }
                     if (modalKunjungan) modalKunjungan.hide();
                     loadArdebt();
@@ -348,11 +348,11 @@
     }
 
     function executeShareWA(wa) {
-        // ✅ UPDATE: MAP URL FIX & USE LINK PREVIEW
+        // ✅ UPDATE: FORMAT WA DENGAN ALAMAT & LINK MAPS
         const lat = document.getElementById('modal-lat')?.value || '0';
         const lng = document.getElementById('modal-lng')?.value || '0';
         
-        // Link Google Maps yang Valid dan Bisa Diklik
+        // Link Google Maps
         const gmapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
         
         const pesan = 
@@ -360,16 +360,17 @@
             `-------------------------------------------%0A` +
             `👤 *Petugas:* ${wa.petugas}%0A` +
             `🏠 *Nama:* ${wa.nama}%0A` +
-            `🆔 *NOMEN:* ${wa.nomen}%0A` +
-            `📟 *Meter:* ${wa.nomet || '-'}%0A` +
-            `📞 *HP:* ${wa.no_hp_pelanggan || '-'}%0A%0A` +
+            `🆔 *IDPEL:* ${wa.nomen}%0A` +
+            `📍 *Alamat:* ${wa.alamat || '-'}%0A` + // ALAMAT DITAMPILKAN
+            `🗺️ *Peta Lokasi:* ${gmapsLink}%0A` + // LINK MAPS
+            `📟 *No Meter:* ${wa.nomet || '-'}%0A` +
+            `📞 *No HP:* ${wa.no_hp_pelanggan || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
-            `📝 *Catatan:* ${wa.catatan || '-'}%0A` +
-            `📍 *Lokasi:* ${gmapsLink}%0A%0A` +
-            `💰 *NOMINAL: Rp ${formatIDR(wa.total)}*%0A%0A` +
+            `📝 *Analisis:* ${wa.catatan || '-'}%0A` +
+            `💰 *PIUTANG: Rp ${formatIDR(wa.total)}*%0A%0A` +
             `👉 *LIHAT FOTO KUNJUNGAN:*%0A` +
-            `${wa.link_preview}`; 
+            `${wa.link_preview}`; // LINK PREVIEW GAMBAR
 
         window.open(`https://api.whatsapp.com/send?text=${pesan}`, '_blank');
     }
