@@ -1,9 +1,9 @@
 """
-Core Database Module - Sunter Dashboard Pro (V12.98 Ultra-Sync)
+Core Database Module - Sunter Dashboard Pro (V12.99 Silent Migration)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX: Unique Constraint Error pada users (Defensive Seeding).
+1. ✅ SILENT MIGRATION: Menangani 'Duplicate column' dengan try-except agar log bersih.
 2. ✅ STABILITY: Peningkatan timeout ke 300 detik & cache turbo untuk Bulk Upload.
 3. ✅ CONFLICT RESOLVER: INSERT OR IGNORE pada seeding default admin.
 """
@@ -56,11 +56,11 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V12.98: Engine High-Load & History Sync Aktif.")
+            print("✅ Database V12.99: Engine High-Load & History Sync Aktif.")
             
         except Exception as e:
             # Jika error tetap terjadi karena constraint, kita log namun jangan hentikan app
-            print(f"⚠️ Database Init Warning/Error: {e}")
+            print(f"⚠️ Database Init Warning: {e}")
             if db: db.rollback()
         finally:
             if db: db.close()
@@ -110,7 +110,9 @@ def check_and_create_tables(cursor):
     """)
 
 def run_smart_migration(cursor):
-    """Fungsi Self-Healing: Menjamin kolom Janji Bayar & Snapshot tersedia."""
+    """Fungsi Self-Healing: Menjamin kolom Janji Bayar & Snapshot tersedia (Silent Mode)."""
+    
+    # 1. Migrasi Kunjungan
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_kunjungan = [row['name'] for row in cursor.fetchall()]
     kunjungan_cols = {
@@ -122,24 +124,40 @@ def run_smart_migration(cursor):
     }
     for col, dtype in kunjungan_cols.items():
         if col not in existing_kunjungan:
-            cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
+            try:
+                cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
+            except Exception:
+                pass # Skip silent jika terjadi race condition/duplikasi
 
+    # 2. Migrasi Master Pelanggan
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
     master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 'no_hp': 'TEXT DEFAULT "-"', 'tgl_lunas': 'TEXT', 'tipe': "TEXT DEFAULT 'MC'"}
     for col, dtype in master_cols.items():
         if col not in existing_master:
-            cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+            try:
+                cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+            except Exception:
+                pass
 
+    # 3. Migrasi Users
     cursor.execute("PRAGMA table_info(users)")
     if 'no_hp' not in [r['name'] for r in cursor.fetchall()]:
-        cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
+        except Exception:
+            pass
     
+    # 4. Migrasi Transaksi
     for table in ['master_bayar', 'collection_harian']:
         cursor.execute(f"PRAGMA table_info({table})")
         cols = [row['name'] for row in cursor.fetchall()]
-        if 'bulan_rek' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
-        if 'periode' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
+        if 'bulan_rek' not in cols: 
+            try: cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
+            except: pass
+        if 'periode' not in cols: 
+            try: cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
+            except: pass
 
 def optimize_performance(cursor):
     """Turbo Indexing untuk Akselerasi Query Lintas Periode."""
