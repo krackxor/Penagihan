@@ -1,12 +1,11 @@
 """
-Ardebt (Tagihan Berekor) API - V7.9 (WA Link Preview Support)
+Ardebt (Tagihan Berekor) API - V7.10 (WA Address Support)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ WA LINK PREVIEW: Menyertakan link 'share_link' di response untuk thumbnail WA.
-2. ✅ TIMEZONE LOCK: Mengunci seluruh operasi waktu ke Asia/Jakarta (WIB).
-3. ✅ DATABASE SYNC: Menyimpan created_at dengan waktu WIB.
-4. ✅ FULL SNAPSHOT: Menyimpan data snapshot Nama & Alamat pelanggan.
+1. ✅ WA ADDRESS: Mengirim data Alamat ke frontend untuk template WA.
+2. ✅ WA LINK PREVIEW: Menyertakan link 'share_link' untuk thumbnail.
+3. ✅ TIMEZONE LOCK: Mengunci seluruh operasi waktu ke Asia/Jakarta (WIB).
 """
 
 import os
@@ -216,7 +215,6 @@ def lapor_ardebt():
         real_alamat = data_pelanggan['alamat'] if data_pelanggan else "Alamat tidak tersedia"
         
         # 2. SIMPAN KE KUNJUNGAN PETUGAS (GUNAKAN WAKTU WIB)
-        # created_at diisi manual 'tgl_sql' agar tidak ikut jam server (UTC)
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
@@ -237,7 +235,6 @@ def lapor_ardebt():
         conn.commit()
         
         # ✅ GENERATE LINK PREVIEW UNTUK WHATSAPP
-        # Membuat link publik yang mengarah ke halaman share_kunjungan.html
         base_url = request.host_url.rstrip('/') 
         share_link = f"{base_url}/api/history/share/view/{nomen}"
 
@@ -249,11 +246,12 @@ def lapor_ardebt():
                 "nama": real_nama,
                 "nomen": nomen,
                 "nomet": nomet,
+                "alamat": real_alamat, # <--- DATA ALAMAT DITAMBAHKAN
                 "status": hasil,
                 "catatan": catatan,
                 "total": nominal_disp,
                 "foto_path": filename,
-                "link_preview": share_link # <--- Link ini dipakai di Frontend untuk pesan WA
+                "link_preview": share_link 
             }
         })
     except Exception as e:
