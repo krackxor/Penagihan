@@ -1,178 +1,167 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.06 Enhanced Detection)
+Core Database Module - Sunter Dashboard Pro (V12.98 Ultra-Sync)
 Update: 2026-02-01
+---------------------------------------------------------------------------
+Pembaruan Strategis:
+1. ✅ FIX: Unique Constraint Error pada users (Defensive Seeding).
+2. ✅ STABILITY: Peningkatan timeout ke 300 detik & cache turbo untuk Bulk Upload.
+3. ✅ CONFLICT RESOLVER: INSERT OR IGNORE pada seeding default admin.
 """
 
-import pandas as pd
+import sqlite3
 import os
-from datetime import datetime
-from flask import Blueprint, request, jsonify, session
-from core.database import get_db_connection
-from core.helpers import clean_nomen, log_action
+from flask import current_app, g
+from werkzeug.security import generate_password_hash
 
-upload_bp = Blueprint('upload', __name__)
-
-class UploadEngine:
-    @staticmethod
-    def cast_to_float(value):
-        """Konversi angka cerdas: Menangani format ribuan (.) dan desimal (,) Indonesia."""
-        try:
-            if pd.isna(value) or str(value).strip() == '': return 0.0
-            # Hapus karakter non-angka kecuali pemisah desimal
-            s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "").replace("Rp", "")
-            if ',' in s_val and '.' in s_val:
-                s_val = s_val.replace('.', '').replace(',', '.')
-            elif ',' in s_val:
-                s_val = s_val.replace(',', '.')
-            return float(s_val)
-        except: 
-            return 0.0
-
-    @staticmethod
-    def get_column(df, possible_names):
-        """Mencari nama kolom secara fleksibel (Case Insensitive & Trim)."""
-        cols = {c.upper().strip(): c for c in df.columns}
-        for name in possible_names:
-            u_name = name.upper().strip()
-            if u_name in cols:
-                return cols[u_name]
-        return None
-
-    @staticmethod
-    def clean_bulan_rek(value):
-        """Membersihkan format bulan rekening menjadi MMYYYY."""
-        if not value or pd.isna(value): return ""
-        clean_val = ''.join(filter(str.isdigit, str(value)))
-        if len(clean_val) == 6:
-            return clean_val
-        elif len(clean_val) == 5:
-            return "0" + clean_val
-        return clean_val
-
-@upload_bp.route('/upload', methods=['POST'])
-def handle_smart_upload():
-    if session.get('role') != 'admin':
-        return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
-
-    files = request.files.getlist('file')
-    custom_period = request.form.get('periode_input') 
-    
-    if not files:
-        return jsonify({"status": "error", "message": "File tidak dideteksi"}), 400
-    
-    db = get_db_connection()
-    total_processed = 0
-    results = []
-
+def get_db_connection():
+    """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA ULTRA-TURBO] """
+    db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
-        from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
+        conn = sqlite3.connect(db_path, timeout=300)
+        conn.row_factory = sqlite3.Row 
         
-        db.execute("PRAGMA synchronous = OFF")
-        db.execute("PRAGMA journal_mode = WAL")
-
-        for file in files:
-            file_name = file.filename
-            if file_name == '': continue
-
-            # Baca file dengan penanganan error encoding
-            try:
-                if file_name.lower().endswith('.csv'):
-                    df = pd.read_csv(file, dtype=str, engine='c', low_memory=False).fillna('')
-                else:
-                    df = pd.read_excel(file, dtype=str).fillna('')
-            except:
-                results.append(f"{file_name} (Format Error)")
-                continue
-            
-            data_type = identify_file_type(df)
-            if not data_type:
-                results.append(f"{file_name} (Tipe Tidak Dikenali)")
-                continue
-
-            # Logika Periode
-            if custom_period:
-                p_parts = custom_period.split('-')
-                target_period = f"{p_parts[1]}-{p_parts[0]}" if len(p_parts) == 2 else custom_period
-            elif data_type in ['ARDEBT', 'RUTE']:
-                target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
-            else:
-                month_ref, year_ref = detect_file_period(df, data_type)
-                target_period = f"{month_ref}-{year_ref}" if month_ref else datetime.now().strftime('%m-%Y')
-
-            bulk_main = []
-            bulk_rute = []
-            
-            # Mapping Kolom yang diperluas
-            col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'ZONA_NOREK'])
-            col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'PIUTANG', 'JML_BAYAR'])
-            col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'TGL_CATAT'])
-            col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'PERIODE', 'MASA'])
-            col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'WA', 'WHATSAPP'])
-
-            records = df.to_dict('records')
-            for row in records:
-                if data_type == 'RUTE':
-                    c_pcez = UploadEngine.get_column(df, ['PCEZ', 'RUTE', 'ZONA', 'ZONA_NOVAK'])
-                    c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS', 'NAMA'])
-                    z_rute = autopilot_extract_zona(str(row.get(c_pcez, '')).strip())
-                    if z_rute and row.get(c_name):
-                        bulk_rute.append((z_rute['pcez'], str(row.get(c_name)).strip().upper()))
-                    continue
-
-                # Validasi NOMEN
-                raw_nomen = row.get(col_id)
-                nomen = clean_nomen(raw_nomen) if raw_nomen else None
-                if not nomen: continue
-                
-                nominal = UploadEngine.cast_to_float(row.get(col_nom))
-
-                if data_type == 'MC':
-                    c_zona = UploadEngine.get_column(df, ['PCEZ', 'RUTE', 'ZONA', 'ZONA_NOVAK'])
-                    z = autopilot_extract_zona(row.get(c_zona))
-                    if z:
-                        bulk_main.append((nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), 
-                                         z['pcez'], z['rayon'], nominal, row.get('NOMET', ''), 
-                                         target_period, row.get(col_hp, '-'), 'MC', 0))
-                
-                elif data_type in ['MB', 'COLLECTION']:
-                    b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
-                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
-                    bulk_main.append((nomen, str(row.get(col_pay, '')), nominal, target_period, cat, b_rek))
-
-                elif data_type == 'ARDEBT':
-                    if nominal > 0:
-                        bulk_main.append((nomen, row.get('PERIODE_BILL', '-'), nominal, target_period))
-
-            # Eksekusi (Tetap sama)
-            if data_type == 'RUTE' and bulk_rute:
-                db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", bulk_rute)
-            elif data_type == 'MC' and bulk_main:
-                db.executemany("INSERT OR REPLACE INTO master_pelanggan (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, no_hp, tipe, status_lunas) VALUES (?,?,?,?,?,?,?,?,?,?,?)", bulk_main)
-            elif data_type in ['MB', 'COLLECTION'] and bulk_main:
-                tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
-                dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
-                db.executemany(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) VALUES (?,?,?,?,?,?)", bulk_main)
-            elif data_type == 'ARDEBT' and bulk_main:
-                db.executemany("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, periode) VALUES (?,?,?,?)", bulk_main)
-
-            count = len(bulk_main) if data_type != 'RUTE' else len(bulk_rute)
-            total_processed += count
-            db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?,?,?,?,?)",
-                       (file_name, data_type, target_period, count, 'SUCCESS'))
-            results.append(f"{file_name} ({count} rows)")
-
-        db.commit()
-        db.execute("PRAGMA synchronous = NORMAL")
-        log_action(session.get('username', 'Admin'), 'MULTI_UPLOAD_SUCCESS', 'CORE', f"Processed {total_processed} rows.")
+        conn.execute('PRAGMA journal_mode=WAL;')       
+        conn.execute('PRAGMA synchronous=NORMAL;')     
+        conn.execute('PRAGMA temp_store=MEMORY;')      
+        conn.execute('PRAGMA cache_size=-128000;')      
+        conn.execute('PRAGMA busy_timeout=300000;')     
+        conn.execute('PRAGMA journal_size_limit=67108864;') 
+        conn.execute('PRAGMA foreign_keys = ON;')      
         
-        return jsonify({
-            "status": "success", 
-            "message": f"Integrasi Berhasil! {total_processed} baris data masuk.",
-            "details": results
-        })
+        return conn
+    except sqlite3.Error as e:
+        print(f"❌ Connection Error: {e}")
+        raise
 
-    except Exception as e:
-        if db: db.rollback()
-        return jsonify({"status": "error", "message": f"Sistem terhenti: {str(e)}"}), 500
-    finally:
-        db.close()
+def init_db(app):
+    """ [INISIALISASI & MIGRASI OTOMATIS] """
+    with app.app_context():
+        db = None
+        try:
+            db = get_db_connection()
+            cursor = db.cursor()
+            
+            # --- TAHAP 1: INFRASTRUKTUR DASAR & TRIGGER ---
+            check_and_create_tables(cursor)
+            db.commit() 
+
+            # --- TAHAP 2: SELF-HEALING MIGRATIONS (FIX 500 ERROR) ---
+            run_smart_migration(cursor)
+            db.commit()
+            
+            # --- TAHAP 3: TURBO INDEXING ---
+            optimize_performance(cursor)
+            
+            # --- TAHAP 4: SECURITY SEEDING ---
+            seed_default_admin(cursor)
+
+            db.commit()
+            print("✅ Database V12.98: Engine High-Load & History Sync Aktif.")
+            
+        except Exception as e:
+            # Jika error tetap terjadi karena constraint, kita log namun jangan hentikan app
+            print(f"⚠️ Database Init Warning/Error: {e}")
+            if db: db.rollback()
+        finally:
+            if db: db.close()
+
+def check_and_create_tables(cursor):
+    """Melahirkan struktur tabel utama & Trigger Otomatis."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS rute_petugas (
+            pcez TEXT PRIMARY KEY, petugas TEXT, no_admin TEXT, 
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS master_pelanggan (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, nama TEXT, 
+            alamat TEXT, pcez TEXT, rayon TEXT, nominal REAL, periode TEXT, 
+            status_lunas INTEGER DEFAULT 0, no_hp TEXT DEFAULT '-', 
+            tgl_lunas TEXT, tipe TEXT DEFAULT 'MC'
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS kunjungan_petugas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("CREATE TABLE IF NOT EXISTS upload_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT, file_type TEXT, periode TEXT, row_count INTEGER DEFAULT 0, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
+        AFTER INSERT ON master_bayar BEGIN
+            UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = NEW.tgl_bayar
+            WHERE nomen = NEW.nomen AND status_lunas = 0;
+        END;
+    """)
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_coll
+        AFTER INSERT ON collection_harian BEGIN
+            UPDATE master_pelanggan SET status_lunas = 1, tgl_lunas = NEW.pay_dt
+            WHERE nomen = NEW.nomen AND status_lunas = 0;
+        END;
+    """)
+
+def run_smart_migration(cursor):
+    """Fungsi Self-Healing: Menjamin kolom Janji Bayar & Snapshot tersedia."""
+    cursor.execute("PRAGMA table_info(kunjungan_petugas)")
+    existing_kunjungan = [row['name'] for row in cursor.fetchall()]
+    kunjungan_cols = {
+        'nomet': 'TEXT', 'no_hp': 'TEXT', 'petugas_name':'TEXT', 
+        'keterangan':'TEXT', 'foto_path':'TEXT', 'latitude':'TEXT', 
+        'longitude':'TEXT', 'periode':'TEXT', 'nama_snapshot':'TEXT', 
+        'alamat_snapshot':'TEXT', 'mc':'REAL', 'ardebt':'REAL', 
+        'catatan':'TEXT', 'janji_bayar_dt': 'TEXT'
+    }
+    for col, dtype in kunjungan_cols.items():
+        if col not in existing_kunjungan:
+            cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
+
+    cursor.execute("PRAGMA table_info(master_pelanggan)")
+    existing_master = [row['name'] for row in cursor.fetchall()]
+    master_cols = {'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 'no_hp': 'TEXT DEFAULT "-"', 'tgl_lunas': 'TEXT', 'tipe': "TEXT DEFAULT 'MC'"}
+    for col, dtype in master_cols.items():
+        if col not in existing_master:
+            cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+
+    cursor.execute("PRAGMA table_info(users)")
+    if 'no_hp' not in [r['name'] for r in cursor.fetchall()]:
+        cursor.execute("ALTER TABLE users ADD COLUMN no_hp TEXT")
+    
+    for table in ['master_bayar', 'collection_harian']:
+        cursor.execute(f"PRAGMA table_info({table})")
+        cols = [row['name'] for row in cursor.fetchall()]
+        if 'bulan_rek' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN bulan_rek TEXT")
+        if 'periode' not in cols: cursor.execute(f"ALTER TABLE {table} ADD COLUMN periode TEXT")
+
+def optimize_performance(cursor):
+    """Turbo Indexing untuk Akselerasi Query Lintas Periode."""
+    indices = [
+        "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
+        "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
+        "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)"
+    ]
+    for idx in indices:
+        cursor.execute(idx)
+
+def seed_default_admin(cursor):
+    """Menjamin akses Admin Utama tanpa menyebabkan UNIQUE constraint error."""
+    username = 'admin_sunter'
+    # Menggunakan INSERT OR IGNORE sebagai proteksi lapis kedua
+    hashed_pw = generate_password_hash('admin123')
+    cursor.execute("""
+        INSERT OR IGNORE INTO users (username, password, role, petugas_id) 
+        VALUES (?, ?, ?, ?)
+    """, (username, hashed_pw, 'admin', 'ADMIN_PUSAT'))
+
+def get_db():
+    if 'db' not in g:
+        g.db = get_db_connection()
+    return g.db
