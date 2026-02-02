@@ -1,10 +1,10 @@
 """
-Smart Period & Type Detector - Sunter Dashboard Pro (V12.36 Intelligence Sync)
-Update: 2026-02-02
+Smart Period & Type Detector - Sunter Dashboard Pro (V12.34 Enhanced Sync)
+Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX BELUM BAYAR: Memisahkan deteksi MB dan MC secara mutlak menggunakan 
-   kolom 'STAN_AWAL' untuk MC agar tidak bentrok dengan file pembayaran.
+1. Fix MB vs MC Clash: Memisahkan deteksi MB dan MC menggunakan kolom 'STAN_AWAL' 
+   dan 'BULAN_REK' agar data nominal MB tidak masuk ke target MC.
 2. Intelligent PCEZ Normalization: Memastikan format '092/01' diprioritaskan.
 3. Fallback Safety: Menjamin data tidak 'None' meski format tidak standar.
 """
@@ -19,14 +19,14 @@ def identify_file_type(df):
     cols = [str(c).upper().strip() for c in df.columns]
     
     # --- 1. DETEKSI MASTER BAYAR (MB) ---
-    # File MB ditandai dengan adanya transaksi 'BULAN_REK' atau 'TGL_BAYAR'.
-    # Harus dicek pertama agar tidak disangka MC karena memiliki kolom NOMEN.
-    if 'BULAN_REK' in cols or 'TGL_BAYAR' in cols or 'JML_BAYAR' in cols:
+    # File MB ditandai dengan adanya transaksi 'BULAN_REK' 
+    # Ini harus dicek pertama agar tidak disangka MC karena kolom NOMEN.
+    if 'BULAN_REK' in cols or 'TGL_BAYAR' in cols:
         return 'MB'
 
     # --- 2. DETEKSI MASTER PELANGGAN (MC) ---
-    # File MC memiliki kolom data fisik meteran yang TIDAK ADA di file MB.
-    # Menggunakan 'STAN_AWAL' atau 'KUBIK' sebagai pembeda mutlak.
+    # File MC memiliki kolom data fisik meteran yang tidak ada di MB.
+    # Kita gunakan STAN_AWAL atau STAN_AKIR sebagai kunci unik MC.
     if 'STAN_AWAL' in cols or 'STAN_AKIR' in cols or 'KUBIK' in cols:
         return 'MC'
 
