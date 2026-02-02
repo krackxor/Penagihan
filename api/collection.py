@@ -1,14 +1,11 @@
 """
-Collection API - Sunter Dashboard Pro (V12.48 Period Logic Fix)
-Update: 2026-02-01
+Collection API - Sunter Dashboard Pro (V12.49 Strict Date Filter)
+Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Strict Period Filtering: Menjamin data yang tampil 100% hanya milik periode 
-   pilihan (Fix: Data bulan lain bocor ke tabel harian).
-2. Multi-Format Sorting: Menangani pengurutan tanggal secara kronologis meskipun 
-   format di database bercampur (DD-MM vs YYYY-MM).
-3. ✅ FIX: Baseline Recovery - UNDUE langsung pakai periode (bukan N-1)
-4. Zero-Record Shield: Mengabaikan baris tanggal kosong pada hasil query harian.
+1. ✅ STRICT DATE FILTER: Memvalidasi 'pay_dt' agar benar-benar sesuai dengan 
+   bulan & tahun periode yang dipilih (Mencegah data Januari bocor ke Februari).
+2. Zero-Record Shield: Mengabaikan baris tanggal kosong.
 """
 
 from flask import Blueprint, jsonify, request
@@ -31,16 +28,11 @@ def pusat_kendali():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        # ✅ FIX PERIODE LOGIC: Hapus logika N-1
-        # Karena MB bulan 11 sudah di-shift jadi periode 12-2025 saat upload,
-        # kita langsung pakai periode untuk filter UNDUE
-        bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
-
         # 1. TOTAL TARGET MC (Master Customer)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # ✅ 2. BOX UNDUE (BANK) - Filter langsung pakai periode
+        # 2. BOX UNDUE (BANK)
         cursor.execute("""
             SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
             WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
@@ -49,7 +41,6 @@ def pusat_kendali():
         undue_val = cursor.fetchone()[0]
 
         # 3. BOX FIELD (PETUGAS) & BOX MANDIRI
-        # Filter c.periode = ? menjamin hanya data bulan pilihan yang dijumlahkan
         cursor.execute("""
             SELECT 
                 SUM(CASE WHEN EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = c.nomen AND k.periode = c.periode) 
@@ -85,16 +76,19 @@ def pusat_kendali():
 
 @collection_bp.route('/daily-monitor', methods=['GET'])
 def daily_monitor():
-    """Tren Kumulatif Harian per Rayon dengan Filter Periode Ketat."""
+    """Tren Kumulatif Harian per Rayon dengan Filter Tanggal Ketat."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
+        
+        # ✅ Parsing target bulan dan tahun dari request (Format: MM-YYYY)
+        try:
+            p_month, p_year = periode_req.split('-')
+        except:
+            p_month, p_year = datetime.now().strftime('%m'), datetime.now().strftime('%Y')
 
-        # ✅ FIX: Hapus logika N-1, langsung pakai periode
-        bulan_rek_target = periode_req.replace('-', '')  # 12-2025 → 122025
-
-        # Ambil Target Rayon khusus periode terpilih
+        # Ambil Target Rayon
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN rayon = '34' THEN nominal ELSE 0 END), 0) as target_34,
@@ -104,7 +98,7 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # ✅ Saldo Awal Bank (UNDUE) - Filter langsung pakai periode
+        # Saldo Awal Bank (UNDUE)
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
             WHERE periode = ? AND kategori = 'UNDUE'
@@ -112,7 +106,7 @@ def daily_monitor():
         """, (periode_req, periode_req))
         undue_start = cursor.fetchone()[0]
 
-        # QUERY HARIAN: Filter c.periode = ? mencegah kebocoran data bulan lain
+        # Query Data Harian (Ambil semua di periode ini, nanti difilter di Python)
         cursor.execute("""
             SELECT 
                 c.pay_dt as tgl,
@@ -131,7 +125,23 @@ def daily_monitor():
         cum_34, cum_35 = 0, 0
         
         for r in rows:
-            if not r['tgl']: continue # Proteksi baris null
+            if not r['tgl']: continue # Skip tanggal kosong
+            
+            # --- ✅ LOGIKA FILTER KETAT (STRICT FILTER) ---
+            # Hanya loloskan data yang string tanggalnya mengandung MM-YYYY atau YYYY-MM
+            tgl_str = str(r['tgl'])
+            is_valid_date = False
+            
+            # Cek format YYYY-MM-DD (Database Standard)
+            if tgl_str.startswith(f"{p_year}-{p_month}"):
+                is_valid_date = True
+            # Cek format DD-MM-YYYY (Indonesia Standard)
+            elif tgl_str.endswith(f"{p_month}-{p_year}"):
+                is_valid_date = True
+            
+            if not is_valid_date:
+                continue # ⛔ SKIP data bocor (misal data Januari yg label periodenya Februari)
+            # ----------------------------------------------
             
             cum_34 += r['rp_34']
             cum_35 += r['rp_35']
