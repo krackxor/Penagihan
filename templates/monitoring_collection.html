@@ -153,13 +153,27 @@
         }
 
         body.innerHTML = data.map(row => {
-            const tglDay = row.tgl.split('-')[0];
+            // ✅ FIX: Format Tanggal Lengkap (DD/MM/YYYY)
+            // Jika sebelumnya hanya mengambil split[0] (Tahun), sekarang diformat ulang
+            let parts = row.tgl.split('-');
+            let fullDate = row.tgl; // Default fallback
+
+            if (parts.length === 3) {
+                // Jika format YYYY-MM-DD (2026-02-01) -> Ubah ke 01/02/2026
+                if (parts[0].length === 4) {
+                    fullDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                } else {
+                    // Jika sudah DD-MM-YYYY, ubah separator jadi slash
+                    fullDate = `${parts[0]}/${parts[1]}/${parts[2]}`;
+                }
+            }
+
             const color34 = getHeatmapColor(row.r34.pct);
             const color35 = getHeatmapColor(row.r35.pct);
 
             return `
             <tr class="transition-row">
-                <td class="bg-light fw-800 text-dark border-bottom" style="font-size: 0.75rem;">${tglDay}</td>
+                <td class="bg-light fw-800 text-dark border-bottom" style="font-size: 0.75rem;">${fullDate}</td>
                 <td class="text-end border-start fw-semibold" style="background: ${color34}">
                     <button class="btn btn-link btn-sm p-0 fw-800 text-dark text-decoration-none shadow-none" 
                             onclick="showDetail('${row.tgl}', '34', '${periode}')">
