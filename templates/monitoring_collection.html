@@ -153,10 +153,12 @@
         }
 
         body.innerHTML = data.map(row => {
-            // ✅ FIX: Format Tanggal Lengkap (DD/MM/YYYY)
-            // Jika sebelumnya hanya mengambil split[0] (Tahun), sekarang diformat ulang
-            let parts = row.tgl.split('-');
-            let fullDate = row.tgl; // Default fallback
+            // ✅ FIX: Membersihkan jam (00:00:00) sebelum memformat tanggal
+            // 1. Ambil bagian tanggal saja (sebelum spasi)
+            let rawDate = row.tgl.split(' ')[0]; 
+            // 2. Pecah berdasarkan strip
+            let parts = rawDate.split('-');
+            let fullDate = rawDate; // Fallback jika format tidak dikenal
 
             if (parts.length === 3) {
                 // Jika format YYYY-MM-DD (2026-02-01) -> Ubah ke 01/02/2026
