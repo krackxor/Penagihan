@@ -153,19 +153,15 @@
         }
 
         body.innerHTML = data.map(row => {
-            // ✅ FIX: Membersihkan jam (00:00:00) sebelum memformat tanggal
-            // 1. Ambil bagian tanggal saja (sebelum spasi)
+            // Logika Tanggal
             let rawDate = row.tgl.split(' ')[0]; 
-            // 2. Pecah berdasarkan strip
             let parts = rawDate.split('-');
-            let fullDate = rawDate; // Fallback jika format tidak dikenal
+            let fullDate = rawDate; 
 
             if (parts.length === 3) {
-                // Jika format YYYY-MM-DD (2026-02-01) -> Ubah ke 01/02/2026
                 if (parts[0].length === 4) {
                     fullDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
                 } else {
-                    // Jika sudah DD-MM-YYYY, ubah separator jadi slash
                     fullDate = `${parts[0]}/${parts[1]}/${parts[2]}`;
                 }
             }
@@ -173,27 +169,34 @@
             const color34 = getHeatmapColor(row.r34.pct);
             const color35 = getHeatmapColor(row.r35.pct);
 
+            // ✅ FIX: Ganti .toLocaleString() dengan toIDR()
             return `
             <tr class="transition-row">
                 <td class="bg-light fw-800 text-dark border-bottom" style="font-size: 0.75rem;">${fullDate}</td>
+                
                 <td class="text-end border-start fw-semibold" style="background: ${color34}">
                     <button class="btn btn-link btn-sm p-0 fw-800 text-dark text-decoration-none shadow-none" 
                             onclick="showDetail('${row.tgl}', '34', '${periode}')">
-                        ${(row.r34.rp || 0).toLocaleString()}
-                    </button>
+                        ${toIDR(row.r34.rp || 0)} </button>
                 </td>
-                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color34}">${(row.r34.cum || 0).toLocaleString()}</td>
+                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color34}">
+                    ${toIDR(row.r34.cum || 0)} </td>
                 <td class="small fw-800 border-end" style="background: ${color34}">${(row.r34.pct || 0).toFixed(1)}%</td>
+                
                 <td class="text-end border-start fw-semibold" style="background: ${color35}">
                     <button class="btn btn-link btn-sm p-0 fw-800 text-dark text-decoration-none shadow-none" 
                             onclick="showDetail('${row.tgl}', '35', '${periode}')">
-                        ${(row.r35.rp || 0).toLocaleString()}
-                    </button>
+                        ${toIDR(row.r35.rp || 0)} </button>
                 </td>
-                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color35}">${(row.r35.cum || 0).toLocaleString()}</td>
+                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color35}">
+                    ${toIDR(row.r35.cum || 0)} </td>
                 <td class="small fw-800 border-end" style="background: ${color35}">${(row.r35.pct || 0).toFixed(1)}%</td>
-                <td class="text-end bg-light border-start fw-semibold">${(row.total.rp_harian || 0).toLocaleString()}</td>
-                <td class="text-end bg-light text-primary fw-bold" style="font-size: 0.65rem;">${toIDR(row.total.cum_all)}</td>
+                
+                <td class="text-end bg-light border-start fw-semibold">
+                    ${toIDR(row.total.rp_harian || 0)} </td>
+                <td class="text-end bg-light text-primary fw-bold" style="font-size: 0.65rem;">
+                    ${toIDR(row.total.cum_all)}
+                </td>
                 <td class="fw-800 text-white shadow-sm" style="background: #2563eb">${(row.total.pct || 0).toFixed(1)}%</td>
             </tr>`;
         }).join('');
