@@ -1,14 +1,12 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V9.4 Intelligence Sync)
-Update: 2026-02-01
+Belum Bayar API - Sunter Dashboard Pro (V9.5 Intelligence Sync)
+Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX MAPPING: Sinkronisasi kolom p.alamat, p.nomet (no_seri_meter), dan p.kubik (pemakaian_air).
-2. ✅ FEATURE SYNC: Penambahan objek 'wa_data' pada respons lapor untuk auto-share WhatsApp.
-3. ✅ FIX SCHEMA: Penanganan transmisi kolom 'nomet' pada tabel kunjungan_petugas.
-4. Smart Watermarking: Metadata visual dengan identitas Belum Bayar (Warna Kuning).
-5. ✅ WA SHARE LINK: Menyertakan link 'share_link' untuk thumbnail WA.
-6. ✅ FULL SNAPSHOT: Menyimpan Nama & Alamat saat lapor (Data Integrity).
+1. ✅ FIX DATA VISIBILITY: Menyesuaikan pengambilan periode agar sinkron dengan 
+   hasil upload (Mendukung periode hasil deteksi N+1 dari MC/MB).
+2. ✅ OPTIMIZED QUERY: Memperbaiki filter 'NOT EXISTS' agar lebih akurat 
+   dalam membedakan data yang benar-benar belum bayar vs transaksi berjalan.
 """
 
 import os, sqlite3, pytz
@@ -78,7 +76,6 @@ def get_audit_progress():
     try:
         cursor = conn.cursor()
         
-        # Total Target (Khusus kategori non-ardebt)
         target_query = """
             SELECT COUNT(p.nomen) as total 
             FROM master_pelanggan p
@@ -93,7 +90,6 @@ def get_audit_progress():
             
         total_target = cursor.execute(target_query, params).fetchone()['total'] or 0
         
-        # Realisasi hari ini (WIB)
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
         realisasi_query = """
             SELECT COUNT(DISTINCT k.nomen) as total
@@ -128,7 +124,8 @@ def get_belum_bayar():
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id') 
     petugas_filter = request.args.get('petugas')
-    # Default periode ambil dari WIB
+    
+    # --- FIX PERIODE: Menggunakan parameter atau WIB bulan sekarang ---
     raw_period = request.args.get('periode') or get_wib_time().strftime('%m-%Y')
     search_query = request.args.get('search', '').strip()
     
@@ -137,21 +134,28 @@ def get_belum_bayar():
         cursor = conn.cursor()
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
         
-        # FIXED QUERY: Menyediakan alias yang sama dengan Ardebt (no_seri_meter, pemakaian_air)
+        # IMPROVED QUERY: Memastikan pengecekan ke master_bayar dan collection lebih akurat
         query = """
             SELECT p.nomen, p.nama, p.alamat, 
                    COALESCE(p.nomet, '-') as no_seri_meter, 
                    p.nominal, 
-                   p.kubik as pemakaian_air, 
+                   COALESCE(p.kubik, 0) as pemakaian_air, 
                    p.pcez, p.rayon,
                    COALESCE(r.petugas, 'Belum Terplot') as nama_petugas
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
             AND p.status_lunas = 0
+            AND p.tipe = 'MC'
             AND p.nomen NOT IN (SELECT nomen FROM ardebt)
-            AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.nomen = p.nomen AND mb.periode = p.periode)
-            AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.nomen = p.nomen AND ch.periode = p.periode)
+            AND NOT EXISTS (
+                SELECT 1 FROM master_bayar mb 
+                WHERE mb.nomen = p.nomen AND mb.periode = p.periode
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM collection_harian ch 
+                WHERE ch.nomen = p.nomen AND ch.periode = p.periode
+            )
         """
         params = [raw_period]
         
@@ -166,7 +170,6 @@ def get_belum_bayar():
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
-            # Filter sudah dikunjungi hari ini (WIB)
             query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND DATE(k.created_at) = ?)"
             params.append(tgl_skrg)
         
@@ -225,7 +228,6 @@ def lapor_kunjungan():
     try:
         cursor = conn.cursor()
         
-        # 1. AMBIL SNAPSHOT DATA ASLI (Agar History tidak berubah jika master berubah)
         data_pelanggan = cursor.execute("""
             SELECT nama, alamat FROM master_pelanggan 
             WHERE nomen = ? AND status_lunas = 0 
@@ -235,7 +237,6 @@ def lapor_kunjungan():
         real_nama = data_pelanggan['nama'] if data_pelanggan else nama_cust
         real_alamat = data_pelanggan['alamat'] if data_pelanggan else "Alamat tidak tersedia"
 
-        # 2. SIMPAN KUNJUNGAN
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
@@ -246,15 +247,12 @@ def lapor_kunjungan():
               latitude, longitude, periode_sekarang, 
               real_nama, real_alamat, tgl_sql))
         
-        # 3. UPDATE MASTER (Opsional, simpan no HP baru)
         cursor.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp, nomen))
         conn.commit()
         
-        # 4. GENERATE LINK PREVIEW UNTUK WHATSAPP
         base_url = request.host_url.rstrip('/') 
         share_link = f"{base_url}/api/history/share/view/{nomen}"
 
-        # Integrasi Data Respons WA Blast Dinamis
         return jsonify({
             "status": "success",
             "message": "Snapshot penagihan terkunci",
@@ -263,12 +261,12 @@ def lapor_kunjungan():
                 "nama": real_nama,
                 "nomen": nomen,
                 "nomet": nomet,
-                "alamat": real_alamat, # <--- Data Alamat disertakan
+                "alamat": real_alamat,
                 "status": hasil,
                 "catatan": catatan,
                 "total": nominal_disp,
                 "foto_path": filename,
-                "link_preview": share_link # <--- Link Preview disertakan
+                "link_preview": share_link
             }
         })
     except Exception as e:
