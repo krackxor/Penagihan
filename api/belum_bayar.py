@@ -1,11 +1,11 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V9.5 Volume & WA Sync)
+Belum Bayar API - Sunter Dashboard Pro (V9.6 Daily Quota & Smart Sort)
 Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX VOLUME: Menambahkan 'pemakaian_air' pada wa_data agar tidak bernilai 0.
-2. ✅ TEMPLATE WA SYNC: Menyamakan struktur wa_data dengan Ardebt (Alamat & Foto Link).
-3. ✅ SMART WATERMARK: Konsistensi identitas visual Kuning untuk Belum Bayar.
+1. ✅ DAILY LIMIT: Membatasi tugas hanya 20 per hari per petugas (Sinkron Ardebt).
+2. ✅ SMART SORT: Mengurutkan berdasarkan Zona (PCEZ) lalu Nominal Terbesar.
+3. ✅ DYNAMIC FETCH: Data yang sudah dikerjakan hari ini otomatis hilang.
 """
 
 import os, sqlite3, pytz
@@ -21,11 +21,9 @@ def get_wib_time():
     return datetime.now(pytz.timezone('Asia/Jakarta'))
 
 # =========================================================================
-# 1. LOGIKA WATERMARK CERDAS (VISUAL AUDIT)
+# 1. LOGIKA WATERMARK CERDAS (TIDAK BERUBAH)
 # =========================================================================
-
 def add_watermark(image_path, info):
-    """Menanamkan informasi penagihan ke foto bukti lapangan."""
     try:
         img = Image.open(image_path)
         draw = ImageDraw.Draw(img)
@@ -33,7 +31,6 @@ def add_watermark(image_path, info):
         
         font_size = int(width * 0.035)
         font = None
-        # Penanganan path font untuk Linux/VPS
         font_paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "arial.ttf"]
         for path in font_paths:
             if os.path.exists(path):
@@ -41,7 +38,6 @@ def add_watermark(image_path, info):
                 break
         font = font or ImageFont.load_default()
 
-        # Metadata Label: BELUM BAYAR (Identitas Kuning)
         waktu_wib = get_wib_time().strftime('%d/%m/%Y %H:%M') + " WIB"
         text = (
             f"PETUGAS    : {info['petugas']}\n"
@@ -63,61 +59,49 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Smart Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. ENDPOINT PROGRES AUDIT
+# 2. ENDPOINT PROGRES AUDIT (FIXED TARGET 20)
 # =========================================================================
-
 @belum_bayar_bp.route('/progress', methods=['GET'])
 def get_audit_progress():
-    """Menghitung progres kunjungan harian kategori Belum Bayar."""
     user_petugas_id = session.get('petugas_id')
     raw_period = get_wib_time().strftime('%m-%Y')
     
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        
-        target_query = """
-            SELECT COUNT(p.nomen) as total 
-            FROM master_pelanggan p
-            LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE p.periode = ? AND p.status_lunas = 0 AND p.tipe = 'MC'
-            AND p.nomen NOT IN (SELECT nomen FROM ardebt)
-        """
-        params = [raw_period]
-        if user_petugas_id and user_petugas_id != 'ALL':
-            target_query += " AND r.petugas = ?"
-            params.append(user_petugas_id)
-            
-        total_target = cursor.execute(target_query, params).fetchone()['total'] or 0
-        
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
+
+        # 1. Hitung Realisasi Hari Ini (Khusus Belum Bayar/Reguler)
         realisasi_query = """
             SELECT COUNT(DISTINCT k.nomen) as total
             FROM kunjungan_petugas k
-            LEFT JOIN rute_petugas r ON (SELECT pcez FROM master_pelanggan WHERE nomen = k.nomen LIMIT 1) = r.pcez
-            WHERE k.periode = ? AND DATE(k.created_at) = ?
+            WHERE DATE(k.created_at) = ?
             AND k.nomen NOT IN (SELECT nomen FROM ardebt)
         """
-        params_real = [raw_period, tgl_skrg]
+        params_real = [tgl_skrg]
+        
         if user_petugas_id and user_petugas_id != 'ALL':
-            realisasi_query += " AND r.petugas = ?"
+            realisasi_query += " AND k.petugas_name = ?"
             params_real.append(user_petugas_id)
             
         total_realisasi = cursor.execute(realisasi_query, params_real).fetchone()['total'] or 0
-        percentage = round((total_realisasi / total_target * 100), 1) if total_target > 0 else 0
+        
+        # 2. Target Harian Fix 20 (Sesuai Permintaan)
+        total_target = 20
+        
+        percentage = round((total_realisasi / total_target * 100), 1)
         
         return jsonify({
             "total_target": total_target,
             "total_realisasi": total_realisasi,
-            "percentage": percentage
+            "percentage": min(100, percentage) # Cap di 100%
         })
     finally:
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT DAFTAR TARGET
+# 3. ENDPOINT DAFTAR TARGET (UPDATED: QUOTA 20 & SMART SORT)
 # =========================================================================
-
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
     user_role = str(session.get('role', 'guest')).lower()
@@ -131,6 +115,33 @@ def get_belum_bayar():
         cursor = conn.cursor()
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
         
+        # --- LOGIKA KUOTA 20 PER HARI ---
+        limit_kuota = 50 # Default limit
+        target_petugas = None
+
+        if user_role == 'petugas':
+            target_petugas = user_petugas_id
+        elif petugas_filter and petugas_filter != 'all':
+            target_petugas = petugas_filter
+            
+        if target_petugas:
+            # Hitung yang sudah dikerjakan hari ini (Non-Ardebt)
+            cursor.execute("""
+                SELECT COUNT(DISTINCT k.nomen) 
+                FROM kunjungan_petugas k 
+                WHERE k.petugas_name = ? AND DATE(k.created_at) = ?
+                AND k.nomen NOT IN (SELECT nomen FROM ardebt)
+            """, (target_petugas, tgl_skrg))
+            sudah_dikerjakan = cursor.fetchone()[0]
+            
+            # Hitung sisa jatah
+            limit_kuota = max(0, 20 - sudah_dikerjakan)
+        
+        # Jika kuota habis dan tidak sedang cari, return kosong
+        if limit_kuota == 0 and not search_query:
+            return jsonify([])
+
+        # --- QUERY DATA UTAMA ---
         query = """
             SELECT p.nomen, p.nama, p.alamat, 
                    COALESCE(p.nomet, '-') as no_seri_meter, 
@@ -148,21 +159,24 @@ def get_belum_bayar():
         """
         params = [raw_period]
         
-        if user_role == 'petugas' and user_petugas_id:
+        if target_petugas:
             query += " AND r.petugas = ?"
-            params.append(user_petugas_id)
-        elif petugas_filter and petugas_filter != 'all':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
+            params.append(target_petugas)
 
         if search_query:
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
+            limit_kuota = 50 # Longgarkan saat searching
         else:
+            # Filter: Yang sudah dikunjungi hari ini HILANG
             query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND DATE(k.created_at) = ?)"
             params.append(tgl_skrg)
         
-        query += " ORDER BY p.nominal DESC LIMIT 100"
+        # --- SMART SORTING: ZONA DULU, BARU NOMINAL ---
+        # 1. p.pcez ASC   : Mengelompokkan rute agar lokasi berdekatan (hemat waktu)
+        # 2. p.nominal DESC : Prioritas tagihan terbesar di rute tersebut
+        query += f" ORDER BY p.pcez ASC, p.nominal DESC LIMIT {limit_kuota}"
+        
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
     except Exception as e:
@@ -171,9 +185,8 @@ def get_belum_bayar():
         conn.close()
 
 # =========================================================================
-# 4. ENDPOINT LAPOR (DENGAN PERBAIKAN VOLUME & TEMPLATE WA)
+# 4. ENDPOINT LAPOR (TIDAK BERUBAH)
 # =========================================================================
-
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
     nomen = request.form.get('idpel')
@@ -186,8 +199,6 @@ def lapor_kunjungan():
     catatan = request.form.get('catatan', '')
     nominal_disp = request.form.get('nominal_display', '0')
     nama_cust = request.form.get('nama_pelanggan', 'Konsumen')
-    
-    # ✅ FIX: Ambil data pemakaian air dari form agar tidak 0
     vol_air = request.form.get('pemakaian_air', '0')
     
     if not nomen or not hasil:
@@ -219,7 +230,6 @@ def lapor_kunjungan():
     try:
         cursor = conn.cursor()
         
-        # 1. AMBIL SNAPSHOT DATA ASLI
         data_pelanggan = cursor.execute("""
             SELECT nama, alamat, kubik FROM master_pelanggan 
             WHERE nomen = ? AND status_lunas = 0 
@@ -228,10 +238,8 @@ def lapor_kunjungan():
         
         real_nama = data_pelanggan['nama'] if data_pelanggan else nama_cust
         real_alamat = data_pelanggan['alamat'] if data_pelanggan else "Alamat tidak tersedia"
-        # Gunakan kubik dari DB jika vol_air dari form bernilai 0
         final_vol = vol_air if vol_air != '0' else str(data_pelanggan['kubik'] if data_pelanggan else '0')
 
-        # 2. SIMPAN KUNJUNGAN
         cursor.execute("""
             INSERT INTO kunjungan_petugas (
                 nomen, nomet, petugas_name, keterangan, no_hp, catatan, 
@@ -242,15 +250,12 @@ def lapor_kunjungan():
               latitude, longitude, periode_sekarang, 
               real_nama, real_alamat, tgl_sql))
         
-        # 3. UPDATE MASTER
         cursor.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp, nomen))
         conn.commit()
         
-        # 4. GENERATE LINK PREVIEW (share_kunjungan.html)
         base_url = request.host_url.rstrip('/') 
         share_link = f"{base_url}/api/history/share/view/{nomen}"
 
-        # ✅ TEMPLATE WA: Persis Ardebt dengan penambahan Alamat & Foto Link
         return jsonify({
             "status": "success",
             "message": "Snapshot penagihan terkunci",
@@ -263,7 +268,7 @@ def lapor_kunjungan():
                 "status": hasil,
                 "catatan": catatan,
                 "total": nominal_disp,
-                "pemakaian_air": final_vol, # Menampilkan Volume Air
+                "pemakaian_air": final_vol,
                 "foto_path": filename,
                 "link_preview": share_link 
             }
