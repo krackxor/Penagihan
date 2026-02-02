@@ -1,25 +1,40 @@
 """
-Collection API - Sunter Dashboard Pro (V12.51 Fix Undue Distribution)
+Collection API - Sunter Dashboard Pro (V12.52 Sync N-1 Logic)
 Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX RAYON ACCUMULATION: Memecah saldo awal UNDUE (Bank) ke masing-masing 
-   Rayon (34 & 35) agar persentase realisasi per rayon akurat.
-2. Fix Realisasi Gelembung: Mempertahankan filter 'bulan_rek' untuk membuang tunggakan.
-3. Strict Date Filter: Mempertahankan validasi tanggal harian.
+1. ✅ FIX UNDUE SYNC: Menggunakan logika N-1 (Bulan Sebelumnya) untuk filter 
+   bulan_rek, menyamakan logika dengan Dashboard Utama (Efektivitas Penagihan).
+   (Contoh: Periode 02-2026 -> Target Rekening 012026).
+2. Fix Realisasi Gelembung: Tetap memfilter 'bulan_rek' agar tunggakan lama tidak masuk.
+3. Fix Rayon Distribution: Undue dipecah per rayon untuk grafik harian yang akurat.
 """
 
 from flask import Blueprint, jsonify, request
 from core.database import get_db_connection
-from datetime import datetime, timedelta
+from datetime import datetime
+from dateutil.relativedelta import relativedelta # ✅ Wajib import ini
 
 collection_bp = Blueprint('collection', __name__)
 
 def get_active_period(cursor):
-    """Mendeteksi periode dashboard aktif terbaru (Hasil Shift N+1)."""
+    """Mendeteksi periode dashboard aktif terbaru."""
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     return row['periode'] if row else datetime.now().strftime('%m-%Y')
+
+def get_target_bulan_rek(periode_str):
+    """
+    Logika N-1: Mengonversi Periode Dashboard ke Bulan Rekening Tagihan.
+    Contoh: Periode '02-2026' -> Sasaran Rekening '012026' (Januari).
+    Sama persis dengan logika di api/dashboard.py.
+    """
+    try:
+        dt_obj = datetime.strptime(periode_str, '%m-%Y')
+        target_dt = dt_obj - relativedelta(months=1)
+        return target_dt.strftime('%m%Y')
+    except:
+        return periode_str.replace('-', '')
 
 @collection_bp.route('/pusat-kendali', methods=['GET'])
 def pusat_kendali():
@@ -29,14 +44,15 @@ def pusat_kendali():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        # Konversi Periode (02-2026) -> Bulan Rekening (022026)
-        bulan_rek_target = periode_req.replace('-', '') 
+        # ✅ FIX: Gunakan Logika N-1 agar Undue Bank terbaca
+        bulan_rek_target = get_target_bulan_rek(periode_req)
 
         # 1. TOTAL TARGET MC
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
-        # 2. BOX UNDUE (BANK) - Filter bulan_rek aktif
+        # 2. BOX UNDUE (BANK)
+        # Filter 'bulan_rek' memastikan hanya tagihan bulan N-1 yang masuk (bukan tunggakan)
         cursor.execute("""
             SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
             WHERE mb.periode = ? 
@@ -88,7 +104,8 @@ def daily_monitor():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        bulan_rek_target = periode_req.replace('-', '')
+        # ✅ FIX: Gunakan Logika N-1
+        bulan_rek_target = get_target_bulan_rek(periode_req)
         
         try:
             p_month, p_year = periode_req.split('-')
@@ -105,8 +122,8 @@ def daily_monitor():
         """, (periode_req,))
         targets = dict(cursor.fetchone())
 
-        # 2. ✅ HITUNG SALDO AWAL UNDUE (BANK) PER RAYON
-        # Kita join ke master_pelanggan untuk tahu rayon mana yang bayar bank
+        # 2. SALDO AWAL UNDUE (BANK) PER RAYON
+        # Menggunakan bulan_rek_target (N-1) agar data bank masuk
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE WHEN p.rayon = '34' THEN mb.nominal ELSE 0 END), 0) as undue_34,
