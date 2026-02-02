@@ -202,15 +202,19 @@
         });
     });
 
-    // ... Fungsi openModal, toggleJanjiInput, fetchPetugasList tetap sama ...
-    function openModal(nomen, nama, total, nomet) {
+    // UPDATE: Menambahkan parameter alamat dan volume
+    function openModal(nomen, nama, total, nomet, alamat, vol) {
         document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nomet-val').value = nomet;
         document.getElementById('modal-nominal-val').value = total;
         document.getElementById('modal-nama-hidden').value = nama;
         
+        // Simpan volume ke dataset form untuk dikirim
+        document.getElementById('formKunjungan').dataset.vol = vol;
+        
         document.getElementById('modal-nama').innerText = nama;
-        document.getElementById('modal-sub-info').innerText = `ID: ${nomen} | Meter: ${nomet} | Tagihan: Rp ${formatIDR(total)}`;
+        // Tampilkan Volume di Sub Info Modal
+        document.getElementById('modal-sub-info').innerText = `ID: ${nomen} | Vol: ${vol} m³ | Tagihan: Rp ${formatIDR(total)}`;
         
         document.getElementById('formKunjungan').reset();
         document.getElementById('group-janji').classList.add('d-none');
@@ -241,16 +245,15 @@
         } catch (e) { console.error("Sync petugas gagal."); }
     }
 
-    // UPDATE: loadBelumBayar sekarang mendukung filter periode
     async function loadBelumBayar() {
         const petugas = document.getElementById('filter-petugas').value;
-        const periodeRaw = document.getElementById('filter-periode').value; // Format: YYYY-MM
+        const periodeRaw = document.getElementById('filter-periode').value; 
         const container = document.getElementById('list-container');
         
         let periodeParam = "";
         if (periodeRaw) {
             const [y, m] = periodeRaw.split('-');
-            periodeParam = `${m}-${y}`; // Convert to MM-YYYY for backend
+            periodeParam = `${m}-${y}`; 
         }
 
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
@@ -271,7 +274,6 @@
         }
     }
 
-    // ... Sisa fungsi validasiDanSimpan, transmisiData, executeShareWA, showHistory, liveSearch, updateSummary tetap sama ...
     async function loadAuditProgress() {
         try {
             const res = await fetch('/api/dashboard/pusat-kendali');
@@ -287,6 +289,7 @@
 
     function renderCards(data) {
         const container = document.getElementById('list-container');
+        // FIX: Mengirim alamat dan volume ke openModal
         container.innerHTML = data.map((item) => `
             <div id="card-${item.nomen}" class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp border" data-search="${item.nomen} ${item.nama}">
                 <div class="card-body p-3">
@@ -308,7 +311,7 @@
                         <div class="btn-group">
                             <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')">AUDIT</button>
                             <button class="btn btn-primary rounded-pill px-4 fw-800 shadow-sm btn-sm transition-btn" 
-                                    onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${item.nominal}', '${item.no_seri_meter || '-'}')">LAPOR</button>
+                                    onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${item.nominal}', '${item.no_seri_meter || '-'}', '${item.alamat.replace(/'/g, "\\'")}', '${item.pemakaian_air || 0}')">LAPOR</button>
                         </div>
                     </div>
                 </div>
@@ -332,6 +335,8 @@
     async function transmisiData() {
         const formData = new FormData(document.getElementById('formKunjungan'));
         formData.append('petugas_name', document.getElementById('filter-petugas').value);
+        // Tambahkan volume ke formData
+        formData.append('pemakaian_air', document.getElementById('formKunjungan').dataset.vol);
         const inputNoHp = document.getElementById('modal-no-hp').value;
 
         try {
@@ -353,20 +358,25 @@
     function executeShareWA(wa) {
         const lat = document.getElementById('modal-lat').value;
         const lng = document.getElementById('modal-lng').value;
-        const gmapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+        const gmapsLink = `http://maps.google.com/maps?q=${lat},${lng}`;
+        
+        // TEMPLATE WA: Menambahkan Alamat, Volume, dan Link Preview Foto
         const pesan = 
-            `*🚨 LAPORAN KUNJUNGAN PENAGIHAN*%0A` +
+            `*🚨 LAPORAN KUNJUNGAN PENAGIHAN (BELUM BAYAR)*%0A` +
             `-------------------------------------------%0A` +
             `👤 *Petugas:* ${wa.petugas}%0A` +
             `🏠 *Nama:* ${wa.nama}%0A` +
             `🆔 *IDPEL:* ${wa.nomen}%0A` +
             `📟 *No Meter:* ${wa.nomet || '-'}%0A` +
+            `📍 *Alamat:* ${wa.alamat || '-'}%0A` +
+            `💧 *Volume:* ${wa.pemakaian_air || 0} m³%0A` +
             `📞 *No HP:* ${wa.no_hp_pelanggan || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
             `📝 *Analisis:* ${wa.catatan || '-'}%0A` +
-            `📍 *Lokasi:* ${gmapsLink}%0A%0A` +
+            `📍 *G-Maps:* ${gmapsLink}%0A%0A` +
             `💰 *TOTAL TAGIHAN: Rp ${formatIDR(wa.total)}*%0A%0A` +
+            `*BUKTI KUNJUNGAN:*%0A${wa.link_preview}%0A%0A` +
             `_Dashboard Area Service Integritas_`;
         window.open(`https://api.whatsapp.com/send?text=${pesan}`, '_blank');
     }
