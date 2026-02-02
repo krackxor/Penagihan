@@ -1,15 +1,13 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.16 Auto-Pilot Restored)
+Smart Integration Engine - Sunter Dashboard Pro (V13.07 Ardebt Volume Fix)
 Update: 2026-02-02
-Fitur Pemulihan:
-1. ✅ AUTO-PILOT: Otomatis deteksi Periode dari nama file (misal: "1225" -> "12-2025").
-2. ✅ AUTO-TYPE: Otomatis deteksi Tipe dari nama file (misal: "MC..." -> "MC").
-3. 🛡️ IRON DOME: Tetap aktif menjaga agar data tidak tertukar.
+Fitur Baru:
+1. ✅ FIX VOLUME ARDEBT: Membaca kolom 'VOLUME' atau 'KUBIK' dari file Ardebt.
+2. ✅ FIX TIPE BILL: Membaca kolom 'TIPE_BILL' dari file Ardebt.
 """
 
 import pandas as pd
 import os
-import re
 from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from core.database import get_db_connection
@@ -20,105 +18,145 @@ upload_bp = Blueprint('upload', __name__)
 class UploadEngine:
     @staticmethod
     def cast_to_float(value):
+        """Konversi angka cerdas: Menangani format ribuan (.) dan desimal (,) Indonesia."""
         try:
             if pd.isna(value) or str(value).strip() == '': return 0.0
+            # Hapus karakter non-angka kecuali pemisah desimal
             s_val = str(value).replace('\xa0', '').replace(' ', '').replace("'", "").replace("Rp", "")
-            if ',' in s_val and '.' in s_val: s_val = s_val.replace('.', '').replace(',', '.')
-            elif ',' in s_val: s_val = s_val.replace(',', '.')
+            if ',' in s_val and '.' in s_val:
+                s_val = s_val.replace('.', '').replace(',', '.')
+            elif ',' in s_val:
+                s_val = s_val.replace(',', '.')
             return float(s_val)
-        except: return 0.0
+        except: 
+            return 0.0
 
     @staticmethod
     def get_column(df, possible_names):
+        """Mencari nama kolom secara fleksibel (Case Insensitive & Trim)."""
         cols = {c.upper().strip(): c for c in df.columns}
         for name in possible_names:
             u_name = name.upper().strip()
-            if u_name in cols: return cols[u_name]
+            if u_name in cols:
+                return cols[u_name]
         return None
 
     @staticmethod
     def clean_bulan_rek(value):
+        """Membersihkan format bulan rekening menjadi MMYYYY."""
         if not value or pd.isna(value): return ""
         clean_val = ''.join(filter(str.isdigit, str(value)))
-        if len(clean_val) == 6: return clean_val
-        elif len(clean_val) == 5: return "0" + clean_val
+        if len(clean_val) == 6:
+            return clean_val
+        elif len(clean_val) == 5:
+            return "0" + clean_val
         return clean_val
 
-    def handle_file(self, file_path, data_type, target_period):
-        df = pd.read_excel(file_path) if file_path.endswith(('.xls', '.xlsx')) else pd.read_csv(file_path)
-        file_cols = [str(c).upper().strip() for c in df.columns]
+@upload_bp.route('/upload', methods=['POST'])
+def handle_smart_upload():
+    if session.get('role') != 'admin':
+        return jsonify({"status": "error", "message": "Akses Ditolak"}), 403
 
-        # 🛡️ IRON DOME VALIDATOR (Keamanan Data)
-        if data_type == 'MC':
-            suspicious_mb_cols = ['TGL_BAYAR', 'TANGGAL_BAYAR', 'PAY_DT', 'JML_BAYAR']
-            if any(danger in file_cols for danger in suspicious_mb_cols):
-                raise ValueError("⛔ DIBLOKIR: Sistem mendeteksi 'TGL_BAYAR'. Ini file MB, jangan upload di MC!")
-            if not any(req in file_cols for req in ['NAMA', 'NAMA_PEL', 'ALAMAT', 'ALM1_PEL']):
-                raise ValueError("⛔ DIBLOKIR: File MC wajib punya kolom NAMA atau ALAMAT.")
+    files = request.files.getlist('file')
+    custom_period = request.form.get('periode_input') 
+    
+    if not files:
+        return jsonify({"status": "error", "message": "File tidak dideteksi"}), 400
+    
+    db = get_db_connection()
+    total_processed = 0
+    results = []
 
-        if data_type == 'MB':
-            if not any(req in file_cols for req in ['TGL_BAYAR', 'TANGGAL', 'PAY_DT']):
-                raise ValueError("⛔ DIBLOKIR: File MB wajib punya kolom TGL_BAYAR.")
-
-        # MAPPING KOLOM
-        map_conf = {
-            'MC': {'nomen': ['NOMEN', 'IDPEL'], 'nama': ['NAMA_PEL', 'NAMA'], 'alamat': ['ALM1_PEL', 'ALAMAT'], 'pcez': ['ZONA_NOVAK', 'PCEZ', 'RUTE'], 'rayon': ['RAYON'], 'nominal': ['NOMINAL', 'TAGIHAN'], 'nomet': ['NOMET', 'NO_METER'], 'no_hp': ['NO_HP']},
-            'MB': {'nomen': ['NOMEN', 'IDPEL'], 'tgl_bayar': ['TGL_BAYAR', 'TANGGAL'], 'nominal': ['NOMINAL', 'JML_BAYAR', 'BAYAR'], 'kategori': ['LKS_BAYAR', 'KATEGORI'], 'bulan_rek': ['BULAN_REK', 'BLN_REK']},
-            'COLLECTION': {'nomen': ['NOMEN'], 'pay_dt': ['PAY_DT'], 'nominal': ['TOTAL'], 'kategori': ['COLLECTOR'], 'bulan_rek': ['BLN_REK']},
-            'ARDEBT': {'nomen': ['NOMEN'], 'periode_bill': ['PERIODE_BILL'], 'jumlah': ['JUMLAH'], 'volume': ['VOLUME', 'KUBIK'], 'tipe_bill': ['TIPE_BILL', 'TIPE']},
-            'RUTE': {'pcez': ['PCEZ'], 'petugas': ['PETUGAS']}
-        }
-
-        found_cols = {}
-        for key, candidates in map_conf[data_type].items():
-            col_name = self.get_column(df, candidates)
-            if col_name: found_cols[key] = col_name
+    try:
+        from processors.auto_detect import identify_file_type, detect_file_period, autopilot_extract_zona
         
-        if len(found_cols) < 2: raise ValueError("Format file tidak dikenali.")
+        db.execute("PRAGMA synchronous = OFF")
+        db.execute("PRAGMA journal_mode = WAL")
 
-        bulk_main = []
-        bulk_rute = []
-        
-        for index, row in df.iterrows():
-            nomen = clean_nomen(row.get(found_cols.get('nomen'), ''))
+        for file in files:
+            file_name = file.filename
+            if file_name == '': continue
+
+            # Baca file dengan penanganan error encoding
+            try:
+                if file_name.lower().endswith('.csv'):
+                    df = pd.read_csv(file, dtype=str, engine='c', low_memory=False).fillna('')
+                else:
+                    df = pd.read_excel(file, dtype=str).fillna('')
+            except:
+                results.append(f"{file_name} (Format Error)")
+                continue
             
-            if data_type == 'RUTE':
-                pcez = str(row.get(found_cols.get('pcez'), '')).strip()
-                petugas = str(row.get(found_cols.get('petugas'), '')).strip().upper()
-                if pcez and petugas: bulk_rute.append((pcez, petugas))
+            data_type = identify_file_type(df)
+            if not data_type:
+                results.append(f"{file_name} (Tipe Tidak Dikenali)")
                 continue
 
-            if not nomen: continue
-            nominal = self.cast_to_float(row.get(found_cols.get('nominal') or found_cols.get('jumlah'), 0))
+            # Logika Periode
+            if custom_period:
+                p_parts = custom_period.split('-')
+                target_period = f"{p_parts[1]}-{p_parts[0]}" if len(p_parts) == 2 else custom_period
+            elif data_type in ['ARDEBT', 'RUTE']:
+                target_period = datetime.now().strftime('%m-%Y') if data_type == 'RUTE' else "GLOBAL-HISTORY"
+            else:
+                month_ref, year_ref = detect_file_period(df, data_type)
+                target_period = f"{month_ref}-{year_ref}" if month_ref else datetime.now().strftime('%m-%Y')
 
-            if data_type == 'MC':
-                nama = str(row.get(found_cols.get('nama'), '-')).strip()
-                alamat = str(row.get(found_cols.get('alamat'), '-')).strip()
-                pcez = str(row.get(found_cols.get('pcez'), '-')).strip()
-                rayon = str(row.get(found_cols.get('rayon'), '-')).strip()
-                nomet = str(row.get(found_cols.get('nomet'), '-')).strip()
-                no_hp = str(row.get(found_cols.get('no_hp'), '-')).strip()
-                if nama == '-' and alamat == '-': continue
-                bulk_main.append((nomen, nama, alamat, pcez, rayon, nominal, nomet, target_period, no_hp, 'MC', 0))
+            bulk_main = []
+            bulk_rute = []
             
-            elif data_type in ['MB', 'COLLECTION']:
-                raw_tgl = row.get(found_cols.get('tgl_bayar') or found_cols.get('pay_dt'))
-                try: dt_val = pd.to_datetime(raw_tgl).strftime('%Y-%m-%d')
-                except: dt_val = datetime.now().strftime('%Y-%m-%d')
-                kategori = str(row.get(found_cols.get('kategori'), '-')).strip()
-                bulan_rek = str(row.get(found_cols.get('bulan_rek'), '-')).strip()
-                bulk_main.append((nomen, dt_val, nominal, target_period, kategori, bulan_rek))
+            # Mapping Kolom yang diperluas
+            col_id = UploadEngine.get_column(df, ['NOMEN', 'IDPEL', 'ID_PELANGGAN', 'ZONA_NOREK'])
+            col_nom = UploadEngine.get_column(df, ['NOMINAL', 'JUMLAH', 'TOTAL', 'PIUTANG', 'JML_BAYAR'])
+            col_pay = UploadEngine.get_column(df, ['TGL_BAYAR', 'PAY_DT', 'TGL_LUNAS', 'TGL_CATAT'])
+            col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'PERIODE', 'MASA'])
+            col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'WA', 'WHATSAPP'])
             
-            elif data_type == 'ARDEBT':
-                if nominal > 0:
-                    vol = self.cast_to_float(row.get(found_cols.get('volume'), 0))
-                    tipe = str(row.get(found_cols.get('tipe_bill'), 'WATER')).strip()
-                    periode_bill = str(row.get(found_cols.get('periode_bill'), '-')).strip()
-                    bulk_main.append((nomen, periode_bill, nominal, vol, target_period, tipe))
+            # ✅ TAMBAHAN: Mapping Volume Ardebt
+            col_vol = UploadEngine.get_column(df, ['VOLUME', 'KUBIK', 'M3', 'PEMAKAIAN'])
+            col_tipe_bill = UploadEngine.get_column(df, ['TIPE_BILL', 'TIPE', 'KET'])
 
-        db = get_db_connection()
-        try:
-            db.execute("PRAGMA synchronous = OFF")
+            records = df.to_dict('records')
+            for row in records:
+                if data_type == 'RUTE':
+                    c_pcez = UploadEngine.get_column(df, ['PCEZ', 'RUTE', 'ZONA', 'ZONA_NOVAK'])
+                    c_name = UploadEngine.get_column(df, ['PETUGAS', 'NAMA_PETUGAS', 'NAMA'])
+                    z_rute = autopilot_extract_zona(str(row.get(c_pcez, '')).strip())
+                    if z_rute and row.get(c_name):
+                        bulk_rute.append((z_rute['pcez'], str(row.get(c_name)).strip().upper()))
+                    continue
+
+                # Validasi NOMEN
+                raw_nomen = row.get(col_id)
+                nomen = clean_nomen(raw_nomen) if raw_nomen else None
+                if not nomen: continue
+                
+                nominal = UploadEngine.cast_to_float(row.get(col_nom))
+
+                if data_type == 'MC':
+                    c_zona = UploadEngine.get_column(df, ['PCEZ', 'RUTE', 'ZONA', 'ZONA_NOVAK'])
+                    z = autopilot_extract_zona(row.get(c_zona))
+                    if z:
+                        bulk_main.append((nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), 
+                                         z['pcez'], z['rayon'], nominal, row.get('NOMET', ''), 
+                                         target_period, row.get(col_hp, '-'), 'MC', 0))
+                
+                elif data_type in ['MB', 'COLLECTION']:
+                    b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
+                    cat = "UNDUE" if data_type == 'MB' else "CURRENT"
+                    bulk_main.append((nomen, str(row.get(col_pay, '')), nominal, target_period, cat, b_rek))
+
+                elif data_type == 'ARDEBT':
+                    if nominal > 0:
+                        # ✅ FIX: Ambil VOLUME dan TIPE_BILL
+                        vol = UploadEngine.cast_to_float(row.get(col_vol))
+                        tipe = str(row.get(col_tipe_bill, 'WATER')).strip()
+                        periode_bill = str(row.get('PERIODE_BILL', '-')).strip()
+                        
+                        # Struktur Insert: (nomen, periode_bill, jumlah, volume, periode, tipe_bill)
+                        bulk_main.append((nomen, periode_bill, nominal, vol, target_period, tipe))
+
+            # Eksekusi (Tetap sama)
             if data_type == 'RUTE' and bulk_rute:
                 db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", bulk_rute)
             elif data_type == 'MC' and bulk_main:
@@ -128,74 +166,28 @@ class UploadEngine:
                 dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                 db.executemany(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) VALUES (?,?,?,?,?,?)", bulk_main)
             elif data_type == 'ARDEBT' and bulk_main:
+                # ✅ FIX: Insert ke kolom volume dan tipe_bill
+                # Pastikan Database sudah di-migrasi (Ada kolom volume dan tipe_bill)
                 db.executemany("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume, periode, tipe_bill) VALUES (?,?,?,?,?,?)", bulk_main)
 
             count = len(bulk_main) if data_type != 'RUTE' else len(bulk_rute)
+            total_processed += count
             db.execute("INSERT INTO upload_history (file_name, file_type, periode, row_count, status) VALUES (?,?,?,?,?)",
-                       (os.path.basename(file_path), data_type, target_period, count, 'SUCCESS'))
-            db.commit()
-            return jsonify({
-                "status": "success", 
-                "message": f"Integrasi Berhasil! {count} baris data masuk ({data_type} - {target_period}).", 
-                "details": [f"File: {os.path.basename(file_path)}"]
-            })
-        except Exception as e:
-            db.rollback()
-            return jsonify({"status": "error", "message": f"Database Error: {str(e)}"}), 500
-        finally:
-            db.close()
+                       (file_name, data_type, target_period, count, 'SUCCESS'))
+            results.append(f"{file_name} ({count} rows)")
 
-# ✅ HELPER: Auto-Deteksi Cerdas
-def auto_detect_info(filename, form_type, form_period):
-    """Menebak Tipe & Periode dari Nama File jika user tidak input."""
-    filename_upper = filename.upper()
-    
-    # 1. Deteksi Tipe (Jika kosong)
-    if not form_type:
-        if 'MC' in filename_upper: form_type = 'MC'
-        elif 'MB' in filename_upper or 'BAYAR' in filename_upper: form_type = 'MB'
-        elif 'ARDEBT' in filename_upper or 'SOREK' in filename_upper: form_type = 'ARDEBT'
-        elif 'RUTE' in filename_upper: form_type = 'RUTE'
-        elif 'COLLECTION' in filename_upper: form_type = 'COLLECTION'
-    
-    # 2. Deteksi Periode (Jika kosong)
-    # Mencari pola angka "1225" (MMYY) atau "12-25" atau "12 25"
-    if not form_period:
-        match = re.search(r'(\d{2})[\s-]?(\d{2})', filename)
-        if match:
-            mm, yy = match.groups()
-            # Validasi Bulan (01-12)
-            if 1 <= int(mm) <= 12:
-                # Asumsi Tahun: Jika < 50 berarti 20xx (Misal 25 -> 2025)
-                year = f"20{yy}" if len(yy) == 2 else yy
-                form_period = f"{mm}-{year}"
-    
-    # Fallback: Jika masih kosong, pakai bulan ini
-    if not form_period:
-        form_period = datetime.now().strftime('%m-%Y')
+        db.commit()
+        db.execute("PRAGMA synchronous = NORMAL")
+        log_action(session.get('username', 'Admin'), 'MULTI_UPLOAD_SUCCESS', 'CORE', f"Processed {total_processed} rows.")
         
-    return form_type, form_period
+        return jsonify({
+            "status": "success", 
+            "message": f"Integrasi Berhasil! {total_processed} baris data masuk.",
+            "details": results
+        })
 
-@upload_bp.route('/upload', methods=['POST'])
-def handle_smart_upload():
-    if 'file' not in request.files: return jsonify({"status": "error", "message": "No file uploaded"}), 400
-    file = request.files['file']
-    
-    # Baca input user
-    data_type = request.form.get('type') or request.form.get('dataType')
-    periode = request.form.get('periode') or request.form.get('period')
-    
-    # ✅ JALANKAN AUTO-DETEKSI (Mengisi yang kosong)
-    data_type, periode = auto_detect_info(file.filename, data_type, periode)
-    
-    # Validasi Terakhir
-    if not data_type:
-        return jsonify({"status": "error", "message": "Gagal mendeteksi Tipe File. Mohon pilih manual."}), 400
-
-    filename = f"{data_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
-    save_path = os.path.join(current_app.root_path, 'static', 'uploads', filename)
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    file.save(save_path)
-    
-    try: return UploadEngine().handle_file(save_path, data_type, periode)
-    except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception as e:
+        if db: db.rollback()
+        return jsonify({"status": "error", "message": f"Sistem terhenti: {str(e)}"}), 500
+    finally:
+        db.close()
