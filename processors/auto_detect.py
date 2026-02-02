@@ -1,11 +1,11 @@
 """
-Smart Period & Type Detector - Sunter Dashboard Pro (V12.33 Enhanced Sync)
+Smart Period & Type Detector - Sunter Dashboard Pro (V12.34 Enhanced Sync)
 Update: 2026-02-01
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. Intelligent PCEZ Normalization: Memastikan format '092/01' diprioritaskan 
-   daripada penggabungan kode Rayon (34092).
-2. Multi-Format Detection: Mendukung input dengan separator (/) maupun angka rapat.
+1. Fix MB vs MC Clash: Memisahkan deteksi MB dan MC menggunakan kolom 'STAN_AWAL' 
+   dan 'BULAN_REK' agar data nominal MB tidak masuk ke target MC.
+2. Intelligent PCEZ Normalization: Memastikan format '092/01' diprioritaskan.
 3. Fallback Safety: Menjamin data tidak 'None' meski format tidak standar.
 """
 
@@ -15,19 +15,20 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 def identify_file_type(df):
-    """Mendeteksi tipe file berdasarkan struktur kolom kunci secara cerdas (Fleksibel)."""
+    """Mendeteksi tipe file berdasarkan struktur kolom unik secara akurat."""
     cols = [str(c).upper().strip() for c in df.columns]
     
-    # --- 1. DETEKSI MASTER PELANGGAN (MC) ---
-    mc_triggers = ['ZONA_NOVAK', 'TGL_CATAT', 'NO_HP', 'WA', 'NOMEN', 'IDPEL']
-    mc_matches = [c for c in mc_triggers if c in cols]
-    if len(mc_matches) >= 2: 
-        return 'MC'
-
-    # --- 2. DETEKSI MASTER BAYAR (MB/REKAPAN BANK) ---
-    mb_triggers = ['BULAN_REK', 'TGL_BAYAR', 'TGL_LUNAS', 'JML_BAYAR']
-    if any(c in cols for c in mb_triggers):
+    # --- 1. DETEKSI MASTER BAYAR (MB) ---
+    # File MB ditandai dengan adanya transaksi 'BULAN_REK' 
+    # Ini harus dicek pertama agar tidak disangka MC karena kolom NOMEN.
+    if 'BULAN_REK' in cols or 'TGL_BAYAR' in cols:
         return 'MB'
+
+    # --- 2. DETEKSI MASTER PELANGGAN (MC) ---
+    # File MC memiliki kolom data fisik meteran yang tidak ada di MB.
+    # Kita gunakan STAN_AWAL atau STAN_AKIR sebagai kunci unik MC.
+    if 'STAN_AWAL' in cols or 'STAN_AKIR' in cols or 'KUBIK' in cols:
+        return 'MC'
 
     # --- 3. DETEKSI COLLECTION (LAPANGAN) ---
     coll_triggers = ['BILL_PERIOD', 'PAY_DT', 'TGL_KOLEK']
@@ -129,35 +130,29 @@ def autopilot_extract_zona(val):
     if not s: return None
     
     try:
-        # --- LOGIKA 1: Deteksi format dengan separator (092/01) ---
         if '/' in s:
             parts = [p.strip() for p in s.split('/')]
             if len(parts) >= 2:
-                # Normalisasi: Pastikan 3 digit di depan dan minimal 2 di belakang (092/01)
                 pcez_clean = f"{parts[0].zfill(3)}/{parts[1].zfill(2)}"
                 return {
                     'pcez': pcez_clean,
-                    'rayon': '34', # Default rayon sesuai konteks sistem
+                    'rayon': '34', 
                     'pc': parts[0].zfill(3),
                     'ez': parts[1].zfill(2),
                     'blok': '00'
                 }
 
-        # --- LOGIKA 2: Deteksi format angka rapat (3409201) ---
-        # Menghapus semua karakter non-digit
         digits = ''.join(filter(str.isdigit, s.split('.')[0]))
         
         if len(digits) >= 7:
-            # Format: Rayon(2) + PC(3) + EZ(2) -> 34 092 01
             return {
                 'rayon': digits[0:2],
                 'pc': digits[2:5],
                 'ez': digits[5:7],
-                'pcez': f"{digits[2:5]}/{digits[5:7]}", # Output: 092/01
+                'pcez': f"{digits[2:5]}/{digits[5:7]}", 
                 'blok': digits[7:9] if len(digits) > 7 else '00'
             }
         elif len(digits) == 5:
-            # Format PC + EZ saja -> 092 01
             return {
                 'rayon': '34',
                 'pc': digits[0:3],
@@ -166,11 +161,9 @@ def autopilot_extract_zona(val):
                 'blok': '00'
             }
             
-        # Fallback jika angka terlalu pendek
         return {'rayon': '00', 'pc': '000', 'ez': '00', 'pcez': s, 'blok': '00'}
         
     except:
         return {'rayon': '00', 'pc': '000', 'ez': '00', 'pcez': '000/00', 'blok': '00'}
 
-# Alias untuk kompatibilitas fungsi lama
 parse_zona_novak = autopilot_extract_zona
