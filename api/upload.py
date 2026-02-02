@@ -1,10 +1,10 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.13 Iron Dome Validator)
+Smart Integration Engine - Sunter Dashboard Pro (V13.14 Route Fix)
 Update: 2026-02-02
 Fitur Pertahanan:
 1. 🛡️ IRON DOME: Memblokir total file MB yang mencoba masuk ke jalur MC.
 2. 🔍 DEEP SCAN: Mewajibkan kolom NAMA_PEL/ALAMAT untuk MC.
-3. 🚫 ANTI-LEAK: Jika ditemukan TGL_BAYAR pada upload MC, proses dibatalkan.
+3. ✅ ROUTE FIX: Mengembalikan endpoint ke '/upload' agar sinkron dengan Frontend.
 """
 
 import pandas as pd
@@ -170,7 +170,7 @@ class UploadEngine:
                 db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", bulk_rute)
             
             elif data_type == 'MC' and bulk_main:
-                # REPLACE akan menimpa data lama jika nomen sama, pastikan ini data MC valid
+                # REPLACE akan menimpa data lama jika nomen sama
                 db.executemany("INSERT OR REPLACE INTO master_pelanggan (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, no_hp, tipe, status_lunas) VALUES (?,?,?,?,?,?,?,?,?,?,?)", bulk_main)
             
             elif data_type in ['MB', 'COLLECTION'] and bulk_main:
@@ -198,7 +198,8 @@ class UploadEngine:
         finally:
             db.close()
 
-@upload_bp.route('/smart-sync', methods=['POST'])
+# ✅ FIX ROUTE: KEMBALI KE '/upload' AGAR SESUAI DENGAN FRONTEND
+@upload_bp.route('/upload', methods=['POST'])
 def handle_smart_upload():
     if 'file' not in request.files: return jsonify({"status": "error", "message": "No file"}), 400
     file = request.files['file']
