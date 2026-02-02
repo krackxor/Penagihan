@@ -1,14 +1,11 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V9.4 Intelligence Sync)
-Update: 2026-02-01
+Belum Bayar API - Sunter Dashboard Pro (V9.5 Volume & WA Sync)
+Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ FIX MAPPING: Sinkronisasi kolom p.alamat, p.nomet (no_seri_meter), dan p.kubik (pemakaian_air).
-2. ✅ FEATURE SYNC: Penambahan objek 'wa_data' pada respons lapor untuk auto-share WhatsApp.
-3. ✅ FIX SCHEMA: Penanganan transmisi kolom 'nomet' pada tabel kunjungan_petugas.
-4. Smart Watermarking: Metadata visual dengan identitas Belum Bayar (Warna Kuning).
-5. ✅ WA SHARE LINK: Menyertakan link 'share_link' untuk thumbnail WA.
-6. ✅ FULL SNAPSHOT: Menyimpan Nama & Alamat saat lapor (Data Integrity).
+1. ✅ FIX VOLUME: Menambahkan 'pemakaian_air' pada wa_data agar tidak bernilai 0.
+2. ✅ TEMPLATE WA SYNC: Menyamakan struktur wa_data dengan Ardebt (Alamat & Foto Link).
+3. ✅ SMART WATERMARK: Konsistensi identitas visual Kuning untuk Belum Bayar.
 """
 
 import os, sqlite3, pytz
@@ -36,6 +33,7 @@ def add_watermark(image_path, info):
         
         font_size = int(width * 0.035)
         font = None
+        # Penanganan path font untuk Linux/VPS
         font_paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "arial.ttf"]
         for path in font_paths:
             if os.path.exists(path):
@@ -78,7 +76,6 @@ def get_audit_progress():
     try:
         cursor = conn.cursor()
         
-        # Total Target (Khusus kategori non-ardebt)
         target_query = """
             SELECT COUNT(p.nomen) as total 
             FROM master_pelanggan p
@@ -93,7 +90,6 @@ def get_audit_progress():
             
         total_target = cursor.execute(target_query, params).fetchone()['total'] or 0
         
-        # Realisasi hari ini (WIB)
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
         realisasi_query = """
             SELECT COUNT(DISTINCT k.nomen) as total
@@ -119,16 +115,14 @@ def get_audit_progress():
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT DAFTAR TARGET (FIXED MAPPING)
+# 3. ENDPOINT DAFTAR TARGET
 # =========================================================================
 
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
-    """Daftar kerja dengan sinkronisasi variabel Alamat, Meter, dan Kubikasi."""
     user_role = str(session.get('role', 'guest')).lower()
     user_petugas_id = session.get('petugas_id') 
     petugas_filter = request.args.get('petugas')
-    # Default periode ambil dari WIB
     raw_period = request.args.get('periode') or get_wib_time().strftime('%m-%Y')
     search_query = request.args.get('search', '').strip()
     
@@ -137,7 +131,6 @@ def get_belum_bayar():
         cursor = conn.cursor()
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
         
-        # FIXED QUERY: Menyediakan alias yang sama dengan Ardebt (no_seri_meter, pemakaian_air)
         query = """
             SELECT p.nomen, p.nama, p.alamat, 
                    COALESCE(p.nomet, '-') as no_seri_meter, 
@@ -166,7 +159,6 @@ def get_belum_bayar():
             query += " AND (p.nomen LIKE ? OR p.nama LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
         else:
-            # Filter sudah dikunjungi hari ini (WIB)
             query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND DATE(k.created_at) = ?)"
             params.append(tgl_skrg)
         
@@ -179,12 +171,11 @@ def get_belum_bayar():
         conn.close()
 
 # =========================================================================
-# 4. ENDPOINT LAPOR (SNAPSHOT OPERASIONAL)
+# 4. ENDPOINT LAPOR (DENGAN PERBAIKAN VOLUME & TEMPLATE WA)
 # =========================================================================
 
 @belum_bayar_bp.route('/lapor', methods=['POST'])
 def lapor_kunjungan():
-    """Validasi dan transmisi snapshot dengan data respons Share WA."""
     nomen = request.form.get('idpel')
     nomet = request.form.get('nomet') or "-" 
     petugas_name = request.form.get('petugas_name', 'System')
@@ -195,6 +186,9 @@ def lapor_kunjungan():
     catatan = request.form.get('catatan', '')
     nominal_disp = request.form.get('nominal_display', '0')
     nama_cust = request.form.get('nama_pelanggan', 'Konsumen')
+    
+    # ✅ FIX: Ambil data pemakaian air dari form agar tidak 0
+    vol_air = request.form.get('pemakaian_air', '0')
     
     if not nomen or not hasil:
         return APIResponse.error("Atribut laporan tidak lengkap", code=400)
@@ -225,15 +219,17 @@ def lapor_kunjungan():
     try:
         cursor = conn.cursor()
         
-        # 1. AMBIL SNAPSHOT DATA ASLI (Agar History tidak berubah jika master berubah)
+        # 1. AMBIL SNAPSHOT DATA ASLI
         data_pelanggan = cursor.execute("""
-            SELECT nama, alamat FROM master_pelanggan 
+            SELECT nama, alamat, kubik FROM master_pelanggan 
             WHERE nomen = ? AND status_lunas = 0 
             ORDER BY id DESC LIMIT 1
         """, (nomen,)).fetchone()
         
         real_nama = data_pelanggan['nama'] if data_pelanggan else nama_cust
         real_alamat = data_pelanggan['alamat'] if data_pelanggan else "Alamat tidak tersedia"
+        # Gunakan kubik dari DB jika vol_air dari form bernilai 0
+        final_vol = vol_air if vol_air != '0' else str(data_pelanggan['kubik'] if data_pelanggan else '0')
 
         # 2. SIMPAN KUNJUNGAN
         cursor.execute("""
@@ -246,15 +242,15 @@ def lapor_kunjungan():
               latitude, longitude, periode_sekarang, 
               real_nama, real_alamat, tgl_sql))
         
-        # 3. UPDATE MASTER (Opsional, simpan no HP baru)
+        # 3. UPDATE MASTER
         cursor.execute("UPDATE master_pelanggan SET no_hp = ? WHERE nomen = ?", (no_hp, nomen))
         conn.commit()
         
-        # 4. GENERATE LINK PREVIEW UNTUK WHATSAPP
+        # 4. GENERATE LINK PREVIEW (share_kunjungan.html)
         base_url = request.host_url.rstrip('/') 
         share_link = f"{base_url}/api/history/share/view/{nomen}"
 
-        # Integrasi Data Respons WA Blast Dinamis
+        # ✅ TEMPLATE WA: Persis Ardebt dengan penambahan Alamat & Foto Link
         return jsonify({
             "status": "success",
             "message": "Snapshot penagihan terkunci",
@@ -263,12 +259,13 @@ def lapor_kunjungan():
                 "nama": real_nama,
                 "nomen": nomen,
                 "nomet": nomet,
-                "alamat": real_alamat, # <--- Data Alamat disertakan
+                "alamat": real_alamat,
                 "status": hasil,
                 "catatan": catatan,
                 "total": nominal_disp,
+                "pemakaian_air": final_vol, # Menampilkan Volume Air
                 "foto_path": filename,
-                "link_preview": share_link # <--- Link Preview disertakan
+                "link_preview": share_link 
             }
         })
     except Exception as e:
