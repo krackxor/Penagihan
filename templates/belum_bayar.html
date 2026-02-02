@@ -38,6 +38,11 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4 mx-2 bg-white border">
         <div class="card-body p-3">
             <div class="row g-2">
+                <div class="col-12 mb-2">
+                    <label class="small fw-800 text-muted mb-1 text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-calendar-day me-1"></i>Periode Penagihan</label>
+                    <input type="month" id="filter-periode" class="form-control border-0 bg-light rounded-3 shadow-none fw-800 text-primary" onchange="loadBelumBayar()">
+                </div>
+                
                 <div class="col-8">
                     <label class="small fw-800 text-muted mb-1 text-uppercase" style="font-size: 0.6rem;">Wilayah Kerja</label>
                     <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 shadow-none fw-800 text-dark" onchange="loadBelumBayar()">
@@ -180,6 +185,12 @@
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Set default value input periode ke bulan sekarang
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('filter-periode').value = `${year}-${month}`;
+
         modalKunjungan = new bootstrap.Modal(document.getElementById('modalKunjungan'));
         modalHistory = new bootstrap.Modal(document.getElementById('modalHistory'));
         fetchPetugasList();
@@ -191,7 +202,7 @@
         });
     });
 
-    // FUNGSI UNTUK MEMBUKA MODAL LAPOR (FIX ERROR: openModal is not defined)
+    // ... Fungsi openModal, toggleJanjiInput, fetchPetugasList tetap sama ...
     function openModal(nomen, nama, total, nomet) {
         document.getElementById('modal-idpel').value = nomen;
         document.getElementById('modal-nomet-val').value = nomet;
@@ -206,7 +217,6 @@
         modalKunjungan.show();
     }
 
-    // FUNGSI UNTUK TOGGLE INPUT TANGGAL JANJI (FIX ERROR: toggleJanjiInput is not defined)
     function toggleJanjiInput() {
         const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
         const groupJanji = document.getElementById('group-janji');
@@ -231,13 +241,22 @@
         } catch (e) { console.error("Sync petugas gagal."); }
     }
 
+    // UPDATE: loadBelumBayar sekarang mendukung filter periode
     async function loadBelumBayar() {
         const petugas = document.getElementById('filter-petugas').value;
+        const periodeRaw = document.getElementById('filter-periode').value; // Format: YYYY-MM
         const container = document.getElementById('list-container');
+        
+        let periodeParam = "";
+        if (periodeRaw) {
+            const [y, m] = periodeRaw.split('-');
+            periodeParam = `${m}-${y}`; // Convert to MM-YYYY for backend
+        }
+
         container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
         
         try {
-            const res = await fetch(`/api/belum-bayar?petugas=${encodeURIComponent(petugas)}`);
+            const res = await fetch(`/api/belum-bayar?petugas=${encodeURIComponent(petugas)}&periode=${periodeParam}`);
             const data = await res.json();
             
             if (data.length === 0) {
@@ -252,6 +271,7 @@
         }
     }
 
+    // ... Sisa fungsi validasiDanSimpan, transmisiData, executeShareWA, showHistory, liveSearch, updateSummary tetap sama ...
     async function loadAuditProgress() {
         try {
             const res = await fetch('/api/dashboard/pusat-kendali');
@@ -333,7 +353,7 @@
     function executeShareWA(wa) {
         const lat = document.getElementById('modal-lat').value;
         const lng = document.getElementById('modal-lng').value;
-        const gmapsLink = `http://maps.google.com/maps?q=${lat},${lng}`;
+        const gmapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
         const pesan = 
             `*🚨 LAPORAN KUNJUNGAN PENAGIHAN*%0A` +
             `-------------------------------------------%0A` +
