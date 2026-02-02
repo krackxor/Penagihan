@@ -1,11 +1,13 @@
 """
-Collection API - Sunter Dashboard Pro (V12.49 Strict Date Filter)
+Collection API - Sunter Dashboard Pro (V12.50 Fix Realisasi Gelembung)
 Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ STRICT DATE FILTER: Memvalidasi 'pay_dt' agar benar-benar sesuai dengan 
-   bulan & tahun periode yang dipilih (Mencegah data Januari bocor ke Februari).
-2. Zero-Record Shield: Mengabaikan baris tanggal kosong.
+1. ✅ FIX REALISASI 171%: Menambahkan filter 'bulan_rek' pada query UNDUE.
+   Hanya menghitung pembayaran yang BULAN REKENINGNYA sama dengan PERIODE DASHBOARD.
+   (Pembayaran tunggakan otomatis terabaikan).
+2. Strict Date Filter: Memastikan tanggal harian sesuai bulan periode (Sudah ada).
+3. Zero-Record Shield: Mengabaikan baris tanggal kosong (Sudah ada).
 """
 
 from flask import Blueprint, jsonify, request
@@ -28,16 +30,23 @@ def pusat_kendali():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
+        # ✅ Konversi Periode (misal: 02-2026) menjadi Bulan Rekening (022026)
+        # Ini kunci untuk membedakan pembayaran current vs tunggakan
+        bulan_rek_target = periode_req.replace('-', '') 
+
         # 1. TOTAL TARGET MC (Master Customer)
         cursor.execute("SELECT COALESCE(SUM(nominal), 0) FROM master_pelanggan WHERE periode = ?", (periode_req,))
         target_mc = cursor.fetchone()[0]
 
         # 2. BOX UNDUE (BANK)
+        # ✅ UPDATE: Ditambahkan filter 'AND mb.bulan_rek = ?'
         cursor.execute("""
             SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
-            WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
+            WHERE mb.periode = ? 
+            AND mb.kategori = 'UNDUE'
+            AND mb.bulan_rek = ?  -- Filter ini membuang data tunggakan
             AND mb.nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
-        """, (periode_req, periode_req))
+        """, (periode_req, bulan_rek_target, periode_req))
         undue_val = cursor.fetchone()[0]
 
         # 3. BOX FIELD (PETUGAS) & BOX MANDIRI
@@ -82,7 +91,10 @@ def daily_monitor():
         cursor = conn.cursor()
         periode_req = request.args.get('periode') or get_active_period(cursor)
         
-        # ✅ Parsing target bulan dan tahun dari request (Format: MM-YYYY)
+        # ✅ Konversi Periode untuk Filter Saldo Awal
+        bulan_rek_target = periode_req.replace('-', '') 
+
+        # Parsing target bulan dan tahun dari request (Format: MM-YYYY)
         try:
             p_month, p_year = periode_req.split('-')
         except:
@@ -99,11 +111,14 @@ def daily_monitor():
         targets = dict(cursor.fetchone())
 
         # Saldo Awal Bank (UNDUE)
+        # ✅ UPDATE: Ditambahkan filter 'AND bulan_rek = ?'
         cursor.execute("""
             SELECT COALESCE(SUM(nominal), 0) FROM master_bayar 
-            WHERE periode = ? AND kategori = 'UNDUE'
+            WHERE periode = ? 
+            AND kategori = 'UNDUE'
+            AND bulan_rek = ? -- Filter ini membuang data tunggakan
             AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ?)
-        """, (periode_req, periode_req))
+        """, (periode_req, bulan_rek_target, periode_req))
         undue_start = cursor.fetchone()[0]
 
         # Query Data Harian (Ambil semua di periode ini, nanti difilter di Python)
@@ -128,19 +143,16 @@ def daily_monitor():
             if not r['tgl']: continue # Skip tanggal kosong
             
             # --- ✅ LOGIKA FILTER KETAT (STRICT FILTER) ---
-            # Hanya loloskan data yang string tanggalnya mengandung MM-YYYY atau YYYY-MM
             tgl_str = str(r['tgl'])
             is_valid_date = False
             
-            # Cek format YYYY-MM-DD (Database Standard)
             if tgl_str.startswith(f"{p_year}-{p_month}"):
                 is_valid_date = True
-            # Cek format DD-MM-YYYY (Indonesia Standard)
             elif tgl_str.endswith(f"{p_month}-{p_year}"):
                 is_valid_date = True
             
             if not is_valid_date:
-                continue # ⛔ SKIP data bocor (misal data Januari yg label periodenya Februari)
+                continue # ⛔ SKIP data bocor
             # ----------------------------------------------
             
             cum_34 += r['rp_34']
