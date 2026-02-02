@@ -1,9 +1,10 @@
 """
-Smart Integration Engine - Sunter Dashboard Pro (V13.07 Ardebt Volume Fix)
+Smart Integration Engine - Sunter Dashboard Pro (V13.08 MC Volume & Ardebt Fix)
 Update: 2026-02-02
 Fitur Baru:
-1. ✅ FIX VOLUME ARDEBT: Membaca kolom 'VOLUME' atau 'KUBIK' dari file Ardebt.
-2. ✅ FIX TIPE BILL: Membaca kolom 'TIPE_BILL' dari file Ardebt.
+1. ✅ FIX VOLUME MC: Membaca kolom 'KUBIK' atau 'VOLUME' dari file Master Pelanggan (MC).
+2. ✅ FIX VOLUME ARDEBT: Membaca kolom 'VOLUME' atau 'KUBIK' dari file Ardebt.
+3. ✅ FIX TIPE BILL: Membaca kolom 'TIPE_BILL' dari file Ardebt.
 """
 
 import pandas as pd
@@ -112,8 +113,8 @@ def handle_smart_upload():
             col_brek = UploadEngine.get_column(df, ['BULAN_REK', 'BULAN', 'PERIODE', 'MASA'])
             col_hp = UploadEngine.get_column(df, ['NO_HP', 'PHONE', 'WA', 'WHATSAPP'])
             
-            # ✅ TAMBAHAN: Mapping Volume Ardebt
-            col_vol = UploadEngine.get_column(df, ['VOLUME', 'KUBIK', 'M3', 'PEMAKAIAN'])
+            # ✅ Mapping Volume (Digunakan untuk MC dan Ardebt)
+            col_vol = UploadEngine.get_column(df, ['KUBIK', 'VOLUME', 'M3', 'PEMAKAIAN'])
             col_tipe_bill = UploadEngine.get_column(df, ['TIPE_BILL', 'TIPE', 'KET'])
 
             records = df.to_dict('records')
@@ -136,10 +137,15 @@ def handle_smart_upload():
                 if data_type == 'MC':
                     c_zona = UploadEngine.get_column(df, ['PCEZ', 'RUTE', 'ZONA', 'ZONA_NOVAK'])
                     z = autopilot_extract_zona(row.get(c_zona))
+                    
+                    # ✅ AMBIL VOLUME MC (HEADER: KUBIK)
+                    vol_mc = UploadEngine.cast_to_float(row.get(col_vol))
+                    
                     if z:
+                        # Struktur Insert: (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, no_hp, tipe, status_lunas, kubik)
                         bulk_main.append((nomen, row.get('NAMA_PEL', ''), row.get('ALM1_PEL', ''), 
                                          z['pcez'], z['rayon'], nominal, row.get('NOMET', ''), 
-                                         target_period, row.get(col_hp, '-'), 'MC', 0))
+                                         target_period, row.get(col_hp, '-'), 'MC', 0, vol_mc))
                 
                 elif data_type in ['MB', 'COLLECTION']:
                     b_rek = UploadEngine.clean_bulan_rek(str(row.get(col_brek, '')))
@@ -148,26 +154,30 @@ def handle_smart_upload():
 
                 elif data_type == 'ARDEBT':
                     if nominal > 0:
-                        # ✅ FIX: Ambil VOLUME dan TIPE_BILL
                         vol = UploadEngine.cast_to_float(row.get(col_vol))
                         tipe = str(row.get(col_tipe_bill, 'WATER')).strip()
                         periode_bill = str(row.get('PERIODE_BILL', '-')).strip()
                         
-                        # Struktur Insert: (nomen, periode_bill, jumlah, volume, periode, tipe_bill)
                         bulk_main.append((nomen, periode_bill, nominal, vol, target_period, tipe))
 
-            # Eksekusi (Tetap sama)
+            # Eksekusi Database
             if data_type == 'RUTE' and bulk_rute:
                 db.executemany("INSERT OR REPLACE INTO rute_petugas (pcez, petugas, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", bulk_rute)
+            
             elif data_type == 'MC' and bulk_main:
-                db.executemany("INSERT OR REPLACE INTO master_pelanggan (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, no_hp, tipe, status_lunas) VALUES (?,?,?,?,?,?,?,?,?,?,?)", bulk_main)
+                # ✅ UPDATE: Menambahkan kolom 'kubik' pada insert master_pelanggan
+                db.executemany("""
+                    INSERT OR REPLACE INTO master_pelanggan 
+                    (nomen, nama, alamat, pcez, rayon, nominal, nomet, periode, no_hp, tipe, status_lunas, kubik) 
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                """, bulk_main)
+            
             elif data_type in ['MB', 'COLLECTION'] and bulk_main:
                 tbl = "master_bayar" if data_type == 'MB' else "collection_harian"
                 dt_col = "tgl_bayar" if data_type == 'MB' else "pay_dt"
                 db.executemany(f"INSERT OR REPLACE INTO {tbl} (nomen, {dt_col}, nominal, periode, kategori, bulan_rek) VALUES (?,?,?,?,?,?)", bulk_main)
+            
             elif data_type == 'ARDEBT' and bulk_main:
-                # ✅ FIX: Insert ke kolom volume dan tipe_bill
-                # Pastikan Database sudah di-migrasi (Ada kolom volume dan tipe_bill)
                 db.executemany("INSERT OR REPLACE INTO ardebt (nomen, periode_bill, jumlah, volume, periode, tipe_bill) VALUES (?,?,?,?,?,?)", bulk_main)
 
             count = len(bulk_main) if data_type != 'RUTE' else len(bulk_rute)
