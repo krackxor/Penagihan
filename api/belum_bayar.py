@@ -1,11 +1,12 @@
 """
-Belum Bayar API - Sunter Dashboard Pro (V9.6 Daily Quota & Smart Sort)
+Belum Bayar API - Sunter Dashboard Pro (V9.8 Fixed Progress Target 20)
 Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan Strategis:
-1. ✅ DAILY LIMIT: Membatasi tugas hanya 20 per hari per petugas (Sinkron Ardebt).
-2. ✅ SMART SORT: Mengurutkan berdasarkan Zona (PCEZ) lalu Nominal Terbesar.
-3. ✅ DYNAMIC FETCH: Data yang sudah dikerjakan hari ini otomatis hilang.
+1. ✅ FIXED PROGRESS: Target progres dikunci 20/hari (Sinkron dengan Ardebt).
+   (Contoh: 2 kunjungan = 10%, bukan 0.01%).
+2. ✅ MIN NOMINAL: Tetap mempertahankan filter > 150rb.
+3. ✅ DAILY QUOTA: Tetap mempertahankan limit list 20.
 """
 
 import os, sqlite3, pytz
@@ -59,12 +60,12 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Smart Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. ENDPOINT PROGRES AUDIT (FIXED TARGET 20)
+# 2. ENDPOINT PROGRES AUDIT (UPDATED: TARGET 20)
 # =========================================================================
 @belum_bayar_bp.route('/progress', methods=['GET'])
 def get_audit_progress():
+    """Menghitung progres dengan target tetap 20 per hari."""
     user_petugas_id = session.get('petugas_id')
-    raw_period = get_wib_time().strftime('%m-%Y')
     
     conn = get_db_connection()
     try:
@@ -72,6 +73,7 @@ def get_audit_progress():
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
 
         # 1. Hitung Realisasi Hari Ini (Khusus Belum Bayar/Reguler)
+        # Menghitung berapa banyak Nomen unik yang dikerjakan hari ini
         realisasi_query = """
             SELECT COUNT(DISTINCT k.nomen) as total
             FROM kunjungan_petugas k
@@ -86,9 +88,11 @@ def get_audit_progress():
             
         total_realisasi = cursor.execute(realisasi_query, params_real).fetchone()['total'] or 0
         
-        # 2. Target Harian Fix 20 (Sesuai Permintaan)
+        # 2. TARGET HARIAN DIKUNCI 20
+        # (Agar bar progres merepresentasikan beban kerja harian, bukan total tunggakan sebulan)
         total_target = 20
         
+        # Hitung Persentase (Maksimal 100%)
         percentage = round((total_realisasi / total_target * 100), 1)
         
         return jsonify({
@@ -100,7 +104,7 @@ def get_audit_progress():
         conn.close()
 
 # =========================================================================
-# 3. ENDPOINT DAFTAR TARGET (UPDATED: QUOTA 20 & SMART SORT)
+# 3. ENDPOINT DAFTAR TARGET (TIDAK BERUBAH: LIMIT 20 & >150K)
 # =========================================================================
 @belum_bayar_bp.route('', methods=['GET'])
 def get_belum_bayar():
@@ -116,7 +120,7 @@ def get_belum_bayar():
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
         
         # --- LOGIKA KUOTA 20 PER HARI ---
-        limit_kuota = 50 # Default limit
+        limit_kuota = 50 
         target_petugas = None
 
         if user_role == 'petugas':
@@ -125,7 +129,6 @@ def get_belum_bayar():
             target_petugas = petugas_filter
             
         if target_petugas:
-            # Hitung yang sudah dikerjakan hari ini (Non-Ardebt)
             cursor.execute("""
                 SELECT COUNT(DISTINCT k.nomen) 
                 FROM kunjungan_petugas k 
@@ -133,11 +136,9 @@ def get_belum_bayar():
                 AND k.nomen NOT IN (SELECT nomen FROM ardebt)
             """, (target_petugas, tgl_skrg))
             sudah_dikerjakan = cursor.fetchone()[0]
-            
-            # Hitung sisa jatah
             limit_kuota = max(0, 20 - sudah_dikerjakan)
         
-        # Jika kuota habis dan tidak sedang cari, return kosong
+        # Jika kuota habis (0) dan tidak sedang search, return kosong
         if limit_kuota == 0 and not search_query:
             return jsonify([])
 
@@ -153,6 +154,10 @@ def get_belum_bayar():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             WHERE p.periode = ?
             AND p.status_lunas = 0
+            
+            -- ✅ FILTER NOMINAL DI ATAS 150.000
+            AND p.nominal >= 150000
+            
             AND p.nomen NOT IN (SELECT nomen FROM ardebt)
             AND NOT EXISTS (SELECT 1 FROM master_bayar mb WHERE mb.nomen = p.nomen AND mb.periode = p.periode)
             AND NOT EXISTS (SELECT 1 FROM collection_harian ch WHERE ch.nomen = p.nomen AND ch.periode = p.periode)
@@ -168,13 +173,10 @@ def get_belum_bayar():
             params.extend([f"%{search_query}%", f"%{search_query}%"])
             limit_kuota = 50 # Longgarkan saat searching
         else:
-            # Filter: Yang sudah dikunjungi hari ini HILANG
             query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND DATE(k.created_at) = ?)"
             params.append(tgl_skrg)
         
         # --- SMART SORTING: ZONA DULU, BARU NOMINAL ---
-        # 1. p.pcez ASC   : Mengelompokkan rute agar lokasi berdekatan (hemat waktu)
-        # 2. p.nominal DESC : Prioritas tagihan terbesar di rute tersebut
         query += f" ORDER BY p.pcez ASC, p.nominal DESC LIMIT {limit_kuota}"
         
         cursor.execute(query, params)
