@@ -211,3 +211,69 @@ pkill gunicorn; gunicorn --bind 127.0.0.1:5000 --reload "app:create_app()"
 Karena kamu menggunakan flag `--reload`, sebenarnya kamu **tidak perlu** mematikan dan menjalankan ulang secara manual setiap kali mengedit kode. Gunicorn akan otomatis mendeteksi perubahan file dan me-restart dirinya sendiri. Kamu hanya perlu melakukan *kill & run* jika kamu mengubah konfigurasi server atau ada error yang membuat prosesnya "hang".
 
 Apakah ada error tertentu yang muncul sehingga kamu harus melakukan restart manual?
+
+Masalah utama Anda adalah **Timeout** dan **Limitasi Nginx**. Saat Anda menjalankan Gunicorn dengan command tersebut, Gunicorn menggunakan *default timeout* hanya **30 detik**.
+
+File **MB 1225** yang Anda kirimkan berukuran **16MB** dengan puluhan ribu baris data. Proses membaca (Pandas), validasi, dan injeksi ke SQLite membutuhkan waktu lebih dari 30 detik, sehingga Gunicorn memutus koneksi dan Nginx menganggapnya sebagai error (kemudian muncul 413 atau 504).
+
+Berikut adalah perbaikan command Gunicorn dan konfigurasi Nginx Anda:
+
+### 1. Perbaikan Command Gunicorn
+
+Tambahkan parameter `--timeout` dan `--limit-request-line` agar Gunicorn sanggup menunggu proses data history yang berat.
+
+Gunakan command ini:
+
+```bash
+gunicorn --bind 127.0.0.1:5000 --timeout 600 --limit-request-line 0 --workers 3 "app:create_app()"
+
+```
+
+* **`--timeout 600`**: Memberikan waktu 10 menit bagi server untuk memproses file 16MB tersebut.
+* **`--workers 3`**: Memberikan tenaga tambahan (paralelisme) agar server tetap responsif.
+* **Hapus `--reload**`: Jangan gunakan `--reload` di server produksi (domain) karena akan memperlambat performa.
+
+### 2. Sinkronisasi Nginx (Wajib)
+
+Karena Anda menggunakan Domain, Nginx adalah "pintu" pertama. Edit kembali `/etc/nginx/nginx.conf` di bagian `http { ... }` atau di file konfigurasi site Anda:
+
+```nginx
+server {
+    listen 80;
+    server_name domainanda.com;
+
+    client_max_body_size 64M; # Wajib agar file 16MB tidak ditolak
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # Timeout Nginx harus searah dengan Timeout Gunicorn
+        proxy_read_timeout 600;
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+    }
+}
+
+```
+
+### 3. Langkah Terakhir: Restart & Tes
+
+1. **Simpan** konfigurasi Nginx, lalu jalankan:
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+
+```
+
+
+2. **Jalankan Gunicorn** dengan command baru di atas.
+3. **Coba Upload Kembali** file `MB_1225.csv`.
+
+**Kenapa sebelumnya gagal?**
+
+1. **Nginx (413)**: File 16MB ditolak satpam Nginx karena limit defaultnya hanya 1MB.
+2. **Gunicorn (Timeout)**: Jika Nginx sudah dibuka, Gunicorn akan mati di detik ke-30 karena proses *insert* ke database belum selesai.
+
+Dengan menaikkan `timeout` ke 600 detik dan `client_max_body_size` ke 64M, file history Anda akan masuk dengan aman. Apakah proses upload sudah berjalan lebih lama sekarang sebelum muncul hasil?
