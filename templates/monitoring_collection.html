@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
     
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -14,9 +16,16 @@
             <input type="month" id="filter-periode" 
                    class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-800 text-primary" 
                    style="width: 160px;" onchange="loadMonitor()">
+            
             <button class="btn btn-sm btn-white shadow-sm rounded-circle p-2 border" onclick="loadMonitor()">
                 <i class="fa-solid fa-arrows-rotate text-primary" id="sync-icon"></i>
             </button>
+
+            {% if session.get('role') == 'admin' %}
+            <button class="btn btn-sm btn-success shadow-sm rounded-pill px-3 fw-800 transition-btn" onclick="downloadExcel()">
+                <i class="fa-solid fa-file-excel me-2"></i>EXCEL
+            </button>
+            {% endif %}
         </div>
     </div>
 
@@ -99,6 +108,7 @@
 
 <script>
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+    let currentData = []; // ✅ Variabel Global untuk menyimpan data bersih
 
     function getHeatmapColor(pct) {
         if (pct >= 90) return 'rgba(34, 197, 94, 0.15)'; 
@@ -126,15 +136,49 @@
             const dailyData = await resDaily.json();
             
             if (sumData.status === 'success' && dailyData.status === 'success') {
+                currentData = dailyData.data; // ✅ Simpan data ke global state
                 updateUI(sumData.summary);
                 renderTable(dailyData.data, periode);
             } else {
+                currentData = [];
                 document.getElementById('table-body').innerHTML = '<tr><td colspan="10" class="py-5 text-muted">Data tidak tersedia untuk periode ini</td></tr>';
             }
         } catch (e) { 
+            currentData = [];
             document.getElementById('table-body').innerHTML = '<tr><td colspan="10" class="py-5 text-danger">Gagal memuat data pangkalan data.</td></tr>';
         }
         finally { setTimeout(() => icon.classList.remove('fa-spin'), 800); }
+    }
+
+    // ✅ FUNGSI EXPORT EXCEL BARU
+    function downloadExcel() {
+        if (!currentData || currentData.length === 0) {
+            Swal.fire({ icon: 'info', title: 'Data Kosong', text: 'Tidak ada data untuk diekspor.' });
+            return;
+        }
+
+        // 1. Format Ulang Data untuk Excel (Tanpa Rp/Simbol)
+        const exportData = currentData.map(row => ({
+            "TANGGAL": row.tgl,
+            "R34 HARIAN": row.r34.rp,
+            "R34 KUMULATIF": row.r34.cum,
+            "R34 (%)": row.r34.pct + "%",
+            "R35 HARIAN": row.r35.rp,
+            "R35 KUMULATIF": row.r35.cum,
+            "R35 (%)": row.r35.pct + "%",
+            "TOTAL HARIAN": row.total.rp_harian,
+            "TOTAL KUMULATIF": row.total.cum_all,
+            "TOTAL (%)": row.total.pct + "%"
+        }));
+
+        // 2. Buat Worksheet & Workbook
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Laporan Harian");
+
+        // 3. Nama File Dinamis
+        const periode = document.getElementById('filter-periode').value;
+        XLSX.writeFile(wb, `Realisasi_Penagihan_${periode}.xlsx`);
     }
 
     function updateUI(s) {
@@ -153,7 +197,6 @@
         }
 
         body.innerHTML = data.map(row => {
-            // Logika Tanggal
             let rawDate = row.tgl.split(' ')[0]; 
             let parts = rawDate.split('-');
             let fullDate = rawDate; 
@@ -169,34 +212,27 @@
             const color34 = getHeatmapColor(row.r34.pct);
             const color35 = getHeatmapColor(row.r35.pct);
 
-            // ✅ FIX: Ganti .toLocaleString() dengan toIDR()
             return `
             <tr class="transition-row">
                 <td class="bg-light fw-800 text-dark border-bottom" style="font-size: 0.75rem;">${fullDate}</td>
-                
                 <td class="text-end border-start fw-semibold" style="background: ${color34}">
                     <button class="btn btn-link btn-sm p-0 fw-800 text-dark text-decoration-none shadow-none" 
                             onclick="showDetail('${row.tgl}', '34', '${periode}')">
-                        ${toIDR(row.r34.rp || 0)} </button>
+                        ${toIDR(row.r34.rp || 0)}
+                    </button>
                 </td>
-                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color34}">
-                    ${toIDR(row.r34.cum || 0)} </td>
+                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color34}">${toIDR(row.r34.cum || 0)}</td>
                 <td class="small fw-800 border-end" style="background: ${color34}">${(row.r34.pct || 0).toFixed(1)}%</td>
-                
                 <td class="text-end border-start fw-semibold" style="background: ${color35}">
                     <button class="btn btn-link btn-sm p-0 fw-800 text-dark text-decoration-none shadow-none" 
                             onclick="showDetail('${row.tgl}', '35', '${periode}')">
-                        ${toIDR(row.r35.rp || 0)} </button>
+                        ${toIDR(row.r35.rp || 0)}
+                    </button>
                 </td>
-                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color35}">
-                    ${toIDR(row.r35.cum || 0)} </td>
+                <td class="text-end bg-light text-muted" style="font-size: 0.55rem; background: ${color35}">${toIDR(row.r35.cum || 0)}</td>
                 <td class="small fw-800 border-end" style="background: ${color35}">${(row.r35.pct || 0).toFixed(1)}%</td>
-                
-                <td class="text-end bg-light border-start fw-semibold">
-                    ${toIDR(row.total.rp_harian || 0)} </td>
-                <td class="text-end bg-light text-primary fw-bold" style="font-size: 0.65rem;">
-                    ${toIDR(row.total.cum_all)}
-                </td>
+                <td class="text-end bg-light border-start fw-semibold">${toIDR(row.total.rp_harian || 0)}</td>
+                <td class="text-end bg-light text-primary fw-bold" style="font-size: 0.65rem;">${toIDR(row.total.cum_all)}</td>
                 <td class="fw-800 text-white shadow-sm" style="background: #2563eb">${(row.total.pct || 0).toFixed(1)}%</td>
             </tr>`;
         }).join('');
@@ -247,5 +283,7 @@
     .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     .btn-link:hover { color: #2563eb !important; text-decoration: underline !important; }
+    .transition-btn { transition: transform 0.2s ease; }
+    .transition-btn:active { transform: scale(0.95); }
 </style>
 {% endblock %}
