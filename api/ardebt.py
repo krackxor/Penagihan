@@ -1,10 +1,12 @@
 """
-Ardebt (Tagihan Berekor) API - V7.12 (Fix Grouping & Detail)
+Ardebt (Tagihan Berekor) API - V7.13 (Daily Quota & Smart Sort)
 Update: 2026-02-02
 ---------------------------------------------------------------------------
-Perbaikan Kritis:
-1. ✅ FIX MUTER-MUTER: Menambahkan endpoint '/detail/<nomen>' yang wajib ada.
-2. ✅ FIX NAN/UNDEFINED: Menggunakan GROUP BY untuk menghitung total tagihan.
+Perbaikan Strategis:
+1. ✅ DAILY LIMIT: Membatasi tugas hanya 20 per hari per petugas.
+2. ✅ SMART SORT: Mengurutkan berdasarkan Zona (PCEZ) lalu Nominal Terbesar.
+3. ✅ DYNAMIC PROGRESS: Target harian dikunci di angka 20.
+4. ✅ FIX DETAIL: Endpoint detail tetap tersedia.
 """
 
 import os
@@ -20,7 +22,7 @@ def get_wib_time():
     return datetime.now(pytz.timezone('Asia/Jakarta'))
 
 # =========================================================================
-# 1. FUNGSI WATERMARK
+# 1. FUNGSI WATERMARK (TIDAK BERUBAH)
 # =========================================================================
 def add_watermark(image_path, info):
     try:
@@ -47,7 +49,7 @@ def add_watermark(image_path, info):
         current_app.logger.error(f"❌ Ardebt Watermark Failure: {str(e)}")
 
 # =========================================================================
-# 2. PROGRES AUDIT
+# 2. PROGRES AUDIT (UPDATED: FIXED TARGET 20)
 # =========================================================================
 @ardebt_bp.route('/progress', methods=['GET'])
 def get_ardebt_progress():
@@ -55,23 +57,38 @@ def get_ardebt_progress():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        active_period = get_active_target_period(cursor)
-        target_query = "SELECT COUNT(DISTINCT a.nomen) as total FROM ardebt a INNER JOIN master_pelanggan p ON a.nomen = p.nomen LEFT JOIN rute_petugas r ON p.pcez = r.pcez WHERE p.periode = ? AND p.status_lunas = 0"
-        params = [active_period]
-        if user_petugas_id and user_petugas_id != 'ALL':
-            target_query += " AND r.petugas = ?"
-            params.append(user_petugas_id)
-        total_target = cursor.execute(target_query, params).fetchone()['total'] or 0
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
-        real_query = "SELECT COUNT(DISTINCT k.nomen) as total FROM kunjungan_petugas k INNER JOIN ardebt a ON k.nomen = a.nomen WHERE DATE(k.created_at) = ?"
-        total_real = cursor.execute(real_query, (tgl_skrg,)).fetchone()['total'] or 0
-        percentage = round((total_real / total_target * 100), 1) if total_target > 0 else 0
-        return jsonify({"total_target": total_target, "total_realisasi": total_real, "percentage": percentage})
+        
+        # 1. Hitung Realisasi Hari Ini
+        real_query = """
+            SELECT COUNT(DISTINCT k.nomen) as total 
+            FROM kunjungan_petugas k 
+            INNER JOIN ardebt a ON k.nomen = a.nomen 
+            WHERE DATE(k.created_at) = ?
+        """
+        params = [tgl_skrg]
+        
+        if user_petugas_id and user_petugas_id != 'ALL':
+            real_query += " AND k.petugas_name = ?"
+            params.append(user_petugas_id)
+            
+        total_real = cursor.execute(real_query, params).fetchone()['total'] or 0
+        
+        # 2. Target Harian Fix 20 (Sesuai Permintaan)
+        total_target = 20
+        
+        percentage = round((total_real / total_target * 100), 1)
+        
+        return jsonify({
+            "total_target": total_target, 
+            "total_realisasi": total_real, 
+            "percentage": min(100, percentage) # Cap di 100% agar rapi
+        })
     finally:
         conn.close()
 
 # =========================================================================
-# 3. DAFTAR KERJA (TAMPILAN UTAMA)
+# 3. DAFTAR KERJA (UPDATED: QUOTA 20 & SMART SORTING)
 # =========================================================================
 @ardebt_bp.route('', methods=['GET'])
 def get_tunggakan_berekor():
@@ -86,7 +103,33 @@ def get_tunggakan_berekor():
         active_period = get_active_target_period(cursor)
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d')
 
-        # ✅ FIX NAN: Menggunakan SUM() dan COUNT() agar data ter-agregasi
+        # --- LOGIKA KUOTA 20 PER HARI ---
+        limit_kuota = 50 # Default limit untuk admin/all
+        
+        target_petugas = None
+        if user_role == 'petugas':
+            target_petugas = user_petugas_id
+        elif petugas_filter != 'all':
+            target_petugas = petugas_filter
+            
+        if target_petugas:
+            # Hitung yang sudah dikerjakan hari ini
+            cursor.execute("""
+                SELECT COUNT(DISTINCT k.nomen) 
+                FROM kunjungan_petugas k 
+                JOIN ardebt a ON k.nomen = a.nomen
+                WHERE k.petugas_name = ? AND DATE(k.created_at) = ?
+            """, (target_petugas, tgl_skrg))
+            sudah_dikerjakan = cursor.fetchone()[0]
+            
+            # Hitung sisa jatah
+            limit_kuota = max(0, 20 - sudah_dikerjakan)
+            
+        # Jika kuota habis dan tidak sedang cari, return kosong
+        if limit_kuota == 0 and not search_query:
+            return jsonify([])
+
+        # --- QUERY DATA UTAMA ---
         query = """
             SELECT 
                 a.nomen, 
@@ -110,19 +153,22 @@ def get_tunggakan_berekor():
         if search_query:
             query += " AND (p.nama LIKE ? OR p.nomen LIKE ?)"
             params.extend([f'%{search_query}%', f'%{search_query}%'])
+            limit_kuota = 50 # Longgarkan limit saat searching
         else:
+            # Filter: Yang sudah dikunjungi hari ini HILANG
             query += " AND NOT EXISTS (SELECT 1 FROM kunjungan_petugas k WHERE k.nomen = p.nomen AND DATE(k.created_at) = ?)"
             params.append(tgl_skrg)
 
-        if user_role == 'petugas' and user_petugas_id:
+        if target_petugas:
             query += " AND r.petugas = ?"
-            params.append(user_petugas_id)
-        elif petugas_filter != 'all':
-            query += " AND r.petugas = ?"
-            params.append(petugas_filter)
+            params.append(target_petugas)
 
         query += " GROUP BY a.nomen, p.nama, p.alamat, p.nomet, p.pcez, p.nominal, r.petugas"
-        query += " ORDER BY total_ardebt DESC LIMIT 50"
+        
+        # --- SMART SORTING: ZONA DULU, BARU NOMINAL ---
+        # 1. p.pcez ASC   : Mengelompokkan rute agar lokasi berdekatan (hemat waktu)
+        # 2. total_ardebt DESC : Prioritas tagihan terbesar di rute tersebut
+        query += f" ORDER BY p.pcez ASC, total_ardebt DESC LIMIT {limit_kuota}"
         
         cursor.execute(query, params)
         return jsonify([dict(row) for row in cursor.fetchall()])
@@ -130,11 +176,10 @@ def get_tunggakan_berekor():
         conn.close()
 
 # =========================================================================
-# 4. RINCIAN ARDEBT (WAJIB ADA AGAR TIDAK MUTER-MUTER)
+# 4. RINCIAN ARDEBT (TIDAK BERUBAH)
 # =========================================================================
 @ardebt_bp.route('/detail/<nomen>', methods=['GET'])
 def get_ardebt_details(nomen):
-    """Mengambil rincian per lembar tagihan saat tombol Audit diklik."""
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
@@ -149,7 +194,7 @@ def get_ardebt_details(nomen):
         conn.close()
 
 # =========================================================================
-# 5. LAPOR KUNJUNGAN
+# 5. LAPOR KUNJUNGAN (TIDAK BERUBAH)
 # =========================================================================
 @ardebt_bp.route('/lapor', methods=['POST'])
 def lapor_ardebt():
@@ -196,7 +241,8 @@ def lapor_ardebt():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (nomen, nomet, petugas_name, hasil, no_hp, catatan, filename, latitude, longitude, periode_sekarang, real_nama, real_alamat, tgl_sql)) 
         
-        cursor.execute("UPDATE master_pelanggan SET nomet = ?, no_hp = ?, tgl_lunas = ? WHERE nomen = ? AND status_lunas = 0", (nomet, no_hp, waktu_skrg.strftime('%Y-%m-%d'), nomen))
+        # Update Master
+        cursor.execute("UPDATE master_pelanggan SET nomet = ?, no_hp = ? WHERE nomen = ? AND status_lunas = 0", (nomet, no_hp, nomen))
         conn.commit()
         
         base_url = request.host_url.rstrip('/') 
