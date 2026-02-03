@@ -1,10 +1,10 @@
 """
-Analisa Top 500 API - Sunter Dashboard Pro (V2.1 Strict Separation)
-Update: 2026-02-02
+Analisa Top 500 API - Sunter Dashboard Pro (V2.2 Period Filter)
+Update: 2026-02-03
 ---------------------------------------------------------------------------
 Pembaruan:
-1. ✅ STRICT SPLIT: API mengembalikan object terpisah 'data_34' dan 'data_35'.
-2. ✅ PERFORMANCE: Menggunakan LEFT JOIN IS NULL agar query cepat.
+1. ✅ PERIOD FILTER: Bisa memilih periode spesifik dari parameter request.
+2. ✅ STRICT SPLIT: Tetap memisahkan data Rayon 34 & 35.
 """
 
 from flask import Blueprint, jsonify, request, session
@@ -18,6 +18,7 @@ def get_wib_time():
     return datetime.now(pytz.timezone('Asia/Jakarta'))
 
 def get_active_period(cursor):
+    """Ambil periode terakhir dari database jika user tidak memilih."""
     cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     return row['periode'] if row else get_wib_time().strftime('%m-%Y')
@@ -30,7 +31,19 @@ def get_top_500():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        periode = get_active_period(cursor)
+        
+        # 1. LOGIKA PILIH PERIODE
+        req_periode = request.args.get('periode') # Format dari HTML: YYYY-MM (misal 2026-02)
+        
+        if req_periode:
+            try:
+                # Konversi YYYY-MM (HTML) -> MM-YYYY (Database)
+                parts = req_periode.split('-')
+                periode = f"{parts[1]}-{parts[0]}"
+            except:
+                periode = get_active_period(cursor)
+        else:
+            periode = get_active_period(cursor)
         
         # Query Template (Optimized)
         base_query = """
@@ -44,7 +57,7 @@ def get_top_500():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             LEFT JOIN analisa_tagihan a ON p.nomen = a.nomen AND p.periode = a.periode
             
-            -- EXCLUSION JOINS (Data yang sudah bayar/ardebt hilang otomatis)
+            -- EXCLUSION JOINS
             LEFT JOIN ardebt ad ON p.nomen = ad.nomen
             LEFT JOIN collection_harian ch ON p.nomen = ch.nomen AND ch.periode = p.periode
             LEFT JOIN master_bayar mb ON p.nomen = mb.nomen AND mb.periode = p.periode
@@ -62,26 +75,26 @@ def get_top_500():
             LIMIT 500
         """
         
-        # 1. Ambil Top 500 Rayon 34
+        # Ambil Top 500 Rayon 34
         cursor.execute(base_query, (periode, '34'))
         data_34 = [dict(row) for row in cursor.fetchall()]
         
-        # 2. Ambil Top 500 Rayon 35
+        # Ambil Top 500 Rayon 35
         cursor.execute(base_query, (periode, '35'))
         data_35 = [dict(row) for row in cursor.fetchall()]
         
-        # ✅ RETURN TERPISAH (BUKAN DIGABUNG)
         return jsonify({
             "status": "success", 
-            "periode": periode,
-            "data_34": data_34, # Data murni Rayon 34
-            "data_35": data_35  # Data murni Rayon 35
+            "periode": periode, # Kembalikan periode yang dipakai agar UI tahu
+            "data_34": data_34,
+            "data_35": data_35
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
 
+# ... (Fungsi update_analisa TETAP SAMA seperti sebelumnya, jangan dihapus) ...
 @analisa_top500_bp.route('/update', methods=['POST'])
 def update_analisa():
     if session.get('role') != 'admin':
@@ -94,7 +107,10 @@ def update_analisa():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        periode = get_active_period(cursor)
+        # Disini kita ambil periode dari request juga atau pakai active period
+        # Idealnya analisa disimpan sesuai periode nomen tsb.
+        # Untuk simplifikasi, kita ambil periode aktif saat ini untuk penyimpanan.
+        periode = get_active_period(cursor) 
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS analisa_tagihan (
