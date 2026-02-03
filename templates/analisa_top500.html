@@ -120,18 +120,32 @@
 </div>
 
 <script>
+    // ✅ FIX ERROR: Definisi variabel modal secara global (tapi jangan diisi dulu)
+    let modalInstance; 
     let allData34 = [];
     let allData35 = [];
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
+    // ✅ FIX ERROR: Inisialisasi Modal dipindah ke dalam 'DOMContentLoaded'
+    // Ini menjamin script dijalankan SETELAH library Bootstrap di footer selesai dimuat.
     document.addEventListener('DOMContentLoaded', () => {
-        // Set default date ke bulan sekarang jika kosong
+        // Inisialisasi Modal Bootstrap
+        const modalEl = document.getElementById('modalAnalisa');
+        if (modalEl) {
+            // Kita gunakan window.bootstrap untuk memastikan akses ke library global
+            if (typeof bootstrap !== 'undefined') {
+                modalInstance = new bootstrap.Modal(modalEl);
+            } else {
+                console.error("Bootstrap belum dimuat, modal mungkin tidak berfungsi.");
+            }
+        }
+
+        // Set Default Date (Opsional, agar terlihat bagus di UI)
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
-        // Jangan set value jika ingin default API bekerja, tapi user experience lebih baik jika di set
         // document.getElementById('filter-periode').value = `${year}-${month}`;
-        
+
         loadTop500();
     });
 
@@ -141,7 +155,6 @@
         icon.classList.add('fa-spin');
         
         try {
-            // Tambahkan parameter periode jika user memilih
             let url = '/api/analisa/top500';
             if (picker) {
                 url += `?periode=${picker}`;
@@ -154,7 +167,6 @@
                 allData34 = result.data_34; 
                 allData35 = result.data_35;
 
-                // Update Label Periode
                 document.getElementById('label-periode').innerText = result.periode;
                 document.getElementById('count-34').innerText = allData34.length;
                 document.getElementById('count-35').innerText = allData35.length;
@@ -238,20 +250,28 @@
     }
 
     // Modal Logic
-    const modal = new bootstrap.Modal(document.getElementById('modalAnalisa'));
     function openModal(nomen, nama, nominal, ket) {
         document.getElementById('modal-nomen').value = nomen;
         document.getElementById('modal-nama').innerText = nama;
         document.getElementById('modal-sub').innerText = `${nomen} • Rp ${nominal}`;
         document.getElementById('modal-keterangan').value = ket === '-' ? '' : ket;
-        modal.show();
+        
+        // Gunakan modalInstance yang sudah di-init di DOMContentLoaded
+        if (modalInstance) {
+            modalInstance.show();
+        } else {
+            alert("Sistem belum siap sepenuhnya, coba refresh halaman.");
+        }
     }
 
     async function saveAnalisa() {
         const nomen = document.getElementById('modal-nomen').value;
         const ket = document.getElementById('modal-keterangan').value;
         
-        if(!ket.trim()) { Swal.fire({ icon: 'warning', title: 'Data Kosong', text: 'Keterangan wajib diisi.' }); return; }
+        if(!ket.trim()) { 
+            Swal.fire({ icon: 'warning', title: 'Data Kosong', text: 'Keterangan analisa wajib diisi.' }); 
+            return; 
+        }
 
         const formData = new FormData();
         formData.append('nomen', nomen);
@@ -263,8 +283,8 @@
             
             if(result.status === 'success') {
                 Swal.fire({ icon: 'success', title: 'Berhasil Disimpan', timer: 800, showConfirmButton: false });
-                modal.hide();
-                loadTop500(); // Reload data
+                if(modalInstance) modalInstance.hide();
+                loadTop500(); 
             } else {
                 Swal.fire('Gagal', result.message, 'error');
             }
