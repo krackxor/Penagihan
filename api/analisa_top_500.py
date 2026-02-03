@@ -1,10 +1,10 @@
 """
-Analisa Top 500 API - Sunter Dashboard Pro (V2.2 Period Filter)
+Analisa Top 500 API - Sunter Dashboard Pro (V2.3 Auto-Migration Fix)
 Update: 2026-02-03
 ---------------------------------------------------------------------------
-Pembaruan:
-1. ✅ PERIOD FILTER: Bisa memilih periode spesifik dari parameter request.
-2. ✅ STRICT SPLIT: Tetap memisahkan data Rayon 34 & 35.
+Fix:
+1. ✅ AUTO TABLE CREATE: Membuat tabel 'analisa_tagihan' otomatis saat halaman dibuka
+   agar tidak error "no such table" saat SELECT query berjalan.
 """
 
 from flask import Blueprint, jsonify, request, session
@@ -32,12 +32,27 @@ def get_top_500():
     try:
         cursor = conn.cursor()
         
+        # =========================================================
+        # ✅ FIX PENTING: BUAT TABEL DULU SEBELUM QUERY SELECT
+        # =========================================================
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS analisa_tagihan (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nomen TEXT,
+                periode TEXT,
+                keterangan TEXT,
+                updated_by TEXT,
+                updated_at DATETIME
+            )
+        """)
+        conn.commit() # Simpan struktur tabel
+        # =========================================================
+
         # 1. LOGIKA PILIH PERIODE
-        req_periode = request.args.get('periode') # Format dari HTML: YYYY-MM (misal 2026-02)
+        req_periode = request.args.get('periode') 
         
         if req_periode:
             try:
-                # Konversi YYYY-MM (HTML) -> MM-YYYY (Database)
                 parts = req_periode.split('-')
                 periode = f"{parts[1]}-{parts[0]}"
             except:
@@ -85,7 +100,7 @@ def get_top_500():
         
         return jsonify({
             "status": "success", 
-            "periode": periode, # Kembalikan periode yang dipakai agar UI tahu
+            "periode": periode, 
             "data_34": data_34,
             "data_35": data_35
         })
@@ -94,7 +109,6 @@ def get_top_500():
     finally:
         conn.close()
 
-# ... (Fungsi update_analisa TETAP SAMA seperti sebelumnya, jangan dihapus) ...
 @analisa_top500_bp.route('/update', methods=['POST'])
 def update_analisa():
     if session.get('role') != 'admin':
@@ -107,11 +121,7 @@ def update_analisa():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Disini kita ambil periode dari request juga atau pakai active period
-        # Idealnya analisa disimpan sesuai periode nomen tsb.
-        # Untuk simplifikasi, kita ambil periode aktif saat ini untuk penyimpanan.
-        periode = get_active_period(cursor) 
-        
+        # Pastikan tabel ada juga di sini (double check)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS analisa_tagihan (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,6 +132,9 @@ def update_analisa():
                 updated_at DATETIME
             )
         """)
+        
+        # Gunakan periode aktif untuk simplifikasi penyimpanan
+        periode = get_active_period(cursor) 
         
         check = cursor.execute("SELECT id FROM analisa_tagihan WHERE nomen = ? AND periode = ?", (nomen, periode)).fetchone()
         tgl_skrg = get_wib_time().strftime('%Y-%m-%d %H:%M:%S')
