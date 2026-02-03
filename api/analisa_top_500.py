@@ -1,14 +1,10 @@
 """
-Analisa Top 500 API - Sunter Dashboard Pro (V2.0 Split Rayon & Realtime)
+Analisa Top 500 API - Sunter Dashboard Pro (V2.1 Strict Separation)
 Update: 2026-02-02
 ---------------------------------------------------------------------------
 Pembaruan:
-1. ✅ SPLIT RAYON: Top 500 Rayon 34 + Top 500 Rayon 35 (Total 1000).
-2. ✅ REAL-TIME EXCLUSION: Otomatis membuang data yang ada di:
-   - Collection Harian (Uang Lapangan)
-   - Master Bayar (Uang Bank)
-   - Ardebt (Tagihan Berekor)
-3. ✅ PERFORMANCE: Menggunakan LEFT JOIN IS NULL agar tidak 'muter-muter'.
+1. ✅ STRICT SPLIT: API mengembalikan object terpisah 'data_34' dan 'data_35'.
+2. ✅ PERFORMANCE: Menggunakan LEFT JOIN IS NULL agar query cepat.
 """
 
 from flask import Blueprint, jsonify, request, session
@@ -36,8 +32,7 @@ def get_top_500():
         cursor = conn.cursor()
         periode = get_active_period(cursor)
         
-        # Query Template yang dioptimasi (LEFT JOIN IS NULL)
-        # Exclude: Ardebt, Collection Harian, Master Bayar
+        # Query Template (Optimized)
         base_query = """
             SELECT 
                 p.nomen, p.nama, p.alamat, p.rayon, p.pcez, 
@@ -49,7 +44,7 @@ def get_top_500():
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
             LEFT JOIN analisa_tagihan a ON p.nomen = a.nomen AND p.periode = a.periode
             
-            -- JOIN UNTUK FILTER EXCLUSION (Lebih cepat dari NOT IN)
+            -- EXCLUSION JOINS (Data yang sudah bayar/ardebt hilang otomatis)
             LEFT JOIN ardebt ad ON p.nomen = ad.nomen
             LEFT JOIN collection_harian ch ON p.nomen = ch.nomen AND ch.periode = p.periode
             LEFT JOIN master_bayar mb ON p.nomen = mb.nomen AND mb.periode = p.periode
@@ -58,7 +53,7 @@ def get_top_500():
             AND p.status_lunas = 0 
             AND p.rayon = ?
             
-            -- FILTER HANYA YANG NULL (Belum ada di tabel lain)
+            -- SYARAT: TIDAK ADA DI TABEL EXCLUSION
             AND ad.nomen IS NULL 
             AND ch.nomen IS NULL 
             AND mb.nomen IS NULL
@@ -75,17 +70,14 @@ def get_top_500():
         cursor.execute(base_query, (periode, '35'))
         data_35 = [dict(row) for row in cursor.fetchall()]
         
-        # 3. Gabungkan Data
-        combined_data = data_34 + data_35
-        
+        # ✅ RETURN TERPISAH (BUKAN DIGABUNG)
         return jsonify({
             "status": "success", 
             "periode": periode,
-            "total_count": len(combined_data),
-            "data": combined_data
+            "data_34": data_34, # Data murni Rayon 34
+            "data_35": data_35  # Data murni Rayon 35
         })
     except Exception as e:
-        print(f"Error Analisa Top 500: {e}") # Log ke terminal
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
