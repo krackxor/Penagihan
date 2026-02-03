@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <div class="animate__animated animate__fadeIn">
     <div class="px-3 pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
@@ -15,8 +17,12 @@
             <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm fw-bold text-primary" 
                    style="width: 150px; cursor: pointer;" onchange="loadTop500()">
             
-            <button class="btn btn-sm btn-white border shadow-sm rounded-circle p-2" onclick="loadTop500()">
+            <button class="btn btn-sm btn-white border shadow-sm rounded-circle p-2" onclick="loadTop500()" title="Refresh Data">
                 <i class="fa-solid fa-sync text-primary" id="refresh-icon"></i>
+            </button>
+
+            <button class="btn btn-sm btn-success border shadow-sm rounded-circle p-2 ms-1" onclick="downloadExcel()" title="Export ke Excel">
+                <i class="fa-solid fa-file-excel"></i>
             </button>
         </div>
     </div>
@@ -120,32 +126,18 @@
 </div>
 
 <script>
-    // ✅ FIX ERROR: Definisi variabel modal secara global (tapi jangan diisi dulu)
     let modalInstance; 
     let allData34 = [];
     let allData35 = [];
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    // ✅ FIX ERROR: Inisialisasi Modal dipindah ke dalam 'DOMContentLoaded'
-    // Ini menjamin script dijalankan SETELAH library Bootstrap di footer selesai dimuat.
     document.addEventListener('DOMContentLoaded', () => {
-        // Inisialisasi Modal Bootstrap
         const modalEl = document.getElementById('modalAnalisa');
         if (modalEl) {
-            // Kita gunakan window.bootstrap untuk memastikan akses ke library global
             if (typeof bootstrap !== 'undefined') {
                 modalInstance = new bootstrap.Modal(modalEl);
-            } else {
-                console.error("Bootstrap belum dimuat, modal mungkin tidak berfungsi.");
             }
         }
-
-        // Set Default Date (Opsional, agar terlihat bagus di UI)
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        // document.getElementById('filter-periode').value = `${year}-${month}`;
-
         loadTop500();
     });
 
@@ -184,6 +176,51 @@
         } finally {
             setTimeout(() => icon.classList.remove('fa-spin'), 600);
         }
+    }
+
+    // ✅ 3. FUNGSI DOWNLOAD EXCEL
+    function downloadExcel() {
+        if (allData34.length === 0 && allData35.length === 0) {
+            Swal.fire('Data Kosong', 'Tidak ada data untuk diekspor', 'info');
+            return;
+        }
+
+        // Helper untuk memformat data agar rapi di Excel
+        const formatData = (data) => data.map((item, index) => ({
+            "No": index + 1,
+            "ID Pelanggan": item.nomen,
+            "Nama Pelanggan": item.nama,
+            "Alamat": item.alamat,
+            "Rayon": item.rayon,
+            "Zona (PCEZ)": item.pcez,
+            "Petugas Rute": item.petugas_rute,
+            "Tagihan (Rp)": item.nominal,
+            "Kubikasi": item.kubik,
+            "Hasil Analisa": item.analisa,
+            "Auditor": item.auditor
+        }));
+
+        // Buat Workbook Baru
+        const wb = XLSX.utils.book_new();
+
+        // Buat Sheet Rayon 34 (Jika ada datanya)
+        if (allData34.length > 0) {
+            const ws34 = XLSX.utils.json_to_sheet(formatData(allData34));
+            XLSX.utils.book_append_sheet(wb, ws34, "Rayon 34");
+        }
+
+        // Buat Sheet Rayon 35 (Jika ada datanya)
+        if (allData35.length > 0) {
+            const ws35 = XLSX.utils.json_to_sheet(formatData(allData35));
+            XLSX.utils.book_append_sheet(wb, ws35, "Rayon 35");
+        }
+
+        // Tentukan Nama File
+        const periode = document.getElementById('label-periode').innerText || 'Data';
+        const fileName = `Analisa_Pareto_${periode}.xlsx`;
+
+        // Download
+        XLSX.writeFile(wb, fileName);
     }
 
     function renderTable(tbodyId, data) {
@@ -256,7 +293,6 @@
         document.getElementById('modal-sub').innerText = `${nomen} • Rp ${nominal}`;
         document.getElementById('modal-keterangan').value = ket === '-' ? '' : ket;
         
-        // Gunakan modalInstance yang sudah di-init di DOMContentLoaded
         if (modalInstance) {
             modalInstance.show();
         } else {
