@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="animate__animated animate__fadeIn">
+    <div class="px-3 pt-4 mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-1 text-dark">
+                <i class="fa-solid fa-crown me-2 text-warning"></i>Analisa Pareto (Top 500)
+            </h4>
+            <p class="text-muted small mb-0 fw-semibold">Monitoring & Analisa Penunggak Terbesar (Rayon 34 & 35)</p>
+        </div>
+        <div>
+            <span class="badge bg-danger rounded-pill px-3 py-2 shadow-sm">
+                <i class="fa-solid fa-lock me-1"></i> ADMIN AREA
+            </span>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mx-3 mb-5 bg-white border">
+        <div class="card-body p-0">
+            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center rounded-top-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="input-group" style="width: 300px;">
+                        <span class="input-group-text border-0 bg-white ps-3"><i class="fa-solid fa-search text-muted"></i></span>
+                        <input type="text" id="searchBox" class="form-control border-0 shadow-none small fw-bold" placeholder="Cari IDPEL / Nama..." onkeyup="filterTable()">
+                    </div>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted fw-bold d-block">Periode Aktif</small>
+                    <span id="periode-label" class="fw-800 text-primary">-</span>
+                </div>
+            </div>
+
+            <div class="table-responsive" style="max-height: 70vh;">
+                <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                    <thead class="bg-dark text-white sticky-top" style="z-index: 1;">
+                        <tr class="text-uppercase fw-800">
+                            <th class="ps-4 py-3" style="width: 50px;">#</th>
+                            <th style="width: 100px;">Rayon</th>
+                            <th>Identitas Pelanggan</th>
+                            <th class="text-end">Tagihan (Rp)</th>
+                            <th style="width: 30%;">Analisa / Keterangan</th>
+                            <th class="text-center pe-4" style="width: 80px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-content">
+                        <tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAnalisa" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 bg-light">
+                <h6 class="modal-title fw-800">📝 Input Analisa</h6>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="modal-nomen">
+                <div class="mb-3 text-center">
+                    <h5 class="fw-bold mb-0" id="modal-nama">-</h5>
+                    <small class="text-muted" id="modal-sub">-</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">Keterangan / Tindak Lanjut</label>
+                    <textarea id="modal-keterangan" class="form-control rounded-3 shadow-none fw-semibold" rows="4" placeholder="Contoh: Rumah kosong, sudah dikunjungi, janji bayar tgl 20..."></textarea>
+                </div>
+                <button onclick="saveAnalisa()" class="btn btn-primary w-100 rounded-pill fw-800 py-2">SIMPAN ANALISA</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let rawData = [];
+    const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadTop500();
+    });
+
+    async function loadTop500() {
+        try {
+            const res = await fetch('/api/analisa/top500');
+            const result = await res.json();
+            
+            if(result.status === 'success') {
+                rawData = result.data;
+                document.getElementById('periode-label').innerText = result.periode;
+                renderTable(rawData);
+            }
+        } catch(e) {
+            console.error(e);
+            document.getElementById('table-content').innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">Gagal memuat data.</td></tr>`;
+        }
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('table-content');
+        if(data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted fw-bold">Data Top 500 Kosong / Sudah Lunas Semua 🎉</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((item, index) => {
+            const rowClass = item.analisa !== '-' ? 'bg-success bg-opacity-10' : '';
+            const analisaText = item.analisa !== '-' 
+                ? `<span class="fw-bold text-dark">${item.analisa}</span><br><small class="text-muted" style="font-size: 10px;">By: ${item.auditor}</small>` 
+                : `<span class="text-muted fst-italic opacity-50">Belum ada analisa</span>`;
+
+            return `
+                <tr class="${rowClass}">
+                    <td class="ps-4 fw-800 text-muted">${index + 1}</td>
+                    <td>
+                        <span class="badge ${item.rayon === '34' ? 'bg-primary' : 'bg-info'} bg-opacity-10 text-dark fw-800 border px-2">R${item.rayon}</span>
+                        <div class="small text-muted mt-1 fw-bold" style="font-size: 9px;">${item.pcez}</div>
+                    </td>
+                    <td>
+                        <div class="fw-800 text-dark">${item.nama}</div>
+                        <div class="small text-muted mb-1">${item.nomen}</div>
+                        <div class="small text-muted opacity-75 text-truncate" style="max-width: 250px;">${item.alamat}</div>
+                    </td>
+                    <td class="text-end fw-800 text-danger" style="font-size: 0.9rem;">
+                        Rp ${formatIDR(item.nominal)}
+                    </td>
+                    <td class="small" style="line-height: 1.2;">
+                        ${analisaText}
+                    </td>
+                    <td class="text-center pe-4">
+                        <button class="btn btn-sm btn-light border shadow-sm rounded-circle p-2" 
+                                onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${formatIDR(item.nominal)}', '${item.analisa.replace(/'/g, "\\'")}')">
+                            <i class="fa-solid fa-pen-to-square text-primary"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterTable() {
+        const term = document.getElementById('searchBox').value.toLowerCase();
+        const filtered = rawData.filter(d => 
+            d.nama.toLowerCase().includes(term) || 
+            d.nomen.includes(term) ||
+            d.alamat.toLowerCase().includes(term)
+        );
+        renderTable(filtered);
+    }
+
+    // Modal & Save Logic
+    const modal = new bootstrap.Modal(document.getElementById('modalAnalisa'));
+
+    function openModal(nomen, nama, nominal, ket) {
+        document.getElementById('modal-nomen').value = nomen;
+        document.getElementById('modal-nama').innerText = nama;
+        document.getElementById('modal-sub').innerText = `IDPEL: ${nomen} | Tagihan: Rp ${nominal}`;
+        document.getElementById('modal-keterangan').value = ket === '-' ? '' : ket;
+        modal.show();
+    }
+
+    async function saveAnalisa() {
+        const nomen = document.getElementById('modal-nomen').value;
+        const ket = document.getElementById('modal-keterangan').value;
+        
+        if(!ket.trim()) { Swal.fire('Error', 'Keterangan tidak boleh kosong', 'warning'); return; }
+
+        const formData = new FormData();
+        formData.append('nomen', nomen);
+        formData.append('keterangan', ket);
+
+        try {
+            const res = await fetch('/api/analisa/update', { method: 'POST', body: formData });
+            const result = await res.json();
+            
+            if(result.status === 'success') {
+                Swal.fire({ icon: 'success', title: 'Tersimpan', timer: 1000, showConfirmButton: false });
+                modal.hide();
+                loadTop500(); // Reload data
+            } else {
+                Swal.fire('Error', result.message, 'error');
+            }
+        } catch(e) {
+            Swal.fire('Error', 'Gagal menghubungi server', 'error');
+        }
+    }
+</script>
+
+<style>
+    .fw-800 { font-weight: 800; }
+    .table td { vertical-align: middle; border-color: #f1f5f9; }
+</style>
+{% endblock %}
