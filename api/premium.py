@@ -1,11 +1,6 @@
 """
-Premium Customer API - Sunter Dashboard Pro (V2.0 Stability Logic)
-Update: 2026-02-04
----------------------------------------------------------------------------
-Pembaruan:
-1. ✅ STABILITY CHECK: Menghitung rata-rata pemakaian historis.
-2. ✅ FILTER GANDA: Hanya menampilkan jika (Bulan Ini > 75) DAN (Rata-rata > 75).
-   (Menghindari masuknya pelanggan kecil yang tiba-tiba bocor pipa).
+Premium Customer API - Sunter Dashboard Pro (V2.2 Clickable Nomen)
+File: api/premium.py
 """
 
 from flask import Blueprint, jsonify, request, session
@@ -42,35 +37,15 @@ def get_premium_customers():
         else:
             periode = get_active_period(cursor)
 
-        # -----------------------------------------------------------
-        # QUERY LOGIC: PREMIUM STABIL
-        # 1. Ambil data bulan ini.
-        # 2. Hitung rata-rata kubik dari seluruh riwayat orang tersebut.
-        # -----------------------------------------------------------
         query = """
             SELECT 
                 p.nomen, p.nama, p.alamat, p.rayon, p.pcez, 
                 p.nominal, p.kubik, p.status_lunas,
                 COALESCE(r.petugas, 'UNMAPPED') as petugas_rute,
-                
-                -- SUBQUERY: Hitung Rata-rata Kubik Historis
-                (
-                    SELECT ROUND(AVG(mp.kubik), 1) 
-                    FROM master_pelanggan mp 
-                    WHERE mp.nomen = p.nomen
-                ) as avg_kubik_historis
-
+                (SELECT ROUND(AVG(mp.kubik), 1) FROM master_pelanggan mp WHERE mp.nomen = p.nomen) as avg_kubik_historis
             FROM master_pelanggan p
             LEFT JOIN rute_petugas r ON p.pcez = r.pcez
-            WHERE p.periode = ? 
-            
-            -- SYARAT 1: Bulan ini harus tinggi (Premium)
-            AND p.kubik > 75  
-            
-            -- SYARAT 2: Rata-rata historis juga harus tinggi (Stabil)
-            -- Ini memfilter pelanggan kecil yang tiba-tiba melonjak karena bocor
-            AND avg_kubik_historis > 75
-
+            WHERE p.periode = ? AND p.kubik > 75 AND avg_kubik_historis > 75
             ORDER BY p.kubik DESC
         """
         
@@ -83,11 +58,46 @@ def get_premium_customers():
         return jsonify({
             "status": "success",
             "periode": periode,
-            "total_count": len(rows),
             "data_34": data_34,
             "data_35": data_35
         })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
 
+# ✅ ENDPOINT HISTORY DETAIL (Untuk Modal)
+@premium_bp.route('/history/<nomen>', methods=['GET'])
+def get_premium_history(nomen):
+    if session.get('role') != 'admin':
+        return jsonify({"status": "error"}), 403
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Ambil 12 bulan terakhir
+        query = """
+            SELECT periode, kubik, nominal, status_lunas 
+            FROM master_pelanggan 
+            WHERE nomen = ? 
+            ORDER BY id DESC 
+            LIMIT 12
+        """
+        cursor.execute(query, (nomen,))
+        rows = cursor.fetchall()
+        
+        history = []
+        # Kita balik urutannya agar grafik enak dilihat (Lama -> Baru)
+        for row in reversed(rows): 
+            history.append({
+                "periode": row['periode'], 
+                "kubik": row['kubik'],
+                "nominal": row['nominal'],
+                "lunas": row['status_lunas']
+            })
+            
+        return jsonify({"status": "success", "data": history})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
