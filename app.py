@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V13.2 Drop Anomaly)
+Flask Application - Area Service Integrated System (V13.3 GIS Mapping)
 Updated: 2026-02-04
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -10,6 +10,7 @@ Fixes Log:
 5. ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
 6. ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
 7. ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
+8. ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
 """
 
 import os
@@ -35,7 +36,8 @@ from api.wa_gateway import wa_bp
 from api.analisa_top_500 import analisa_top500_bp 
 from api.premium import premium_bp 
 from api.ekstrem import ekstrem_bp 
-from api.drop import drop_bp # <--- ✅ IMPORT BARU
+from api.drop import drop_bp 
+from api.map_gis import map_bp # <--- ✅ IMPORT BARU (GIS)
 
 def create_app():
     app = Flask(__name__)
@@ -103,7 +105,8 @@ def create_app():
             'analisa_top500_page', 
             'premium_customer_page',
             'pelanggan_ekstrem_page',
-            'pelanggan_drop_page' # <--- ✅ Page Baru Admin Only
+            'pelanggan_drop_page',
+            'peta_sebaran_page' # <--- ✅ Page Baru Admin Only (GIS)
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -123,7 +126,8 @@ def create_app():
     app.register_blueprint(analisa_top500_bp, url_prefix='/api/analisa')
     app.register_blueprint(premium_bp, url_prefix='/api/premium')
     app.register_blueprint(ekstrem_bp, url_prefix='/api/ekstrem') 
-    app.register_blueprint(drop_bp, url_prefix='/api/drop') # <--- ✅ REGISTRASI API BARU
+    app.register_blueprint(drop_bp, url_prefix='/api/drop') 
+    app.register_blueprint(map_bp, url_prefix='/api/map') # <--- ✅ REGISTRASI API GIS BARU
     
     register_pcez_routes(app, get_db_connection)
 
@@ -202,20 +206,23 @@ def create_app():
     def analisa_top500_page():
         return render_template('analisa_top500.html')
 
-    # ✅ HALAMAN BARU: PREMIUM CUSTOMER
+    # ✅ MENU BARU: PREMIUM & ANOMALI
     @app.route('/premium-customer')
     def premium_customer_page():
         return render_template('premium_customer.html')
 
-    # ✅ HALAMAN BARU: PELANGGAN EKSTREM
     @app.route('/pelanggan-ekstrem')
     def pelanggan_ekstrem_page():
         return render_template('pelanggan_ekstrem.html')
 
-    # ✅ HALAMAN BARU: PELANGGAN DROP
     @app.route('/pelanggan-drop')
     def pelanggan_drop_page():
         return render_template('pelanggan_drop.html')
+
+    # ✅ MENU BARU: GIS MAPPING
+    @app.route('/peta-sebaran')
+    def peta_sebaran_page():
+        return render_template('peta_sebaran.html')
 
     # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
