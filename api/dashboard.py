@@ -1,10 +1,13 @@
 """
-API Dashboard - Sunter Dashboard Pro (V16.5 Safe Mode & Debug)
-Update: 2026-02-05
-Fitur:
-1. ✅ DEBUG LOGS: Menampilkan proses di Terminal agar ketahuan macet dimana.
-2. ✅ ANTI-CRASH: Menangani nilai NULL/None dengan ketat.
-3. ✅ ZERO DIVISION FIX: Mencegah error pembagian nol.
+API Dashboard - Sunter Dashboard Pro (V12.85 Smart-Join Fix)
+Update: 2026-02-01
+---------------------------------------------------------------------------
+Pembaruan Strategis:
+1. Robust Column Shield: Pengecekan kolom dinamis.
+2. Target Lock: Mengunci perhitungan target hanya pada data MC.
+3. ✅ SMART JOIN DASHBOARD: Mengupdate query PCEZ Analytics agar menggunakan 
+   TRIM() saat menggabungkan data Pelanggan dan Petugas. Ini menjamin 
+   nama petugas muncul di dashboard meskipun ada spasi bandel pada PCEZ.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -23,160 +26,133 @@ def get_latest_active_period(db):
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
-    print("--- [DEBUG] Memulai Request Dashboard ---") # DEBUG
+    """Statistik global hasil Audit Digital untuk Dashboard Utama."""
     db = get_db_connection()
     try:
-        # [1] SETUP
+        # [1] PERIODE DETECTION
         periode = request.args.get('periode') or get_latest_active_period(db)
-        print(f"--- [DEBUG] Periode Aktif: {periode}") # DEBUG
-        
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # Filter Rute
-        rute_filter_mc = ""
-        rute_filter_ardebt = ""
-        rute_filter_bayar = ""
-        params_mc = [periode]
-        params_ardebt = [periode]
-        params_bayar = [periode]
-
-        if user_role == 'petugas' and petugas_id:
-            rute_filter_mc = "AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
-            params_mc.append(petugas_id)
-            subquery = "AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?))"
-            rute_filter_ardebt = subquery
-            params_ardebt.append(periode)
-            params_ardebt.append(petugas_id)
-            rute_filter_bayar = subquery
-            params_bayar.append(periode)
-            params_bayar.append(petugas_id)
-
-        # [A] LAPORAN MC
-        print("--- [DEBUG] Query MC...") # DEBUG
-        q_mc = f"""
-            SELECT 
-                COUNT(*) as tot_nomen, 
-                COALESCE(SUM(nominal),0) as tot_rp, 
-                COALESCE(SUM(kubik),0) as tot_m3,
-                COALESCE(SUM(CASE WHEN status_lunas=1 THEN 1 ELSE 0 END),0) as pay_nomen,
-                COALESCE(SUM(CASE WHEN status_lunas=1 THEN nominal ELSE 0 END),0) as pay_rp,
-                COALESCE(SUM(CASE WHEN status_lunas=1 THEN kubik ELSE 0 END),0) as pay_m3,
-                COALESCE(SUM(CASE WHEN status_lunas=0 THEN 1 ELSE 0 END),0) as owe_nomen,
-                COALESCE(SUM(CASE WHEN status_lunas=0 THEN nominal ELSE 0 END),0) as owe_rp,
-                COALESCE(SUM(CASE WHEN status_lunas=0 THEN kubik ELSE 0 END),0) as owe_m3
-            FROM master_pelanggan WHERE periode = ? {rute_filter_mc}
-        """
-        mc = db.execute(q_mc, params_mc).fetchone()
-        # Safe Dictionary Convert (Jika result None)
-        mc = dict(mc) if mc else {'tot_nomen':0, 'tot_rp':0, 'tot_m3':0, 'pay_nomen':0, 'pay_rp':0, 'pay_m3':0, 'owe_nomen':0, 'owe_rp':0, 'owe_m3':0}
-
-        # [B] LAPORAN ARDEBT
-        print("--- [DEBUG] Query Ardebt...") # DEBUG
-        # Pastikan tabel ardebt ada, jika error sql akan ditangkap except
-        q_ard_target = f"""
-            SELECT COUNT(*) as tot_nomen, COALESCE(SUM(jumlah),0) as tot_rp, COALESCE(SUM(volume),0) as tot_m3
-            FROM ardebt WHERE periode = ? {rute_filter_ardebt}
-        """
-        ard_t = db.execute(q_ard_target, params_ardebt).fetchone()
-        ard_t = dict(ard_t) if ard_t else {'tot_nomen':0, 'tot_rp':0, 'tot_m3':0}
-
-        q_ard_real = f"""
-            SELECT COUNT(DISTINCT nomen) as pay_nomen, COALESCE(SUM(nominal),0) as pay_rp
-            FROM master_bayar WHERE periode = ? AND kategori = 'HISTORY' {rute_filter_bayar}
-        """
-        ard_r = db.execute(q_ard_real, params_bayar).fetchone()
-        ard_r = dict(ard_r) if ard_r else {'pay_nomen':0, 'pay_rp':0}
-        
-        ard_owe_rp = max(0, ard_t['tot_rp'] - ard_r['pay_rp'])
-        ard_owe_nomen = max(0, ard_t['tot_nomen'] - ard_r['pay_nomen'])
-
-        # [C] UNDUE
-        print("--- [DEBUG] Query Undue...") # DEBUG
-        q_undue = f"""
-            SELECT COUNT(DISTINCT nomen) as pay_nomen, COALESCE(SUM(nominal),0) as pay_rp
-            FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE' {rute_filter_bayar}
-        """
-        undue = db.execute(q_undue, params_bayar).fetchone()
-        undue = dict(undue) if undue else {'pay_nomen':0, 'pay_rp':0}
-
-        # [D] DISTRIBUSI
-        print("--- [DEBUG] Query Distribusi...") # DEBUG
-        q_pcez = f"""
-            SELECT 
-                pcez,
-                COUNT(*) as beban,
-                SUM(status_lunas) as lunas,
-                ROUND(CAST(SUM(status_lunas) as FLOAT) / MAX(1, COUNT(*)) * 100, 1) as pct,
-                COALESCE(SUM(CASE WHEN status_lunas=0 THEN nominal ELSE 0 END),0) as sisa_rp
-            FROM master_pelanggan 
-            WHERE periode = ? {rute_filter_mc}
-            GROUP BY pcez 
-            ORDER BY pct ASC LIMIT 10 
-        """
-        rows_pcez = db.execute(q_pcez, params_mc).fetchall()
-
-        q_petugas = f"""
-            SELECT 
-                r.petugas, 
-                COUNT(p.id) as beban,
-                SUM(p.status_lunas) as lunas,
-                ROUND(CAST(SUM(p.status_lunas) as FLOAT) / MAX(1, COUNT(p.id)) * 100, 1) as pct
-            FROM rute_petugas r
-            JOIN master_pelanggan p ON r.pcez = p.pcez
-            WHERE p.periode = ? {rute_filter_mc}
-            GROUP BY r.petugas 
-            ORDER BY pct DESC LIMIT 5
-        """
-        rows_petugas = db.execute(q_petugas, params_mc).fetchall()
-
-        # [E] ANOMALI
-        print("--- [DEBUG] Query Anomali...") # DEBUG
-        # Gunakan try-except per query anomali untuk keamanan jika kolom kubik error
+        # [2] FIX PERIODE LOGIC (N-1 Alignment)
         try:
-            count_ekstrem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 500 {rute_filter_mc}", params_mc).fetchone()['c']
-            count_drop = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik = 0 {rute_filter_mc}", params_mc).fetchone()['c']
-            count_prem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 75 AND status_lunas=0 {rute_filter_mc}", params_mc).fetchone()['c']
-        except Exception as ex_anom:
-            print(f"--- [DEBUG] Error Anomali: {ex_anom}")
-            count_ekstrem = 0
-            count_drop = 0
-            count_prem = 0
+            dt_obj = datetime.strptime(periode, '%m-%Y')
+            target_dt = dt_obj - relativedelta(months=1)
+            bulan_rek_target = target_dt.strftime('%m%Y')
+        except:
+            bulan_rek_target = periode.replace('-', '')
 
-        # [F] RESPONSE
-        print("--- [DEBUG] Building Response...") # DEBUG
-        response_data = {
-            "status": "success",
-            "periode": periode,
-            "grand_total": {
-                "collection": mc['pay_rp'] + ard_r['pay_rp'] + undue['pay_rp'],
-                "target_mc": mc['tot_rp'],
-                "target_ardebt": ard_t['tot_rp']
-            },
-            "laporan_mc": {
-                "target": { "nomen": mc['tot_nomen'], "rp": mc['tot_rp'], "kubik": mc['tot_m3'] },
-                "lunas": { "nomen": mc['pay_nomen'], "rp": mc['pay_rp'], "kubik": mc['pay_m3'] },
-                "sisa": { "nomen": mc['owe_nomen'], "rp": mc['owe_rp'], "kubik": mc['owe_m3'] }
-            },
-            "laporan_ardebt": {
-                "target": { "nomen": ard_t['tot_nomen'], "rp": ard_t['tot_rp'], "kubik": ard_t['tot_m3'] },
-                "lunas": { "nomen": ard_r['pay_nomen'], "rp": ard_r['pay_rp'] },
-                "sisa": { "nomen": ard_owe_nomen, "rp": ard_owe_rp }
-            },
-            "undue": undue['pay_rp'],
-            "distribusi": {
-                "pcez": [dict(r) for r in rows_pcez],
-                "petugas": [dict(r) for r in rows_petugas]
-            },
-            "anomali": { "ekstrem": count_ekstrem, "drop": count_drop, "premium": count_prem },
-            "logs": []
-        }
+        # [3] DYNAMIC SCHEMA CHECK
+        cursor = db.execute("PRAGMA table_info(master_pelanggan)")
+        cols = [row['name'] for row in cursor.fetchall()]
+        tipe_filter = "AND m.tipe = 'MC'" if 'tipe' in cols else ""
+
+        # [4] SUMMARY MC & STATUS LUNAS
+        query_summary = f"""
+            SELECT 
+                COUNT(*) as total_nomen,
+                COALESCE(SUM(nominal), 0) as total_nominal,
+                COALESCE(SUM(CASE WHEN status_lunas = 1 THEN 1 ELSE 0 END), 0) as lunas_nomen,
+                COALESCE(SUM(CASE WHEN status_lunas = 0 THEN 1 ELSE 0 END), 0) as sisa_nomen
+            FROM master_pelanggan m
+            WHERE m.periode = ? {tipe_filter}
+        """
+        params_summary = [periode]
         
-        print("--- [DEBUG] Success! Sending Data. ---") # DEBUG
-        return jsonify(response_data)
+        # Filter khusus Petugas (Smart Trim Logic)
+        if user_role == 'petugas' and petugas_id:
+            query_summary += " AND TRIM(m.pcez) IN (SELECT TRIM(pcez) FROM rute_petugas WHERE petugas = ?)"
+            params_summary.append(petugas_id)
+
+        res_summary = db.execute(query_summary, params_summary).fetchone()
+
+        # [5] FIX REALISASI NOMINAL
+        query_realisasi = f"""
+            SELECT 
+                (SELECT COALESCE(SUM(mb.nominal), 0) FROM master_bayar mb
+                 WHERE mb.periode = ? AND mb.kategori = 'UNDUE'
+                 AND mb.bulan_rek = ? 
+                 AND mb.nomen IN (SELECT nomen FROM master_pelanggan m WHERE m.periode = ? {tipe_filter})) as undue_nom,
+                 
+                (SELECT COALESCE(SUM(ch.nominal), 0) FROM collection_harian ch
+                 WHERE ch.periode = ? AND ch.kategori = 'CURRENT'
+                 AND ch.nomen IN (SELECT nomen FROM master_pelanggan m WHERE m.periode = ? {tipe_filter})) as current_nom,
+                 
+                (SELECT COALESCE(SUM(jumlah), 0) FROM ardebt WHERE periode = ?) as total_piutang_lama
+        """
+        res_realisasi = db.execute(query_realisasi, (periode, bulan_rek_target, periode, periode, periode, periode)).fetchone()
+
+        # [6] LEADERBOARD (Performa Petugas Global)
+        # Menggunakan TRIM pada JOIN untuk memastikan match yang lebih baik
+        query_leaderboard = f"""
+            SELECT 
+                r.petugas,
+                COUNT(m.id) as target_nomen,
+                SUM(m.status_lunas) as lunas_nomen,
+                ROUND((CAST(SUM(m.status_lunas) AS FLOAT) / MAX(1, COUNT(m.id))) * 100, 1) as pct_nomen
+            FROM rute_petugas r
+            JOIN master_pelanggan m ON TRIM(r.pcez) = TRIM(m.pcez)
+            WHERE m.periode = ? {tipe_filter}
+            GROUP BY r.petugas 
+            ORDER BY pct_nomen DESC, lunas_nomen DESC LIMIT 5
+        """
+        res_leaderboard = db.execute(query_leaderboard, (periode,)).fetchall()
+
+        # [7] PCEZ ANALYTICS (PETA WILAYAH DETAIL) - FIX UTAMA DISINI
+        # Logic diupdate menggunakan TRIM(ON ...) agar sinkron dengan menu Mapping
+        query_pcez = f"""
+            SELECT 
+                m.pcez,
+                COALESCE(r.petugas, 'UNMAPPED') as petugas,
+                COUNT(m.id) as target_pcez,
+                SUM(m.status_lunas) as lunas_pcez,
+                ROUND((CAST(SUM(m.status_lunas) AS FLOAT) / MAX(1, COUNT(m.id))) * 100, 1) as pct_pcez
+            FROM master_pelanggan m
+            LEFT JOIN rute_petugas r ON TRIM(m.pcez) = TRIM(r.pcez)
+            WHERE m.periode = ? {tipe_filter}
+            GROUP BY m.pcez
+            ORDER BY m.pcez ASC
+        """
+        res_pcez = db.execute(query_pcez, (periode,)).fetchall()
+
+        # [8] FINAL MAPPING
+        total_mc = res_summary['total_nominal'] or 0
+        total_undue = res_realisasi['undue_nom'] or 0
+        total_current = res_realisasi['current_nom'] or 0
+        realisasi_gabungan = total_undue + total_current
+
+        return jsonify({
+            "status": "success",
+            "summary": {
+                "periode_aktif": periode,
+                "target_rekening": bulan_rek_target,
+                "nomen": {
+                    "total": res_summary['total_nomen'] or 0, 
+                    "bayar": res_summary['lunas_nomen'] or 0, 
+                    "belum": res_summary['sisa_nomen'] or 0
+                },
+                "rupiah": {
+                    "mc": total_mc,
+                    "undue": total_undue,
+                    "current": total_current,
+                    "total_realisasi": realisasi_gabungan,
+                    "pct": round((realisasi_gabungan / max(1, total_mc) * 100), 2)
+                }
+            },
+            "analytics": {
+                "leaderboard": [dict(row) for row in res_leaderboard],
+                "pcez_stats": [dict(row) for row in res_pcez], # Data ini yang dipakai Dashboard
+                "sync_ts": datetime.now().isoformat()
+            },
+            "logs": [dict(row) for row in db.execute("""
+                SELECT nomen, petugas_name, keterangan, created_at 
+                FROM kunjungan_petugas WHERE periode = ? 
+                ORDER BY created_at DESC LIMIT 10
+            """, (periode,)).fetchall()]
+        })
 
     except Exception as e:
-        print(f"!!! CRITICAL ERROR API DASHBOARD: {str(e)}") # PRINT KE TERMINAL
+        current_app.logger.error(f"Dashboard Sync Error: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
@@ -187,5 +163,7 @@ def get_system_logs():
     try:
         logs = db.execute("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50").fetchall()
         return jsonify({"status": "success", "data": [dict(row) for row in logs]})
+    except:
+        return jsonify({"status": "error", "message": "Logs table not ready"}), 200
     finally:
         db.close()
