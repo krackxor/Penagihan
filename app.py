@@ -1,16 +1,17 @@
 """
-Flask Application - Area Service Integrated System (V13.3 GIS Mapping)
-Updated: 2026-02-04
+Flask Application - Area Service Integrated System (V13.4 Security Patch)
+Updated: 2026-02-05
 ---------------------------------------------------------------------------
 Fixes Log:
 1. ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
-2. ✅ FIX 413: Max upload size 64MB.
+2. ✅ FIX 413: Sync Max upload size with Config (64MB-100MB).
 3. ✅ WA SHARE LINK: Public access allowed.
 4. ✅ ANALISA PARETO: Modul Top 500 Admin.
 5. ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
 6. ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
 7. ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
 8. ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
+9. 🔒 SECURITY: Added login requirement for visit photos.
 """
 
 import os
@@ -37,25 +38,21 @@ from api.analisa_top_500 import analisa_top500_bp
 from api.premium import premium_bp 
 from api.ekstrem import ekstrem_bp 
 from api.drop import drop_bp 
-from api.map_gis import map_bp # <--- ✅ IMPORT BARU (GIS)
+from api.map_gis import map_bp 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
     
-    # --- FIX 413 ERROR: Konfigurasi Batas Unggahan (64 Megabyte) ---
-    app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024 
+    # Menjamin batas unggahan mengikuti Config atau default 64MB jika tidak disetel
+    app.config['MAX_CONTENT_LENGTH'] = getattr(Config, 'MAX_CONTENT_LENGTH', 64 * 1024 * 1024) 
 
     # --- 1. STARTUP PROTOCOL ---
     with app.app_context():
         init_db(app) 
-        folders = [
-            os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
-            os.path.join(app.root_path, 'static', 'uploads', 'materi')
-        ]
-        for folder in folders:
-            os.makedirs(folder, exist_ok=True)
+        # Folder diinisialisasi melalui Config.init_app untuk konsistensi
+        Config.init_app(app)
 
     @app.teardown_appcontext
     def close_connection(exception):
@@ -68,45 +65,39 @@ def create_app():
     def security_layer():
         """
         [GATEKEEPER]: Mengontrol hak akses publik vs privat.
-        Pengecekan menggunakan endpoint Flask (nama fungsi) untuk akurasi tinggi.
         """
-        # Daftar nama fungsi yang boleh diakses publik tanpa login
+        endpoint = request.endpoint
+        
+        # ✅ BYPASS OTOMATIS: Static files & WA Public Share Link
+        if not endpoint or endpoint == 'static' or request.path.startswith('/api/history/share/view/'):
+            return None
+
+        # Daftar nama fungsi publik
         public_endpoints = [
             'login_page',
             'auth.login',
-            'youtube_page',    # Fungsi halaman video sosialisasi
-            'materi_page',     # Fungsi halaman literatur materi
-            'static',          # Folder CSS, JS, Images
-            'serve_kunjungan_photo',
-            'index',           # Beranda/Landing Page
-            'history.public_share_view' # <--- WA Share Link
+            'youtube_page',
+            'materi_page',
+            'index'
         ]
-        
-        endpoint = request.endpoint
-        
-        # ✅ BYPASS LINK SHARE WA & STATIC FILE
-        if request.path.startswith('/api/history/share/view/') or request.path.startswith('/static/'):
-            return None
 
-        # JIKA AKSES PUBLIK: Langsung izinkan akses
-        if not endpoint or endpoint in public_endpoints:
+        # JIKA AKSES PUBLIK: Izinkan
+        if endpoint in public_endpoints:
             return
 
-        # JIKA AKSES PRIVAT: Cek ketersediaan sesi login
+        # JIKA AKSES PRIVAT: Cek Login
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Otoritas Diperlukan"}), 401
             return redirect(url_for('login_page'))
         
-        # PROTEKSI ROLE KHUSUS ADMINISTRATOR
+        # PROTEKSI ROLE ADMINISTRATOR
         admin_only_endpoints = [
             'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
             'upload.handle_smart_upload', 'history_page',
-            'analisa_top500_page', 
-            'premium_customer_page',
-            'pelanggan_ekstrem_page',
-            'pelanggan_drop_page',
-            'peta_sebaran_page' # <--- ✅ Page Baru Admin Only (GIS)
+            'analisa_top500_page', 'premium_customer_page',
+            'pelanggan_ekstrem_page', 'pelanggan_drop_page',
+            'peta_sebaran_page'
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -127,12 +118,11 @@ def create_app():
     app.register_blueprint(premium_bp, url_prefix='/api/premium')
     app.register_blueprint(ekstrem_bp, url_prefix='/api/ekstrem') 
     app.register_blueprint(drop_bp, url_prefix='/api/drop') 
-    app.register_blueprint(map_bp, url_prefix='/api/map') # <--- ✅ REGISTRASI API GIS BARU
+    app.register_blueprint(map_bp, url_prefix='/api/map')
     
     register_pcez_routes(app, get_db_connection)
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
-    
     @app.route('/')
     def index(): 
         return render_template('index.html')
@@ -153,7 +143,6 @@ def create_app():
         files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
         return render_template('materi.html', files=files)
 
-    # --- RUTE TERPROTEKSI (MEMERLUKAN LOGIN) ---
     @app.route('/performa')
     def performa_page(): 
         return render_template('performa.html')
@@ -206,7 +195,6 @@ def create_app():
     def analisa_top500_page():
         return render_template('analisa_top500.html')
 
-    # ✅ MENU BARU: PREMIUM & ANOMALI
     @app.route('/premium-customer')
     def premium_customer_page():
         return render_template('premium_customer.html')
@@ -219,7 +207,6 @@ def create_app():
     def pelanggan_drop_page():
         return render_template('pelanggan_drop.html')
 
-    # ✅ MENU BARU: GIS MAPPING
     @app.route('/peta-sebaran')
     def peta_sebaran_page():
         return render_template('peta_sebaran.html')
@@ -227,6 +214,9 @@ def create_app():
     # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
+        # Tambahan Keamanan: Hanya user login yang bisa akses foto
+        if 'role' not in session:
+            return abort(403)
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
         return send_from_directory(folder, filename)
 
