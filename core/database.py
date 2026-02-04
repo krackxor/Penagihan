@@ -1,11 +1,11 @@
 """
-Core Database Module - Sunter Dashboard Pro (V13.10 GIS & Anomaly Support)
+Core Database Module - Sunter Dashboard Pro (V13.2 GPS Fix)
 Update: 2026-02-04
 ---------------------------------------------------------------------------
-Fitur Baru:
-1. ✅ AUTO GIS: Menambah kolom 'latitude' & 'longitude' di master_pelanggan.
-2. ✅ ANOMALY TABLES: Membuat tabel analisa_ekstrem & analisa_drop otomatis.
-3. ✅ PERFORMANCE: Tuning PRAGMA tetap dipertahankan.
+Fixes Log:
+1. ✅ FIX GPS UPLOAD: Memastikan tabel 'kunjungan_petugas' punya kolom latitude/longitude.
+2. ✅ AUTO GIS: Menambah kolom GIS di master_pelanggan.
+3. ✅ ANOMALY TABLES: Tabel analisa ekstrem & drop.
 """
 
 import sqlite3
@@ -45,7 +45,7 @@ def init_db(app):
             check_and_create_tables(cursor)
             db.commit() 
 
-            # --- TAHAP 2: SELF-HEALING MIGRATIONS (FIX 500 ERROR) ---
+            # --- TAHAP 2: SELF-HEALING MIGRATIONS (FIX GPS & 500 ERROR) ---
             run_smart_migration(cursor)
             db.commit()
             
@@ -56,10 +56,9 @@ def init_db(app):
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database V13.10: GIS & Anomaly Structures Ready.")
+            print("✅ Database V13.2: GPS Columns Verified & Ready.")
             
         except Exception as e:
-            # Jika error tetap terjadi karena constraint, kita log namun jangan hentikan app
             print(f"⚠️ Database Init Warning: {e}")
             if db: db.rollback()
         finally:
@@ -67,12 +66,14 @@ def init_db(app):
 
 def check_and_create_tables(cursor):
     """Melahirkan struktur tabel utama & Trigger Otomatis."""
+    # Tabel Rute
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS rute_petugas (
             pcez TEXT PRIMARY KEY, petugas TEXT, no_admin TEXT, 
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Tabel Master Pelanggan
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, nama TEXT, 
@@ -81,23 +82,24 @@ def check_and_create_tables(cursor):
             tgl_lunas TEXT, tipe TEXT DEFAULT 'MC'
         )
     """)
+    # Tabel Kunjungan (Default structure)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, 
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # Tabel Pendukung Lainnya
     cursor.execute("CREATE TABLE IF NOT EXISTS upload_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT, file_type TEXT, periode TEXT, row_count INTEGER DEFAULT 0, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS master_bayar (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, tgl_bayar TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
     cursor.execute("CREATE TABLE IF NOT EXISTS collection_harian (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, pay_dt TEXT, nominal REAL DEFAULT 0, periode TEXT, kategori TEXT DEFAULT 'HISTORY', bulan_rek TEXT)")
     
-    # ARDEBT (Struktur Lama, nanti di-update oleh Smart Migration)
     cursor.execute("CREATE TABLE IF NOT EXISTS ardebt (id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, periode_bill TEXT, jumlah REAL DEFAULT 0, volume REAL DEFAULT 0, periode TEXT)")
-    
     cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 
-    # ✅ TABEL BARU: ANALISA ANOMALI (Ekstrem & Drop)
+    # Tabel Analisa Anomali
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS analisa_ekstrem (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,6 +113,7 @@ def check_and_create_tables(cursor):
         )
     """)
 
+    # Triggers
     cursor.execute("""
         CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
         AFTER INSERT ON master_bayar BEGIN
@@ -127,36 +130,41 @@ def check_and_create_tables(cursor):
     """)
 
 def run_smart_migration(cursor):
-    """Fungsi Self-Healing: Menjamin kolom Janji Bayar, Snapshot, Ardebt, & GIS tersedia."""
+    """Fungsi Self-Healing: Menjamin kolom GPS, Janji Bayar, Snapshot, dll tersedia."""
     
-    # 1. Migrasi Kunjungan
+    # 1. ✅ MIGRASI KUNJUNGAN PETUGAS (FIX GPS GAGAL UPLOAD)
     cursor.execute("PRAGMA table_info(kunjungan_petugas)")
     existing_kunjungan = [row['name'] for row in cursor.fetchall()]
+    
+    # Daftar kolom wajib untuk kunjungan
     kunjungan_cols = {
         'nomet': 'TEXT', 'no_hp': 'TEXT', 'petugas_name':'TEXT', 
-        'keterangan':'TEXT', 'foto_path':'TEXT', 'latitude':'TEXT', 
-        'longitude':'TEXT', 'periode':'TEXT', 'nama_snapshot':'TEXT', 
+        'keterangan':'TEXT', 'foto_path':'TEXT', 
+        'latitude':'TEXT', 'longitude':'TEXT', 'akurasi':'TEXT', # <--- GPS Columns Verified Here
+        'periode':'TEXT', 'nama_snapshot':'TEXT', 
         'alamat_snapshot':'TEXT', 'mc':'REAL', 'ardebt':'REAL', 
         'catatan':'TEXT', 'janji_bayar_dt': 'TEXT'
     }
+    
     for col, dtype in kunjungan_cols.items():
         if col not in existing_kunjungan:
-            try: cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
-            except: pass 
+            try: 
+                print(f"🔧 Migrasi: Menambahkan kolom '{col}' ke kunjungan_petugas...")
+                cursor.execute(f"ALTER TABLE kunjungan_petugas ADD COLUMN {col} {dtype}")
+            except Exception as e: 
+                print(f"⚠️ Gagal tambah kolom {col}: {e}")
 
-    # 2. Migrasi Master Pelanggan (✅ UPDATE: Tambah Latitude/Longitude)
+    # 2. Migrasi Master Pelanggan (Untuk Peta Sebaran Admin)
     cursor.execute("PRAGMA table_info(master_pelanggan)")
     existing_master = [row['name'] for row in cursor.fetchall()]
     master_cols = {
         'tarif': 'TEXT', 'kubik': 'REAL DEFAULT 0', 'nomet': 'TEXT', 
         'no_hp': 'TEXT DEFAULT "-"', 'tgl_lunas': 'TEXT', 'tipe': "TEXT DEFAULT 'MC'",
-        'latitude': 'TEXT', 'longitude': 'TEXT'  # <-- GIS Columns Added Here
+        'latitude': 'TEXT', 'longitude': 'TEXT' # Kolom GIS Admin
     }
     for col, dtype in master_cols.items():
         if col not in existing_master:
-            try: 
-                print(f"🔧 Migrasi: Menambahkan kolom '{col}' ke master_pelanggan...")
-                cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
+            try: cursor.execute(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}")
             except: pass
 
     # 3. Migrasi Users
@@ -181,32 +189,27 @@ def run_smart_migration(cursor):
     ardebt_cols = [row['name'] for row in cursor.fetchall()]
     
     if 'tipe_bill' not in ardebt_cols:
-        try: 
-            print("🔧 Migrasi: Menambahkan kolom 'tipe_bill' ke tabel ardebt...")
-            cursor.execute("ALTER TABLE ardebt ADD COLUMN tipe_bill TEXT DEFAULT 'WATER'")
+        try: cursor.execute("ALTER TABLE ardebt ADD COLUMN tipe_bill TEXT DEFAULT 'WATER'")
         except: pass
         
     if 'volume' not in ardebt_cols:
-        try:
-            print("🔧 Migrasi: Menambahkan kolom 'volume' ke tabel ardebt...")
-            cursor.execute("ALTER TABLE ardebt ADD COLUMN volume REAL DEFAULT 0")
+        try: cursor.execute("ALTER TABLE ardebt ADD COLUMN volume REAL DEFAULT 0")
         except: pass
 
 def optimize_performance(cursor):
-    """Turbo Indexing untuk Akselerasi Query Lintas Periode."""
+    """Turbo Indexing untuk Akselerasi Query."""
     indices = [
         "CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_mb_nomen_per ON master_bayar (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_kj_nomen_per ON kunjungan_petugas (nomen, periode)",
         "CREATE INDEX IF NOT EXISTS idx_ardebt_nomen ON ardebt (nomen)",
-        # Index GIS untuk Peta
         "CREATE INDEX IF NOT EXISTS idx_mc_coords ON master_pelanggan (latitude, longitude)"
     ]
     for idx in indices:
         cursor.execute(idx)
 
 def seed_default_admin(cursor):
-    """Menjamin akses Admin Utama tanpa menyebabkan UNIQUE constraint error."""
+    """Menjamin akses Admin Utama."""
     username = 'admin_sunter'
     hashed_pw = generate_password_hash('admin123')
     cursor.execute("""
