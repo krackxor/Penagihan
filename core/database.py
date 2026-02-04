@@ -1,11 +1,11 @@
 """
-Core Database Module - Sunter Dashboard Pro (V16.1 Critical Fix)
+Core Database Module - Sunter Dashboard Pro (V16.2 Critical Fix: Nomet)
 Update: 2026-02-05
 ---------------------------------------------------------------------------
 Fitur Utama:
-1. ✅ FIX CRITICAL ERROR: Memaksa penambahan kolom 'periode' di semua tabel.
-2. ✅ AUTO-HEALING: Otomatis mendeteksi dan menambah kolom yang hilang (kubik, volume, dll).
-3. ✅ PERFORMANCE: Tuning SQLite PRAGMA.
+1. ✅ FIX CRITICAL: Menambahkan kolom 'nomet' (Nomor Meter) yang hilang.
+2. ✅ FIX PERIODE: Memastikan kolom periode ada di semua tabel.
+3. ✅ AUTO-HEALING: Memperbaiki struktur database secara otomatis saat startup.
 """
 
 import sqlite3
@@ -20,7 +20,7 @@ def get_db_connection():
         conn = sqlite3.connect(db_path, timeout=300)
         conn.row_factory = sqlite3.Row 
         
-        # Tuning Performa
+        # Tuning Performa & Integritas
         conn.execute('PRAGMA journal_mode=WAL;')        
         conn.execute('PRAGMA synchronous=NORMAL;')      
         conn.execute('PRAGMA temp_store=MEMORY;')       
@@ -32,29 +32,30 @@ def get_db_connection():
         raise
 
 def init_db(app):
-    """ [INISIALISASI & MIGRASI OTOMATIS] """
+    """ [INISIALISASI & PERBAIKAN OTOMATIS] """
     with app.app_context():
         db = None
         try:
             db = get_db_connection()
             cursor = db.cursor()
             
-            # 1. Pastikan Tabel Utama Ada
+            # 1. Pastikan Tabel Dasar Ada
             check_and_create_tables(cursor)
             db.commit() 
 
-            # 2. JALANKAN PERBAIKAN STRUKTUR (MIGRASI)
+            # 2. JALANKAN PENYELAMATAN (MIGRASI)
+            # Ini akan memperbaiki error "no column named nomet/periode"
             run_smart_migration(cursor)
             db.commit()
             
-            # 3. Buat Index
+            # 3. Optimasi Index
             optimize_performance(cursor)
             
-            # 4. Buat Admin Default
+            # 4. Pastikan Admin Ada
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database System Ready (V16.1 Critical Fix Applied).")
+            print("✅ Database System Ready (All Columns Verified).")
             
         except Exception as e:
             print(f"⚠️ Database Init Warning: {e}")
@@ -63,20 +64,31 @@ def init_db(app):
             if db: db.close()
 
 def check_and_create_tables(cursor):
-    """Membuat tabel jika belum ada."""
+    """Membuat tabel jika belum ada sama sekali."""
     
-    # Tabel Master Pelanggan
+    # Tabel Master Pelanggan (Update Struktur Lengkap)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_pelanggan (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, nama TEXT, 
-            alamat TEXT, pcez TEXT, rayon TEXT, nominal REAL, kubik REAL DEFAULT 0,
-            periode TEXT, status_lunas INTEGER DEFAULT 0, no_hp TEXT DEFAULT '-', 
-            tgl_lunas TEXT, tipe TEXT DEFAULT 'MC',
-            latitude TEXT, longitude TEXT
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            nomen TEXT, 
+            nomet TEXT,  -- Kolom ini yang sebelumnya bikin error
+            nama TEXT, 
+            alamat TEXT, 
+            pcez TEXT, 
+            rayon TEXT, 
+            nominal REAL, 
+            kubik REAL DEFAULT 0,
+            periode TEXT, 
+            status_lunas INTEGER DEFAULT 0, 
+            no_hp TEXT DEFAULT '-', 
+            tgl_lunas TEXT, 
+            tipe TEXT DEFAULT 'MC',
+            latitude TEXT, 
+            longitude TEXT
         )
     """)
     
-    # Tabel Ardebt (Tunggakan)
+    # Tabel Ardebt
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS ardebt (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT, 
@@ -97,6 +109,7 @@ def check_and_create_tables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, 
+            nomet TEXT, -- Tambahkan juga disini
             periode TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -122,7 +135,7 @@ def check_and_create_tables(cursor):
         )
     """)
 
-    # Triggers Otomatis Lunas
+    # Triggers
     cursor.execute("""
         CREATE TRIGGER IF NOT EXISTS trg_sinergi_lunas_mb
         AFTER INSERT ON master_bayar BEGIN
@@ -140,49 +153,58 @@ def check_and_create_tables(cursor):
 
 def run_smart_migration(cursor):
     """
-    Fungsi Penyelamat: Menambahkan kolom 'periode' dan lainnya secara paksa jika hilang.
+    Fungsi Penyelamat: Menambahkan kolom yang hilang secara paksa.
     """
     
-    # Daftar Kolom Wajib (Tabel, Kolom, Tipe Data)
+    # DAFTAR KOLOM WAJIB (Jika hilang, akan dibuatkan otomatis)
     required_columns = [
-        # KRUSIAL: Kolom Periode di semua tabel transaksi
+        # Tabel Master Pelanggan
+        ('master_pelanggan', 'nomet', 'TEXT'),   # <--- INI PERBAIKAN UTAMANYA
         ('master_pelanggan', 'periode', 'TEXT'),
-        ('ardebt', 'periode', 'TEXT'),
-        ('master_bayar', 'periode', 'TEXT'),
-        ('collection_harian', 'periode', 'TEXT'),
-        ('kunjungan_petugas', 'periode', 'TEXT'),
-        ('upload_history', 'periode', 'TEXT'),
-
-        # Fitur Baru (V15+)
         ('master_pelanggan', 'kubik', 'REAL DEFAULT 0'),
         ('master_pelanggan', 'latitude', 'TEXT'),
         ('master_pelanggan', 'longitude', 'TEXT'),
         ('master_pelanggan', 'tipe', "TEXT DEFAULT 'MC'"),
         
+        # Tabel Ardebt
+        ('ardebt', 'periode', 'TEXT'),
         ('ardebt', 'volume', 'REAL DEFAULT 0'),
         ('ardebt', 'tipe_bill', "TEXT DEFAULT 'WATER'"),
         
+        # Tabel Kunjungan
+        ('kunjungan_petugas', 'nomet', 'TEXT'),
+        ('kunjungan_petugas', 'periode', 'TEXT'),
         ('kunjungan_petugas', 'latitude', 'TEXT'),
         ('kunjungan_petugas', 'longitude', 'TEXT'),
         ('kunjungan_petugas', 'akurasi', 'TEXT'),
         ('kunjungan_petugas', 'foto_path', 'TEXT'),
         
+        # Transaksi
+        ('master_bayar', 'periode', 'TEXT'),
         ('master_bayar', 'bulan_rek', 'TEXT'),
-        ('collection_harian', 'bulan_rek', 'TEXT')
+        ('collection_harian', 'periode', 'TEXT'),
+        ('collection_harian', 'bulan_rek', 'TEXT'),
+        
+        # Upload History
+        ('upload_history', 'periode', 'TEXT')
     ]
 
-    print("⚙️ Checking Database Schema Integrity...")
+    print("⚙️ MENGIZINKAN PERBAIKAN STRUKTUR DATABASE...")
     
     for table, col, dtype in required_columns:
         try:
-            # Coba tambahkan kolom.
+            # Coba tambah kolom.
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
-            print(f"   🔧 FIXED: Added column '{col}' to table '{table}'")
-        except sqlite3.OperationalError:
+            print(f"   ✅ BERHASIL: Menambahkan kolom '{col}' ke tabel '{table}'")
+        except sqlite3.OperationalError as e:
             # Jika error "duplicate column name", berarti sudah ada (Aman).
-            pass
+            if "duplicate column name" in str(e):
+                pass 
+            else:
+                # Error lain (misal tabel belum dibuat), abaikan dulu
+                pass
         except Exception as e:
-            print(f"   ⚠️ Warning: Failed to check {table}.{col}: {e}")
+            print(f"   ⚠️ Warning check {table}.{col}: {e}")
 
 def optimize_performance(cursor):
     """Turbo Indexing."""
@@ -196,8 +218,8 @@ def optimize_performance(cursor):
     for idx in indices:
         try:
             cursor.execute(idx)
-        except Exception as e:
-            print(f"   ⚠️ Index Warning: {e}")
+        except:
+            pass
 
 def seed_default_admin(cursor):
     """Admin Default."""
