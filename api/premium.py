@@ -1,5 +1,5 @@
 """
-Premium Customer API - Sunter Dashboard Pro (V2.2 Clickable Nomen)
+Premium Customer API - Sunter Dashboard Pro (V2.3 Anomaly Detection)
 File: api/premium.py
 """
 
@@ -52,8 +52,26 @@ def get_premium_customers():
         cursor.execute(query, (periode,))
         rows = [dict(row) for row in cursor.fetchall()]
 
-        data_34 = [r for r in rows if r['rayon'] == '34']
-        data_35 = [r for r in rows if r['rayon'] == '35']
+        # ✅ LOGIKA DETEKSI ANOMALI (Python Side)
+        processed_rows = []
+        for r in rows:
+            curr = float(r['kubik'])
+            avg = float(r['avg_kubik_historis']) if r['avg_kubik_historis'] else 0
+            
+            r['anomali_status'] = 'NORMAL'
+            
+            if avg > 0:
+                # Jika Melonjak > 50% dari rata-rata (Contoh: Biasa 100, skrg 160)
+                if curr > (avg * 1.5):
+                    r['anomali_status'] = 'HIGH' 
+                # Jika Anjlok > 50% dari rata-rata (Contoh: Biasa 100, skrg 40)
+                elif curr < (avg * 0.5):
+                    r['anomali_status'] = 'LOW'
+
+            processed_rows.append(r)
+
+        data_34 = [r for r in processed_rows if r['rayon'] == '34']
+        data_35 = [r for r in processed_rows if r['rayon'] == '35']
 
         return jsonify({
             "status": "success",
@@ -66,7 +84,7 @@ def get_premium_customers():
     finally:
         conn.close()
 
-# ✅ ENDPOINT HISTORY DETAIL (Untuk Modal)
+# ... (Route /history/<nomen> TETAP SAMA seperti sebelumnya, jangan dihapus) ...
 @premium_bp.route('/history/<nomen>', methods=['GET'])
 def get_premium_history(nomen):
     if session.get('role') != 'admin':
@@ -75,20 +93,15 @@ def get_premium_history(nomen):
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        
-        # Ambil 12 bulan terakhir
         query = """
             SELECT periode, kubik, nominal, status_lunas 
             FROM master_pelanggan 
             WHERE nomen = ? 
-            ORDER BY id DESC 
-            LIMIT 12
+            ORDER BY id DESC LIMIT 12
         """
         cursor.execute(query, (nomen,))
         rows = cursor.fetchall()
-        
         history = []
-        # Kita balik urutannya agar grafik enak dilihat (Lama -> Baru)
         for row in reversed(rows): 
             history.append({
                 "periode": row['periode'], 
@@ -96,7 +109,6 @@ def get_premium_history(nomen):
                 "nominal": row['nominal'],
                 "lunas": row['status_lunas']
             })
-            
         return jsonify({"status": "success", "data": history})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
