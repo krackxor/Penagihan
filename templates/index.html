@@ -41,9 +41,8 @@
     <div class="row g-2 mb-3">
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
-                <small class="text-muted d-block mb-1 fw-800" style="font-size: 0.55rem; letter-spacing: 0.8px;">TARGET NOMEN (MC)</small>
+                <small class="text-muted d-block mb-1 fw-800" style="font-size: 0.55rem; letter-spacing: 0.8px;">TOTAL NOMEN (MC)</small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
-                <small class="text-muted mt-1" id="g-vol-mc" style="font-size: 0.65rem;">Vol: 0 m³</small>
             </div>
         </div>
         <div class="col-6">
@@ -69,55 +68,27 @@
                     <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
                         <small class="d-block text-info fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">UNDUE (BANK)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">Rp 0</span>
-                        <small class="text-white-50" id="vol-undue" style="font-size: 0.6rem;">0 m³</small>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">CURRENT (FIELD)</small>
+                        <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">CURRENT (LAPANGAN)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">Rp 0</span>
-                        <small class="text-white-50" id="vol-current" style="font-size: 0.6rem;">0 m³</small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-2 mb-4">
-        <div class="col-12">
-            <div class="card p-3 border-0 shadow-sm rounded-4 bg-white">
-                <div class="row g-0 align-items-center text-center">
-                    <div class="col-4 border-end">
-                        <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.5rem;">SISA PIUTANG (MC)</small>
-                        <h6 class="fw-bold mb-0 text-danger" id="stat-sisa-nom" style="font-size: 0.8rem;">Rp 0</h6>
-                        <small class="text-muted" id="stat-sisa-nomen" style="font-size: 0.6rem;">0 Nomen</small>
-                    </div>
-                    <div class="col-4 border-end">
-                        <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.5rem;">AR DEBT (LAMA)</small>
-                        <h6 class="fw-bold mb-0 text-dark" id="val-ardebt-paid" style="font-size: 0.8rem;">Rp 0</h6>
-                        <small class="text-muted" id="n-ardebt-paid" style="font-size: 0.6rem;">0 / 0 Lunas</small>
-                    </div>
-                    <div class="col-4">
-                        <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.5rem;">PRIORITAS</small>
-                        <h6 class="fw-bold mb-0 text-primary" id="val-prio-lunas" style="font-size: 0.8rem;">0 Lunas</h6>
-                        <small class="text-muted" id="n-prio-total" style="font-size: 0.6rem;">Dari 0 Target</small>
-                    </div>
-                </div>
+    <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white">
+        <div class="row g-0 align-items-center text-center">
+            <div class="col-6 border-end">
+                <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.55rem; letter-spacing: 0.5px;">Outstanding (Sisa Rp)</small>
+                <h6 class="fw-bold mb-0 text-danger" id="stat-sisa-nom" style="font-size: 0.85rem;">Rp 0</h6>
             </div>
-        </div>
-    </div>
-
-    <div class="row g-2 mb-4">
-        <div class="col-6">
-            <div class="card p-2 border-0 shadow-sm rounded-4 bg-danger bg-opacity-10 text-center">
-                <small class="fw-bold text-danger" style="font-size: 0.55rem;">EKSTREM (>100%)</small>
-                <h6 class="fw-bold mb-0 text-danger" id="count-ekstrem">0</h6>
-            </div>
-        </div>
-        <div class="col-6">
-            <div class="card p-2 border-0 shadow-sm rounded-4 bg-warning bg-opacity-10 text-center">
-                <small class="fw-bold text-warning" style="font-size: 0.55rem;">DROP (<50%)</small>
-                <h6 class="fw-bold mb-0 text-warning" id="count-drop">0</h6>
+            <div class="col-6">
+                <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.55rem; letter-spacing: 0.5px;">Sisa Belum Bayar</small>
+                <h6 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0 Nomen</h6>
             </div>
         </div>
     </div>
@@ -180,41 +151,25 @@
             const result = await res.json();
             
             if(!res.ok) throw new Error(result.message);
-            const s = result.summaries;
+            const s = result.summary;
 
-            // Target MC Section
-            document.getElementById('label-target-rek').innerText = `REK TAGIHAN: ${result.target_rekening}`;
-            document.getElementById('g-nomen-mc').innerText = s.mc.total.n.toLocaleString();
-            document.getElementById('g-vol-mc').innerText = `Vol: ${s.mc.total.v.toLocaleString()} m³`;
-            document.getElementById('g-nom-mc').innerText = toIDR(s.mc.total.m);
+            document.getElementById('label-target-rek').innerText = `REK TAGIHAN: ${s.target_rekening}`;
+            document.getElementById('g-nomen-mc').innerText = s.nomen.total.toLocaleString();
+            document.getElementById('g-nom-mc').innerText = toIDR(s.rupiah.mc);
             
-            // Efficiency Section
-            const pct = Math.round((s.mc.bayar.m / (s.mc.total.m || 1)) * 100);
+            const pct = s.rupiah.pct || 0;
             document.getElementById('stat-percent').innerText = pct + '%';
             document.getElementById('prog-bar').style.width = pct + '%';
-            document.getElementById('stat-realisasi').innerText = `${s.mc.bayar.n.toLocaleString()} Unit Lunas dari ${s.mc.total.n.toLocaleString()} Target Nomen`;
+            document.getElementById('stat-realisasi').innerText = `${s.nomen.bayar.toLocaleString()} Unit Lunas dari ${s.nomen.total.toLocaleString()} Target Nomen`;
 
-            // Undue & Current Details
-            document.getElementById('val-undue').innerText = toIDR(s.undue_bank.bayar.m);
-            document.getElementById('vol-undue').innerText = `${s.undue_bank.bayar.v.toLocaleString()} m³`;
-            document.getElementById('val-current').innerText = toIDR(s.current_field.bayar.m);
-            document.getElementById('vol-current').innerText = `${s.current_field.bayar.v.toLocaleString()} m³`;
+            document.getElementById('val-undue').innerText = toIDR(s.rupiah.undue);
+            document.getElementById('val-current').innerText = toIDR(s.rupiah.current);
 
-            // Sisa & Ardebt Details
-            document.getElementById('stat-sisa-nom').innerText = toIDR(s.mc.sisa.m);
-            document.getElementById('stat-sisa-nomen').innerText = `${s.mc.sisa.n.toLocaleString()} Nomen Belum`;
-            document.getElementById('val-ardebt-paid').innerText = toIDR(s.ardebt.bayar.m);
-            document.getElementById('n-ardebt-paid').innerText = `${s.ardebt.bayar.n} / ${s.ardebt.total.n} Lunas`;
+            document.getElementById('stat-sisa-nom').innerText = toIDR(s.rupiah.sisa);
+            document.getElementById('stat-sisa-nomen').innerText = `${s.nomen.belum.toLocaleString()} Nomen Belum`;
 
-            // Priority & Anomaly
-            document.getElementById('val-prio-lunas').innerText = `${s.prioritas.bayar.n} Lunas`;
-            document.getElementById('n-prio-total').innerText = `Dari ${s.prioritas.total.n} Target`;
-            document.getElementById('count-ekstrem').innerText = s.anomali.ekstrem;
-            document.getElementById('count-drop').innerText = s.anomali.drop;
-
-            // Analytics & Logs
-            renderLeaderboard(result.analytics.pcez_stats);
-            if (USER_ROLE === 'admin') renderChart(result.analytics.pcez_stats);
+            renderLeaderboard(result.analytics.leaderboard);
+            if (USER_ROLE === 'admin') renderChart(result.analytics.leaderboard);
             renderLiveLogs(result.logs);
 
         } catch (e) { 
@@ -224,45 +179,39 @@
         }
     }
 
-    function renderLeaderboard(stats) {
+    function renderLeaderboard(leaderboard) {
         const lb = document.getElementById('leaderboard-section');
-        if (!stats || stats.length === 0) {
+        if (!leaderboard || leaderboard.length === 0) {
             lb.innerHTML = '<div class="text-center py-4 small text-muted">Belum ada aktivitas di periode ini</div>';
             return;
         }
-        // Ambil top 5 berdasarkan persentase
-        const sorted = [...stats].sort((a, b) => b.pct - a.pct).slice(0, 5);
-        lb.innerHTML = sorted.map((o, i) => `
+        lb.innerHTML = leaderboard.map((o, i) => `
             <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-light bg-opacity-50">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
                         <div class="fw-800 me-3 text-muted" style="width: 25px;">#${i + 1}</div>
                         <div>
-                            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.3px;">${o.pcez} - ${o.petugas}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;">${o.lunas_n} Lunas / ${o.target_n} Target</small>
+                            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 0.3px;">${o.petugas || 'UNMAPPED'}</h6>
+                            <small class="text-muted" style="font-size: 0.6rem;">${o.lunas_nomen} Lunas / ${o.target_nomen} Target</small>
                         </div>
                     </div>
-                    <span class="badge ${i === 0 ? 'bg-warning text-dark shadow-sm' : 'bg-white text-primary border'} rounded-pill" style="font-size: 0.7rem; font-weight: 800;">${o.pct}%</span>
+                    <span class="badge ${i === 0 ? 'bg-warning text-dark shadow-sm' : 'bg-white text-primary border'} rounded-pill" style="font-size: 0.7rem; font-weight: 800;">${o.pct_nomen}%</span>
                 </div>
             </div>`).join('');
     }
 
-    function renderChart(stats) {
+    function renderChart(leaderboard) {
         const canvas = document.getElementById('performaChart');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (myChart) myChart.destroy();
-        
-        // Ambil top 5 untuk grafik
-        const topStats = [...stats].sort((a, b) => b.pct - a.pct).slice(0, 5);
-        
         myChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: topStats.map(o => o.pcez),
+                labels: leaderboard.map(o => (o.petugas || 'N/A').split(' ')[0]),
                 datasets: [{ 
                     label: 'Efektivitas %', 
-                    data: topStats.map(o => o.pct), 
+                    data: leaderboard.map(o => o.pct_nomen), 
                     backgroundColor: '#2563eb', 
                     borderRadius: 8,
                     barPercentage: 0.6
