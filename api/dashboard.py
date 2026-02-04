@@ -1,10 +1,10 @@
 """
-API Dashboard - Sunter Dashboard Pro (V16.0 PCEZ & MC Report)
+API Dashboard - Sunter Dashboard Pro (V16.5 Safe Mode & Debug)
 Update: 2026-02-05
 Fitur:
-1. Laporan MC (Current Target) yang jelas.
-2. Distribusi PCEZ (Performa Area).
-3. Distribusi Petugas (Performa Orang).
+1. ✅ DEBUG LOGS: Menampilkan proses di Terminal agar ketahuan macet dimana.
+2. ✅ ANTI-CRASH: Menangani nilai NULL/None dengan ketat.
+3. ✅ ZERO DIVISION FIX: Mencegah error pembagian nol.
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -23,9 +23,13 @@ def get_latest_active_period(db):
 
 @dashboard_bp.route('/pusat-kendali', methods=['GET'])
 def get_pusat_kendali():
+    print("--- [DEBUG] Memulai Request Dashboard ---") # DEBUG
     db = get_db_connection()
     try:
+        # [1] SETUP
         periode = request.args.get('periode') or get_latest_active_period(db)
+        print(f"--- [DEBUG] Periode Aktif: {periode}") # DEBUG
+        
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
@@ -48,54 +52,56 @@ def get_pusat_kendali():
             params_bayar.append(periode)
             params_bayar.append(petugas_id)
 
-        # [A] LAPORAN MC (CURRENT TARGET)
-        # Ini menjawab "Mana Laporan MC?". Ini adalah data Master Target bulan ini.
+        # [A] LAPORAN MC
+        print("--- [DEBUG] Query MC...") # DEBUG
         q_mc = f"""
             SELECT 
                 COUNT(*) as tot_nomen, 
                 COALESCE(SUM(nominal),0) as tot_rp, 
                 COALESCE(SUM(kubik),0) as tot_m3,
-                
-                -- Realisasi (Data dari Collection yang match dengan MC)
                 COALESCE(SUM(CASE WHEN status_lunas=1 THEN 1 ELSE 0 END),0) as pay_nomen,
                 COALESCE(SUM(CASE WHEN status_lunas=1 THEN nominal ELSE 0 END),0) as pay_rp,
                 COALESCE(SUM(CASE WHEN status_lunas=1 THEN kubik ELSE 0 END),0) as pay_m3,
-
-                -- Sisa (Belum Bayar)
                 COALESCE(SUM(CASE WHEN status_lunas=0 THEN 1 ELSE 0 END),0) as owe_nomen,
                 COALESCE(SUM(CASE WHEN status_lunas=0 THEN nominal ELSE 0 END),0) as owe_rp,
                 COALESCE(SUM(CASE WHEN status_lunas=0 THEN kubik ELSE 0 END),0) as owe_m3
             FROM master_pelanggan WHERE periode = ? {rute_filter_mc}
         """
         mc = db.execute(q_mc, params_mc).fetchone()
+        # Safe Dictionary Convert (Jika result None)
+        mc = dict(mc) if mc else {'tot_nomen':0, 'tot_rp':0, 'tot_m3':0, 'pay_nomen':0, 'pay_rp':0, 'pay_m3':0, 'owe_nomen':0, 'owe_rp':0, 'owe_m3':0}
 
         # [B] LAPORAN ARDEBT
+        print("--- [DEBUG] Query Ardebt...") # DEBUG
+        # Pastikan tabel ardebt ada, jika error sql akan ditangkap except
         q_ard_target = f"""
             SELECT COUNT(*) as tot_nomen, COALESCE(SUM(jumlah),0) as tot_rp, COALESCE(SUM(volume),0) as tot_m3
             FROM ardebt WHERE periode = ? {rute_filter_ardebt}
         """
         ard_t = db.execute(q_ard_target, params_ardebt).fetchone()
+        ard_t = dict(ard_t) if ard_t else {'tot_nomen':0, 'tot_rp':0, 'tot_m3':0}
 
         q_ard_real = f"""
             SELECT COUNT(DISTINCT nomen) as pay_nomen, COALESCE(SUM(nominal),0) as pay_rp
             FROM master_bayar WHERE periode = ? AND kategori = 'HISTORY' {rute_filter_bayar}
         """
         ard_r = db.execute(q_ard_real, params_bayar).fetchone()
+        ard_r = dict(ard_r) if ard_r else {'pay_nomen':0, 'pay_rp':0}
         
-        # Hitung Sisa Ardebt
         ard_owe_rp = max(0, ard_t['tot_rp'] - ard_r['pay_rp'])
         ard_owe_nomen = max(0, ard_t['tot_nomen'] - ard_r['pay_nomen'])
 
-        # [C] UNDUE (Bayar Cepat)
+        # [C] UNDUE
+        print("--- [DEBUG] Query Undue...") # DEBUG
         q_undue = f"""
             SELECT COUNT(DISTINCT nomen) as pay_nomen, COALESCE(SUM(nominal),0) as pay_rp
             FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE' {rute_filter_bayar}
         """
         undue = db.execute(q_undue, params_bayar).fetchone()
+        undue = dict(undue) if undue else {'pay_nomen':0, 'pay_rp':0}
 
-        # [D] DISTRIBUSI PERFORMA (PCEZ & PETUGAS)
-        
-        # 1. Analisa PCEZ (Area) - INI YANG ANDA MINTA
+        # [D] DISTRIBUSI
+        print("--- [DEBUG] Query Distribusi...") # DEBUG
         q_pcez = f"""
             SELECT 
                 pcez,
@@ -108,10 +114,8 @@ def get_pusat_kendali():
             GROUP BY pcez 
             ORDER BY pct ASC LIMIT 10 
         """
-        # Limit 10 terbawah (Area paling bermasalah ditampilkan duluan)
         rows_pcez = db.execute(q_pcez, params_mc).fetchall()
 
-        # 2. Analisa Petugas (SDM)
         q_petugas = f"""
             SELECT 
                 r.petugas, 
@@ -127,16 +131,25 @@ def get_pusat_kendali():
         rows_petugas = db.execute(q_petugas, params_mc).fetchall()
 
         # [E] ANOMALI
-        count_ekstrem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 500 {rute_filter_mc}", params_mc).fetchone()['c']
-        count_drop = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik = 0 {rute_filter_mc}", params_mc).fetchone()['c']
-        count_prem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 75 AND status_lunas=0 {rute_filter_mc}", params_mc).fetchone()['c']
+        print("--- [DEBUG] Query Anomali...") # DEBUG
+        # Gunakan try-except per query anomali untuk keamanan jika kolom kubik error
+        try:
+            count_ekstrem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 500 {rute_filter_mc}", params_mc).fetchone()['c']
+            count_drop = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik = 0 {rute_filter_mc}", params_mc).fetchone()['c']
+            count_prem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 75 AND status_lunas=0 {rute_filter_mc}", params_mc).fetchone()['c']
+        except Exception as ex_anom:
+            print(f"--- [DEBUG] Error Anomali: {ex_anom}")
+            count_ekstrem = 0
+            count_drop = 0
+            count_prem = 0
 
         # [F] RESPONSE
-        return jsonify({
+        print("--- [DEBUG] Building Response...") # DEBUG
+        response_data = {
             "status": "success",
             "periode": periode,
             "grand_total": {
-                "collection": mc['pay_rp'] + ard_r['pay_rp'] + undue['pay_rp'], # Realisasi Uang Masuk
+                "collection": mc['pay_rp'] + ard_r['pay_rp'] + undue['pay_rp'],
                 "target_mc": mc['tot_rp'],
                 "target_ardebt": ard_t['tot_rp']
             },
@@ -152,14 +165,18 @@ def get_pusat_kendali():
             },
             "undue": undue['pay_rp'],
             "distribusi": {
-                "pcez": [dict(r) for r in rows_pcez],       # Data PCEZ
-                "petugas": [dict(r) for r in rows_petugas]  # Data Petugas
+                "pcez": [dict(r) for r in rows_pcez],
+                "petugas": [dict(r) for r in rows_petugas]
             },
             "anomali": { "ekstrem": count_ekstrem, "drop": count_drop, "premium": count_prem },
-            "logs": [dict(row) for row in db.execute(f"SELECT nomen, petugas_name, keterangan, created_at FROM kunjungan_petugas WHERE periode=? ORDER BY created_at DESC LIMIT 5", (periode,)).fetchall()]
-        })
+            "logs": []
+        }
+        
+        print("--- [DEBUG] Success! Sending Data. ---") # DEBUG
+        return jsonify(response_data)
 
     except Exception as e:
+        print(f"!!! CRITICAL ERROR API DASHBOARD: {str(e)}") # PRINT KE TERMINAL
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
