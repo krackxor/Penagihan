@@ -1,11 +1,11 @@
 """
-Core Database Module - Sunter Dashboard Pro (V15.2 Auto-Healing)
+Core Database Module - Sunter Dashboard Pro (V16.1 Critical Fix)
 Update: 2026-02-05
 ---------------------------------------------------------------------------
 Fitur Utama:
-1. ✅ AUTO-HEALING: Otomatis mendeteksi dan menambah kolom yang hilang (kubik, volume, dll).
-2. ✅ ANOMALY TABLES: Otomatis membuat tabel untuk analisa Ekstrem & Drop.
-3. ✅ PERFORMANCE: Tuning SQLite PRAGMA untuk kecepatan dashboard.
+1. ✅ FIX CRITICAL ERROR: Memaksa penambahan kolom 'periode' di semua tabel.
+2. ✅ AUTO-HEALING: Otomatis mendeteksi dan menambah kolom yang hilang (kubik, volume, dll).
+3. ✅ PERFORMANCE: Tuning SQLite PRAGMA.
 """
 
 import sqlite3
@@ -14,7 +14,7 @@ from flask import current_app, g
 from werkzeug.security import generate_password_hash
 
 def get_db_connection():
-    """ [KONEKSI DATABASE UTAMA DENGAN PRAGMA ULTRA-TURBO] """
+    """ [KONEKSI DATABASE UTAMA] """
     db_path = current_app.config.get('DATABASE') or os.path.join(os.getcwd(), 'penagihan.db')
     try:
         conn = sqlite3.connect(db_path, timeout=300)
@@ -24,9 +24,6 @@ def get_db_connection():
         conn.execute('PRAGMA journal_mode=WAL;')        
         conn.execute('PRAGMA synchronous=NORMAL;')      
         conn.execute('PRAGMA temp_store=MEMORY;')       
-        conn.execute('PRAGMA cache_size=-128000;')      
-        conn.execute('PRAGMA busy_timeout=300000;')     
-        conn.execute('PRAGMA journal_size_limit=67108864;') 
         conn.execute('PRAGMA foreign_keys = ON;')       
         
         return conn
@@ -47,18 +44,17 @@ def init_db(app):
             db.commit() 
 
             # 2. JALANKAN PERBAIKAN STRUKTUR (MIGRASI)
-            # Ini yang memperbaiki error "no such column: kubik/volume"
             run_smart_migration(cursor)
             db.commit()
             
-            # 3. Buat Index agar Cepat
+            # 3. Buat Index
             optimize_performance(cursor)
             
             # 4. Buat Admin Default
             seed_default_admin(cursor)
 
             db.commit()
-            print("✅ Database System Ready (Structure Verified).")
+            print("✅ Database System Ready (V16.1 Critical Fix Applied).")
             
         except Exception as e:
             print(f"⚠️ Database Init Warning: {e}")
@@ -101,7 +97,7 @@ def check_and_create_tables(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS kunjungan_petugas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nomen TEXT NOT NULL, 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            periode TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     
@@ -112,7 +108,7 @@ def check_and_create_tables(cursor):
     cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, petugas_id TEXT, last_login TIMESTAMP, no_hp TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     cursor.execute("CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT, module TEXT, details TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 
-    # Tabel Analisa Anomali (Dashboard V15)
+    # Tabel Analisa Anomali
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS analisa_ekstrem (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -144,30 +140,33 @@ def check_and_create_tables(cursor):
 
 def run_smart_migration(cursor):
     """
-    Fungsi Penyelamat: Mengecek kolom satu per satu.
-    Jika kolom belum ada di database lama, akan ditambahkan paksa.
+    Fungsi Penyelamat: Menambahkan kolom 'periode' dan lainnya secara paksa jika hilang.
     """
     
-    # Daftar Kolom Wajib untuk Dashboard V15
-    # Format: (Nama Tabel, Nama Kolom, Tipe Data)
+    # Daftar Kolom Wajib (Tabel, Kolom, Tipe Data)
     required_columns = [
-        # Tabel Master Pelanggan
+        # KRUSIAL: Kolom Periode di semua tabel transaksi
+        ('master_pelanggan', 'periode', 'TEXT'),
+        ('ardebt', 'periode', 'TEXT'),
+        ('master_bayar', 'periode', 'TEXT'),
+        ('collection_harian', 'periode', 'TEXT'),
+        ('kunjungan_petugas', 'periode', 'TEXT'),
+        ('upload_history', 'periode', 'TEXT'),
+
+        # Fitur Baru (V15+)
         ('master_pelanggan', 'kubik', 'REAL DEFAULT 0'),
         ('master_pelanggan', 'latitude', 'TEXT'),
         ('master_pelanggan', 'longitude', 'TEXT'),
         ('master_pelanggan', 'tipe', "TEXT DEFAULT 'MC'"),
         
-        # Tabel Ardebt
         ('ardebt', 'volume', 'REAL DEFAULT 0'),
         ('ardebt', 'tipe_bill', "TEXT DEFAULT 'WATER'"),
         
-        # Tabel Kunjungan (GPS)
         ('kunjungan_petugas', 'latitude', 'TEXT'),
         ('kunjungan_petugas', 'longitude', 'TEXT'),
         ('kunjungan_petugas', 'akurasi', 'TEXT'),
         ('kunjungan_petugas', 'foto_path', 'TEXT'),
         
-        # Tabel Transaksi
         ('master_bayar', 'bulan_rek', 'TEXT'),
         ('collection_harian', 'bulan_rek', 'TEXT')
     ]
@@ -176,11 +175,11 @@ def run_smart_migration(cursor):
     
     for table, col, dtype in required_columns:
         try:
-            # Coba tambahkan kolom. Jika sudah ada, SQLite akan error -> masuk ke except -> Lanjut.
+            # Coba tambahkan kolom.
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
-            print(f"   🔧 Fixed: Added column '{col}' to table '{table}'")
+            print(f"   🔧 FIXED: Added column '{col}' to table '{table}'")
         except sqlite3.OperationalError:
-            # Error ini berarti kolom sudah ada, jadi aman. Abaikan.
+            # Jika error "duplicate column name", berarti sudah ada (Aman).
             pass
         except Exception as e:
             print(f"   ⚠️ Warning: Failed to check {table}.{col}: {e}")
@@ -195,7 +194,10 @@ def optimize_performance(cursor):
         "CREATE INDEX IF NOT EXISTS idx_mc_coords ON master_pelanggan (latitude, longitude)"
     ]
     for idx in indices:
-        cursor.execute(idx)
+        try:
+            cursor.execute(idx)
+        except Exception as e:
+            print(f"   ⚠️ Index Warning: {e}")
 
 def seed_default_admin(cursor):
     """Admin Default."""
