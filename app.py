@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V13.1 Anomaly & Ekstrem)
+Flask Application - Area Service Integrated System (V13.2 Drop Anomaly)
 Updated: 2026-02-04
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -9,6 +9,7 @@ Fixes Log:
 4. ✅ ANALISA PARETO: Modul Top 500 Admin.
 5. ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
 6. ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
+7. ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
 """
 
 import os
@@ -33,7 +34,8 @@ from api.pcez_performance import register_pcez_routes
 from api.wa_gateway import wa_bp
 from api.analisa_top_500 import analisa_top500_bp 
 from api.premium import premium_bp 
-from api.ekstrem import ekstrem_bp # <--- ✅ IMPORT BARU
+from api.ekstrem import ekstrem_bp 
+from api.drop import drop_bp # <--- ✅ IMPORT BARU
 
 def create_app():
     app = Flask(__name__)
@@ -100,7 +102,8 @@ def create_app():
             'upload.handle_smart_upload', 'history_page',
             'analisa_top500_page', 
             'premium_customer_page',
-            'pelanggan_ekstrem_page' # <--- ✅ Page Baru Admin Only
+            'pelanggan_ekstrem_page',
+            'pelanggan_drop_page' # <--- ✅ Page Baru Admin Only
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -119,7 +122,8 @@ def create_app():
     app.register_blueprint(wa_bp, url_prefix='/api/wa-gateway') 
     app.register_blueprint(analisa_top500_bp, url_prefix='/api/analisa')
     app.register_blueprint(premium_bp, url_prefix='/api/premium')
-    app.register_blueprint(ekstrem_bp, url_prefix='/api/ekstrem') # <--- ✅ REGISTRASI API BARU
+    app.register_blueprint(ekstrem_bp, url_prefix='/api/ekstrem') 
+    app.register_blueprint(drop_bp, url_prefix='/api/drop') # <--- ✅ REGISTRASI API BARU
     
     register_pcez_routes(app, get_db_connection)
 
@@ -207,6 +211,11 @@ def create_app():
     @app.route('/pelanggan-ekstrem')
     def pelanggan_ekstrem_page():
         return render_template('pelanggan_ekstrem.html')
+
+    # ✅ HALAMAN BARU: PELANGGAN DROP
+    @app.route('/pelanggan-drop')
+    def pelanggan_drop_page():
+        return render_template('pelanggan_drop.html')
 
     # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
