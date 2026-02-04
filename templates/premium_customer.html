@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<div class="animate__animated animate__fadeIn">
+    <div class="px-3 pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h4 class="fw-bold mb-1 text-dark">
+                <i class="fa-solid fa-gem me-2 text-warning"></i>Pelanggan Premium Stabil
+            </h4>
+            <p class="text-muted small mb-0 fw-semibold">
+                Filter: Kubik > 75 (Bulan Ini) AND Rata-rata > 75 (Stabil)
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm fw-bold text-primary" 
+                   style="width: 150px; cursor: pointer;" onchange="loadPremium()">
+            
+            <button class="btn btn-sm btn-success border shadow-sm rounded-circle p-2" onclick="downloadExcel()" title="Export Excel">
+                <i class="fa-solid fa-file-excel"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mx-3 mb-5 bg-white border">
+        <div class="card-body p-0">
+            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center rounded-top-4 flex-wrap gap-3">
+                <ul class="nav nav-pills nav-sm" id="pills-tab" role="tablist">
+                    <li class="nav-item me-2">
+                        <button class="nav-link active rounded-pill px-4 fw-bold small shadow-sm" data-bs-toggle="pill" data-bs-target="#pills-34">
+                            RAYON 34 <span class="badge bg-white text-primary ms-1" id="count-34">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link rounded-pill px-4 fw-bold small shadow-sm" data-bs-toggle="pill" data-bs-target="#pills-35">
+                            RAYON 35 <span class="badge bg-white text-info ms-1" id="count-35">0</span>
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="input-group" style="width: 250px;">
+                    <span class="input-group-text border-0 bg-white ps-3"><i class="fa-solid fa-search text-muted"></i></span>
+                    <input type="text" id="searchBox" class="form-control border-0 shadow-none small fw-bold" placeholder="Cari Nama / IDPEL..." onkeyup="filterTable()">
+                </div>
+            </div>
+
+            <div class="tab-content" id="pills-tabContent">
+                <div class="tab-pane fade show active" id="pills-34">
+                    <div class="table-responsive" style="max-height: 65vh;">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                            <thead class="bg-dark text-warning sticky-top">
+                                <tr class="text-uppercase fw-800">
+                                    <th class="ps-4 py-3">#</th>
+                                    <th>Pelanggan</th>
+                                    <th class="text-center">Trend (Avg)</th>
+                                    <th class="text-end">Kubik Kini</th>
+                                    <th class="text-end">Tagihan (IDR)</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-34"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="pills-35">
+                    <div class="table-responsive" style="max-height: 65vh;">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
+                            <thead class="bg-dark text-warning sticky-top">
+                                <tr class="text-uppercase fw-800">
+                                    <th class="ps-4 py-3">#</th>
+                                    <th>Pelanggan</th>
+                                    <th class="text-center">Trend (Avg)</th>
+                                    <th class="text-end">Kubik Kini</th>
+                                    <th class="text-end">Tagihan (IDR)</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-35"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allData34 = [], allData35 = [];
+    const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
+
+    document.addEventListener('DOMContentLoaded', () => loadPremium());
+
+    async function loadPremium() {
+        const picker = document.getElementById('filter-periode').value;
+        let url = '/api/premium/list';
+        if (picker) url += `?periode=${picker}`;
+
+        try {
+            const res = await fetch(url);
+            const result = await res.json();
+            
+            if(result.status === 'success') {
+                allData34 = result.data_34;
+                allData35 = result.data_35;
+                
+                document.getElementById('count-34').innerText = allData34.length;
+                document.getElementById('count-35').innerText = allData35.length;
+                
+                renderTable('tbody-34', allData34);
+                renderTable('tbody-35', allData35);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    function renderTable(tbodyId, data) {
+        const tbody = document.getElementById(tbodyId);
+        if(data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted">Tidak ada pelanggan premium stabil.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((item, index) => {
+            const statusBadge = item.status_lunas == 1 
+                ? '<span class="badge bg-success rounded-pill"><i class="fa-solid fa-check me-1"></i>LUNAS</span>'
+                : '<span class="badge bg-danger rounded-pill"><i class="fa-solid fa-xmark me-1"></i>BELUM</span>';
+            
+            // Bandingkan Bulan Ini vs Rata-rata
+            // Jika Bulan Ini > Rata-rata (Naik) -> Panah Hijau
+            // Jika Bulan Ini < Rata-rata (Turun) -> Panah Merah
+            const trendIcon = item.kubik >= item.avg_kubik_historis 
+                ? '<i class="fa-solid fa-arrow-trend-up text-success"></i>' 
+                : '<i class="fa-solid fa-arrow-trend-down text-danger"></i>';
+
+            return `
+                <tr class="transition-row">
+                    <td class="ps-4 fw-800 text-muted">${index + 1}</td>
+                    <td>
+                        <div class="fw-800 text-dark">${item.nama}</div>
+                        <div class="small text-muted font-monospace">${item.nomen}</div>
+                        <div class="small text-primary fw-bold"><i class="fa-solid fa-map-pin me-1"></i>${item.alamat}</div>
+                    </td>
+                    <td class="text-center">
+                        <div class="fw-bold text-dark fs-6">${item.avg_kubik_historis} <small>m³</small></div>
+                        <div class="small text-muted" style="font-size: 0.65rem;">Rata-rata Historis</div>
+                    </td>
+                    <td class="text-end align-middle">
+                        <span class="fw-800 text-dark fs-5">${item.kubik}</span> 
+                        ${trendIcon}
+                    </td>
+                    <td class="text-end fw-800 text-primary align-middle">
+                        Rp ${formatIDR(item.nominal)}
+                    </td>
+                    <td class="text-center align-middle">${statusBadge}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterTable() {
+        const term = document.getElementById('searchBox').value.toLowerCase();
+        renderTable('tbody-34', allData34.filter(d => d.nama.toLowerCase().includes(term) || d.nomen.includes(term)));
+        renderTable('tbody-35', allData35.filter(d => d.nama.toLowerCase().includes(term) || d.nomen.includes(term)));
+    }
+
+    function downloadExcel() {
+        if (allData34.length === 0 && allData35.length === 0) return;
+        
+        const format = (d) => d.map((item, i) => ({
+            "No": i + 1, "IDPEL": item.nomen, "Nama": item.nama, "Alamat": item.alamat,
+            "Rayon": item.rayon, 
+            "Kubik Kini": item.kubik, 
+            "Rata-rata Kubik": item.avg_kubik_historis,
+            "Tagihan (Rp)": item.nominal,
+            "Status": item.status_lunas == 1 ? "LUNAS" : "BELUM BAYAR"
+        }));
+
+        const wb = XLSX.utils.book_new();
+        if(allData34.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(format(allData34)), "Premium R34");
+        if(allData35.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(format(allData35)), "Premium R35");
+        
+        XLSX.writeFile(wb, `Pelanggan_Premium_Stabil.xlsx`);
+    }
+</script>
+{% endblock %}
