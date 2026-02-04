@@ -8,310 +8,275 @@
     <div class="pt-3 mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h4 class="fw-bold mb-0 text-dark">
-                    {% if session.get('role') == 'admin' %} 
-                        Executive Dashboard ⚡ 
-                    {% elif session.get('role') == 'petugas' %} 
-                        KPI Lapangan Saya 📈 
-                    {% else %}
-                        Monitoring Area 🌏
-                    {% endif %}
-                </h4>
-                <div class="d-flex align-items-center gap-2 mt-1">
-                    <p class="text-muted small mb-0" id="display-date">Memuat...</p>
-                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill shadow-sm" style="font-size: 0.6rem;">LIVE DATA</span>
-                </div>
+                <h4 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-chart-line text-primary me-2"></i>Executive Analytics</h4>
+                <p class="text-muted small mb-0">Laporan Kinerja Petugas & Keuangan</p>
             </div>
-            
             <div class="d-flex gap-2">
-                <input type="month" id="filter-periode" 
-                       class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-bold text-primary" 
-                       style="width: 135px; font-size: 0.75rem; background-color: #f8fafc;" 
-                       onchange="refreshDashboard()">
-                
-                <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="refreshDashboard()" id="btn-refresh">
-                    <i class="fas fa-arrows-rotate text-primary" id="sync-icon"></i>
-                </button>
+                <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm rounded-pill fw-bold text-primary" onchange="refreshDashboard()">
+                <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="refreshDashboard()"><i class="fas fa-arrows-rotate text-primary" id="sync-icon"></i></button>
             </div>
         </div>
     </div>
 
-    <div class="mb-2"><h6 class="fw-bold text-secondary small ls-1" style="font-size: 0.65rem;">PENCAPAIAN KEUANGAN (REVENUE)</h6></div>
-    
-    <div class="card border-0 shadow-lg mb-3 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
-        <div class="card-body p-4 text-center position-relative">
-            <i class="fa-solid fa-coins position-absolute top-0 start-0 m-3 opacity-10 fa-3x"></i>
-            
-            <small class="opacity-75 fw-800 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Total Uang Masuk (Cash In)</small>
-            <h1 class="fw-bold mb-0 animate__animated animate__pulse animate__infinite" id="total-money" style="font-size: 3.2rem; letter-spacing: -2px;">Rp 0</h1>
-            <p class="small mb-4 fw-medium text-white-50">Gabungan Current + Ardebt</p>
-
-            <div class="row g-2">
-                <div class="col-6">
-                    <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <div class="d-flex justify-content-between px-1">
-                            <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">CURRENT</small>
-                            <small class="text-white-50" style="font-size: 0.5rem;" id="curr-pct">0%</small>
-                        </div>
-                        <span class="fw-bold d-block mt-1" id="val-current" style="font-size: 0.9rem;">Rp 0</span>
-                        <div class="progress mt-2 bg-white bg-opacity-10" style="height: 4px;">
-                            <div id="prog-curr" class="progress-bar bg-warning" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <div class="d-flex justify-content-between px-1">
-                            <small class="d-block text-info fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">ARDEBT</small>
-                            <small class="text-white-50" style="font-size: 0.5rem;" id="ard-pct">0%</small>
-                        </div>
-                        <span class="fw-bold d-block mt-1" id="val-ardebt" style="font-size: 0.9rem;">Rp 0</span>
-                        <div class="progress mt-2 bg-white bg-opacity-10" style="height: 4px;">
-                            <div id="prog-ard" class="progress-bar bg-info" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="mb-2 mt-4"><h6 class="fw-bold text-secondary small ls-1" style="font-size: 0.65rem;">INDIKATOR MASALAH (ACTION NEEDED)</h6></div>
-    <div class="row g-2 mb-4">
-        <div class="col-4">
-            <div class="card border-0 shadow-sm h-100 p-2 text-center bg-white rounded-4 position-relative overflow-hidden">
-                <div class="position-absolute top-0 start-0 w-100 h-100 border-start border-4 border-danger opacity-50"></div>
-                <h4 class="fw-bold text-dark mb-0 mt-2" id="count-ekstrem">0</h4>
-                <small class="text-danger fw-bold d-block mb-2" style="font-size: 0.55rem;">EKSTREM</small>
-                {% if session.get('role') == 'admin' %}
-                <a href="/pelanggan-ekstrem" class="stretched-link"></a>
-                {% endif %}
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card border-0 shadow-sm h-100 p-2 text-center bg-white rounded-4 position-relative overflow-hidden">
-                <div class="position-absolute top-0 start-0 w-100 h-100 border-start border-4 border-warning opacity-50"></div>
-                <h4 class="fw-bold text-dark mb-0 mt-2" id="count-drop">0</h4>
-                <small class="text-warning text-dark fw-bold d-block mb-2" style="font-size: 0.55rem;">DROP</small>
-                {% if session.get('role') == 'admin' %}
-                <a href="/pelanggan-drop" class="stretched-link"></a>
-                {% endif %}
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card border-0 shadow-sm h-100 p-2 text-center bg-white rounded-4 position-relative overflow-hidden">
-                <div class="position-absolute top-0 start-0 w-100 h-100 border-start border-4 border-primary opacity-50"></div>
-                <h4 class="fw-bold text-dark mb-0 mt-2" id="count-premium">0</h4>
-                <small class="text-primary fw-bold d-block mb-2" style="font-size: 0.55rem;">VIP NUNGGAK</small>
-                {% if session.get('role') == 'admin' %}
-                <a href="/premium-customer" class="stretched-link"></a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="mb-2"><h6 class="fw-bold text-secondary small ls-1" style="font-size: 0.65rem;">PROGRESS DATA SPASIAL</h6></div>
-    <div class="card border-0 shadow-sm mb-4 rounded-4 bg-dark text-white overflow-hidden position-relative">
-        <div class="position-absolute end-0 bottom-0 opacity-10 m-n2">
-            <i class="fa-solid fa-map fa-4x text-white"></i>
-        </div>
-        <div class="card-body d-flex align-items-center justify-content-between py-3">
-            <div class="d-flex align-items-center">
-                <div class="bg-success rounded-circle p-2 me-3 text-white bg-opacity-25 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                    <i class="fa-solid fa-location-cross"></i>
-                </div>
+    <div class="card border-0 shadow-lg mb-4 rounded-4 bg-dark text-white overflow-hidden">
+        <div class="card-body p-4 position-relative">
+            <div class="d-flex justify-content-between align-items-end position-relative z-1">
                 <div>
-                    <h6 class="fw-bold mb-0 text-white" style="font-size: 0.85rem;">GIS Coverage</h6>
-                    <small class="text-white-50" style="font-size: 0.6rem;">Pelanggan ter-tagging GPS</small>
+                    <small class="text-white-50 text-uppercase fw-bold ls-1">Total Collection (Cash In)</small>
+                    <h1 class="fw-bold mb-0 display-4" id="grand-collection">Rp 0</h1>
+                </div>
+                <div class="text-end">
+                    <small class="text-white-50 text-uppercase fw-bold ls-1">Target Billing</small>
+                    <h5 class="fw-bold mb-0 text-warning" id="grand-target">Rp 0</h5>
                 </div>
             </div>
-            <div class="text-end z-1">
-                <h5 class="fw-bold mb-0 text-white" id="gis-mapped">0</h5>
-                <span class="badge bg-success rounded-pill border border-white border-opacity-25" id="gis-pct" style="font-size: 0.6rem;">0%</span>
-            </div>
-        </div>
-        {% if session.get('role') == 'admin' %}
-        <a href="/peta-sebaran" class="stretched-link"></a>
-        {% endif %}
-    </div>
-
-    <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden bg-white">
-        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-trophy text-warning me-2"></i>Top Performance</h6>
-        </div>
-        <div class="card-body pt-0">
-            {% if session.get('role') == 'admin' %}
-            <div style="height: 180px; margin-bottom: 20px;">
-                <canvas id="performaChart"></canvas>
-            </div>
-            {% endif %}
-            <div id="leaderboard-section">
-                </div>
+            <i class="fa-solid fa-money-bill-wave position-absolute top-50 start-50 translate-middle text-white opacity-10" style="font-size: 8rem;"></i>
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
-        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1.2px;"><i class="fas fa-tower-broadcast text-primary me-2"></i>Aktivitas Terbaru</h6>
-        <div class="d-flex align-items-center bg-white shadow-sm rounded-pill px-3 py-1 border border-danger border-opacity-25">
-            <span class="realtime-dot me-2"></span>
-            <small class="fw-bold text-danger" style="font-size: 0.55rem;">LIVE</small>
+    <div class="row g-3 mb-4">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100 rounded-4">
+                <div class="card-header bg-white border-0 fw-bold text-primary pt-3">
+                    <i class="fa-solid fa-bolt me-2"></i>CURRENT (Bulan Ini)
+                </div>
+                <div class="card-body pt-0">
+                    <div class="alert alert-primary bg-opacity-10 border-0 mb-3">
+                        <div class="d-flex justify-content-between"><span>Target:</span><span class="fw-bold" id="curr-target-nomen">0 Plg</span></div>
+                        <div class="d-flex justify-content-between"><span>Volume:</span><span class="fw-bold" id="curr-target-m3">0 m³</span></div>
+                        <h5 class="fw-bold text-end mt-2 mb-0 text-primary" id="curr-target-rp">Rp 0</h5>
+                    </div>
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="p-2 bg-success bg-opacity-10 rounded-3">
+                                <small class="text-success fw-bold d-block">SUDAH BAYAR</small>
+                                <span class="d-block fw-bold text-dark" id="curr-pay-nomen">0</span>
+                                <small class="d-block text-muted" id="curr-pay-rp">Rp 0</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 bg-danger bg-opacity-10 rounded-3">
+                                <small class="text-danger fw-bold d-block">BELUM BAYAR</small>
+                                <span class="d-block fw-bold text-dark" id="curr-owe-nomen">0</span>
+                                <small class="d-block text-muted" id="curr-owe-rp">Rp 0</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100 rounded-4">
+                <div class="card-header bg-white border-0 fw-bold text-danger pt-3">
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i>ARDEBT (Tunggakan)
+                </div>
+                <div class="card-body pt-0">
+                    <div class="alert alert-danger bg-opacity-10 border-0 mb-3">
+                        <div class="d-flex justify-content-between"><span>Total Tunggakan:</span><span class="fw-bold" id="ard-target-nomen">0 Plg</span></div>
+                        <div class="d-flex justify-content-between"><span>Volume Macet:</span><span class="fw-bold" id="ard-target-m3">0 m³</span></div>
+                        <h5 class="fw-bold text-end mt-2 mb-0 text-danger" id="ard-target-rp">Rp 0</h5>
+                    </div>
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="p-2 bg-info bg-opacity-10 rounded-3">
+                                <small class="text-info fw-bold d-block">TERCAIRKAN</small>
+                                <span class="d-block fw-bold text-dark" id="ard-pay-nomen">0</span>
+                                <small class="d-block text-muted" id="ard-pay-rp">Rp 0</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 bg-warning bg-opacity-10 rounded-3">
+                                <small class="text-warning text-dark fw-bold d-block">SISA MACET</small>
+                                <span class="d-block fw-bold text-dark" id="ard-owe-nomen">0</span>
+                                <small class="d-block text-muted" id="ard-owe-rp">Rp 0</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100 rounded-4">
+                <div class="card-header bg-white border-0 fw-bold text-success pt-3">
+                    <i class="fa-solid fa-hand-holding-dollar me-2"></i>UNDUE (Non-Tagihan)
+                </div>
+                <div class="card-body pt-0 text-center d-flex flex-column justify-content-center">
+                    <div class="py-4">
+                        <i class="fa-solid fa-piggy-bank text-success fa-3x mb-3 opacity-50"></i>
+                        <h6 class="text-muted">Pembayaran Dini / Deposit</h6>
+                        <h3 class="fw-bold text-success mb-1" id="undue-rp">Rp 0</h3>
+                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">
+                            <i class="fa-solid fa-users me-1"></i> <span id="undue-nomen">0</span> Pelanggan
+                        </span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <div id="list-history-petugas" class="mb-4">
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body d-flex justify-content-around align-items-center">
+                    <div class="text-center">
+                        <h3 class="fw-bold text-danger mb-0" id="count-ekstrem">0</h3>
+                        <small class="text-muted fw-bold">EKSTREM</small>
+                    </div>
+                    <div class="vr"></div>
+                    <div class="text-center">
+                        <h3 class="fw-bold text-warning mb-0" id="count-drop">0</h3>
+                        <small class="text-muted fw-bold">DROP</small>
+                    </div>
+                    <div class="vr"></div>
+                    <div class="text-center">
+                        <h3 class="fw-bold text-primary mb-0" id="count-premium">0</h3>
+                        <small class="text-muted fw-bold">PREMIUM NUNGGAK</small>
+                    </div>
+                </div>
+            </div>
         </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white py-3">
+            <h6 class="fw-bold mb-0 small text-uppercase ls-1"><i class="fas fa-users-viewfinder text-primary me-2"></i>Analisa Kinerja Petugas</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 border-end">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-success text-white rounded-circle p-2 me-2"><i class="fas fa-thumbs-up"></i></div>
+                        <span class="fw-bold text-success">TOP 5 PERFORMER</span>
+                    </div>
+                    <div id="list-best-ptg"></div>
+                </div>
+                <div class="col-md-6 ps-md-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-danger text-white rounded-circle p-2 me-2"><i class="fas fa-thumbs-down"></i></div>
+                        <span class="fw-bold text-danger">BOTTOM 5 (LOWEST)</span>
+                    </div>
+                    <div id="list-worst-ptg"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+        <h6 class="fw-bold mb-0 small text-uppercase ls-1">Aktivitas Terbaru</h6>
+        <span class="badge bg-danger">LIVE</span>
+    </div>
+    <div id="live-logs"></div>
 
 </div>
 
 <script>
-    let myChart = null;
-    const USER_ROLE = "{{ session.get('role', 'guest')|lower }}";
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     const toNum = (n) => new Intl.NumberFormat('id-ID').format(n);
     
     document.addEventListener('DOMContentLoaded', () => { 
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
-        
-        // Set Default Month
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        
         refreshDashboard(); 
     });
 
     async function refreshDashboard() {
         const icon = document.getElementById('sync-icon');
-        const rawPeriode = document.getElementById('filter-periode').value; 
-        if (!rawPeriode) return;
-        
         icon.classList.add('fa-spin');
-        const [year, month] = rawPeriode.split('-');
-        const periode = `${month}-${year}`; 
+        
+        const raw = document.getElementById('filter-periode').value;
+        const periode = `${raw.split('-')[1]}-${raw.split('-')[0]}`;
 
         try {
             const res = await fetch(`/api/dashboard/pusat-kendali?periode=${periode}`);
-            const result = await res.json();
+            const json = await res.json();
             
-            if(result.status === 'success') {
-                const k = result.summary.keuangan;
-                const m = result.summary.anomali;
-                const l = result.lapangan || {sudah_tagging:0, total_pelanggan:0, progress_gis:0}; // Fallback jika GIS belum ada di json lama
-                const a = result.analytics;
-                const logs = result.logs;
-
-                // 1. Keuangan
-                document.getElementById('total-money').innerText = toIDR(k.total_masuk);
+            if(json.status === 'success') {
+                const gt = json.grand_total;
+                const bd = json.breakdown;
+                const ptg = json.petugas_analytics;
+                const anom = json.anomali;
                 
-                // Current
-                document.getElementById('val-current').innerText = toIDR(k.current.realisasi);
-                const currPct = k.current.target > 0 ? (k.current.realisasi / k.current.target * 100) : 0;
-                document.getElementById('prog-curr').style.width = `${currPct}%`;
-                document.getElementById('curr-pct').innerText = `${currPct.toFixed(0)}%`;
+                // 1. GRAND TOTAL
+                document.getElementById('grand-collection').innerText = toIDR(gt.collection);
+                document.getElementById('grand-target').innerText = toIDR(gt.target_billing);
 
-                // Ardebt
-                document.getElementById('val-ardebt').innerText = toIDR(k.ardebt.realisasi);
-                const ardPct = k.ardebt.target > 0 ? (k.ardebt.realisasi / k.ardebt.target * 100) : 0;
-                document.getElementById('prog-ard').style.width = `${ardPct}%`;
-                document.getElementById('ard-pct').innerText = `${ardPct.toFixed(0)}%`;
+                // 2. CURRENT
+                document.getElementById('curr-target-nomen').innerText = toNum(bd.current.target.nomen) + " Plg";
+                document.getElementById('curr-target-m3').innerText = toNum(bd.current.target.kubik) + " m³";
+                document.getElementById('curr-target-rp').innerText = toIDR(bd.current.target.rp);
+                
+                document.getElementById('curr-pay-nomen').innerText = toNum(bd.current.bayar.nomen);
+                document.getElementById('curr-pay-rp').innerText = toIDR(bd.current.bayar.rp);
+                
+                document.getElementById('curr-owe-nomen').innerText = toNum(bd.current.belum.nomen);
+                document.getElementById('curr-owe-rp').innerText = toIDR(bd.current.belum.rp);
 
-                // 2. Masalah
-                document.getElementById('count-ekstrem').innerText = toNum(m.ekstrem);
-                document.getElementById('count-drop').innerText = toNum(m.drop);
-                document.getElementById('count-premium').innerText = toNum(m.premium_nunggak);
+                // 3. ARDEBT
+                document.getElementById('ard-target-nomen').innerText = toNum(bd.ardebt.target.nomen) + " Plg";
+                document.getElementById('ard-target-m3').innerText = toNum(bd.ardebt.target.kubik) + " m³";
+                document.getElementById('ard-target-rp').innerText = toIDR(bd.ardebt.target.rp);
+                
+                document.getElementById('ard-pay-nomen').innerText = toNum(bd.ardebt.bayar.nomen);
+                document.getElementById('ard-pay-rp').innerText = toIDR(bd.ardebt.bayar.rp);
+                
+                document.getElementById('ard-owe-nomen').innerText = toNum(bd.ardebt.belum.nomen);
+                document.getElementById('ard-owe-rp').innerText = toIDR(bd.ardebt.belum.rp);
 
-                // 3. GIS (Handle safe access jika API belum update di memori)
-                if(l) {
-                    document.getElementById('gis-mapped').innerText = toNum(l.sudah_tagging || 0);
-                    document.getElementById('gis-pct').innerText = `${l.progress_gis || 0}%`;
-                }
+                // 4. UNDUE
+                document.getElementById('undue-nomen').innerText = toNum(bd.undue.bayar.nomen);
+                document.getElementById('undue-rp').innerText = toIDR(bd.undue.bayar.rp);
 
-                // 4. Analytics
-                renderLeaderboard(a.leaderboard);
-                if (USER_ROLE === 'admin') renderChart(a.leaderboard);
-                renderLiveLogs(logs || []);
+                // 5. ANOMALI
+                document.getElementById('count-ekstrem').innerText = toNum(anom.ekstrem);
+                document.getElementById('count-drop').innerText = toNum(anom.drop);
+                document.getElementById('count-premium').innerText = toNum(anom.premium);
+
+                // 6. PETUGAS LIST
+                renderPetugasList('list-best-ptg', ptg.best, 'success');
+                renderPetugasList('list-worst-ptg', ptg.worst, 'danger');
+
+                // 7. LOGS
+                renderLogs(json.logs);
             }
-
-        } catch (e) { 
-            console.error("Dashboard Sync Failure:", e); 
-        } finally { 
-            setTimeout(() => icon.classList.remove('fa-spin'), 800); 
-        }
+        } catch(e) { console.error(e); } 
+        finally { setTimeout(() => icon.classList.remove('fa-spin'), 500); }
     }
 
-    function renderLeaderboard(leaderboard) {
-        const lb = document.getElementById('leaderboard-section');
-        if (!leaderboard || leaderboard.length === 0) {
-            lb.innerHTML = '<div class="text-center py-4 small text-muted">Belum ada aktivitas.</div>';
-            return;
-        }
-        lb.innerHTML = leaderboard.map((o, i) => `
-            <div class="card border-0 shadow-sm rounded-4 p-2 mb-2 bg-light bg-opacity-50">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center">
-                        <div class="fw-800 me-2 text-muted small" style="width:20px;">#${i + 1}</div>
-                        <div>
-                            <h6 class="fw-bold mb-0 small text-uppercase" style="font-size:0.7rem;">${o.petugas || 'UNMAPPED'}</h6>
-                            <small class="text-muted" style="font-size: 0.6rem;">${o.lunas} Lunas / ${o.target} Target</small>
-                        </div>
-                    </div>
-                    <span class="badge ${i === 0 ? 'bg-warning text-dark' : 'bg-white text-primary border'} rounded-pill" style="font-size: 0.6rem;">${Math.round((o.lunas/o.target)*100)}%</span>
+    function renderPetugasList(elId, data, color) {
+        const el = document.getElementById(elId);
+        if(!data || data.length === 0) { el.innerHTML = '<small class="text-muted">Data kosong</small>'; return; }
+        el.innerHTML = data.map(i => `
+            <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-1">
+                <div>
+                    <span class="fw-bold small text-dark">${i.petugas || 'UNMAPPED'}</span>
+                    <small class="text-muted d-block" style="font-size:0.6rem;">Load: ${i.load_plg} | Lunas: ${i.lunas_plg}</small>
                 </div>
-            </div>`).join('');
+                <div class="text-end">
+                    <span class="badge bg-${color} rounded-pill d-block">${i.pct}%</span>
+                    <small class="text-muted" style="font-size:0.55rem;">${toIDR(i.realisasi_rp)}</small>
+                </div>
+            </div>
+        `).join('');
     }
 
-    function renderChart(leaderboard) {
-        const canvas = document.getElementById('performaChart');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (myChart) myChart.destroy();
-        myChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: leaderboard.map(o => (o.petugas || 'N/A').split(' ')[0]),
-                datasets: [{ 
-                    label: 'Efektivitas %', 
-                    data: leaderboard.map(o => Math.round((o.lunas/o.target)*100)), 
-                    backgroundColor: '#2563eb', 
-                    borderRadius: 4, 
-                    barPercentage: 0.5 
-                }]
-            },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { legend: { display: false } }, 
-                scales: { 
-                    y: { beginAtZero: true, max: 100, grid: { display: false } }, 
-                    x: { grid: { display: false }, ticks: { font: { size: 9 } } } 
-                } 
-            }
-        });
-    }
-
-    function renderLiveLogs(logs) {
-        const container = document.getElementById('list-history-petugas');
-        if (!logs || logs.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted small py-5">Menunggu aktivitas lapangan...</div>';
-            return;
-        }
-        container.innerHTML = logs.map(log => `
-            <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeInLeft">
-                <div class="d-flex justify-content-between small mb-2">
-                    <span class="fw-bold text-primary"><i class="fas fa-user-circle me-1"></i> ${log.petugas_name}</span>
-                    <span class="text-muted" style="font-size:0.6rem;">${log.created_at}</span>
+    function renderLogs(logs) {
+        const el = document.getElementById('live-logs');
+        if(!logs || logs.length === 0) { el.innerHTML = ''; return; }
+        el.innerHTML = logs.map(l => `
+            <div class="card border-0 shadow-sm p-2 mb-2 bg-white rounded-3 animate__animated animate__fadeIn">
+                <div class="d-flex justify-content-between">
+                    <small class="fw-bold text-primary">${l.petugas_name}</small>
+                    <small class="text-muted" style="font-size:0.6rem;">${l.created_at}</small>
                 </div>
-                <div class="small text-dark fw-bold mb-2"><i class="fas fa-fingerprint text-danger me-1"></i> ${log.nomen}</div>
-                <div class="bg-light rounded-3 py-2 px-3 text-start w-100" style="font-size:0.65rem; border: 1px solid #f1f5f9;">
-                    <i class="fas fa-comment-dots me-2 text-primary"></i>${log.keterangan}
-                </div>
-            </div>`).join('');
+                <small class="text-dark">${l.keterangan}</small>
+            </div>
+        `).join('');
     }
 </script>
 
 <style>
-    .fw-800 { font-weight: 800; }
     .ls-1 { letter-spacing: 1px; }
-    .realtime-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: pulse-red 2s infinite; }
-    @keyframes pulse-red { 0% { transform: scale(0.95); opacity: 0.7; } 70% { transform: scale(1); opacity: 0; } 100% { transform: scale(0.95); opacity: 0; } }
-    .btn-white { background: white; border: 1px solid #e2e8f0; }
-    .progress-bar { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
 </style>
 {% endblock %}
