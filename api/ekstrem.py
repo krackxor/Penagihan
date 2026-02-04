@@ -130,3 +130,40 @@ def update_analisa_ekstrem():
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
+
+# ✅ NEW FUNCTION: GET HISTORY FOR POPUP
+@ekstrem_bp.route('/history/<nomen>', methods=['GET'])
+def get_ekstrem_history(nomen):
+    if session.get('role') != 'admin':
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Ambil 12 data terakhir (Periode, Kubik, Nominal, Status Lunas)
+        query = """
+            SELECT periode, kubik, nominal, status_lunas 
+            FROM master_pelanggan 
+            WHERE nomen = ? 
+            ORDER BY id DESC 
+            LIMIT 12
+        """
+        cursor.execute(query, (nomen,))
+        rows = cursor.fetchall()
+        
+        history = []
+        # Balik urutan agar di Grafik/Timeline urut dari Lama -> Baru
+        for row in reversed(rows): 
+            history.append({
+                "periode": row['periode'], 
+                "kubik": row['kubik'],
+                "nominal": row['nominal'],
+                "lunas": row['status_lunas']
+            })
+            
+        return jsonify({"status": "success", "data": history})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
