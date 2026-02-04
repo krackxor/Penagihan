@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V13.0 Premium & Analisa)
+Flask Application - Area Service Integrated System (V13.1 Anomaly & Ekstrem)
 Updated: 2026-02-04
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -8,6 +8,7 @@ Fixes Log:
 3. ✅ WA SHARE LINK: Public access allowed.
 4. ✅ ANALISA PARETO: Modul Top 500 Admin.
 5. ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
+6. ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
 """
 
 import os
@@ -31,7 +32,8 @@ from api.collection import collection_bp
 from api.pcez_performance import register_pcez_routes
 from api.wa_gateway import wa_bp
 from api.analisa_top_500 import analisa_top500_bp 
-from api.premium import premium_bp  # <--- ✅ IMPORT BARU
+from api.premium import premium_bp 
+from api.ekstrem import ekstrem_bp # <--- ✅ IMPORT BARU
 
 def create_app():
     app = Flask(__name__)
@@ -97,7 +99,8 @@ def create_app():
             'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
             'upload.handle_smart_upload', 'history_page',
             'analisa_top500_page', 
-            'premium_customer_page' # <--- ✅ Page Baru Admin Only
+            'premium_customer_page',
+            'pelanggan_ekstrem_page' # <--- ✅ Page Baru Admin Only
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -115,7 +118,8 @@ def create_app():
     app.register_blueprint(collection_bp, url_prefix='/api/collection')
     app.register_blueprint(wa_bp, url_prefix='/api/wa-gateway') 
     app.register_blueprint(analisa_top500_bp, url_prefix='/api/analisa')
-    app.register_blueprint(premium_bp, url_prefix='/api/premium') # <--- ✅ REGISTRASI API BARU
+    app.register_blueprint(premium_bp, url_prefix='/api/premium')
+    app.register_blueprint(ekstrem_bp, url_prefix='/api/ekstrem') # <--- ✅ REGISTRASI API BARU
     
     register_pcez_routes(app, get_db_connection)
 
@@ -198,6 +202,11 @@ def create_app():
     @app.route('/premium-customer')
     def premium_customer_page():
         return render_template('premium_customer.html')
+
+    # ✅ HALAMAN BARU: PELANGGAN EKSTREM
+    @app.route('/pelanggan-ekstrem')
+    def pelanggan_ekstrem_page():
+        return render_template('pelanggan_ekstrem.html')
 
     # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
