@@ -4,6 +4,23 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+<style>
+    .pulse-red { animation: pulse-red-anim 2s infinite; }
+    @keyframes pulse-red-anim {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+    .pulse-yellow { animation: pulse-yellow-anim 2s infinite; }
+    @keyframes pulse-yellow-anim {
+        0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    }
+    .blink-me { animation: blinker 1.5s linear infinite; }
+    @keyframes blinker { 50% { opacity: 0; } }
+</style>
+
 <div class="animate__animated animate__fadeIn">
     <div class="px-3 pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
@@ -12,7 +29,7 @@
             </h4>
             <p class="text-muted small mb-0 fw-semibold">
                 <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                Klik pada <b>ID Pelanggan (Nomen)</b> untuk melihat rincian history per bulan.
+                Klik <b>ID Pelanggan (Nomen)</b> untuk melihat history. Baris berwarna menandakan <b>Anomali</b>.
             </p>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -23,6 +40,15 @@
                 <i class="fa-solid fa-file-excel"></i>
             </button>
         </div>
+    </div>
+
+    <div class="mx-3 mb-3 d-flex gap-3 flex-wrap">
+        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i> LONJAKAN (>50%)
+        </span>
+        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2">
+            <i class="fa-solid fa-arrow-down-long me-1"></i> DROP EKSTREM (>50%)
+        </span>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mx-3 mb-5 bg-white border">
@@ -55,7 +81,7 @@
                                 <tr class="text-uppercase fw-800">
                                     <th class="ps-4 py-3">No</th>
                                     <th>Identitas Pelanggan (Klik Nomen)</th>
-                                    <th class="text-center">Rata-rata</th>
+                                    <th class="text-center">Avg Historis</th>
                                     <th class="text-end">Kubik Kini</th>
                                     <th class="text-end pe-4">Tagihan</th>
                                 </tr>
@@ -72,7 +98,7 @@
                                 <tr class="text-uppercase fw-800">
                                     <th class="ps-4 py-3">No</th>
                                     <th>Identitas Pelanggan (Klik Nomen)</th>
-                                    <th class="text-center">Rata-rata</th>
+                                    <th class="text-center">Avg Historis</th>
                                     <th class="text-end">Kubik Kini</th>
                                     <th class="text-end pe-4">Tagihan</th>
                                 </tr>
@@ -178,6 +204,7 @@
         } catch(e) { console.error(e); }
     }
 
+    // ✅ RENDER TABLE DENGAN DETEKSI ANOMALI
     function renderTable(tbodyId, data) {
         const tbody = document.getElementById(tbodyId);
         if(data.length === 0) {
@@ -186,13 +213,28 @@
         }
 
         tbody.innerHTML = data.map((item, index) => {
+            // LOGIKA ANOMALI (Merah/Kuning)
+            let rowClass = "transition-row";
+            let warningBadge = "";
+            let pulseClass = "";
+
+            if (item.anomali_status === 'HIGH') {
+                rowClass = "table-danger border-danger"; // Warna Merah
+                warningBadge = `<div class="badge bg-danger blink-me mt-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>LONJAKAN EKSTREM</div>`;
+                pulseClass = "pulse-red";
+            } else if (item.anomali_status === 'LOW') {
+                rowClass = "table-warning border-warning"; // Warna Kuning
+                warningBadge = `<div class="badge bg-warning text-dark mt-1"><i class="fa-solid fa-arrow-down me-1"></i>DROP DRASTIS</div>`;
+                pulseClass = "pulse-yellow";
+            }
+
             const trendIcon = item.kubik >= item.avg_kubik_historis 
                 ? '<i class="fa-solid fa-arrow-trend-up text-success ms-1"></i>' 
                 : '<i class="fa-solid fa-arrow-trend-down text-danger ms-1"></i>';
 
             return `
-                <tr class="transition-row">
-                    <td class="ps-4 fw-800 text-muted">${index + 1}</td>
+                <tr class="${rowClass}">
+                    <td class="ps-4 fw-800 text-muted ${pulseClass}">${index + 1}</td>
                     <td>
                         <div class="fw-800 text-dark">${item.nama}</div>
                         
@@ -201,13 +243,14 @@
                            class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 text-decoration-none px-2 py-1 mt-1 fs-6">
                            <i class="fa-solid fa-search me-1"></i>${item.nomen}
                         </a>
-                        
+                        ${warningBadge}
                         <div class="small text-muted mt-1 text-truncate" style="max-width: 250px;">
                             <i class="fa-solid fa-map-pin me-1 text-danger"></i>${item.alamat}
                         </div>
                     </td>
                     <td class="text-center align-middle">
                         <span class="fw-bold text-secondary">${item.avg_kubik_historis} m³</span>
+                        <div class="small text-muted" style="font-size:0.65rem">Rata-rata</div>
                     </td>
                     <td class="text-end align-middle fw-800 fs-5 text-dark">
                         ${item.kubik} ${trendIcon}
@@ -220,7 +263,7 @@
         }).join('');
     }
 
-    // ✅ LOGIKA KLIK NOMEN -> BUKA MODAL HISTORY
+    // ✅ KLIK NOMEN -> FETCH DATA HISTORY
     async function openHistory(nomen, nama) {
         document.getElementById('modalNama').innerText = nama;
         document.getElementById('modalNomen').innerText = nomen;
@@ -259,7 +302,7 @@
             `;
         }).join('');
 
-        // 2. Render Chart
+        // 2. Render Chart (Urutan Lama -> Baru)
         const labels = data.map(d => formatPeriodeIndo(d.periode));
         const values = data.map(d => d.kubik);
 
@@ -306,7 +349,7 @@
         const format = (d) => d.map((item, i) => ({
             "No": i + 1, "IDPEL": item.nomen, "Nama": item.nama, 
             "Rata-rata (Avg)": item.avg_kubik_historis, "Kubik Bulan Ini": item.kubik, 
-            "Tagihan (Rp)": item.nominal
+            "Tagihan (Rp)": item.nominal, "Status Anomali": item.anomali_status
         }));
         const wb = XLSX.utils.book_new();
         if(allData34.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(format(allData34)), "Premium R34");
