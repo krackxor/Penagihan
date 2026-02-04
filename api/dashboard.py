@@ -1,13 +1,10 @@
 """
-API Dashboard - Sunter Dashboard Pro (V14.1 Complete Data)
+API Dashboard - Sunter Dashboard Pro (V15.1 Petugas Performance)
 Update: 2026-02-05
----------------------------------------------------------------------------
 Fitur:
-1. Executive Summary (Angka Total).
-2. ✅ DETAIL DATA LIST: Menyertakan Array [Nomen, Kubik, Nominal] untuk:
-   - Current (Tagihan Bulan Ini)
-   - Ardebt (Tunggakan)
-   - Undue (Pembayaran Dini)
+1. Analisa Performa per PETUGAS (bukan per PCEZ).
+2. Laporan Collection (Total Uang Masuk).
+3. Laporan Anomali (Ekstrem/Drop).
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
@@ -33,7 +30,7 @@ def get_pusat_kendali():
         user_role = str(session.get('role', 'guest')).lower()
         petugas_id = session.get('petugas_id')
 
-        # Logic Filter Rute (Jika Petugas)
+        # Filter Rute
         rute_filter_mc = ""
         rute_filter_ardebt = ""
         rute_filter_bayar = ""
@@ -42,116 +39,132 @@ def get_pusat_kendali():
         params_bayar = [periode]
 
         if user_role == 'petugas' and petugas_id:
-            # MC
             rute_filter_mc = "AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?)"
             params_mc.append(petugas_id)
-            # Ardebt & Bayar (Subquery Check)
-            subquery_rute = "AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?))"
             
-            rute_filter_ardebt = subquery_rute
+            subquery = "AND nomen IN (SELECT nomen FROM master_pelanggan WHERE periode = ? AND pcez IN (SELECT pcez FROM rute_petugas WHERE petugas = ?))"
+            rute_filter_ardebt = subquery
             params_ardebt.append(periode)
             params_ardebt.append(petugas_id)
             
-            rute_filter_bayar = subquery_rute
+            rute_filter_bayar = subquery
             params_bayar.append(periode)
             params_bayar.append(petugas_id)
 
         # ==========================================
-        # [A] DATA MENTAH / DETAIL (LIST)
+        # [A] DEEP DIVE: CURRENT (MC)
         # ==========================================
-        
-        # 1. LIST CURRENT (Master Pelanggan)
-        # Ambil Nomen, Kubik, Nominal
-        q_list_curr = f"""
-            SELECT nomen, nama, kubik, nominal, status_lunas 
-            FROM master_pelanggan 
-            WHERE periode = ? {rute_filter_mc}
-            ORDER BY nominal DESC LIMIT 1000
+        q_curr = f"""
+            SELECT 
+                COUNT(*) as tot_nomen, 
+                COALESCE(SUM(nominal),0) as tot_rp, 
+                COALESCE(SUM(kubik),0) as tot_m3,
+                
+                COALESCE(SUM(CASE WHEN status_lunas=1 THEN 1 ELSE 0 END),0) as pay_nomen,
+                COALESCE(SUM(CASE WHEN status_lunas=1 THEN nominal ELSE 0 END),0) as pay_rp,
+                COALESCE(SUM(CASE WHEN status_lunas=1 THEN kubik ELSE 0 END),0) as pay_m3,
+
+                COALESCE(SUM(CASE WHEN status_lunas=0 THEN 1 ELSE 0 END),0) as owe_nomen,
+                COALESCE(SUM(CASE WHEN status_lunas=0 THEN nominal ELSE 0 END),0) as owe_rp,
+                COALESCE(SUM(CASE WHEN status_lunas=0 THEN kubik ELSE 0 END),0) as owe_m3
+            FROM master_pelanggan WHERE periode = ? {rute_filter_mc}
         """
-        rows_curr = db.execute(q_list_curr, params_mc).fetchall()
+        curr = db.execute(q_curr, params_mc).fetchone()
 
-        # 2. LIST ARDEBT (Tunggakan)
-        # Ambil Nomen, Kubik (Volume), Nominal (Jumlah)
-        q_list_ard = f"""
-            SELECT nomen, volume as kubik, jumlah as nominal, periode_bill
-            FROM ardebt 
-            WHERE periode = ? {rute_filter_ardebt}
-            ORDER BY jumlah DESC LIMIT 1000
+        # ==========================================
+        # [B] DEEP DIVE: ARDEBT (Tunggakan)
+        # ==========================================
+        q_ard_target = f"""
+            SELECT COUNT(*) as tot_nomen, COALESCE(SUM(jumlah),0) as tot_rp, COALESCE(SUM(volume),0) as tot_m3
+            FROM ardebt WHERE periode = ? {rute_filter_ardebt}
         """
-        rows_ard = db.execute(q_list_ard, params_ardebt).fetchall()
+        ard_t = db.execute(q_ard_target, params_ardebt).fetchone()
 
-        # 3. LIST UNDUE (Realisasi Pembayaran Dini)
-        # Ambil Nomen, Nominal (Kubik biasanya 0/null di tabel bayar)
-        q_list_undue = f"""
-            SELECT nomen, nominal, tgl_bayar 
-            FROM master_bayar 
-            WHERE periode = ? AND kategori = 'UNDUE' {rute_filter_bayar}
-            ORDER BY tgl_bayar DESC LIMIT 1000
+        q_ard_real = f"""
+            SELECT COUNT(DISTINCT nomen) as pay_nomen, COALESCE(SUM(nominal),0) as pay_rp
+            FROM master_bayar WHERE periode = ? AND kategori = 'HISTORY' {rute_filter_bayar}
         """
-        rows_undue = db.execute(q_list_undue, params_bayar).fetchall()
+        ard_r = db.execute(q_ard_real, params_bayar).fetchone()
+
+        # Hitung Sisa
+        ard_owe_rp = max(0, ard_t['tot_rp'] - ard_r['pay_rp'])
+        ard_owe_nomen = max(0, ard_t['tot_nomen'] - ard_r['pay_nomen'])
 
         # ==========================================
-        # [B] AGREGAT / SUMMARY (ANGKA TOTAL)
+        # [C] DEEP DIVE: UNDUE (Bayar Cepat)
         # ==========================================
+        q_undue = f"""
+            SELECT COUNT(DISTINCT nomen) as pay_nomen, COALESCE(SUM(nominal),0) as pay_rp
+            FROM master_bayar WHERE periode = ? AND kategori = 'UNDUE' {rute_filter_bayar}
+        """
+        undue = db.execute(q_undue, params_bayar).fetchone()
+
+        # ==========================================
+        # [D] PETUGAS PERFORMANCE (Aggregated PCEZ)
+        # ==========================================
+        # Menggabungkan semua PCEZ milik satu petugas dan menghitung % lunasnya
+        q_petugas = f"""
+            SELECT 
+                r.petugas, 
+                COUNT(p.id) as load_plg,
+                SUM(p.status_lunas) as lunas_plg,
+                COALESCE(SUM(p.nominal),0) as target_rp,
+                COALESCE(SUM(CASE WHEN p.status_lunas=1 THEN p.nominal ELSE 0 END),0) as realisasi_rp,
+                ROUND(CAST(SUM(p.status_lunas) as FLOAT) / MAX(1, COUNT(p.id)) * 100, 1) as pct
+            FROM rute_petugas r
+            JOIN master_pelanggan p ON r.pcez = p.pcez
+            WHERE p.periode = ? {rute_filter_mc}
+            GROUP BY r.petugas 
+            ORDER BY pct DESC
+        """
+        rows_petugas = db.execute(q_petugas, params_mc).fetchall()
         
-        # Hitung Total dari List diatas (Biar sinkron)
-        total_curr_target = sum(r['nominal'] for r in rows_curr)
-        total_curr_real = sum(r['nominal'] for r in rows_curr if r['status_lunas'] == 1)
-        
-        total_ard_target = sum(r['nominal'] for r in rows_ard)
-        
-        # Realisasi Ardebt (Ambil dari Master Bayar kategori HISTORY)
-        q_ard_real = f"SELECT COALESCE(SUM(nominal), 0) as total FROM master_bayar WHERE periode = ? AND kategori = 'HISTORY' {rute_filter_bayar}"
-        total_ard_real = db.execute(q_ard_real, params_bayar).fetchone()['total']
-
-        # Total Masuk (Cash In)
-        total_money_in = total_curr_real + total_ard_real + sum(r['nominal'] for r in rows_undue)
+        # Pisahkan Top 5 (Green) dan Bottom 5 (Red)
+        ptg_best = [dict(r) for r in rows_petugas[:5]]
+        ptg_worst = [dict(r) for r in rows_petugas[-5:]] if len(rows_petugas) > 5 else []
 
         # ==========================================
-        # [C] ANOMALI COUNTER
+        # [E] ANOMALI
         # ==========================================
-        # Ekstrem (>500m3 atau Naik 2x)
-        count_ekstrem = 0
-        for r in rows_curr:
-            # Logika sederhana di python agar cepat
-            if r['kubik'] > 500: count_ekstrem += 1
-        
-        # Drop (0 m3)
-        count_drop = 0
-        for r in rows_curr:
-            if r['kubik'] == 0: count_drop += 1
-
-        # Premium Nunggak (>75m3 & Belum Lunas)
-        count_premium = 0
-        for r in rows_curr:
-            if r['kubik'] > 75 and r['status_lunas'] == 0: count_premium += 1
+        count_ekstrem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 500 {rute_filter_mc}", params_mc).fetchone()['c']
+        count_drop = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik = 0 {rute_filter_mc}", params_mc).fetchone()['c']
+        count_prem = db.execute(f"SELECT COUNT(*) as c FROM master_pelanggan WHERE periode=? AND kubik > 75 AND status_lunas=0 {rute_filter_mc}", params_mc).fetchone()['c']
 
         # ==========================================
-        # [D] RESPONSE
+        # [F] RESPONSE
         # ==========================================
         return jsonify({
             "status": "success",
             "periode": periode,
-            # 1. DATA RINGKASAN (Untuk Kartu Atas)
-            "summary": {
-                "keuangan": {
-                    "total_masuk": total_money_in,
-                    "current": { "target": total_curr_target, "realisasi": total_curr_real },
-                    "ardebt": { "target": total_ard_target, "realisasi": total_ard_real },
-                    "undue": { "realisasi": sum(r['nominal'] for r in rows_undue) }
+            "grand_total": {
+                "collection": curr['pay_rp'] + ard_r['pay_rp'] + undue['pay_rp'],
+                "target_billing": curr['tot_rp'] + ard_t['tot_rp']
+            },
+            "breakdown": {
+                "current": {
+                    "target": { "nomen": curr['tot_nomen'], "rp": curr['tot_rp'], "kubik": curr['tot_m3'] },
+                    "bayar": { "nomen": curr['pay_nomen'], "rp": curr['pay_rp'], "kubik": curr['pay_m3'] },
+                    "belum": { "nomen": curr['owe_nomen'], "rp": curr['owe_rp'], "kubik": curr['owe_m3'] }
                 },
-                "anomali": {
-                    "ekstrem": count_ekstrem,
-                    "drop": count_drop,
-                    "premium_nunggak": count_premium
+                "ardebt": {
+                    "target": { "nomen": ard_t['tot_nomen'], "rp": ard_t['tot_rp'], "kubik": ard_t['tot_m3'] },
+                    "bayar": { "nomen": ard_r['pay_nomen'], "rp": ard_r['pay_rp'], "kubik": 0 },
+                    "belum": { "nomen": ard_owe_nomen, "rp": ard_owe_rp, "kubik": ard_t['tot_m3'] }
+                },
+                "undue": {
+                    "bayar": { "nomen": undue['pay_nomen'], "rp": undue['pay_rp'] }
                 }
             },
-            # 2. DATA DETAIL (Untuk Tabel/List - Sesuai Request)
-            "details": {
-                "current": [dict(row) for row in rows_curr], # Berisi: nomen, nama, kubik, nominal
-                "ardebt": [dict(row) for row in rows_ard],   # Berisi: nomen, kubik, nominal
-                "undue": [dict(row) for row in rows_undue]   # Berisi: nomen, nominal
-            }
+            "petugas_analytics": {
+                "best": ptg_best,
+                "worst": ptg_worst
+            },
+            "anomali": {
+                "ekstrem": count_ekstrem,
+                "drop": count_drop,
+                "premium": count_prem
+            },
+            "logs": [dict(row) for row in db.execute(f"SELECT nomen, petugas_name, keterangan, created_at FROM kunjungan_petugas WHERE periode=? ORDER BY created_at DESC LIMIT 5", (periode,)).fetchall()]
         })
 
     except Exception as e:
