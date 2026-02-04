@@ -1,14 +1,13 @@
 """
-Flask Application - Area Service Integrated System (V12.73 High-Load + Analisa Module)
-Updated: 2026-02-02
+Flask Application - Area Service Integrated System (V13.0 Premium & Analisa)
+Updated: 2026-02-04
 ---------------------------------------------------------------------------
 Fixes Log:
-1. ✅ PUBLIC ACCESS: Memperbaiki logika Middleware agar 'youtube_page' dan 'materi_page' 
-   dapat diakses tanpa dialihkan ke menu login.
-2. ✅ FIX 413: Mempertahankan MAX_CONTENT_LENGTH (64MB) untuk multi-upload history.
-3. ✅ ROUTING: Konsistensi dual-endpoint Admin/Petugas dan Database V12.97 sync.
-4. ✅ WA SHARE LINK: Mengizinkan akses publik ke link preview share WA.
-5. ✅ ANALISA PARETO: Menambahkan modul Top 500 khusus admin.
+1. ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
+2. ✅ FIX 413: Max upload size 64MB.
+3. ✅ WA SHARE LINK: Public access allowed.
+4. ✅ ANALISA PARETO: Modul Top 500 Admin.
+5. ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
 """
 
 import os
@@ -31,7 +30,8 @@ from api.belum_bayar import belum_bayar_bp
 from api.collection import collection_bp
 from api.pcez_performance import register_pcez_routes
 from api.wa_gateway import wa_bp
-from api.analisa_top_500 import analisa_top500_bp  # <--- ✅ IMPORT BARU
+from api.analisa_top_500 import analisa_top500_bp 
+from api.premium import premium_bp  # <--- ✅ IMPORT BARU
 
 def create_app():
     app = Flask(__name__)
@@ -79,7 +79,6 @@ def create_app():
         endpoint = request.endpoint
         
         # ✅ BYPASS LINK SHARE WA & STATIC FILE
-        # Mengizinkan akses jika URL dimulai dengan path tertentu (meskipun endpoint mungkin berbeda)
         if request.path.startswith('/api/history/share/view/') or request.path.startswith('/static/'):
             return None
 
@@ -89,17 +88,16 @@ def create_app():
 
         # JIKA AKSES PRIVAT: Cek ketersediaan sesi login
         if 'role' not in session:
-            # Jika akses via API atau AJAX, kirim JSON error 401
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Otoritas Diperlukan"}), 401
-            # Jika akses via browser ke halaman terproteksi, lempar ke login
             return redirect(url_for('login_page'))
         
         # PROTEKSI ROLE KHUSUS ADMINISTRATOR
         admin_only_endpoints = [
             'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
             'upload.handle_smart_upload', 'history_page',
-            'analisa_top500_page' # <--- ✅ Page Baru Admin Only
+            'analisa_top500_page', 
+            'premium_customer_page' # <--- ✅ Page Baru Admin Only
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -116,7 +114,9 @@ def create_app():
     app.register_blueprint(ardebt_bp, url_prefix='/api/ardebt')
     app.register_blueprint(collection_bp, url_prefix='/api/collection')
     app.register_blueprint(wa_bp, url_prefix='/api/wa-gateway') 
-    app.register_blueprint(analisa_top500_bp, url_prefix='/api/analisa') # <--- ✅ REGISTRASI API BARU
+    app.register_blueprint(analisa_top500_bp, url_prefix='/api/analisa')
+    app.register_blueprint(premium_bp, url_prefix='/api/premium') # <--- ✅ REGISTRASI API BARU
+    
     register_pcez_routes(app, get_db_connection)
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
@@ -190,10 +190,14 @@ def create_app():
     def history_page(): 
         return render_template('history.html')
 
-    # ✅ HALAMAN BARU KHUSUS ADMIN
     @app.route('/analisa-top500')
     def analisa_top500_page():
         return render_template('analisa_top500.html')
+
+    # ✅ HALAMAN BARU: PREMIUM CUSTOMER
+    @app.route('/premium-customer')
+    def premium_customer_page():
+        return render_template('premium_customer.html')
 
     # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
