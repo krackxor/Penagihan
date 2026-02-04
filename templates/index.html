@@ -5,27 +5,28 @@
 
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
     
-    <div class="pt-4 mb-4">
+    <div class="pt-3 mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <div>
                 <h4 class="fw-bold mb-0 text-dark">
                     {% if session.get('role') == 'admin' %} 
-                        Pusat Kendali Area Service ⚡ 
+                        Executive Dashboard ⚡ 
                     {% elif session.get('role') == 'petugas' %} 
-                        Key Performance Indicator (KPI) Saya 📈 
+                        KPI Lapangan Saya 📈 
                     {% else %}
-                        Monitoring Realisasi Global 🌏
+                        Monitoring Area 🌏
                     {% endif %}
                 </h4>
                 <div class="d-flex align-items-center gap-2 mt-1">
-                    <p class="text-muted small mb-0" id="display-date">Memuat tanggal...</p>
-                    <span id="label-target-rek" class="badge bg-dark text-white rounded-pill shadow-sm" style="font-size: 0.55rem; letter-spacing: 0.5px;">TARGET: --</span>
+                    <p class="text-muted small mb-0" id="display-date">Memuat...</p>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill shadow-sm" style="font-size: 0.6rem;">LIVE DATA</span>
                 </div>
             </div>
+            
             <div class="d-flex gap-2">
                 <input type="month" id="filter-periode" 
-                       class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3" 
-                       style="width: 140px; font-size: 0.75rem;" 
+                       class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-bold text-primary" 
+                       style="width: 135px; font-size: 0.75rem; background-color: #f8fafc;" 
                        onchange="refreshDashboard()">
                 
                 <button class="btn btn-white shadow-sm rounded-circle p-2 border" onclick="refreshDashboard()" id="btn-refresh">
@@ -35,29 +36,37 @@
         </div>
     </div>
 
-    <div class="mb-2"><h6 class="fw-bold text-secondary small ls-1">KEUANGAN (REVENUE)</h6></div>
+    <div class="mb-2"><h6 class="fw-bold text-secondary small ls-1" style="font-size: 0.65rem;">PENCAPAIAN KEUANGAN (REVENUE)</h6></div>
     
-    <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+    <div class="card border-0 shadow-lg mb-3 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
         <div class="card-body p-4 text-center position-relative">
+            <i class="fa-solid fa-coins position-absolute top-0 start-0 m-3 opacity-10 fa-3x"></i>
+            
             <small class="opacity-75 fw-800 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Total Uang Masuk (Cash In)</small>
-            <h1 class="fw-bold mb-0 animate__animated animate__pulse animate__infinite" id="total-money" style="font-size: 3.5rem; letter-spacing: -2px;">Rp 0</h1>
+            <h1 class="fw-bold mb-0 animate__animated animate__pulse animate__infinite" id="total-money" style="font-size: 3.2rem; letter-spacing: -2px;">Rp 0</h1>
             <p class="small mb-4 fw-medium text-white-50">Gabungan Current + Ardebt</p>
 
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">CURRENT</small>
-                        <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">Rp 0</span>
-                        <div class="progress mt-1 bg-white bg-opacity-10" style="height: 4px;">
+                        <div class="d-flex justify-content-between px-1">
+                            <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">CURRENT</small>
+                            <small class="text-white-50" style="font-size: 0.5rem;" id="curr-pct">0%</small>
+                        </div>
+                        <span class="fw-bold d-block mt-1" id="val-current" style="font-size: 0.9rem;">Rp 0</span>
+                        <div class="progress mt-2 bg-white bg-opacity-10" style="height: 4px;">
                             <div id="prog-curr" class="progress-bar bg-warning" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block text-info fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">ARDEBT</small>
-                        <span class="fw-bold d-block" id="val-ardebt" style="font-size: 0.85rem;">Rp 0</span>
-                        <div class="progress mt-1 bg-white bg-opacity-10" style="height: 4px;">
+                        <div class="d-flex justify-content-between px-1">
+                            <small class="d-block text-info fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">ARDEBT</small>
+                            <small class="text-white-50" style="font-size: 0.5rem;" id="ard-pct">0%</small>
+                        </div>
+                        <span class="fw-bold d-block mt-1" id="val-ardebt" style="font-size: 0.9rem;">Rp 0</span>
+                        <div class="progress mt-2 bg-white bg-opacity-10" style="height: 4px;">
                             <div id="prog-ard" class="progress-bar bg-info" style="width: 0%"></div>
                         </div>
                     </div>
@@ -66,54 +75,63 @@
         </div>
     </div>
 
-    <div class="mb-2"><h6 class="fw-bold text-secondary small ls-1">INDIKATOR MASALAH (ACTION NEEDED)</h6></div>
-    <div class="row g-3 mb-4">
+    <div class="mb-2 mt-4"><h6 class="fw-bold text-secondary small ls-1" style="font-size: 0.65rem;">INDIKATOR MASALAH (ACTION NEEDED)</h6></div>
+    <div class="row g-2 mb-4">
         <div class="col-4">
-            <div class="card border-0 shadow-sm border-start border-4 border-danger h-100 p-2">
-                <div class="text-center">
-                    <h2 class="fw-bold text-dark mb-0" id="count-ekstrem">0</h2>
-                    <small class="text-danger fw-bold" style="font-size: 0.6rem;">EKSTREM</small>
-                </div>
+            <div class="card border-0 shadow-sm h-100 p-2 text-center bg-white rounded-4 position-relative overflow-hidden">
+                <div class="position-absolute top-0 start-0 w-100 h-100 border-start border-4 border-danger opacity-50"></div>
+                <h4 class="fw-bold text-dark mb-0 mt-2" id="count-ekstrem">0</h4>
+                <small class="text-danger fw-bold d-block mb-2" style="font-size: 0.55rem;">EKSTREM</small>
+                {% if session.get('role') == 'admin' %}
                 <a href="/pelanggan-ekstrem" class="stretched-link"></a>
+                {% endif %}
             </div>
         </div>
         <div class="col-4">
-            <div class="card border-0 shadow-sm border-start border-4 border-warning h-100 p-2">
-                <div class="text-center">
-                    <h2 class="fw-bold text-dark mb-0" id="count-drop">0</h2>
-                    <small class="text-warning text-dark fw-bold" style="font-size: 0.6rem;">DROP</small>
-                </div>
+            <div class="card border-0 shadow-sm h-100 p-2 text-center bg-white rounded-4 position-relative overflow-hidden">
+                <div class="position-absolute top-0 start-0 w-100 h-100 border-start border-4 border-warning opacity-50"></div>
+                <h4 class="fw-bold text-dark mb-0 mt-2" id="count-drop">0</h4>
+                <small class="text-warning text-dark fw-bold d-block mb-2" style="font-size: 0.55rem;">DROP</small>
+                {% if session.get('role') == 'admin' %}
                 <a href="/pelanggan-drop" class="stretched-link"></a>
+                {% endif %}
             </div>
         </div>
         <div class="col-4">
-            <div class="card border-0 shadow-sm border-start border-4 border-primary h-100 p-2">
-                <div class="text-center">
-                    <h2 class="fw-bold text-dark mb-0" id="count-premium">0</h2>
-                    <small class="text-primary fw-bold" style="font-size: 0.6rem;">VIP NUNGGAK</small>
-                </div>
+            <div class="card border-0 shadow-sm h-100 p-2 text-center bg-white rounded-4 position-relative overflow-hidden">
+                <div class="position-absolute top-0 start-0 w-100 h-100 border-start border-4 border-primary opacity-50"></div>
+                <h4 class="fw-bold text-dark mb-0 mt-2" id="count-premium">0</h4>
+                <small class="text-primary fw-bold d-block mb-2" style="font-size: 0.55rem;">VIP NUNGGAK</small>
+                {% if session.get('role') == 'admin' %}
                 <a href="/premium-customer" class="stretched-link"></a>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <div class="mb-2"><h6 class="fw-bold text-secondary small ls-1">PROGRESS MAPPING AREA</h6></div>
-    <div class="card border-0 shadow-sm mb-4 rounded-4 bg-dark text-white">
+    <div class="mb-2"><h6 class="fw-bold text-secondary small ls-1" style="font-size: 0.65rem;">PROGRESS DATA SPASIAL</h6></div>
+    <div class="card border-0 shadow-sm mb-4 rounded-4 bg-dark text-white overflow-hidden position-relative">
+        <div class="position-absolute end-0 bottom-0 opacity-10 m-n2">
+            <i class="fa-solid fa-map fa-4x text-white"></i>
+        </div>
         <div class="card-body d-flex align-items-center justify-content-between py-3">
             <div class="d-flex align-items-center">
-                <div class="bg-success rounded-circle p-2 me-3 text-white bg-opacity-25">
-                    <i class="fa-solid fa-map-location-dot fa-lg"></i>
+                <div class="bg-success rounded-circle p-2 me-3 text-white bg-opacity-25 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="fa-solid fa-location-cross"></i>
                 </div>
                 <div>
-                    <h6 class="fw-bold mb-0 text-white" style="font-size: 0.8rem;">GIS Coverage</h6>
-                    <small class="text-white-50" style="font-size: 0.6rem;">Titik koordinat terpetakan</small>
+                    <h6 class="fw-bold mb-0 text-white" style="font-size: 0.85rem;">GIS Coverage</h6>
+                    <small class="text-white-50" style="font-size: 0.6rem;">Pelanggan ter-tagging GPS</small>
                 </div>
             </div>
-            <div class="text-end">
+            <div class="text-end z-1">
                 <h5 class="fw-bold mb-0 text-white" id="gis-mapped">0</h5>
-                <span class="badge bg-success" id="gis-pct" style="font-size: 0.55rem;">0%</span>
+                <span class="badge bg-success rounded-pill border border-white border-opacity-25" id="gis-pct" style="font-size: 0.6rem;">0%</span>
             </div>
         </div>
+        {% if session.get('role') == 'admin' %}
+        <a href="/peta-sebaran" class="stretched-link"></a>
+        {% endif %}
     </div>
 
     <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden bg-white">
@@ -122,22 +140,24 @@
         </div>
         <div class="card-body pt-0">
             {% if session.get('role') == 'admin' %}
-            <div style="height: 150px; margin-bottom: 15px;">
+            <div style="height: 180px; margin-bottom: 20px;">
                 <canvas id="performaChart"></canvas>
             </div>
             {% endif %}
-            <div id="leaderboard-section"></div>
+            <div id="leaderboard-section">
+                </div>
         </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-4">
-        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1.2px;"><i class="fas fa-tower-broadcast text-primary me-2"></i>Log Audit Lapangan</h6>
+        <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1.2px;"><i class="fas fa-tower-broadcast text-primary me-2"></i>Aktivitas Terbaru</h6>
         <div class="d-flex align-items-center bg-white shadow-sm rounded-pill px-3 py-1 border border-danger border-opacity-25">
             <span class="realtime-dot me-2"></span>
-            <small class="fw-bold text-danger" style="font-size: 0.55rem;">LIVE FEED</small>
+            <small class="fw-bold text-danger" style="font-size: 0.55rem;">LIVE</small>
         </div>
     </div>
-    <div id="list-history-petugas" class="mb-4"></div>
+    <div id="list-history-petugas" class="mb-4">
+        </div>
 
 </div>
 
@@ -151,6 +171,7 @@
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('display-date').innerText = new Date().toLocaleDateString('id-ID', options);
         
+        // Set Default Month
         const now = new Date();
         document.getElementById('filter-periode').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         
@@ -171,35 +192,42 @@
             const result = await res.json();
             
             if(result.status === 'success') {
-                const k = result.keuangan;
-                const m = result.masalah;
-                const l = result.lapangan;
+                const k = result.summary.keuangan;
+                const m = result.summary.anomali;
+                const l = result.lapangan || {sudah_tagging:0, total_pelanggan:0, progress_gis:0}; // Fallback jika GIS belum ada di json lama
                 const a = result.analytics;
+                const logs = result.logs;
 
                 // 1. Keuangan
                 document.getElementById('total-money').innerText = toIDR(k.total_masuk);
                 
+                // Current
                 document.getElementById('val-current').innerText = toIDR(k.current.realisasi);
                 const currPct = k.current.target > 0 ? (k.current.realisasi / k.current.target * 100) : 0;
                 document.getElementById('prog-curr').style.width = `${currPct}%`;
+                document.getElementById('curr-pct').innerText = `${currPct.toFixed(0)}%`;
 
+                // Ardebt
                 document.getElementById('val-ardebt').innerText = toIDR(k.ardebt.realisasi);
                 const ardPct = k.ardebt.target > 0 ? (k.ardebt.realisasi / k.ardebt.target * 100) : 0;
                 document.getElementById('prog-ard').style.width = `${ardPct}%`;
+                document.getElementById('ard-pct').innerText = `${ardPct.toFixed(0)}%`;
 
                 // 2. Masalah
                 document.getElementById('count-ekstrem').innerText = toNum(m.ekstrem);
                 document.getElementById('count-drop').innerText = toNum(m.drop);
                 document.getElementById('count-premium').innerText = toNum(m.premium_nunggak);
 
-                // 3. GIS
-                document.getElementById('gis-mapped').innerText = toNum(l.sudah_tagging);
-                document.getElementById('gis-pct').innerText = `${l.progress_gis}%`;
+                // 3. GIS (Handle safe access jika API belum update di memori)
+                if(l) {
+                    document.getElementById('gis-mapped').innerText = toNum(l.sudah_tagging || 0);
+                    document.getElementById('gis-pct').innerText = `${l.progress_gis || 0}%`;
+                }
 
-                // 4. Analytics & Logs
+                // 4. Analytics
                 renderLeaderboard(a.leaderboard);
                 if (USER_ROLE === 'admin') renderChart(a.leaderboard);
-                renderLiveLogs(result.logs || []);
+                renderLiveLogs(logs || []);
             }
 
         } catch (e) { 
@@ -219,7 +247,7 @@
             <div class="card border-0 shadow-sm rounded-4 p-2 mb-2 bg-light bg-opacity-50">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
-                        <div class="fw-800 me-2 text-muted small">#${i + 1}</div>
+                        <div class="fw-800 me-2 text-muted small" style="width:20px;">#${i + 1}</div>
                         <div>
                             <h6 class="fw-bold mb-0 small text-uppercase" style="font-size:0.7rem;">${o.petugas || 'UNMAPPED'}</h6>
                             <small class="text-muted" style="font-size: 0.6rem;">${o.lunas} Lunas / ${o.target} Target</small>
