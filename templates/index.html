@@ -8,8 +8,8 @@
     <div class="pt-3 mb-4">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h4 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-chart-line text-primary me-2"></i>Executive Analytics</h4>
-                <p class="text-muted small mb-0">Laporan Kinerja Petugas & Keuangan</p>
+                <h4 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-chart-simple text-primary me-2"></i>Executive Report</h4>
+                <p class="text-muted small mb-0">Laporan MC, Collection & Distribusi Area</p>
             </div>
             <div class="d-flex gap-2">
                 <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm rounded-pill fw-bold text-primary" onchange="refreshDashboard()">
@@ -26,8 +26,8 @@
                     <h1 class="fw-bold mb-0 display-4" id="grand-collection">Rp 0</h1>
                 </div>
                 <div class="text-end">
-                    <small class="text-white-50 text-uppercase fw-bold ls-1">Target Billing</small>
-                    <h5 class="fw-bold mb-0 text-warning" id="grand-target">Rp 0</h5>
+                    <small class="text-white-50 text-uppercase fw-bold ls-1">Target MC (Upload)</small>
+                    <h5 class="fw-bold mb-0 text-warning" id="target-mc">Rp 0</h5>
                 </div>
             </div>
             <i class="fa-solid fa-money-bill-wave position-absolute top-50 start-50 translate-middle text-white opacity-10" style="font-size: 8rem;"></i>
@@ -35,32 +35,29 @@
     </div>
 
     <div class="row g-3 mb-4">
+        
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-4">
-                <div class="card-header bg-white border-0 fw-bold text-primary pt-3">
-                    <i class="fa-solid fa-bolt me-2"></i>CURRENT (Bulan Ini)
+                <div class="card-header bg-white border-0 fw-bold text-primary pt-3 border-bottom">
+                    <i class="fa-solid fa-file-invoice me-2"></i>LAPORAN MC (Target)
                 </div>
-                <div class="card-body pt-0">
-                    <div class="alert alert-primary bg-opacity-10 border-0 mb-3">
-                        <div class="d-flex justify-content-between"><span>Target:</span><span class="fw-bold" id="curr-target-nomen">0 Plg</span></div>
-                        <div class="d-flex justify-content-between"><span>Volume:</span><span class="fw-bold" id="curr-target-m3">0 m³</span></div>
-                        <h5 class="fw-bold text-end mt-2 mb-0 text-primary" id="curr-target-rp">Rp 0</h5>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Target Nomen:</span>
+                        <span class="fw-bold" id="mc-nomen">0</span>
                     </div>
-                    <div class="row g-2 text-center">
-                        <div class="col-6">
-                            <div class="p-2 bg-success bg-opacity-10 rounded-3">
-                                <small class="text-success fw-bold d-block">SUDAH BAYAR</small>
-                                <span class="d-block fw-bold text-dark" id="curr-pay-nomen">0</span>
-                                <small class="d-block text-muted" id="curr-pay-rp">Rp 0</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-2 bg-danger bg-opacity-10 rounded-3">
-                                <small class="text-danger fw-bold d-block">BELUM BAYAR</small>
-                                <span class="d-block fw-bold text-dark" id="curr-owe-nomen">0</span>
-                                <small class="d-block text-muted" id="curr-owe-rp">Rp 0</small>
-                            </div>
-                        </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-muted">Target Kubik:</span>
+                        <span class="fw-bold" id="mc-m3">0 m³</span>
+                    </div>
+                    
+                    <small class="fw-bold text-dark d-block mb-1">Realisasi (Lunas)</small>
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div id="prog-mc" class="progress-bar bg-primary" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-success fw-bold" id="mc-lunas-rp">Rp 0</span>
+                        <span class="text-danger fw-bold" id="mc-sisa-rp">Rp 0 (Sisa)</span>
                     </div>
                 </div>
             </div>
@@ -68,30 +65,26 @@
 
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-4">
-                <div class="card-header bg-white border-0 fw-bold text-danger pt-3">
+                <div class="card-header bg-white border-0 fw-bold text-danger pt-3 border-bottom">
                     <i class="fa-solid fa-clock-rotate-left me-2"></i>ARDEBT (Tunggakan)
                 </div>
-                <div class="card-body pt-0">
-                    <div class="alert alert-danger bg-opacity-10 border-0 mb-3">
-                        <div class="d-flex justify-content-between"><span>Total Tunggakan:</span><span class="fw-bold" id="ard-target-nomen">0 Plg</span></div>
-                        <div class="d-flex justify-content-between"><span>Volume Macet:</span><span class="fw-bold" id="ard-target-m3">0 m³</span></div>
-                        <h5 class="fw-bold text-end mt-2 mb-0 text-danger" id="ard-target-rp">Rp 0</h5>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Total Tunggakan:</span>
+                        <span class="fw-bold" id="ard-nomen">0</span>
                     </div>
-                    <div class="row g-2 text-center">
-                        <div class="col-6">
-                            <div class="p-2 bg-info bg-opacity-10 rounded-3">
-                                <small class="text-info fw-bold d-block">TERCAIRKAN</small>
-                                <span class="d-block fw-bold text-dark" id="ard-pay-nomen">0</span>
-                                <small class="d-block text-muted" id="ard-pay-rp">Rp 0</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-2 bg-warning bg-opacity-10 rounded-3">
-                                <small class="text-warning text-dark fw-bold d-block">SISA MACET</small>
-                                <span class="d-block fw-bold text-dark" id="ard-owe-nomen">0</span>
-                                <small class="d-block text-muted" id="ard-owe-rp">Rp 0</small>
-                            </div>
-                        </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-muted">Target Rupiah:</span>
+                        <span class="fw-bold text-danger" id="ard-target-rp">Rp 0</span>
+                    </div>
+                    
+                    <small class="fw-bold text-dark d-block mb-1">Pencairan</small>
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div id="prog-ard" class="progress-bar bg-danger" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-success fw-bold" id="ard-lunas-rp">Rp 0</span>
+                        <span class="text-muted">Tertalangi</span>
                     </div>
                 </div>
             </div>
@@ -99,75 +92,75 @@
 
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-4">
-                <div class="card-header bg-white border-0 fw-bold text-success pt-3">
-                    <i class="fa-solid fa-hand-holding-dollar me-2"></i>UNDUE (Non-Tagihan)
+                <div class="card-header bg-white border-0 fw-bold text-success pt-3 border-bottom">
+                    <i class="fa-solid fa-piggy-bank me-2"></i>UNDUE (Deposit)
                 </div>
-                <div class="card-body pt-0 text-center d-flex flex-column justify-content-center">
-                    <div class="py-4">
-                        <i class="fa-solid fa-piggy-bank text-success fa-3x mb-3 opacity-50"></i>
-                        <h6 class="text-muted">Pembayaran Dini / Deposit</h6>
-                        <h3 class="fw-bold text-success mb-1" id="undue-rp">Rp 0</h3>
-                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">
-                            <i class="fa-solid fa-users me-1"></i> <span id="undue-nomen">0</span> Pelanggan
-                        </span>
-                    </div>
+                <div class="card-body d-flex flex-column justify-content-center text-center">
+                    <h6 class="text-muted mb-1">Pembayaran Dini</h6>
+                    <h2 class="fw-bold text-success mb-0" id="undue-rp">Rp 0</h2>
+                    <small class="text-muted">Masuk ke kas bulan ini</small>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-12">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 small text-uppercase"><i class="fas fa-map me-2 text-primary"></i>Distribusi Area (PCEZ Bermasalah)</h6>
+                    <span class="badge bg-danger bg-opacity-10 text-danger">Top 10 Sisa Tertinggi</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-3">Kode PCEZ</th>
+                                    <th class="text-center">Beban</th>
+                                    <th class="text-center">Lunas</th>
+                                    <th class="text-end pe-3">Sisa Rupiah</th>
+                                    <th class="text-center">Efektivitas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-pcez">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 mb-3">
+                <div class="card-body">
+                    <h6 class="fw-bold small text-muted mb-3">ANOMALI TERDETEKSI</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-danger fw-bold"><i class="fas fa-fire me-2"></i>Ekstrem</span>
+                        <span class="badge bg-danger rounded-pill" id="cnt-ekstrem">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-warning text-dark fw-bold"><i class="fas fa-arrow-down me-2"></i>Drop</span>
+                        <span class="badge bg-warning text-dark rounded-pill" id="cnt-drop">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-primary fw-bold"><i class="fas fa-crown me-2"></i>VIP Nunggak</span>
+                        <span class="badge bg-primary rounded-pill" id="cnt-prem">0</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-body d-flex justify-content-around align-items-center">
-                    <div class="text-center">
-                        <h3 class="fw-bold text-danger mb-0" id="count-ekstrem">0</h3>
-                        <small class="text-muted fw-bold">EKSTREM</small>
-                    </div>
-                    <div class="vr"></div>
-                    <div class="text-center">
-                        <h3 class="fw-bold text-warning mb-0" id="count-drop">0</h3>
-                        <small class="text-muted fw-bold">DROP</small>
-                    </div>
-                    <div class="vr"></div>
-                    <div class="text-center">
-                        <h3 class="fw-bold text-primary mb-0" id="count-premium">0</h3>
-                        <small class="text-muted fw-bold">PREMIUM NUNGGAK</small>
-                    </div>
+                <div class="card-header bg-white py-3">
+                    <h6 class="fw-bold mb-0 small text-uppercase"><i class="fas fa-user-tie me-2 text-success"></i>Top Petugas</h6>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush" id="list-petugas">
+                        </ul>
                 </div>
             </div>
         </div>
     </div>
-
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-header bg-white py-3">
-            <h6 class="fw-bold mb-0 small text-uppercase ls-1"><i class="fas fa-users-viewfinder text-primary me-2"></i>Analisa Kinerja Petugas</h6>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6 border-end">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-success text-white rounded-circle p-2 me-2"><i class="fas fa-thumbs-up"></i></div>
-                        <span class="fw-bold text-success">TOP 5 PERFORMER</span>
-                    </div>
-                    <div id="list-best-ptg"></div>
-                </div>
-                <div class="col-md-6 ps-md-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-danger text-white rounded-circle p-2 me-2"><i class="fas fa-thumbs-down"></i></div>
-                        <span class="fw-bold text-danger">BOTTOM 5 (LOWEST)</span>
-                    </div>
-                    <div id="list-worst-ptg"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="d-flex justify-content-between align-items-center mb-2 px-1">
-        <h6 class="fw-bold mb-0 small text-uppercase ls-1">Aktivitas Terbaru</h6>
-        <span class="badge bg-danger">LIVE</span>
-    </div>
-    <div id="live-logs"></div>
 
 </div>
 
@@ -194,84 +187,80 @@
             
             if(json.status === 'success') {
                 const gt = json.grand_total;
-                const bd = json.breakdown;
-                const ptg = json.petugas_analytics;
+                const mc = json.laporan_mc;
+                const ar = json.laporan_ardebt;
+                const und = json.undue;
+                const dist = json.distribusi;
                 const anom = json.anomali;
-                
-                // 1. GRAND TOTAL
+
+                // 1. Grand Total
                 document.getElementById('grand-collection').innerText = toIDR(gt.collection);
-                document.getElementById('grand-target').innerText = toIDR(gt.target_billing);
+                document.getElementById('target-mc').innerText = toIDR(gt.target_mc);
 
-                // 2. CURRENT
-                document.getElementById('curr-target-nomen').innerText = toNum(bd.current.target.nomen) + " Plg";
-                document.getElementById('curr-target-m3').innerText = toNum(bd.current.target.kubik) + " m³";
-                document.getElementById('curr-target-rp').innerText = toIDR(bd.current.target.rp);
+                // 2. MC Report
+                document.getElementById('mc-nomen').innerText = toNum(mc.target.nomen);
+                document.getElementById('mc-m3').innerText = toNum(mc.target.kubik) + " m³";
+                document.getElementById('mc-lunas-rp').innerText = toIDR(mc.lunas.rp);
+                document.getElementById('mc-sisa-rp').innerText = toIDR(mc.sisa.rp);
                 
-                document.getElementById('curr-pay-nomen').innerText = toNum(bd.current.bayar.nomen);
-                document.getElementById('curr-pay-rp').innerText = toIDR(bd.current.bayar.rp);
+                const pctMc = mc.target.rp > 0 ? (mc.lunas.rp / mc.target.rp * 100) : 0;
+                document.getElementById('prog-mc').style.width = `${pctMc}%`;
+
+                // 3. Ardebt
+                document.getElementById('ard-nomen').innerText = toNum(ar.target.nomen);
+                document.getElementById('ard-target-rp').innerText = toIDR(ar.target.rp);
+                document.getElementById('ard-lunas-rp').innerText = toIDR(ar.lunas.rp);
                 
-                document.getElementById('curr-owe-nomen').innerText = toNum(bd.current.belum.nomen);
-                document.getElementById('curr-owe-rp').innerText = toIDR(bd.current.belum.rp);
+                const pctArd = ar.target.rp > 0 ? (ar.lunas.rp / ar.target.rp * 100) : 0;
+                document.getElementById('prog-ard').style.width = `${pctArd}%`;
 
-                // 3. ARDEBT
-                document.getElementById('ard-target-nomen').innerText = toNum(bd.ardebt.target.nomen) + " Plg";
-                document.getElementById('ard-target-m3').innerText = toNum(bd.ardebt.target.kubik) + " m³";
-                document.getElementById('ard-target-rp').innerText = toIDR(bd.ardebt.target.rp);
-                
-                document.getElementById('ard-pay-nomen').innerText = toNum(bd.ardebt.bayar.nomen);
-                document.getElementById('ard-pay-rp').innerText = toIDR(bd.ardebt.bayar.rp);
-                
-                document.getElementById('ard-owe-nomen').innerText = toNum(bd.ardebt.belum.nomen);
-                document.getElementById('ard-owe-rp').innerText = toIDR(bd.ardebt.belum.rp);
+                // 4. Undue
+                document.getElementById('undue-rp').innerText = toIDR(und);
 
-                // 4. UNDUE
-                document.getElementById('undue-nomen').innerText = toNum(bd.undue.bayar.nomen);
-                document.getElementById('undue-rp').innerText = toIDR(bd.undue.bayar.rp);
+                // 5. Tabel PCEZ
+                renderPcezTable(dist.pcez);
 
-                // 5. ANOMALI
-                document.getElementById('count-ekstrem').innerText = toNum(anom.ekstrem);
-                document.getElementById('count-drop').innerText = toNum(anom.drop);
-                document.getElementById('count-premium').innerText = toNum(anom.premium);
+                // 6. List Petugas
+                renderPetugasList(dist.petugas);
 
-                // 6. PETUGAS LIST
-                renderPetugasList('list-best-ptg', ptg.best, 'success');
-                renderPetugasList('list-worst-ptg', ptg.worst, 'danger');
-
-                // 7. LOGS
-                renderLogs(json.logs);
+                // 7. Anomali
+                document.getElementById('cnt-ekstrem').innerText = anom.ekstrem;
+                document.getElementById('cnt-drop').innerText = anom.drop;
+                document.getElementById('cnt-prem').innerText = anom.premium;
             }
         } catch(e) { console.error(e); } 
         finally { setTimeout(() => icon.classList.remove('fa-spin'), 500); }
     }
 
-    function renderPetugasList(elId, data, color) {
-        const el = document.getElementById(elId);
-        if(!data || data.length === 0) { el.innerHTML = '<small class="text-muted">Data kosong</small>'; return; }
-        el.innerHTML = data.map(i => `
-            <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-1">
-                <div>
-                    <span class="fw-bold small text-dark">${i.petugas || 'UNMAPPED'}</span>
-                    <small class="text-muted d-block" style="font-size:0.6rem;">Load: ${i.load_plg} | Lunas: ${i.lunas_plg}</small>
-                </div>
-                <div class="text-end">
-                    <span class="badge bg-${color} rounded-pill d-block">${i.pct}%</span>
-                    <small class="text-muted" style="font-size:0.55rem;">${toIDR(i.realisasi_rp)}</small>
-                </div>
-            </div>
+    function renderPcezTable(data) {
+        const el = document.getElementById('table-pcez');
+        if(!data.length) { el.innerHTML = '<tr><td colspan="5" class="text-center py-3">Tidak ada data</td></tr>'; return; }
+        
+        el.innerHTML = data.map(r => `
+            <tr>
+                <td class="ps-3 fw-bold font-monospace">${r.pcez}</td>
+                <td class="text-center">${r.beban}</td>
+                <td class="text-center text-success fw-bold">${r.lunas}</td>
+                <td class="text-end pe-3 text-danger small fw-bold">${toIDR(r.sisa_rp)}</td>
+                <td class="text-center">
+                    <span class="badge ${r.pct < 50 ? 'bg-danger' : 'bg-success'} rounded-pill">${r.pct}%</span>
+                </td>
+            </tr>
         `).join('');
     }
 
-    function renderLogs(logs) {
-        const el = document.getElementById('live-logs');
-        if(!logs || logs.length === 0) { el.innerHTML = ''; return; }
-        el.innerHTML = logs.map(l => `
-            <div class="card border-0 shadow-sm p-2 mb-2 bg-white rounded-3 animate__animated animate__fadeIn">
-                <div class="d-flex justify-content-between">
-                    <small class="fw-bold text-primary">${l.petugas_name}</small>
-                    <small class="text-muted" style="font-size:0.6rem;">${l.created_at}</small>
+    function renderPetugasList(data) {
+        const el = document.getElementById('list-petugas');
+        if(!data.length) { el.innerHTML = '<li class="list-group-item text-center">N/A</li>'; return; }
+        
+        el.innerHTML = data.map((r, i) => `
+            <li class="list-group-item d-flex justify-content-between align-items-center px-3">
+                <div>
+                    <span class="fw-bold small text-dark d-block">${r.petugas}</span>
+                    <small class="text-muted" style="font-size:0.6rem;">${r.lunas} / ${r.beban} Plg</small>
                 </div>
-                <small class="text-dark">${l.keterangan}</small>
-            </div>
+                <span class="badge bg-primary rounded-pill">${r.pct}%</span>
+            </li>
         `).join('');
     }
 </script>
