@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <div class="animate__animated animate__fadeIn">
@@ -10,7 +11,8 @@
                 <i class="fa-solid fa-gem me-2 text-warning"></i>Pelanggan Premium Stabil
             </h4>
             <p class="text-muted small mb-0 fw-semibold">
-                Filter: Kubik > 75 (Bulan Ini) AND Rata-rata > 75 (Stabil)
+                <i class="fa-solid fa-circle-info text-primary me-1"></i>
+                Klik pada <b>ID Pelanggan (Nomen)</b> untuk melihat rincian history per bulan.
             </p>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -51,12 +53,11 @@
                         <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
                             <thead class="bg-dark text-warning sticky-top">
                                 <tr class="text-uppercase fw-800">
-                                    <th class="ps-4 py-3">#</th>
-                                    <th>Pelanggan</th>
-                                    <th class="text-center">Trend (Avg)</th>
+                                    <th class="ps-4 py-3">No</th>
+                                    <th>Identitas Pelanggan (Klik Nomen)</th>
+                                    <th class="text-center">Rata-rata</th>
                                     <th class="text-end">Kubik Kini</th>
-                                    <th class="text-end">Tagihan (IDR)</th>
-                                    <th class="text-center">Status</th>
+                                    <th class="text-end pe-4">Tagihan</th>
                                 </tr>
                             </thead>
                             <tbody id="tbody-34"></tbody>
@@ -69,12 +70,11 @@
                         <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
                             <thead class="bg-dark text-warning sticky-top">
                                 <tr class="text-uppercase fw-800">
-                                    <th class="ps-4 py-3">#</th>
-                                    <th>Pelanggan</th>
-                                    <th class="text-center">Trend (Avg)</th>
+                                    <th class="ps-4 py-3">No</th>
+                                    <th>Identitas Pelanggan (Klik Nomen)</th>
+                                    <th class="text-center">Rata-rata</th>
                                     <th class="text-end">Kubik Kini</th>
-                                    <th class="text-end">Tagihan (IDR)</th>
-                                    <th class="text-center">Status</th>
+                                    <th class="text-end pe-4">Tagihan</th>
                                 </tr>
                             </thead>
                             <tbody id="tbody-35"></tbody>
@@ -86,11 +86,75 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalHistory" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 bg-light">
+                <div>
+                    <h5 class="modal-title fw-800 text-dark" id="modalNama">-</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-warning text-dark border border-dark border-opacity-25" id="modalNomen">-</span>
+                        <small class="text-muted fw-bold">Riwayat Pemakaian & Pembayaran</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                
+                <div class="card border-0 shadow-sm mb-4 bg-white">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-primary small mb-3"><i class="fa-solid fa-chart-line me-2"></i>Grafik Kestabilan Kubik</h6>
+                        <div style="height: 200px;">
+                            <canvas id="stabilityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive rounded-3 border">
+                    <table class="table table-hover table-striped mb-0 align-middle" style="font-size: 0.8rem;">
+                        <thead class="bg-primary text-white">
+                            <tr>
+                                <th class="ps-3 py-2">Periode</th>
+                                <th class="text-center">Volume (m³)</th>
+                                <th class="text-end">Nominal (Rp)</th>
+                                <th class="text-center pe-3">Status Bayar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTableBody">
+                            </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     let allData34 = [], allData35 = [];
+    let stabilityChart = null; 
+    let historyModal;
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    document.addEventListener('DOMContentLoaded', () => loadPremium());
+    // Helper: 01-2025 -> Januari 2025
+    function formatPeriodeIndo(periodeStr) {
+        if (!periodeStr) return "-";
+        const parts = periodeStr.split('-'); 
+        if (parts.length !== 2) return periodeStr;
+        const bulanIndex = parseInt(parts[0]) - 1;
+        const tahun = parts[1];
+        const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+                           "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        return `${namaBulan[bulanIndex]} ${tahun}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const modalEl = document.getElementById('modalHistory');
+        if(typeof bootstrap !== 'undefined' && modalEl) {
+            historyModal = new bootstrap.Modal(modalEl);
+        }
+        loadPremium();
+    });
 
     async function loadPremium() {
         const picker = document.getElementById('filter-periode').value;
@@ -117,45 +181,118 @@
     function renderTable(tbodyId, data) {
         const tbody = document.getElementById(tbodyId);
         if(data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted">Tidak ada pelanggan premium stabil.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-5 text-muted">Tidak ada data premium.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = data.map((item, index) => {
-            const statusBadge = item.status_lunas == 1 
-                ? '<span class="badge bg-success rounded-pill"><i class="fa-solid fa-check me-1"></i>LUNAS</span>'
-                : '<span class="badge bg-danger rounded-pill"><i class="fa-solid fa-xmark me-1"></i>BELUM</span>';
-            
-            // Bandingkan Bulan Ini vs Rata-rata
-            // Jika Bulan Ini > Rata-rata (Naik) -> Panah Hijau
-            // Jika Bulan Ini < Rata-rata (Turun) -> Panah Merah
             const trendIcon = item.kubik >= item.avg_kubik_historis 
-                ? '<i class="fa-solid fa-arrow-trend-up text-success"></i>' 
-                : '<i class="fa-solid fa-arrow-trend-down text-danger"></i>';
+                ? '<i class="fa-solid fa-arrow-trend-up text-success ms-1"></i>' 
+                : '<i class="fa-solid fa-arrow-trend-down text-danger ms-1"></i>';
 
             return `
                 <tr class="transition-row">
                     <td class="ps-4 fw-800 text-muted">${index + 1}</td>
                     <td>
                         <div class="fw-800 text-dark">${item.nama}</div>
-                        <div class="small text-muted font-monospace">${item.nomen}</div>
-                        <div class="small text-primary fw-bold"><i class="fa-solid fa-map-pin me-1"></i>${item.alamat}</div>
+                        
+                        <a href="javascript:void(0)" 
+                           onclick="openHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')" 
+                           class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 text-decoration-none px-2 py-1 mt-1 fs-6">
+                           <i class="fa-solid fa-search me-1"></i>${item.nomen}
+                        </a>
+                        
+                        <div class="small text-muted mt-1 text-truncate" style="max-width: 250px;">
+                            <i class="fa-solid fa-map-pin me-1 text-danger"></i>${item.alamat}
+                        </div>
                     </td>
-                    <td class="text-center">
-                        <div class="fw-bold text-dark fs-6">${item.avg_kubik_historis} <small>m³</small></div>
-                        <div class="small text-muted" style="font-size: 0.65rem;">Rata-rata Historis</div>
+                    <td class="text-center align-middle">
+                        <span class="fw-bold text-secondary">${item.avg_kubik_historis} m³</span>
                     </td>
-                    <td class="text-end align-middle">
-                        <span class="fw-800 text-dark fs-5">${item.kubik}</span> 
-                        ${trendIcon}
+                    <td class="text-end align-middle fw-800 fs-5 text-dark">
+                        ${item.kubik} ${trendIcon}
                     </td>
-                    <td class="text-end fw-800 text-primary align-middle">
+                    <td class="text-end align-middle fw-800 text-primary pe-4">
                         Rp ${formatIDR(item.nominal)}
                     </td>
-                    <td class="text-center align-middle">${statusBadge}</td>
                 </tr>
             `;
         }).join('');
+    }
+
+    // ✅ LOGIKA KLIK NOMEN -> BUKA MODAL HISTORY
+    async function openHistory(nomen, nama) {
+        document.getElementById('modalNama').innerText = nama;
+        document.getElementById('modalNomen').innerText = nomen;
+        
+        historyModal.show();
+        
+        try {
+            const res = await fetch(`/api/premium/history/${nomen}`);
+            const result = await res.json();
+            
+            if(result.status === 'success') {
+                renderChartAndTable(result.data);
+            }
+        } catch(e) {
+            console.error("Gagal load history", e);
+        }
+    }
+
+    function renderChartAndTable(data) {
+        // 1. Render Tabel Detail (Urutan Terbaru di Atas)
+        const tbody = document.getElementById('modalTableBody');
+        const reversedData = [...data].reverse(); 
+        
+        tbody.innerHTML = reversedData.map(row => {
+            const statusBadge = row.lunas == 1
+                ? '<span class="badge bg-success rounded-pill shadow-sm"><i class="fa-solid fa-check me-1"></i>LUNAS</span>'
+                : '<span class="badge bg-danger rounded-pill shadow-sm"><i class="fa-solid fa-xmark me-1"></i>BELUM</span>';
+
+            return `
+                <tr>
+                    <td class="ps-3 fw-bold text-secondary">${formatPeriodeIndo(row.periode)}</td>
+                    <td class="text-center fw-800 text-dark fs-6">${row.kubik}</td>
+                    <td class="text-end fw-bold text-primary">Rp ${formatIDR(row.nominal)}</td>
+                    <td class="text-center pe-3">${statusBadge}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // 2. Render Chart
+        const labels = data.map(d => formatPeriodeIndo(d.periode));
+        const values = data.map(d => d.kubik);
+
+        const ctx = document.getElementById('stabilityChart').getContext('2d');
+        if (stabilityChart) stabilityChart.destroy();
+
+        stabilityChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Volume Air (m³)',
+                    data: values,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#2563eb',
+                    pointRadius: 5,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { borderDash: [5, 5] } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
     }
 
     function filterTable() {
@@ -166,21 +303,15 @@
 
     function downloadExcel() {
         if (allData34.length === 0 && allData35.length === 0) return;
-        
         const format = (d) => d.map((item, i) => ({
-            "No": i + 1, "IDPEL": item.nomen, "Nama": item.nama, "Alamat": item.alamat,
-            "Rayon": item.rayon, 
-            "Kubik Kini": item.kubik, 
-            "Rata-rata Kubik": item.avg_kubik_historis,
-            "Tagihan (Rp)": item.nominal,
-            "Status": item.status_lunas == 1 ? "LUNAS" : "BELUM BAYAR"
+            "No": i + 1, "IDPEL": item.nomen, "Nama": item.nama, 
+            "Rata-rata (Avg)": item.avg_kubik_historis, "Kubik Bulan Ini": item.kubik, 
+            "Tagihan (Rp)": item.nominal
         }));
-
         const wb = XLSX.utils.book_new();
         if(allData34.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(format(allData34)), "Premium R34");
         if(allData35.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(format(allData35)), "Premium R35");
-        
-        XLSX.writeFile(wb, `Pelanggan_Premium_Stabil.xlsx`);
+        XLSX.writeFile(wb, `Pelanggan_Premium_History.xlsx`);
     }
 </script>
 {% endblock %}
