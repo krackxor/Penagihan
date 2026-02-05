@@ -41,13 +41,13 @@
     <div class="row g-2 mb-3">
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-dark border-4">
-                <small class="text-muted d-block mb-1 fw-800" style="font-size: 0.55rem; letter-spacing: 0.8px;">TOTAL NOMEN (MC)</small>
+                <small class="text-muted d-block mb-1 fw-800" style="font-size: 0.55rem; letter-spacing: 0.8px;">TOTAL PELANGGAN (MC)</small>
                 <h4 class="fw-bold mb-0 text-dark" id="g-nomen-mc">0</h4>
             </div>
         </div>
         <div class="col-6">
             <div class="card p-3 border-0 shadow-sm rounded-4 h-100 bg-white border-start border-primary border-4">
-                <small class="text-muted d-block mb-1 fw-800" style="font-size: 0.55rem; letter-spacing: 0.8px;">TARGET NOMINAL (MC)</small>
+                <small class="text-muted d-block mb-1 fw-800" style="font-size: 0.55rem; letter-spacing: 0.8px;">TARGET RUPIAH</small>
                 <h6 class="fw-bold mb-0 text-primary" id="g-nom-mc">Rp 0</h6>
             </div>
         </div>
@@ -55,7 +55,7 @@
 
     <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-800 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Efektivitas Penagihan (Progres Gabungan)</small>
+            <small class="opacity-75 fw-800 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Efektivitas Penagihan</small>
             <h1 class="fw-bold mb-0 animate__animated animate__pulse animate__infinite" id="stat-percent" style="font-size: 4.5rem; letter-spacing: -3px;">0%</h1>
             
             <div class="progress my-3 bg-white bg-opacity-10 shadow-inner" style="height: 14px; border-radius: 20px;">
@@ -66,13 +66,13 @@
             <div class="row g-2">
                 <div class="col-6">
                     <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block text-info fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">UNDUE (BANK)</small>
+                        <small class="d-block text-info fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">TRANSFER BANK (UNDUE)</small>
                         <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem;">Rp 0</span>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">CURRENT (LAPANGAN)</small>
+                        <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">BAYAR DITEMPAT (CURRENT)</small>
                         <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem;">Rp 0</span>
                     </div>
                 </div>
@@ -83,19 +83,19 @@
     <div class="card p-3 border-0 shadow-sm rounded-4 mb-4 bg-white">
         <div class="row g-0 align-items-center text-center">
             <div class="col-6 border-end">
-                <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.55rem; letter-spacing: 0.5px;">Outstanding (Sisa Rp)</small>
+                <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.55rem; letter-spacing: 0.5px;">Sisa Rupiah</small>
                 <h6 class="fw-bold mb-0 text-danger" id="stat-sisa-nom" style="font-size: 0.85rem;">Rp 0</h6>
             </div>
             <div class="col-6">
-                <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.55rem; letter-spacing: 0.5px;">Sisa Belum Bayar</small>
-                <h6 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0 Nomen</h6>
+                <small class="text-muted d-block fw-800 text-uppercase" style="font-size: 0.55rem; letter-spacing: 0.5px;">Sisa Pelanggan</small>
+                <h6 class="fw-bold mb-0 text-dark" id="stat-sisa-nomen">0 Unit</h6>
             </div>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden bg-white">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-trophy text-warning me-2"></i>Peringkat Kolektibilitas Area</h6>
+            <h6 class="fw-bold mb-0 small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-trophy text-warning me-2"></i>Peringkat Area</h6>
         </div>
         <div class="card-body pt-0">
             {% if session.get('role') == 'admin' %}
@@ -166,7 +166,7 @@
             document.getElementById('val-current').innerText = toIDR(s.rupiah.current);
 
             document.getElementById('stat-sisa-nom').innerText = toIDR(s.rupiah.sisa);
-            document.getElementById('stat-sisa-nomen').innerText = `${s.nomen.belum.toLocaleString()} Nomen Belum`;
+            document.getElementById('stat-sisa-nomen').innerText = `${s.nomen.belum.toLocaleString()} Unit Belum`;
 
             renderLeaderboard(result.analytics.leaderboard);
             if (USER_ROLE === 'admin') renderChart(result.analytics.leaderboard);
