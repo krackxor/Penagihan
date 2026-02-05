@@ -1,22 +1,29 @@
-Memindahkan aplikasi dari VPS lama ke VPS baru memang membutuhkan ketelitian agar tidak ada langkah yang terlewat. Karena kamu sudah memiliki domain **areaservice.site**, prosesnya akan lebih cepat karena kita hanya perlu mengarahkan domain ke IP yang baru.
+Tentu, mari kita buat panduan ini menjadi **lebih terstruktur, rapi, dan lengkap**.
 
-Berikut adalah panduan lengkap setup dari nol untuk aplikasi **Penagihan** kamu:
+Panduan ini sudah saya sesuaikan agar mencakup solusi untuk masalah **upload file besar (16MB)** yang sebelumnya gagal karena *timeout* atau limitasi Nginx.
+
+Berikut adalah **"Master Guide: Migrasi & Setup Server Penagihan"**.
 
 ---
 
-### Langkah 1: Persiapan Server Baru
+### 📋 Tahap 1: Persiapan Lingkungan Server (VPS)
 
-Masuk ke VPS baru melalui SSH dan update sistemnya.
+Lakukan ini segera setelah login ke VPS baru via SSH.
+
+**1. Update & Install Paket Wajib**
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install python3-pip python3-venv nginx git certbot python3-certbot-nginx -y
+sudo apt install python3-pip python3-venv nginx git certbot python3-certbot-nginx sqlite3 -y
 
 ```
 
-### Langkah 2: Pindahkan Kode Aplikasi
+---
 
-Gunakan Git untuk menarik kode kamu kembali ke VPS baru.
+### 📥 Tahap 2: Instalasi Kode Aplikasi
+
+**1. Clone Repository**
+Pastikan Anda berada di direktori `root` atau `home`.
 
 ```bash
 cd ~
@@ -25,44 +32,104 @@ cd Penagihan
 
 ```
 
-### Langkah 3: Setup Virtual Environment & Install Library
-
-Sangat disarankan menggunakan `venv` agar library tidak bentrok dengan sistem.
+**2. Setup Virtual Environment (Venv)**
+Ini wajib agar library Python terisolasi dan tidak merusak sistem.
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
+
+```
+
+**3. Install Library & Gunicorn**
+
+```bash
 pip install -r requirements.txt
 pip install gunicorn
 
 ```
 
-### Langkah 4: Inisialisasi Database
-
-Berdasarkan file `schema.sql` yang kamu unggah, kamu perlu membuat database SQLite-nya kembali.
+**4. Inisialisasi Database**
+Kita buat folder database dan isi struktur tabelnya.
 
 ```bash
+mkdir -p instance
 sqlite3 instance/penagihan.db < schema.sql
 
 ```
 
-*(Pastikan folder `instance` sudah ada, jika belum: `mkdir instance`)*.
+*(Cek apakah file terbentuk dengan `ls instance/`)*.
 
-### Langkah 5: Konfigurasi Nginx (Pintu Masuk)
+---
 
-Buat file konfigurasi baru untuk domain kamu.
+### ⚙️ Tahap 3: Konfigurasi Service Aplikasi (Systemd)
+
+Kita tidak akan menjalankan Gunicorn secara manual. Kita akan menjadikannya **Service** agar otomatis menyala jika server restart, dan kita akan menyematkan konfigurasi **Anti-Timeout** di sini.
+
+**1. Buat File Service**
+
+```bash
+sudo nano /etc/systemd/system/penagihan.service
+
+```
+
+**2. Isi Konfigurasi (Copy-Paste Semua)**
+*Perhatikan bagian `ExecStart`, kita sudah menambahkan timeout 600 detik (10 menit) untuk menangani upload file besar.*
+
+```ini
+[Unit]
+Description=Gunicorn Instance untuk Aplikasi Penagihan
+After=network.target
+
+[Service]
+# User root (atau ganti sesuai user VPS kamu, misal: ubuntu)
+User=root
+Group=www-data
+
+# Lokasi Folder Aplikasi
+WorkingDirectory=/root/Penagihan
+
+# Lokasi Environment Python
+Environment="PATH=/root/Penagihan/venv/bin"
+
+# Perintah Eksekusi (PENTING: Timeout 600s & Workers 3)
+ExecStart=/root/Penagihan/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --timeout 600 --limit-request-line 0 "app:create_app()"
+
+[Install]
+WantedBy=multi-user.target
+
+```
+
+**3. Aktifkan Service**
+
+```bash
+sudo systemctl start penagihan
+sudo systemctl enable penagihan
+
+```
+
+---
+
+### 🌐 Tahap 4: Konfigurasi Nginx (Gateway)
+
+Kita harus mengatur Nginx agar menerima file besar (hingga 64MB) dan tidak memutus koneksi saat Gunicorn sedang memproses data.
+
+**1. Buat File Konfigurasi Nginx**
 
 ```bash
 sudo nano /etc/nginx/sites-available/penagihan
 
 ```
 
-**Tempelkan kode ini:**
+**2. Isi Konfigurasi (Copy-Paste Semua)**
 
 ```nginx
 server {
     listen 80;
     server_name areaservice.site www.areaservice.site;
+
+    # PENTING: Izinkan upload file hingga 64MB
+    client_max_body_size 64M;
 
     location / {
         proxy_pass http://127.0.0.1:5000;
@@ -70,186 +137,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
 
-```
-
-**Aktifkan:**
-
-```bash
-sudo ln -s /etc/nginx/sites-available/penagihan /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
-
-```
-
-### Langkah 6: Update DNS & SSL
-
-1. **Ganti IP di Dashboard Domain**: Ubah **A Record** domain `areaservice.site` ke **Alamat IP VPS Baru** kamu.
-2. **Tunggu sejenak**, lalu jalankan Certbot untuk HTTPS:
-```bash
-sudo certbot --nginx -d areaservice.site -d www.areaservice.site
-
-```
-
-
-
-### Langkah 7: Buat Service agar Aplikasi Jalan Terus (Auto-Run)
-
-Agar aplikasi tidak mati saat kamu keluar dari terminal:
-
-```bash
-sudo nano /etc/systemd/system/penagihan.service
-
-```
-
-**Isi dengan:**
-
-```ini
-[Unit]
-Description=Gunicorn Penagihan
-After=network.target
-
-[Service]
-User=root
-WorkingDirectory=/root/Penagihan
-Environment="PATH=/root/Penagihan/venv/bin"
-ExecStart=/root/Penagihan/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --reload "app:create_app()"
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-
-```
-
-**Jalankan:**
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable penagihan
-sudo systemctl start penagihan
-
-```
-
----
-
-### Tips Cepat: Cara Kill & Run
-
-Jika kamu ingin mematikan dan menjalankan ulang secara manual setelah edit kode:
-
-* **Kill**: `sudo systemctl stop penagihan`
-* **Run**: `sudo systemctl start penagihan`
-* **Cek Log (Jika error)**: `sudo journalctl -u penagihan -f`
-
-Apakah kamu sudah mendapatkan **Alamat IP** dari VPS baru kamu untuk diupdate di dashboard domain?
-
-Untuk mematikan (kill) dan menjalankan ulang (restart) Gunicorn secara manual, ada dua cara tergantung bagaimana kamu menjalankannya sebelumnya.
-
-### 1. Jika Gunicorn jalan di terminal (kelihatan log-nya)
-
-Cukup tekan tombol ini di keyboard kamu:
-
-* **`Ctrl + C`** (ini akan menghentikan proses Gunicorn).
-* Lalu jalankan lagi perintahnya:
-```bash
-gunicorn --bind 127.0.0.1:5000 --reload "app:create_app()"
-
-```
-
-
-
----
-
-### 2. Jika Gunicorn jalan di background (tidak kelihatan)
-
-Kalau kamu sudah menutup terminal tapi aplikasinya masih jalan, kamu harus mencari "ID" prosesnya lalu mematikannya:
-
-1. **Cari ID Proses (PID):**
-```bash
-pkill gunicorn
-
-```
-
-
-*Perintah `pkill` akan langsung mematikan semua proses yang bernama gunicorn.*
-2. **Atau cara manual (jika pkill tidak mempan):**
-```bash
-ps aux | grep gunicorn
-
-```
-
-
-Lihat angka di kolom kedua (misal: `1234`), lalu ketik:
-```bash
-kill -9 1234
-
-```
-
-
-3. **Jalankan lagi:**
-```bash
-gunicorn --bind 127.0.0.1:5000 --reload "app:create_app()"
-
-```
-
-
-
----
-
-### Tips: Cara Paling Cepat (Satu Baris)
-
-Kamu bisa menggabungkan perintahnya agar setiap kali kamu ketik ini, dia otomatis mati lalu nyala lagi:
-
-```bash
-pkill gunicorn; gunicorn --bind 127.0.0.1:5000 --reload "app:create_app()"
-
-```
-
-**Saran Tambahan:**
-Karena kamu menggunakan flag `--reload`, sebenarnya kamu **tidak perlu** mematikan dan menjalankan ulang secara manual setiap kali mengedit kode. Gunicorn akan otomatis mendeteksi perubahan file dan me-restart dirinya sendiri. Kamu hanya perlu melakukan *kill & run* jika kamu mengubah konfigurasi server atau ada error yang membuat prosesnya "hang".
-
-Apakah ada error tertentu yang muncul sehingga kamu harus melakukan restart manual?
-
-Masalah utama Anda adalah **Timeout** dan **Limitasi Nginx**. Saat Anda menjalankan Gunicorn dengan command tersebut, Gunicorn menggunakan *default timeout* hanya **30 detik**.
-
-File **MB 1225** yang Anda kirimkan berukuran **16MB** dengan puluhan ribu baris data. Proses membaca (Pandas), validasi, dan injeksi ke SQLite membutuhkan waktu lebih dari 30 detik, sehingga Gunicorn memutus koneksi dan Nginx menganggapnya sebagai error (kemudian muncul 413 atau 504).
-
-Berikut adalah perbaikan command Gunicorn dan konfigurasi Nginx Anda:
-
-### 1. Perbaikan Command Gunicorn
-
-Tambahkan parameter `--timeout` dan `--limit-request-line` agar Gunicorn sanggup menunggu proses data history yang berat.
-
-Gunakan command ini:
-
-```bash
-gunicorn --bind 127.0.0.1:5000 --timeout 600 --limit-request-line 0 --workers 3 "app:create_app()"
-
-```
-
-* **`--timeout 600`**: Memberikan waktu 10 menit bagi server untuk memproses file 16MB tersebut.
-* **`--workers 3`**: Memberikan tenaga tambahan (paralelisme) agar server tetap responsif.
-* **Hapus `--reload**`: Jangan gunakan `--reload` di server produksi (domain) karena akan memperlambat performa.
-
-### 2. Sinkronisasi Nginx (Wajib)
-
-Karena Anda menggunakan Domain, Nginx adalah "pintu" pertama. Edit kembali `/etc/nginx/nginx.conf` di bagian `http { ... }` atau di file konfigurasi site Anda:
-
-```nginx
-server {
-    listen 80;
-    server_name domainanda.com;
-
-    client_max_body_size 64M; # Wajib agar file 16MB tidak ditolak
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-
-        # Timeout Nginx harus searah dengan Timeout Gunicorn
+        # PENTING: Timeout Nginx disamakan dengan Gunicorn (10 menit)
         proxy_read_timeout 600;
         proxy_connect_timeout 600;
         proxy_send_timeout 600;
@@ -258,22 +147,64 @@ server {
 
 ```
 
-### 3. Langkah Terakhir: Restart & Tes
+**3. Aktifkan Konfigurasi**
 
-1. **Simpan** konfigurasi Nginx, lalu jalankan:
 ```bash
-sudo nginx -t
+sudo ln -s /etc/nginx/sites-available/penagihan /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default  # Hapus config default jika ada
+sudo nginx -t                             # Cek apakah ada error syntax
 sudo systemctl restart nginx
 
 ```
 
+---
 
-2. **Jalankan Gunicorn** dengan command baru di atas.
-3. **Coba Upload Kembali** file `MB_1225.csv`.
+### 🔒 Tahap 5: Update DNS & SSL (HTTPS)
 
-**Kenapa sebelumnya gagal?**
+1. **Update DNS:** Buka panel domain Anda, ubah **A Record** domain `areaservice.site` ke IP VPS Baru.
+2. **Install SSL:**
+```bash
+sudo certbot --nginx -d areaservice.site -d www.areaservice.site
 
-1. **Nginx (413)**: File 16MB ditolak satpam Nginx karena limit defaultnya hanya 1MB.
-2. **Gunicorn (Timeout)**: Jika Nginx sudah dibuka, Gunicorn akan mati di detik ke-30 karena proses *insert* ke database belum selesai.
+```
 
-Dengan menaikkan `timeout` ke 600 detik dan `client_max_body_size` ke 64M, file history Anda akan masuk dengan aman. Apakah proses upload sudah berjalan lebih lama sekarang sebelum muncul hasil?
+
+*(Ikuti instruksi di layar, pilih Redirect HTTP to HTTPS jika ditanya).*
+
+---
+
+### 🛠️ Cheat Sheet: Perawatan & Monitoring
+
+Simpan daftar perintah ini untuk kebutuhan maintenance sehari-hari:
+
+**1. Aplikasi Error / Habis Update Kode?**
+Setiap kali Anda mengubah kode Python (`app.py`, dll), Anda harus merestart service Gunicorn:
+
+```bash
+sudo systemctl restart penagihan
+
+```
+
+**2. Mengubah Konfigurasi Nginx?**
+
+```bash
+sudo systemctl restart nginx
+
+```
+
+**3. Cek Log Error (Jika ada masalah)**
+Gunakan ini untuk melihat kenapa aplikasi error (misal 500 Internal Server Error):
+
+```bash
+sudo journalctl -u penagihan -f
+
+```
+
+**4. Cek Log Akses Nginx**
+
+```bash
+sudo tail -f /var/log/nginx/error.log
+
+```
+
+Sekarang server Anda sudah siap, aman, dan sanggup menangani upload data besar. Selamat mencoba!
