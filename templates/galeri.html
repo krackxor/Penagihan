@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
+    
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-end">
         <div>
             <h4 class="fw-bold mb-1 text-dark">
@@ -71,10 +72,12 @@
     const ROLE = "{{ session['role'] }}";
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Set default filter ke bulan ini
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         document.getElementById('filter-periode').value = `${year}-${month}`;
+        
         loadGaleri();
     });
 
@@ -85,8 +88,10 @@
         const rawPeriode = document.getElementById('filter-periode').value;
         
         if (!rawPeriode) return;
+        
         icon.classList.add('fa-spin'); 
 
+        // Format YYYY-MM menjadi MM-YYYY sesuai backend
         const parts = rawPeriode.split('-');
         const formattedPeriode = `${parts[1]}-${parts[0]}`;
         
@@ -94,6 +99,7 @@
             const res = await fetch(`/api/history/kunjungan?periode=${formattedPeriode}`);
             const result = await res.json();
             
+            // Filter hanya yang punya foto valid
             galeriData = (result.data || []).filter(item => item.foto_path && item.foto_path !== '-');
             
             if (galeriData.length === 0) {
@@ -126,7 +132,7 @@
                  data-search="${item.nomen} ${item.nama} ${item.keterangan} ${item.petugas_name}" 
                  style="animation-delay: ${index * 0.02}s">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden position-relative h-100 bg-white" 
-                     onclick="zoomImage('${fotoUrl}', '${item.nama.replace(/'/g, "\\'")}', '${item.petugas_name}', '${item.keterangan}', '${item.waktu}', '${item.nomen}')">
+                     onclick="zoomImage('${fotoUrl}', '${item.nama.replace(/'/g, "\\'")}', '${item.petugas_name}', '${item.keterangan.replace(/'/g, "\\'")}', '${item.waktu}', '${item.nomen}')">
                     <div class="img-wrapper" style="height: 150px; background: #f1f5f9; overflow: hidden;">
                         <img src="${fotoUrl}" 
                              class="w-100 h-100 object-fit-cover transition-img"
