@@ -3,81 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Area Service - Integrated Operation System</title>
+    <title>Sistem Operasional Area Service</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         :root { 
-            --primary-bg: #f8fafc;
-            --service-blue: #2563eb;
-            --service-dark: #0f172a;
-            --accent-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+            /* Palet Warna High Contrast */
+            --primary-bg: #f3f4f6;       /* Abu-abu sangat muda, nyaman di mata */
+            --text-main: #111827;        /* Hitam pekat untuk teks utama */
+            --text-muted: #4b5563;       /* Abu-abu tua untuk teks sekunder */
+            --service-blue: #0284c7;     /* Biru cerah yang enak dilihat */
+            --sidebar-bg: #ffffff;
         }
 
         body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
+            font-family: 'Inter', sans-serif; 
             background-color: var(--primary-bg); 
-            color: #1e293b; 
+            color: var(--text-main); 
             overflow-x: hidden; 
-            -webkit-tap-highlight-color: transparent; 
+            -webkit-tap-highlight-color: transparent;
+            line-height: 1.5;
         }
         
+        /* Navbar Atas */
         .navbar { 
-            background: rgba(255, 255, 255, 0.85) !important; 
-            backdrop-filter: blur(15px); 
-            -webkit-backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            background: #ffffff !important; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-bottom: 1px solid #e5e7eb;
             z-index: 1030;
-            padding: 0.6rem 0;
+            padding: 0.8rem 0;
         }
 
-        .offcanvas { border-radius: 0 25px 25px 0; border: none; width: 290px !important; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
-        .offcanvas-body { overflow-y: auto; scrollbar-width: none; }
-        .offcanvas-body::-webkit-scrollbar { display: none; }
+        /* Menu Samping (Offcanvas) */
+        .offcanvas { 
+            border-radius: 0 20px 20px 0; 
+            border: none; 
+            width: 300px !important; 
+        }
         
         .user-profile-box { 
-            background: var(--accent-gradient); 
-            border-radius: 20px; padding: 1.25rem; color: white; margin: 1rem;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+            background: linear-gradient(to right, #2563eb, #1d4ed8); 
+            border-radius: 16px; 
+            padding: 1.5rem; 
+            color: white; 
+            margin: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
+        /* Link Menu */
         .nav-link-custom {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 600; color: #64748b; font-size: 0.88rem;
-            display: flex; align-items: center;
-            padding: 0.85rem 1.1rem; text-decoration: none;
-            border-radius: 14px; margin: 0.2rem 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0.75rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: all 0.2s;
         }
         
-        .nav-link-custom i { width: 28px; text-align: center; margin-right: 12px; font-size: 1.2rem; transition: 0.3s; }
-        .nav-link-custom:hover { background-color: #f1f5f9 !important; color: var(--service-blue); transform: translateX(5px); }
-        .nav-link-custom:hover i { transform: scale(1.2); }
+        .nav-link-custom i { 
+            width: 24px; 
+            text-align: center; 
+            margin-right: 12px; 
+            font-size: 1.1rem; 
+            color: #9ca3af;
+        }
+
+        .nav-link-custom:hover { 
+            background-color: #f3f4f6; 
+            color: var(--service-blue); 
+        }
+        
+        .nav-link-custom:hover i {
+            color: var(--service-blue);
+        }
 
         .active-menu {
-            background-color: #eff6ff !important;
-            color: var(--service-blue) !important;
-            border-left: 4px solid var(--service-blue) !important;
+            background-color: #e0f2fe !important; /* Biru sangat muda */
+            color: #0369a1 !important;           /* Biru tua */
+            font-weight: 600;
+        }
+        .active-menu i {
+            color: #0284c7 !important;
         }
 
+        /* Label Kategori Menu */
+        .section-label { 
+            font-size: 0.7rem; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: #9ca3af; 
+            letter-spacing: 0.05em; 
+            padding: 1rem 1.5rem 0.5rem; 
+            display: block; 
+        }
+
+        .menu-divider { border-top: 1px solid #f3f4f6; margin: 0.5rem 0; }
+
+        /* Navigasi Bawah (HP) */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0;
-            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
+            background: #ffffff;
             display: flex; justify-content: space-around;
-            padding: 10px 0 calc(env(safe-area-inset-bottom) + 10px) 0;
-            border-top: 1px solid #f1f5f9; z-index: 1000;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+            padding: 12px 0 calc(env(safe-area-inset-bottom) + 12px) 0;
+            border-top: 1px solid #e5e7eb; 
+            z-index: 1000;
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
         }
         
-        .nav-item-link { text-decoration: none; color: #94a3b8; text-align: center; font-size: 0.65rem; font-weight: 700; transition: 0.3s; width: 20%; }
-        .nav-item-link i { font-size: 1.3rem; margin-bottom: 3px; display: block; }
-        .nav-item-link.active { color: var(--service-blue); transform: translateY(-3px); }
-
-        .menu-divider { border-top: 1px solid #f1f5f9; margin: 1rem 1.5rem; opacity: 0.8; }
-        .section-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1.2px; padding-left: 1.8rem; margin-bottom: 0.5rem; display: block; }
+        .nav-item-link { 
+            text-decoration: none; 
+            color: #6b7280; 
+            text-align: center; 
+            font-size: 0.7rem; 
+            font-weight: 600; 
+            width: 20%; 
+        }
+        .nav-item-link i { font-size: 1.4rem; margin-bottom: 4px; display: block; }
+        .nav-item-link.active { color: var(--service-blue); }
 
         @media (min-width: 992px) { .bottom-nav { display: none !important; } }
     </style>
@@ -87,47 +137,47 @@
 
     <nav class="navbar sticky-top">
         <div class="container-fluid px-3">
-            <button class="btn btn-white shadow-sm border rounded-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
-                <i class="fas fa-bars-staggered text-dark"></i>
+            <button class="btn btn-light border shadow-sm rounded-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
+                <i class="fas fa-bars text-dark"></i>
             </button>
             
-            <a class="navbar-brand mx-auto fw-800 text-dark" href="/">
-                <span class="text-primary"><i class="fas fa-bolt-lightning me-1"></i></span> AREA SERVICE
+            <a class="navbar-brand mx-auto fw-bold text-dark" href="/">
+                AREA SERVICE
             </a>
 
             {% if session.get('username') %}
             <div class="dropdown">
                 <button class="btn p-0 border-0" data-bs-toggle="dropdown">
-                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0f172a&color=fff&bold=true" class="rounded-circle shadow-sm border border-2 border-white" style="width: 38px; height: 38px;">
+                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0284c7&color=fff&bold=true" class="rounded-circle shadow-sm" style="width: 38px; height: 38px;">
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-3 rounded-4 animate__animated animate__fadeInUp animate__faster">
-                    <li class="px-4 py-2"><small class="text-muted d-block text-center fw-bold">{{ session['username']|upper }}</small></li>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3 rounded-3">
+                    <li class="px-3 py-2 text-center"><small class="fw-bold text-dark">{{ session['username']|upper }}</small></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item py-2 text-danger small fw-bold" href="/api/auth/logout"><i class="fas fa-power-off me-2"></i> Keluar</a></li>
+                    <li><a class="dropdown-item text-danger" href="/api/auth/logout"><i class="fas fa-sign-out-alt me-2"></i> Keluar</a></li>
                 </ul>
             </div>
             {% else %}
-            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm">Masuk</a>
+            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold">Masuk</a>
             {% endif %}
         </div>
     </nav>
 
     <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasNav">
-        <div class="offcanvas-header border-bottom py-4">
-            <h6 class="offcanvas-title fw-bold text-dark"><i class="fas fa-compass me-2 text-primary"></i>EXPLORER SYSTEM</h6>
-            <button type="button" class="btn-close shadow-none" data-bs-dismiss="offcanvas"></button>
+        <div class="offcanvas-header border-bottom">
+            <h6 class="offcanvas-title fw-bold text-dark">MENU UTAMA</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
         
         <div class="offcanvas-body p-0">
             {% if session.get('username') %}
-            <div class="user-profile-box shadow-sm">
+            <div class="user-profile-box">
                 <div class="d-flex align-items-center">
-                    <div class="bg-white text-dark rounded-circle d-flex align-items-center justify-content-center me-3 shadow" style="width: 45px; height: 45px;">
-                        <i class="fas {% if current_role == 'admin' %}fa-user-shield text-danger{% else %}fa-id-badge text-primary{% endif %} fa-lg"></i>
+                    <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 40px; height: 40px;">
+                        <i class="fas fa-user"></i>
                     </div>
                     <div>
-                        <h6 class="mb-0 fw-bold text-white">{{ session['username']|upper }}</h6>
-                        <span class="badge bg-white bg-opacity-20 border border-white border-opacity-25" style="font-size: 0.6rem;">ROLE: {{ current_role|upper }}</span>
+                        <h6 class="mb-0 fw-bold">{{ session['username']|upper }}</h6>
+                        <small style="opacity: 0.9;">{{ current_role|capitalize }}</small>
                     </div>
                 </div>
             </div>
@@ -135,88 +185,88 @@
 
             <div class="py-2">
                 {% if session.get('role') %}
-                    <span class="section-label">Pusat Informasi</span>
+                    <span class="section-label">Umum</span>
                     <a href="/" class="nav-link-custom {% if request.path == '/' %}active-menu{% endif %}">
-                        <i class="fas fa-house-chimney-window"></i>Dashboard
+                        <i class="fas fa-home"></i>Beranda
                     </a>
                     <a href="/performa" class="nav-link-custom {% if request.path == '/performa' %}active-menu{% endif %}">
-                        <i class="fas fa-chart-simple"></i>Analisis Kinerja
+                        <i class="fas fa-chart-line"></i>Performa Tim
                     </a>
                     <a href="/monitoring-collection" class="nav-link-custom {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
-                        <i class="fas fa-tower-broadcast"></i>Collection
+                        <i class="fas fa-stopwatch"></i>Pantau Setoran (Live)
                     </a>
                     <a href="/monitoring-lokasi" class="nav-link-custom {% if request.path == '/monitoring-lokasi' %}active-menu{% endif %}">
-                        <i class="fas fa-map-location-dot"></i>Geospasial Petugas
+                        <i class="fas fa-map-marked-alt"></i>Peta Lokasi Petugas
                     </a>
 
                     <div class="menu-divider"></div>
 
-                    <span class="section-label">Unit Operasional</span>
+                    <span class="section-label">Operasional Lapangan</span>
                     <a href="/belum-bayar" class="nav-link-custom {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
-                        <i class="fas fa-file-invoice-dollar"></i>Penagihan Current
+                        <i class="fas fa-clipboard-list"></i>Tagihan Bulan Ini
                     </a>
                     <a href="/tagihan-berekor" class="nav-link-custom {% if request.path == '/tagihan-berekor' %}active-menu{% endif %}">
-                        <i class="fas fa-receipt"></i>Tunggakan Berekor
+                        <i class="fas fa-history"></i>Tunggakan Lama
                     </a>
                     <a href="/janji-bayar" class="nav-link-custom {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
-                        <i class="fas fa-calendar-check"></i>Daftar Janji Bayar
+                        <i class="fas fa-calendar-alt"></i>Jadwal Janji Bayar
                     </a>
                     <a href="/galeri" class="nav-link-custom {% if request.path == '/galeri' %}active-menu{% endif %}">
-                        <i class="fas fa-images"></i>Galeri
+                        <i class="fas fa-image"></i>Galeri Foto
                     </a>
 
                     <div class="menu-divider"></div>
 
                     {% if current_role == 'admin' %}
-                    <span class="section-label">Strategis Admin</span>
+                    <span class="section-label">Menu Admin</span>
                     <a href="/admin/dashboard" class="nav-link-custom {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
-                        <i class="fas fa-screwdriver-wrench"></i>Administrator
+                        <i class="fas fa-cogs"></i>Admin Panel
                     </a>
                     
                     <a href="/analisa-top500" class="nav-link-custom {% if request.path == '/analisa-top500' %}active-menu{% endif %}">
-                        <i class="fas fa-crown text-warning"></i>Analisa Top 500
+                        <i class="fas fa-star text-warning"></i>500 Pelanggan Besar
                     </a>
 
                     <a href="/premium-customer" class="nav-link-custom {% if request.path == '/premium-customer' %}active-menu{% endif %}">
-                        <i class="fas fa-gem text-info"></i>Pelanggan Premium
+                        <i class="fas fa-medal text-info"></i>Pelanggan Prioritas
                     </a>
 
                     <a href="/pelanggan-ekstrem" class="nav-link-custom {% if request.path == '/pelanggan-ekstrem' %}active-menu{% endif %}">
-                        <i class="fa-solid fa-fire-flame-curved text-danger"></i>Pelanggan Ekstrem
+                        <i class="fas fa-arrow-up text-danger"></i>Pemakaian Melonjak
                     </a>
 
                     <a href="/pelanggan-drop" class="nav-link-custom {% if request.path == '/pelanggan-drop' %}active-menu{% endif %}">
-                        <i class="fa-solid fa-arrow-trend-down text-warning"></i>Pelanggan Drop Drastis
+                        <i class="fas fa-arrow-down text-warning"></i>Pemakaian Anjlok
                     </a>
 
                     <a href="/peta-sebaran" class="nav-link-custom {% if request.path == '/peta-sebaran' %}active-menu{% endif %}">
-                        <i class="fas fa-map-location-dot text-success"></i>Peta Sebaran (GIS)
+                        <i class="fas fa-map text-success"></i>Peta Sebaran Pelanggan
                     </a>
 
                     <a href="/wa-blast" class="nav-link-custom {% if request.path == '/wa-blast' %}active-menu{% endif %}">
-                        <i class="fab fa-whatsapp"></i>WA Blast
+                        <i class="fab fa-whatsapp"></i>Kirim WA Massal
                     </a>
                     <a href="/history" class="nav-link-custom {% if request.path == '/history' %}active-menu{% endif %}">
-                        <i class="fas fa-folder-tree"></i>Audit Log Operasional
+                        <i class="fas fa-list-ul"></i>Log Aktivitas Sistem
                     </a>
                     <div class="menu-divider"></div>
                     {% endif %}
                 {% endif %}
 
-                <span class="section-label">Media Center</span>
+                <span class="section-label">Pusat Bantuan</span>
                 <a href="/youtube" class="nav-link-custom {% if request.path == '/youtube' %}active-menu{% endif %}">
-                    <i class="fab fa-youtube"></i>Video
+                    <i class="fab fa-youtube text-danger"></i>Video Panduan
                 </a>
                 <a href="/materi" class="nav-link-custom {% if request.path == '/materi' %}active-menu{% endif %}">
-                    <i class="fas fa-graduation-cap"></i>E-Book
+                    <i class="fas fa-book"></i>Buku Materi
                 </a>
             </div>
         </div>
 
         {% if session.get('username') %}
         <div class="offcanvas-footer p-3 border-top bg-light">
-            <a href="/api/auth/logout" class="btn btn-outline-danger w-100 rounded-pill fw-bold btn-sm shadow-sm py-2">
-                <i class="fas fa-sign-out-alt me-2"></i>Logout
+            <a href="/api/auth/logout" class="btn btn-outline-danger w-100 fw-bold btn-sm">
+                <i class="fas fa-sign-out-alt me-2"></i>Keluar Aplikasi
             </a>
         </div>
         {% endif %}
@@ -231,22 +281,22 @@
             <i class="fab fa-youtube"></i>Video
         </a>
         <a href="/materi" class="nav-item-link {% if request.path == '/materi' %}active{% endif %}">
-            <i class="fas fa-book-open"></i>Materi
+            <i class="fas fa-book"></i>Materi
         </a>
         {% if session.get('role') %}
             <a href="/monitoring-collection" class="nav-item-link {% if request.path == '/monitoring-collection' %}active{% endif %}">
-                <i class="fas fa-microchip"></i>Live
+                <i class="fas fa-chart-pie"></i>Live
             </a>
             <a href="/tagihan-berekor" class="nav-item-link {% if request.path == '/tagihan-berekor' or request.path == '/tunggakan-berekor' %}active{% endif %}">
-                <i class="fas fa-bullseye"></i>Tunggakan
+                <i class="fas fa-clock"></i>Tunggakan
             </a>
         {% else %}
             <a href="/login" class="nav-item-link">
-                <i class="fas fa-user-lock"></i>Login
+                <i class="fas fa-lock"></i>Masuk
             </a>
         {% endif %}
         <a href="javascript:void(0)" class="nav-item-link" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
-            <i class="fas fa-bars-progress"></i>Menu
+            <i class="fas fa-bars"></i>Menu
         </a>
     </nav>
 
@@ -260,6 +310,7 @@
                 const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
                 document.querySelectorAll('.nav-link-custom').forEach(link => {
                     link.addEventListener('click', () => {
+                        // Tutup menu otomatis jika di HP setelah klik
                         if (window.innerWidth < 992) bsOffcanvas.hide();
                     });
                 });
