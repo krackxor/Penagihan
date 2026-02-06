@@ -23,7 +23,8 @@ def get_map_data():
         cursor = conn.cursor()
         periode = get_active_period(cursor)
 
-        # Ambil data lengkap untuk penentuan logika di Python
+        # UPDATE 1: Query mengambil SEMUA data tanpa filter aneh-aneh
+        # Tujuannya agar semua pelanggan (termasuk yang normal) bisa muncul
         query = """
             SELECT 
                 p.nomen, p.nama, p.alamat, p.kubik, p.nominal, p.status_lunas,
@@ -31,28 +32,20 @@ def get_map_data():
                 (SELECT ROUND(AVG(m.kubik), 1) FROM master_pelanggan m WHERE m.nomen = p.nomen) as avg_hist
             FROM master_pelanggan p
             WHERE p.periode = ?
-            -- Filter: Ambil yang bermasalah ATAU Premium ATAU sudah punya koordinat
-            AND (
-                p.kubik > 75 OR             -- Premium
-                p.status_lunas = 0 OR       -- Belum Bayar
-                p.kubik > 500 OR            -- Ekstrem Kasar
-                p.kubik = 0 OR              -- Drop Kasar
-                (p.latitude IS NOT NULL AND p.latitude != '') -- Yang sudah di-tag
-            )
         """
         cursor.execute(query, (periode,))
         rows = [dict(row) for row in cursor.fetchall()]
         
-        # LOGIKA PRIORITAS WARNA (Python Logic)
+        # LOGIKA BARU: Penentuan Kategori & Warna
         processed = []
         for r in rows:
-            kubik = float(r['kubik'])
+            kubik = float(r['kubik']) if r['kubik'] else 0
             avg = float(r['avg_hist']) if r['avg_hist'] else 1.0
             lunas = int(r['status_lunas'])
             
             kategori = 'NORMAL' # Default
             
-            # 1. Cek Anomali Teknis (Paling Atas)
+            # Cek kondisi teknis dulu
             is_ekstrem = False
             is_drop = False
             
@@ -62,19 +55,22 @@ def get_map_data():
                 elif (kubik == 0 and avg > 5) or (kubik < (avg * 0.5)):
                     is_drop = True
             
-            # 2. Penentuan Kategori Map (Berdasarkan Prioritas Risiko)
-            if is_ekstrem:
-                kategori = 'EKSTREM'    # MERAH
+            # URUTAN PRIORITAS BARU (Sesuai Request):
+            # 1. NOMEN VIP (Kubik > 75) - Tidak peduli nunggak/lancar, tetap ungu
+            if kubik > 75:
+                kategori = 'NOMEN_VIP'    # UNGU
+            # 2. EKSTREM (Lonjakan)
+            elif is_ekstrem:
+                kategori = 'EKSTREM'      # MERAH
+            # 3. DROP (Turun Drastis)
             elif is_drop:
-                kategori = 'DROP'       # KUNING
-            elif kubik > 75 and lunas == 0:
-                kategori = 'PREMIUM_NUNGGAK' # UNGU (Bahaya Besar)
+                kategori = 'DROP'         # KUNING
+            # 4. BELUM BAYAR (Umum / < 75 kubik)
             elif lunas == 0:
-                kategori = 'BELUM_BAYAR'     # ORANGE
-            elif kubik > 75:
-                kategori = 'PREMIUM'         # BIRU
+                kategori = 'BELUM_BAYAR'  # ORANGE
+            # 5. Sisanya NORMAL
             else:
-                kategori = 'NORMAL'          # ABU-ABU (Jarang muncul karena filter query)
+                kategori = 'NORMAL'       # ABU-ABU
 
             r['kategori'] = kategori
             processed.append(r)
@@ -83,6 +79,7 @@ def get_map_data():
     finally:
         conn.close()
 
+# Fungsi Simpan Titik (TIDAK DIHAPUS)
 @map_bp.route('/save-point', methods=['POST'])
 def save_point():
     if session.get('role') != 'admin': return jsonify({"status": "error"}), 403
