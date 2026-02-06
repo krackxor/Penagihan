@@ -1,64 +1,123 @@
 {% extends "base.html" %}
+
 {% block content %}
+<style>
+    :root {
+        --dark-gradient: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+    
+    /* Nav Tabs Premium */
+    .nav-pills-premium {
+        background: white;
+        padding: 0.5rem;
+        border-radius: 1rem;
+        border: 1px solid #f1f5f9;
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .nav-pills-premium .nav-link {
+        border-radius: 0.75rem;
+        color: #64748b;
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 0.75rem 1.25rem;
+        white-space: nowrap;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .nav-pills-premium .nav-link:hover { background: #f8fafc; color: #2563eb; }
+    .nav-pills-premium .nav-link.active {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .nav-pills-premium .nav-link i { font-size: 1rem; }
+
+    /* Upload Area */
+    .upload-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 1rem;
+        background: #f8fafc;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .upload-zone:hover {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+
+    /* Cards */
+    .card-premium {
+        border: none;
+        border-radius: 1.25rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        transition: transform 0.2s;
+    }
+    .card-premium:hover { transform: translateY(-2px); }
+    
+    .status-item {
+        padding: 1rem;
+        border-radius: 1rem;
+        background: #f8fafc;
+        border: 1px solid #f1f5f9;
+        margin-bottom: 0.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+</style>
+
 <div class="container-fluid py-4 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
+    
     <div class="container mb-4">
-        <div class="row align-items-center g-3">
-            <div class="col-12 col-md-6 text-center text-md-start">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
                 <h3 class="fw-bold text-dark mb-1">
-                    <i class="fas fa-tower-control-panel me-2 text-danger"></i>Pusat Manajemen Strategis
+                    <i class="fas fa-tower-control me-2 text-danger"></i>Pusat Manajemen Strategis
                 </h3>
-                <p class="text-muted small mb-0">Area Service Enterprise v12.8.5 — Live Integritas</p>
+                <p class="text-muted small mb-0 fw-semibold">Area Service Enterprise v12.9 — Live Integritas</p>
             </div>
-            <div class="col-12 col-md-6 d-flex justify-content-center justify-content-md-end">
-                <div id="status-indicator">
-                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
-                        <i class="fas fa-shield-check me-1"></i> Administrator Protocol Enabled
-                    </span>
-                </div>
+            <div>
+                <span class="badge bg-white text-success border border-success px-3 py-2 rounded-pill shadow-sm">
+                    <i class="fas fa-shield-halved me-2"></i>SECURE PROTOCOL ACTIVE
+                </span>
             </div>
         </div>
     </div>
 
     <div class="container mb-4">
-        <div class="nav-container shadow-sm rounded-4 bg-white p-2 border">
-            <ul class="nav nav-pills nav-admin-pro flex-nowrap overflow-auto" id="adminTab" role="tablist" style="scrollbar-width: none; -ms-overflow-style: none;">
-                <li class="nav-item">
-                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-audit">
-                        <i class="fas fa-satellite-dish"></i> <span>Audit GPS</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">
-                        <i class="fas fa-history"></i> <span>Riwayat</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-wa-blast">
-                        <i class="fab fa-whatsapp"></i> <span>WA Blast</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sync" onclick="checkDataStatus()">
-                        <i class="fas fa-sync-alt"></i> <span>Integrasi</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-mapping" onclick="loadMapping()">
-                        <i class="fas fa-project-diagram"></i> <span>Mapping</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-logs" onclick="loadSystemLogs()">
-                        <i class="fas fa-fingerprint"></i> <span>Log Sistem</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-users" onclick="loadUsers()">
-                        <i class="fas fa-user-shield"></i> <span>Security</span>
-                    </button>
-                </li>
-            </ul>
-        </div>
+        <ul class="nav nav-pills-premium" id="adminTab" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-audit">
+                    <i class="fas fa-satellite-dish"></i> Audit GPS
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sync" onclick="checkDataStatus()">
+                    <i class="fas fa-database"></i> Integrasi Data
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-mapping" onclick="loadMapping()">
+                    <i class="fas fa-map-location-dot"></i> Mapping Area
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-users" onclick="loadUsers()">
+                    <i class="fas fa-user-shield"></i> Akses User
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-logs" onclick="loadSystemLogs()">
+                    <i class="fas fa-fingerprint"></i> System Logs
+                </button>
+            </li>
+        </ul>
     </div>
 
     <div class="container tab-content">
@@ -66,68 +125,59 @@
         <div class="tab-pane fade show active" id="tab-audit">
             <div class="row g-4">
                 <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-map-marked-alt text-danger me-2"></i>Audit Geospasial Petugas</h5>
-                            <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
-                                <i class="fas fa-expand-arrows-alt me-1"></i> Mode Interaktif
+                    <div class="card card-premium h-100 bg-white p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold mb-0"><i class="fas fa-map-marked-alt text-danger me-2"></i>Audit Geospasial</h5>
+                            <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-outline-danger rounded-pill px-4 fw-bold btn-sm">
+                                <i class="fas fa-expand me-1"></i> Peta Live
                             </a>
                         </div>
-                        <p class="text-muted small mb-4">Verifikasi validitas personil melalui analisis titik koordinat GPS presisi tinggi.</p>
-                        <div class="bg-light p-5 rounded-4 border border-dashed text-center">
-                            <i class="fas fa-globe-asia fa-3x text-secondary mb-3"></i>
-                            <h6 class="fw-bold">Validasi Geo-Tagging Operasional</h6>
-                            <p class="small text-secondary px-md-5 mb-4">Pastikan personel berada dalam radius lokasi pelanggan saat transmisi data laporan.</p>
-                            <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-dark rounded-pill px-5 shadow">Buka Visualisasi Peta</a>
+                        <div class="text-center py-5 bg-light rounded-4 border border-dashed">
+                            <div class="mb-3">
+                                <span class="fa-stack fa-2x">
+                                    <i class="fas fa-circle fa-stack-2x text-danger opacity-25"></i>
+                                    <i class="fas fa-location-dot fa-stack-1x text-danger"></i>
+                                </span>
+                            </div>
+                            <h6 class="fw-bold">Validasi Titik Koordinat</h6>
+                            <p class="text-muted small px-5 mb-4">Memastikan setiap laporan petugas memiliki metadata lokasi yang valid dan presisi.</p>
+                            <a href="{{ url_for('monitoring_lokasi_page') }}" class="btn btn-danger rounded-pill px-5 shadow-sm fw-bold">
+                                Buka Dashboard Peta
+                            </a>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-4">
-                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-dark text-white">
-                        <h5 class="fw-bold mb-3 text-warning small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-tachometer-alt me-2"></i>Status Infrastruktur</h5>
-                        <div id="quick-stats-audit">
-                            <div class="mb-4">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <small class="text-uppercase" style="font-size: 0.65rem;">Akurasi Telemetri GPS</small>
-                                    <small class="fw-bold text-success">Optimized</small>
-                                </div>
-                                <div class="progress rounded-pill bg-secondary" style="height: 6px;">
-                                    <div class="progress-bar bg-success" style="width: 95%;"></div>
-                                </div>
+                    <div class="card card-premium h-100 p-4 text-white position-relative overflow-hidden" style="background: var(--dark-gradient);">
+                        <div class="position-absolute top-0 end-0 opacity-10 p-3">
+                            <i class="fas fa-server fa-5x"></i>
+                        </div>
+                        <h5 class="fw-bold mb-4 small text-uppercase text-warning">Status Infrastruktur</h5>
+                        
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span>GPS Telemetry</span>
+                                <span class="text-success fw-bold">Active</span>
                             </div>
-                            <p class="small text-secondary mb-0">Seluruh protokol pengiriman laporan wajib menyertakan verifikasi lokasi (Latitude & Longitude).</p>
+                            <div class="progress bg-white bg-opacity-10 rounded-pill" style="height: 6px;">
+                                <div class="progress-bar bg-success" style="width: 98%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span>Database Sync</span>
+                                <span class="text-info fw-bold">Realtime</span>
+                            </div>
+                            <div class="progress bg-white bg-opacity-10 rounded-pill" style="height: 6px;">
+                                <div class="progress-bar bg-info" style="width: 100%"></div>
+                            </div>
+                        </div>
+
+                        <div class="alert bg-white bg-opacity-10 border-0 mb-0 small text-light">
+                            <i class="fas fa-info-circle me-1"></i> Protokol enkripsi aktif. Semua data lokasi tersimpan aman.
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="tab-pane fade" id="tab-history">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-history text-primary me-2"></i>Audit Riwayat Kunjungan</h5>
-                    <a href="{{ url_for('history_kunjungan_page') }}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
-                        <i class="fas fa-external-link-alt me-2"></i> Buka Arsip Lengkap
-                    </a>
-                </div>
-                <div class="bg-light p-5 rounded-4 border text-center">
-                    <i class="fas fa-folder-open fa-3x text-primary mb-3"></i>
-                    <h6 class="fw-bold">Database Aktivitas Lapangan</h6>
-                    <p class="small text-muted mb-0">Data mencakup Foto Kunjungan, Koordinat GPS, dan Keterangan Hasil Tagihan.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="tab-pane fade" id="tab-wa-blast">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0 text-success"><i class="fab fa-whatsapp me-2"></i>WhatsApp Gateway Center</h5>
-                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">Gateway Ready</span>
-                </div>
-                <div class="text-center py-5">
-                    <i class="fas fa-paper-plane fa-3x text-success mb-3"></i>
-                    <h6 class="fw-bold mb-4 text-dark">Manajemen Notifikasi Massal</h6>
-                    <a href="{{ url_for('wa_blast_page') }}" class="btn btn-success rounded-pill px-5 py-2 fw-bold shadow">BUKA PANEL WA BLAST</a>
                 </div>
             </div>
         </div>
@@ -135,27 +185,29 @@
         <div class="tab-pane fade" id="tab-sync">
             <div class="row g-4">
                 <div class="col-lg-7">
-                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-                        <h5 class="fw-bold mb-3 text-dark"><i class="fas fa-file-export text-primary me-2"></i>Impor Basis Data</h5>
-                        <div class="upload-area border-dashed p-5 text-center rounded-4 bg-light mb-3" id="drop-zone" onclick="document.getElementById('excelFile').click()">
-                            <i class="fas fa-file-invoice fa-3x text-success mb-3"></i>
-                            <p class="mb-2 fw-bold text-dark">Pilih atau Seret File Master (Excel)</p>
-                            <p class="mb-3 text-secondary small">Format yang didukung: MC (Master), MB (Lunas), Ardebt (Tunggakan)</p>
+                    <div class="card card-premium h-100 bg-white p-4">
+                        <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-cloud-upload-alt text-primary me-2"></i>Impor Basis Data</h5>
+                        
+                        <div class="upload-zone p-5 text-center mb-4" id="drop-zone" onclick="document.getElementById('excelFile').click()">
+                            <i class="fas fa-file-csv fa-3x text-primary mb-3"></i>
+                            <h6 class="fw-bold text-dark">Klik untuk Upload File Master</h6>
+                            <p class="text-muted small mb-0">Mendukung format .xlsx, .xls, .csv</p>
                             <input type="file" id="excelFile" class="form-control d-none" accept=".xlsx, .xls, .csv">
-                            <div id="file-name-preview" class="mt-2 small fw-bold text-primary"></div>
+                            <div id="file-name-preview" class="mt-3"></div>
                         </div>
-                        <button id="btn-upload-execute" class="btn btn-primary w-100 fw-bold rounded-pill py-3 shadow" onclick="uploadData()">
-                            <i class="fas fa-microchip me-2"></i> EKSEKUSI SINKRONISASI SISTEM
+
+                        <button id="btn-upload-execute" class="btn btn-primary w-100 fw-bold rounded-pill py-3 shadow-sm" onclick="uploadData()" style="background: var(--primary-gradient); border:none;">
+                            <i class="fas fa-rocket me-2"></i> MULAI SINKRONISASI
                         </button>
                     </div>
                 </div>
                 <div class="col-lg-5">
-                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-                        <h5 class="fw-bold mb-3 text-dark small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-database text-info me-2"></i>Data Integrity Status</h5>
+                    <div class="card card-premium h-100 bg-white p-4">
+                        <h5 class="fw-bold mb-4 text-dark small text-uppercase"><i class="fas fa-chart-pie text-info me-2"></i>Ringkasan Data</h5>
                         <div id="data-status-list">
                             <div class="text-center py-5">
                                 <div class="spinner-border text-primary spinner-border-sm"></div>
-                                <p class="small text-muted mt-2">Menghubungkan ke pusat data...</p>
+                                <p class="small text-muted mt-2">Mengambil data...</p>
                             </div>
                         </div>
                     </div>
@@ -164,19 +216,22 @@
         </div>
 
         <div class="tab-pane fade" id="tab-mapping">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <div class="card card-premium p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                     <h5 class="fw-bold mb-0 text-dark">Delegasi Wilayah (PCEZ)</h5>
-                    <div class="search-bar-pro">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="searchMapping" placeholder="Cari PCEZ (092/01) atau Petugas..." onkeyup="filterMapping()">
+                    <div class="input-group" style="width: 300px;">
+                        <span class="input-group-text bg-light border-end-0 rounded-start-pill ps-3"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" id="searchMapping" class="form-control border-start-0 bg-light rounded-end-pill shadow-none" placeholder="Cari Kode / Petugas..." onkeyup="filterMapping()">
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 550px;">
                     <table class="table align-middle table-hover">
                         <thead class="sticky-top bg-white border-bottom">
                             <tr class="small text-uppercase text-muted fw-bold">
-                                <th class="py-3">PCEZ</th><th>PETUGAS</th><th>WA GATEWAY</th><th class="text-end">AKSI</th>
+                                <th class="py-3 ps-3">PCEZ</th>
+                                <th>Petugas</th>
+                                <th>Kontak Admin</th>
+                                <th class="text-end pe-3">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="mappingTableBody"></tbody>
@@ -185,18 +240,39 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="tab-logs">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        <div class="tab-pane fade" id="tab-users">
+            <div class="card card-premium p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold mb-0 text-danger small text-uppercase" style="letter-spacing: 1px;"><i class="fas fa-fingerprint me-2"></i>Audit Trail Administrator</h5>
-                    <button class="btn btn-sm btn-light border rounded-pill px-3" onclick="loadSystemLogs()">
-                        <i class="fas fa-sync-alt me-1 text-primary"></i> Refresh
+                    <h5 class="fw-bold mb-0 text-dark">Manajemen Pengguna</h5>
+                    <button class="btn btn-dark rounded-pill px-4 fw-bold shadow-sm" onclick="showAddUserModal()">
+                        <i class="fas fa-user-plus me-2"></i> Tambah User
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle table-hover">
+                        <thead class="bg-light text-muted fw-bold small">
+                            <tr><th class="ps-3">Username</th><th>Role</th><th>Akses Wilayah</th><th class="text-end pe-3">Kontrol</th></tr>
+                        </thead>
+                        <tbody id="userListBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-logs">
+            <div class="card card-premium p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0 text-danger small text-uppercase"><i class="fas fa-fingerprint me-2"></i>Jejak Audit Sistem</h5>
+                    <button class="btn btn-light border rounded-pill px-3 btn-sm fw-bold" onclick="loadSystemLogs()">
+                        <i class="fas fa-rotate me-1 text-primary"></i> Refresh
                     </button>
                 </div>
                 <div class="table-responsive" style="max-height: 500px;">
                     <table class="table table-sm small align-middle">
                         <thead class="bg-light">
-                            <tr class="text-uppercase" style="font-size: 0.65rem;"><th>WAKTU</th><th>USER</th><th>AKSI</th><th>MODUL</th><th>DETAIL</th></tr>
+                            <tr class="text-uppercase text-muted">
+                                <th class="ps-3">Waktu</th><th>User</th><th>Aksi</th><th>Modul</th><th>Detail</th>
+                            </tr>
                         </thead>
                         <tbody id="systemLogsBody"></tbody>
                     </table>
@@ -204,24 +280,6 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="tab-users">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold mb-0 text-dark">Kontrol Hak Akses</h5>
-                    <button class="btn btn-dark rounded-pill px-4 fw-bold shadow-sm" onclick="showAddUserModal()">
-                        <i class="fas fa-user-plus me-2"></i> Registrasi
-                    </button>
-                </div>
-                <div class="table-responsive">
-                    <table class="table align-middle table-hover">
-                        <thead class="bg-light text-muted fw-bold small">
-                            <tr><th>USERNAME</th><th>ROLE</th><th>RESTRIKSI</th><th class="text-end">TINDAKAN</th></tr>
-                        </thead>
-                        <tbody id="userListBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -230,24 +288,26 @@
         <div class="modal-content border-0 rounded-4 shadow-lg">
             <div class="modal-body p-4">
                 <div class="text-center mb-4">
-                    <div class="icon-box-modal mb-3"><i class="fas fa-user-edit text-primary"></i></div>
-                    <h5 class="fw-bold">Update Delegasi</h5>
-                    <p class="small text-muted">Format Rute: 092/01</p>
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-2">
+                        <i class="fas fa-map-location-dot fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold mb-1">Update Rute</h5>
+                    <p class="small text-muted mb-0">Atur penanggung jawab wilayah</p>
                 </div>
                 <form id="mappingForm">
                     <div class="mb-3">
-                        <label class="small fw-bold text-muted mb-1">Identitas Rute (PCEZ)</label>
-                        <input type="text" id="edit_pcez" class="form-control bg-light border-0 fw-bold text-primary" readonly>
+                        <label class="small fw-bold text-muted mb-1">Kode Area (PCEZ)</label>
+                        <input type="text" id="edit_pcez" class="form-control bg-light fw-bold text-primary border-0" readonly>
                     </div>
                     <div class="mb-3">
                         <label class="small fw-bold text-muted mb-1">Nama Petugas</label>
-                        <input type="text" id="edit_petugas" class="form-control text-uppercase shadow-sm border" placeholder="INPUT NAMA LENGKAP">
+                        <input type="text" id="edit_petugas" class="form-control shadow-sm" placeholder="Nama Lengkap">
                     </div>
                     <div class="mb-4">
-                        <label class="small fw-bold text-muted mb-1">WhatsApp Supervisor (Format 62)</label>
-                        <input type="tel" id="edit_no_admin" class="form-control shadow-sm border" placeholder="Contoh: 62812345678" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        <label class="small fw-bold text-muted mb-1">WhatsApp Admin (62..)</label>
+                        <input type="tel" id="edit_no_admin" class="form-control shadow-sm" placeholder="628123..." oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>
-                    <button type="button" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-lg" onclick="saveMapping()">SIMPAN PERUBAHAN</button>
+                    <button type="button" class="btn btn-primary w-100 py-2 rounded-pill fw-bold" onclick="saveMapping()">SIMPAN DATA</button>
                 </form>
             </div>
         </div>
@@ -258,100 +318,55 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4 shadow-lg">
             <div class="modal-header border-0 pb-0 px-4 pt-4">
-                <h5 class="fw-bold mb-0">Registrasi User Baru</h5>
+                <h5 class="fw-bold mb-0">Registrasi Akun</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
                 <form id="addUserForm" onsubmit="handleRegisterUser(event)">
                     <div class="mb-3">
-                        <label class="small fw-bold text-muted mb-1">Username</label>
+                        <label class="small fw-bold text-muted">Username</label>
                         <input type="text" id="reg_username" class="form-control shadow-sm" required>
                     </div>
                     <div class="mb-3">
-                        <label class="small fw-bold text-muted mb-1">Password</label>
+                        <label class="small fw-bold text-muted">Password</label>
                         <input type="password" id="reg_password" class="form-control shadow-sm" required minlength="6">
                     </div>
-                    <div class="mb-3">
-                        <label class="small fw-bold text-muted mb-1">Level Akses</label>
-                        <select id="reg_role" class="form-select shadow-sm">
-                            <option value="petugas">Petugas Lapangan</option>
-                            <option value="admin">Administrator</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="small fw-bold text-muted mb-1">Petugas ID / Rute</label>
-                        <input type="text" id="reg_petugas_id" class="form-control shadow-sm" placeholder="Contoh: 092/01 atau ALL">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="small fw-bold text-muted">Role</label>
+                            <select id="reg_role" class="form-select shadow-sm">
+                                <option value="petugas">Petugas</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="small fw-bold text-muted">Kode Akses</label>
+                            <input type="text" id="reg_petugas_id" class="form-control shadow-sm" placeholder="cth: 092/01">
+                        </div>
                     </div>
                     <div class="mb-4">
-                        <label class="small fw-bold text-muted mb-1">No WhatsApp (62xxx)</label>
-                        <input type="tel" id="reg_no_hp" class="form-control shadow-sm">
+                        <label class="small fw-bold text-muted">WhatsApp</label>
+                        <input type="tel" id="reg_no_hp" class="form-control shadow-sm" placeholder="628...">
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-lg">AKTIFKAN AKSES USER</button>
+                    <button type="submit" class="btn btn-dark w-100 py-2 rounded-pill fw-bold">BUAT AKUN</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-    /* Admin Nav Professional */
-    .nav-admin-pro { gap: 10px; }
-    .nav-admin-pro .nav-link {
-        border-radius: 12px !important;
-        background: white;
-        color: #64748b;
-        font-weight: 600;
-        padding: 12px 20px;
-        white-space: nowrap;
-        transition: all 0.2s ease;
-        border: 1px solid #f1f5f9;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .nav-admin-pro .nav-link i { font-size: 1.1rem; }
-    .nav-admin-pro .nav-link.active {
-        background-color: #0d6efd !important;
-        color: white !important;
-        box-shadow: 0 4px 15px rgba(13,110,253,0.3);
-        border-color: #0d6efd;
-    }
-    .nav-admin-pro::-webkit-scrollbar { display: none; }
-    .card { border-radius: 1.25rem; }
-    .border-dashed { border: 2px dashed #cbd5e1 !important; transition: all 0.3s; cursor: pointer; }
-    .border-dashed:hover { border-color: #0d6efd !important; background-color: #f0f7ff !important; }
-    .search-bar-pro {
-        position: relative; background: #f1f5f9; border-radius: 50px;
-        padding: 8px 15px; width: 100%; max-width: 350px;
-        display: flex; align-items: center; gap: 10px; border: 1px solid #e2e8f0;
-    }
-    .search-bar-pro i { color: #94a3b8; }
-    .search-bar-pro input { border: none; background: transparent; font-size: 0.9rem; outline: none; width: 100%; }
-    .icon-box-modal {
-        width: 70px; height: 70px; background: #f0f7ff; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.8rem;
-    }
-    .status-card { transition: transform 0.2s; border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
-    .status-card:last-child { border-bottom: none; }
-    .status-card:hover { transform: translateX(5px); }
-    @media (max-width: 768px) {
-        .nav-admin-pro .nav-link span { display: block; }
-        .search-bar-pro { max-width: 100%; }
-    }
-</style>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 <script>
 const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-
 let userModal;
+
 document.addEventListener('DOMContentLoaded', () => { 
     checkDataStatus();
     const modalEl = document.getElementById('addUserModal');
     if (modalEl) userModal = new bootstrap.Modal(modalEl);
 });
 
-// [LOGIC] 1. CEK STATUS DATA
+// 1. DATA STATUS
 async function checkDataStatus() {
     const list = document.getElementById('data-status-list');
     try {
@@ -360,92 +375,87 @@ async function checkDataStatus() {
         if (result.status === 'success') {
             const s = result.summary;
             list.innerHTML = `
-                <div class="status-card">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><h6 class="mb-0 fw-bold">Master Customer (MC)</h6><small class="text-muted">Periode: ${s.periode_aktif}</small></div>
-                        <span class="badge bg-primary-subtle text-primary rounded-pill px-3">${s.nomen.total.toLocaleString()} Unit</span>
-                    </div>
+                <div class="status-item">
+                    <div><div class="small text-muted fw-bold">MASTER CUSTOMER</div><div class="fw-bold text-dark">${s.nomen.total.toLocaleString()} Unit</div></div>
+                    <div class="text-end"><div class="small text-muted">Periode</div><div class="badge bg-light text-dark border">${s.periode_aktif}</div></div>
                 </div>
-                <div class="status-card">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><h6 class="mb-0 fw-bold">Realisasi Bank (UNDUE)</h6><small class="text-muted">N+1 Sync</small></div>
-                        <span class="badge bg-success-subtle text-success rounded-pill px-3">${toIDR(s.rupiah.undue)}</span>
-                    </div>
+                <div class="status-item">
+                    <div><div class="small text-muted fw-bold">REALISASI BANK</div><div class="fw-bold text-success">${toIDR(s.rupiah.undue)}</div></div>
+                    <i class="fas fa-building-columns text-success opacity-50 fa-lg"></i>
                 </div>
-                <div class="status-card">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><h6 class="mb-0 fw-bold">Realisasi Lapangan</h6><small class="text-muted">Current Month</small></div>
-                        <span class="badge bg-info-subtle text-info rounded-pill px-3">${toIDR(s.rupiah.current)}</span>
-                    </div>
+                <div class="status-item">
+                    <div><div class="small text-muted fw-bold">REALISASI LAPANGAN</div><div class="fw-bold text-primary">${toIDR(s.rupiah.current)}</div></div>
+                    <i class="fas fa-users text-primary opacity-50 fa-lg"></i>
                 </div>
-                <div class="mt-4 pt-3 border-top">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="small fw-bold text-dark">Progress Kolektibilitas</span>
-                        <span class="badge bg-primary rounded-pill">${s.rupiah.pct}%</span>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between small fw-bold mb-1">
+                        <span>Total Progress</span>
+                        <span class="text-primary">${s.rupiah.pct}%</span>
                     </div>
-                    <div class="progress rounded-pill bg-light" style="height: 12px; border: 1px solid #e2e8f0;">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated shadow-sm" style="width: ${s.rupiah.pct}%; background-color: #0d6efd;"></div>
+                    <div class="progress rounded-pill bg-light" style="height: 8px;">
+                        <div class="progress-bar bg-primary" style="width: ${s.rupiah.pct}%"></div>
                     </div>
                 </div>
             `;
         }
     } catch (e) {
-        list.innerHTML = `<div class="alert alert-danger small p-2">Gagal Sinkronisasi API.</div>`;
+        list.innerHTML = `<div class="alert alert-danger small">Gagal memuat status data.</div>`;
     }
 }
 
-// [LOGIC] 2. UPLOAD HANDLING
+// 2. UPLOAD FILE
 document.getElementById('excelFile').onchange = function() {
     if(this.files[0]) {
         document.getElementById('file-name-preview').innerHTML = 
-            `<div class="alert alert-primary py-2 mb-0 border-0 shadow-sm"><i class="fas fa-file-excel me-2"></i>Siap: ${this.files[0].name}</div>`;
+            `<div class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill"><i class="fas fa-file-excel me-2"></i>${this.files[0].name}</div>`;
     }
 };
 
 async function uploadData() {
     const fileInput = document.getElementById('excelFile');
     const btn = document.getElementById('btn-upload-execute');
-    if (fileInput.files.length === 0) return Swal.fire('Peringatan', 'Pilih file terlebih dahulu.', 'warning');
+    if (fileInput.files.length === 0) return Swal.fire('Info', 'Silakan pilih file dulu.', 'info');
     
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
     
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> MEMPROSES...`;
-    Swal.fire({ title: 'Mensinkronisasi Data...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> PROCESSING...`;
     
     try {
         const res = await fetch('/api/upload/upload', { method: 'POST', body: formData });
         const result = await res.json();
         if (res.ok) {
-            Swal.fire('Berhasil', result.message, 'success');
+            Swal.fire('Sukses', result.message, 'success');
             checkDataStatus();
         } else {
             Swal.fire('Gagal', result.message, 'error');
         }
-    } catch (e) { Swal.fire('Error', 'Kesalahan koneksi.', 'error'); }
+    } catch (e) { Swal.fire('Error', 'Gagal koneksi.', 'error'); }
     finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fas fa-microchip me-2"></i> EKSEKUSI SINKRONISASI SISTEM`;
+        btn.innerHTML = `<i class="fas fa-rocket me-2"></i> MULAI SINKRONISASI`;
     }
 }
 
-// [LOGIC] 3. MAPPING PCEZ
+// 3. MAPPING
 async function loadMapping() {
     try {
         const res = await fetch('/api/rute/list');
         const data = await res.json();
         document.getElementById('mappingTableBody').innerHTML = data.map(row => `
             <tr class="mapping-row" data-search="${row.pcez} ${row.petugas}">
-                <td class="fw-bold text-primary small">${row.pcez}</td>
-                <td><span class="badge ${row.petugas !== 'UNMAPPED' ? 'bg-primary-subtle text-primary' : 'bg-light text-muted'} px-3 rounded-pill">${row.petugas}</span></td>
-                <td class="small text-muted">${row.no_admin ? '+' + row.no_admin : '-'}</td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-white rounded-pill px-3 shadow-sm border border-primary text-primary" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">EDIT</button>
+                <td class="ps-3 fw-bold text-primary font-monospace">${row.pcez}</td>
+                <td><span class="badge ${row.petugas !== 'UNMAPPED' ? 'bg-primary text-white' : 'bg-secondary'} rounded-pill px-3 py-1 fw-normal">${row.petugas}</span></td>
+                <td class="small text-muted font-monospace">${row.no_admin ? '+' + row.no_admin : '-'}</td>
+                <td class="text-end pe-3">
+                    <button class="btn btn-light btn-sm rounded-circle shadow-sm border" onclick="editMapping('${row.pcez}', '${row.petugas}', '${row.no_admin}')">
+                        <i class="fas fa-pen text-dark small"></i>
+                    </button>
                 </td>
             </tr>
         `).join('');
-    } catch (e) { console.error(e); }
+    } catch (e) { }
 }
 
 function filterMapping() {
@@ -473,47 +483,27 @@ async function saveMapping() {
         if (res.ok) { 
             bootstrap.Modal.getInstance(document.getElementById('editMappingModal')).hide(); 
             loadMapping(); 
-            Swal.fire('Sukses', 'Delegasi Wilayah Diperbarui.', 'success');
+            Swal.fire({ icon: 'success', title: 'Tersimpan', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
         }
-    } catch (e) { Swal.fire('Gagal', 'Gagal menyimpan.', 'error'); }
+    } catch (e) { Swal.fire('Error', 'Gagal menyimpan.', 'error'); }
 }
 
-// [LOGIC] 4. SECURITY & LOGS
-async function loadSystemLogs() {
-    const body = document.getElementById('systemLogsBody');
-    try {
-        const res = await fetch('/api/dashboard/admin/system-logs');
-        const result = await res.json();
-        if (result.status === 'success') {
-            body.innerHTML = result.data.map(log => `
-                <tr>
-                    <td class="text-muted" style="font-size: 0.7rem;">${moment(log.created_at).format('DD/MM HH:mm')}</td>
-                    <td class="fw-bold">${log.user_id}</td>
-                    <td><span class="badge bg-danger-subtle text-danger" style="font-size: 0.65rem;">${log.action}</span></td>
-                    <td class="small text-muted">${log.module}</td>
-                    <td class="small text-truncate" style="max-width: 200px;">${log.details}</td>
-                </tr>
-            `).join('') || '<tr><td colspan="5" class="text-center">Kosong</td></tr>';
-        }
-    } catch (e) { body.innerHTML = '<tr><td colspan="5">Gagal muat log.</td></tr>'; }
-}
-
+// 4. USERS & LOGS
 async function loadUsers() {
-    const body = document.getElementById('userListBody');
     try {
         const res = await fetch('/api/auth/users');
         const data = await res.json();
-        body.innerHTML = data.map(u => `
+        document.getElementById('userListBody').innerHTML = data.map(u => `
             <tr>
-                <td class="fw-bold small">${u.username}</td>
-                <td><span class="badge bg-dark rounded-pill" style="font-size:0.65rem">${u.role.toUpperCase()}</span></td>
-                <td class="small text-muted">${u.petugas_id || 'FULL ACCESS'}</td>
-                <td class="text-end">
-                    <button class="btn btn-sm text-danger" onclick="deleteUser('${u.username}')"><i class="fas fa-trash-alt"></i></button>
+                <td class="ps-3 fw-bold">${u.username}</td>
+                <td><span class="badge bg-light text-dark border">${u.role.toUpperCase()}</span></td>
+                <td class="small text-muted font-monospace">${u.petugas_id || 'ALL ACCESS'}</td>
+                <td class="text-end pe-3">
+                    <button class="btn btn-sm text-danger" onclick="deleteUser('${u.username}')"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `).join('');
-    } catch (e) { body.innerHTML = '<tr><td colspan="4">Gagal muat user.</td></tr>'; }
+    } catch (e) { }
 }
 
 function showAddUserModal() {
@@ -538,30 +528,46 @@ async function handleRegisterUser(event) {
         });
         const result = await res.json();
         if (result.status === 'success') {
-            Swal.fire('Berhasil', result.message, 'success');
             userModal.hide();
             loadUsers();
+            Swal.fire('Sukses', 'User berhasil dibuat.', 'success');
         } else {
             Swal.fire('Gagal', result.message, 'error');
         }
-    } catch (e) { Swal.fire('Error', 'Registrasi gagal.', 'error'); }
+    } catch (e) { }
 }
 
 async function deleteUser(username) {
     const result = await Swal.fire({
-        title: 'Hapus User?',
-        text: "Akses akan dicabut permanen.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Hapus'
+        title: 'Hapus User?', text: "Akses akan dicabut.", icon: 'warning',
+        showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus'
     });
     if (result.isConfirmed) {
         try {
             await fetch(`/api/auth/delete-user/${username}`, { method: 'DELETE' });
             loadUsers();
-            Swal.fire('Terhapus', 'User telah dihapus.', 'success');
-        } catch (e) { Swal.fire('Error', 'Gagal hapus.', 'error'); }
+            Swal.fire('Terhapus', '', 'success');
+        } catch (e) { }
     }
+}
+
+async function loadSystemLogs() {
+    const body = document.getElementById('systemLogsBody');
+    try {
+        const res = await fetch('/api/dashboard/admin/system-logs');
+        const result = await res.json();
+        if (result.status === 'success') {
+            body.innerHTML = result.data.map(log => `
+                <tr>
+                    <td class="ps-3 text-muted small">${moment(log.created_at).format('DD MMM HH:mm')}</td>
+                    <td class="fw-bold small text-primary">${log.user_id}</td>
+                    <td><span class="badge bg-light text-dark border">${log.action}</span></td>
+                    <td class="small text-muted">${log.module}</td>
+                    <td class="small text-truncate text-secondary" style="max-width: 150px;">${log.details}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="text-center py-3 text-muted">Log Kosong</td></tr>';
+        }
+    } catch (e) { }
 }
 </script>
 {% endblock %}
