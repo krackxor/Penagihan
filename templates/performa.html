@@ -2,42 +2,86 @@
 
 {% block content %}
 <style>
+    /* --- SYNERGY UI THEME --- */
     :root {
         --service-dark: #0f172a;
         --service-blue: #2563eb;
         --service-danger: #ef4444;
         --service-success: #10b981;
+        --service-warning: #f59e0b;
+        --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        --dark-gradient: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        --glass-white: rgba(255, 255, 255, 0.1);
     }
+
     .mobile-container { padding: 1rem 0.75rem; }
+    
+    /* Card Styles */
     .glass-panel { background: rgba(255, 255, 255, 0.96); border-radius: 1.25rem; border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    .ai-insight-box { background: #f8fafc; border-left: 5px solid var(--service-blue); border-radius: 12px; padding: 1.25rem; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:active { transform: scale(0.98); }
+
+    /* AI Insight Box */
+    .ai-insight-box {
+        background: #f8fafc;
+        border-left: 5px solid var(--service-blue);
+        border-radius: 12px;
+        padding: 1.25rem;
+        position: relative;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    }
     .ai-insight-box.warning { border-left-color: var(--service-danger); background: #fff5f5; }
     .ai-insight-box.success { border-left-color: var(--service-success); background: #f0fdf4; }
-    .metric-card { background: white; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; }
-    .metric-val { font-weight: 800; font-size: 1rem; color: var(--service-dark); }
-    .metric-lbl { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
-    
-    /* GAYA PAKSA WARNA PUTIH UNTUK COMMAND CENTER */
+
+    /* Metric Cards */
+    .metric-card {
+        background: white;
+        padding: 15px;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        position: relative;
+        overflow: hidden;
+    }
+    .metric-val { font-weight: 800; font-size: 1.1rem; color: var(--service-dark); z-index: 1; }
+    .metric-lbl { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; z-index: 1; }
+    .metric-icon-bg { position: absolute; right: -5px; bottom: -5px; font-size: 3rem; opacity: 0.05; transform: rotate(-10deg); }
+
+    /* Main Command Center (Dark Mode Force White) */
     .main-command { 
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+        background: var(--dark-gradient); 
         border-radius: 1.5rem; 
         color: #ffffff !important; 
         padding: 1.5rem; 
         overflow: hidden; 
-        position: relative; 
+        position: relative;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3);
     }
     
-    .nav-pills .nav-link { font-size: 0.7rem; font-weight: 700; border-radius: 0.75rem; color: #64748b; background: white; border: 1px solid #e2e8f0; margin-right: 8px; white-space: nowrap; transition: 0.3s; }
-    .nav-pills .nav-link.active { background-color: var(--service-blue); color: white; border-color: var(--service-blue); }
+    /* Utility Classes */
+    .text-force-white { color: #ffffff !important; }
+    .text-force-light { color: #cbd5e1 !important; }
+    .bg-glass { background-color: var(--glass-white); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.1); }
+
+    /* Navigation */
+    .nav-pills .nav-link { font-size: 0.7rem; font-weight: 700; border-radius: 50rem; color: #64748b; background: white; border: 1px solid #e2e8f0; margin-right: 8px; white-space: nowrap; transition: 0.3s; padding: 0.5rem 1rem; }
+    .nav-pills .nav-link.active { background-color: var(--service-blue); color: white; border-color: var(--service-blue); box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
+    
     .fw-800 { font-weight: 800; }
     .xsmall { font-size: 0.65rem !important; }
 </style>
 
-<div class="mobile-container pb-5">
+<div class="mobile-container pb-5 animate__animated animate__fadeIn">
+    
     <div class="pt-2 mb-3 d-flex justify-content-between align-items-center">
         <div>
             <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-brain me-2 text-primary"></i>Intelijen Performa</h5>
-            <p class="text-muted xsmall mb-0 fw-semibold" id="display-current-date"></p>
+            <p class="text-muted xsmall mb-0 fw-semibold" id="display-current-date">...</p>
         </div>
         <div class="d-flex gap-2">
             <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-800 text-primary" onchange="runAnalysis()">
@@ -50,8 +94,10 @@
     <div class="mb-4 animate__animated animate__fadeInDown">
         <div id="ai-insight-container" class="ai-insight-box shadow-sm">
             <div class="d-flex align-items-center mb-2">
-                <i class="fa-solid fa-robot text-primary me-2 fs-5"></i>
-                <h6 class="fw-800 mb-0 text-dark text-uppercase">Analisis Strategis AI</h6>
+                <div class="bg-white p-2 rounded-circle shadow-sm me-3 border">
+                    <i class="fa-solid fa-robot text-primary fs-5"></i>
+                </div>
+                <h6 class="fw-800 mb-0 text-dark text-uppercase" style="font-size: 0.8rem;">Analisis Strategis AI</h6>
             </div>
             <div id="ai-narrative-text" class="text-dark small fw-semibold" style="line-height: 1.6;">
                 <span class="text-muted fst-italic"><i class="fa-solid fa-circle-notch fa-spin me-2"></i>Mengunduh data anomali, ardebt, dan wilayah...</span>
@@ -59,44 +105,52 @@
         </div>
     </div>
 
-    <div class="row g-2 mb-4 animate__animated animate__fadeIn">
+    <div class="row g-3 mb-4 animate__animated animate__fadeIn">
         <div class="col-4">
-            <div class="metric-card shadow-sm border-bottom border-4 border-success">
+            <div class="metric-card card-hover border-bottom border-4 border-success">
                 <div class="metric-val text-success" id="val-mc">Rp 0</div>
                 <div class="metric-lbl">Current (MC)</div>
+                <i class="fa-solid fa-money-bill-wave metric-icon-bg text-success"></i>
             </div>
         </div>
         <div class="col-4">
-            <div class="metric-card shadow-sm border-bottom border-4 border-warning">
+            <div class="metric-card card-hover border-bottom border-4 border-warning">
                 <div class="metric-val text-warning" id="val-ardebt">Rp 0</div>
                 <div class="metric-lbl">Ardebt (Ekor)</div>
+                <i class="fa-solid fa-clock-rotate-left metric-icon-bg text-warning"></i>
             </div>
         </div>
         <div class="col-4">
-            <div class="metric-card shadow-sm border-bottom border-4 border-danger">
+            <div class="metric-card card-hover border-bottom border-4 border-danger">
                 <div class="metric-val text-danger" id="val-anomali">0</div>
                 <div class="metric-lbl">Risiko (Drop/Eks)</div>
+                <i class="fa-solid fa-triangle-exclamation metric-icon-bg text-danger"></i>
             </div>
         </div>
     </div>
 
-    <div class="main-command mb-4 shadow-lg">
-        <div class="row">
+    <div class="main-command mb-4">
+        <div class="position-absolute top-0 start-0 w-100 h-100" 
+             style="background-image: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.1) 0%, transparent 50%); pointer-events: none;"></div>
+
+        <div class="row position-relative z-1">
             <div class="col-12 mb-3">
-                <small class="fw-800 text-uppercase xsmall" style="letter-spacing: 1px; color: #ffffff !important;">Proyeksi Total (MC + Ardebt)</small>
-                <h2 class="fw-bold mb-1" style="font-size: 1.8rem; letter-spacing: -1px; color: #ffffff !important;" id="val-projected">Rp 0</h2>
-                <div class="d-flex justify-content-between xsmall fw-semibold" style="color: #ffffff !important;">
-                    <span id="trend-status"><i class="fa-solid fa-chart-line me-1"></i>Menghitung...</span>
-                    <span>Confidence: <span id="conf-score">0%</span></span>
+                <small class="text-force-light fw-800 text-uppercase xsmall" style="letter-spacing: 1px;">Proyeksi Total (MC + Ardebt)</small>
+                <h2 class="fw-bold mb-1 text-force-white display-4" style="letter-spacing: -2px;" id="val-projected">Rp 0</h2>
+                
+                <div class="d-flex justify-content-between xsmall fw-semibold mt-2">
+                    <span id="trend-status" class="text-force-light"><i class="fa-solid fa-chart-line me-1"></i>Menghitung...</span>
+                    <span class="badge bg-glass text-force-white border rounded-pill">Confidence: <span id="conf-score">0%</span></span>
                 </div>
             </div>
+            
             <div class="col-12">
-                <div class="p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10">
-                    <div class="d-flex justify-content-between align-items-end mb-1">
-                        <small class="fw-800 xsmall text-uppercase" style="color: #ffffff !important;">Realisasi KPI (Target 97%)</small>
-                        <h5 class="fw-800 mb-0" id="val-progress" style="color: #ffffff !important;">0%</h5>
+                <div class="p-3 rounded-4 bg-glass">
+                    <div class="d-flex justify-content-between align-items-end mb-2">
+                        <small class="text-force-light fw-800 xsmall text-uppercase">Realisasi KPI (Target 97%)</small>
+                        <h5 class="fw-800 mb-0 text-force-white" id="val-progress">0%</h5>
                     </div>
-                    <div class="progress bg-white bg-opacity-20" style="height: 12px; border-radius: 20px;">
+                    <div class="progress bg-white bg-opacity-10" style="height: 10px; border-radius: 20px;">
                         <div id="progress-bar-97" class="progress-bar bg-warning progress-bar-striped progress-bar-animated" style="width: 0%"></div>
                     </div>
                 </div>
@@ -104,32 +158,40 @@
         </div>
     </div>
 
-    <div class="nav-pills-wrapper overflow-auto" style="scrollbar-width: none;">
+    <div class="nav-pills-wrapper overflow-auto pb-2" style="scrollbar-width: none;">
         <ul class="nav nav-pills flex-nowrap mb-3" id="pills-tab" role="tablist">
-            <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-rekomendasi">TAKTIK & STRATEGI</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-pcez">ANALISIS WILAYAH</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-petugas">AUDIT PETUGAS</button></li>
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-rekomendasi"><i class="fa-solid fa-lightbulb me-1"></i> STRATEGI</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-pcez"><i class="fa-solid fa-map-location-dot me-1"></i> WILAYAH</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-petugas"><i class="fa-solid fa-user-shield me-1"></i> PETUGAS</button></li>
         </ul>
     </div>
 
-    <div class="tab-content mt-2">
+    <div class="tab-content mt-1">
         <div class="tab-pane fade show active" id="tab-rekomendasi">
-            <div class="glass-panel p-4">
-                <h6 class="fw-800 mb-3 xsmall text-dark text-uppercase"><i class="fa-solid fa-lightbulb me-2 text-warning"></i>Langkah Prioritas</h6>
+            <div class="glass-panel p-4 bg-white">
+                <h6 class="fw-800 mb-3 xsmall text-dark text-uppercase border-bottom pb-2">
+                    <i class="fa-solid fa-chess-knight me-2 text-warning"></i>Langkah Taktis Prioritas
+                </h6>
                 <ul class="list-unstyled mb-0" id="tactical-list">
-                    <li class="text-center py-3 text-muted xsmall">Memuat strategi...</li>
+                    <li class="text-center py-4 text-muted xsmall"><i class="fa-solid fa-circle-notch fa-spin me-2"></i>Memuat strategi...</li>
                 </ul>
             </div>
         </div>
+
         <div class="tab-pane fade" id="tab-pcez">
-            <div class="glass-panel p-4">
-                <h6 class="fw-800 mb-3 xsmall text-dark text-uppercase"><i class="fa-solid fa-map-location-dot me-2 text-primary"></i>Kinerja Per Kode Wilayah (PCEZ)</h6>
+            <div class="glass-panel p-4 bg-white">
+                <h6 class="fw-800 mb-3 xsmall text-dark text-uppercase border-bottom pb-2">
+                    <i class="fa-solid fa-map me-2 text-primary"></i>Kinerja Per Kode Wilayah (PCEZ)
+                </h6>
                 <div id="pcez-list" class="d-flex flex-column gap-2"></div>
             </div>
         </div>
+
         <div class="tab-pane fade" id="tab-petugas">
-            <div class="glass-panel p-4">
-                <h6 class="fw-800 mb-3 xsmall text-dark text-uppercase"><i class="fa-solid fa-user-shield me-2 text-primary"></i>Top Performance Officer</h6>
+            <div class="glass-panel p-4 bg-white">
+                <h6 class="fw-800 mb-3 xsmall text-dark text-uppercase border-bottom pb-2">
+                    <i class="fa-solid fa-medal me-2 text-primary"></i>Top Performance Officer
+                </h6>
                 <div id="officer-list" class="d-flex flex-column gap-2"></div>
             </div>
         </div>
@@ -137,6 +199,9 @@
 </div>
 
 <script>
+/**
+ * INTELLIGENCE ENGINE (FULL SYNC)
+ */
 let GlobalData = {};
 const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 const formatK = (n) => (n / 1000).toFixed(0) + 'k';
@@ -222,7 +287,12 @@ function generateTacticalSteps() {
     const worstArea = GlobalData.pcez_rank && GlobalData.pcez_rank.length > 0 ? GlobalData.pcez_rank[GlobalData.pcez_rank.length - 1] : null;
     if (worstArea) steps.push({icon: "fa-map-location text-primary", text: `<b>Intervensi Wilayah:</b> Area <b>${worstArea.pcez}</b> realisasi terendah. Lakukan penyisiran.`});
 
-    list.innerHTML = steps.map(s => `<li class="d-flex gap-3 mb-3 p-2 rounded hover-bg-light border border-light bg-white shadow-sm"><i class="fa-solid ${s.icon} fs-4 mt-2"></i><span class="small text-dark fw-semibold" style="line-height:1.4">${s.text}</span></li>`).join('');
+    list.innerHTML = steps.map(s => `
+        <li class="d-flex align-items-start gap-3 mb-3 p-3 rounded-4 bg-light border border-light shadow-sm">
+            <div class="mt-1"><i class="fa-solid ${s.icon} fs-4"></i></div>
+            <span class="small text-dark fw-semibold" style="line-height:1.4">${s.text}</span>
+        </li>
+    `).join('');
 }
 
 function renderPCEZStats() {
@@ -231,25 +301,63 @@ function renderPCEZStats() {
     container.innerHTML = data.map((d, i) => {
         const pct = (d.realisasi_area / d.target_area) * 100;
         const color = pct >= 90 ? 'bg-success' : (pct >= 70 ? 'bg-primary' : 'bg-danger');
-        return `<div class="d-flex justify-content-between align-items-center p-2 border-bottom"><div class="d-flex align-items-center gap-3"><span class="badge ${color} rounded-pill" style="width: 30px;">#${i+1}</span><div><h6 class="mb-0 fw-800 text-dark small">KODE: ${d.pcez}</h6><small class="text-muted" style="font-size: 0.6rem;">Target: ${formatK(d.target_area)}</small></div></div><div class="text-end"><h6 class="mb-0 fw-800 text-primary small">${toIDR(d.realisasi_area)}</h6><small class="fw-bold ${pct >= 90 ? 'text-success' : 'text-danger'}" style="font-size: 0.65rem;">Capaian: ${pct.toFixed(1)}%</small></div></div>`;
+        return `
+            <div class="d-flex justify-content-between align-items-center p-3 border-bottom card-hover rounded-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge ${color} rounded-pill shadow-sm" style="width: 30px;">#${i+1}</span>
+                    <div>
+                        <h6 class="mb-0 fw-800 text-dark small">KODE: ${d.pcez}</h6>
+                        <small class="text-muted fw-bold" style="font-size: 0.6rem;">Target: ${formatK(d.target_area)}</small>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <h6 class="mb-0 fw-800 text-primary small">${toIDR(d.realisasi_area)}</h6>
+                    <small class="fw-bold ${pct >= 90 ? 'text-success' : 'text-danger'}" style="font-size: 0.65rem;">Capaian: ${pct.toFixed(1)}%</small>
+                </div>
+            </div>
+        `;
     }).join('');
 }
 
 function renderOfficers() {
     const container = document.getElementById('officer-list');
     const data = GlobalData.officers || [];
-    container.innerHTML = data.map(o => `<div class="d-flex justify-content-between align-items-center p-2 border rounded bg-white mb-1 shadow-sm"><div><h6 class="mb-0 fw-800 text-dark small text-uppercase">${o.petugas}</h6><div class="d-flex gap-2 mt-1"><span class="badge bg-light text-dark border" style="font-size:0.55rem;">MC: ${formatK(o.total_mc)}</span><span class="badge bg-light text-danger border" style="font-size:0.55rem;">Ardebt: ${formatK(o.total_ardebt)}</span></div></div><div class="text-end"><h6 class="mb-0 fw-800 text-primary small">${toIDR(o.total_nominal)}</h6><small class="text-muted" style="font-size: 0.6rem;">${o.total_visit} Visits</small></div></div>`).join('');
+    container.innerHTML = data.map(o => `
+        <div class="d-flex justify-content-between align-items-center p-3 border rounded-4 bg-light mb-2 shadow-sm card-hover">
+            <div>
+                <h6 class="mb-1 fw-800 text-dark small text-uppercase"><i class="fa-solid fa-user me-2 text-secondary"></i>${o.petugas}</h6>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-white text-dark border" style="font-size:0.55rem;">MC: ${formatK(o.total_mc)}</span>
+                    <span class="badge bg-white text-danger border" style="font-size:0.55rem;">Ardebt: ${formatK(o.total_ardebt)}</span>
+                </div>
+            </div>
+            <div class="text-end">
+                <h6 class="mb-0 fw-800 text-primary small">${toIDR(o.total_nominal)}</h6>
+                <small class="text-muted fw-bold" style="font-size: 0.6rem;">${o.total_visit} Kunjungan</small>
+            </div>
+        </div>
+    `).join('');
 }
 
 function renderDashboard() {
     const m = GlobalData.meta;
     const g = GlobalData.global;
+    
+    // Animate Numbers
     document.getElementById('val-mc').innerText = formatK(g.real_mc);
     document.getElementById('val-ardebt').innerText = formatK(g.real_ardebt);
     document.getElementById('val-anomali').innerText = g.cnt_ekstrem + g.cnt_drop;
+
     document.getElementById('val-projected').innerText = toIDR(m.projected);
     document.getElementById('val-progress').innerText = m.progress.toFixed(1) + '%';
     document.getElementById('progress-bar-97').style.width = Math.min(100, m.progress) + '%';
+    
+    // Confidence Score Color
+    const conf = (m.velocity / (m.dailyNeeded || 1) * 100);
+    const scoreElem = document.getElementById('conf-score');
+    scoreElem.innerText = Math.min(100, conf).toFixed(0) + '%';
+    scoreElem.className = conf >= 100 ? 'text-success fw-bold' : 'text-warning fw-bold';
+    
     document.getElementById('trend-status').innerHTML = `<i class="fa-solid fa-chart-line me-1"></i>Estimasi Akhir: <b>${toIDR(m.projected)}</b>`;
 }
 
