@@ -4,68 +4,95 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<div class="animate__animated animate__fadeIn">
-    <div class="px-3 pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+<style>
+    :root {
+        --danger-gradient: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+        --dark-gradient: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+    }
+    
+    .table-premium thead th { 
+        background: #fef2f2; color: #991b1b; border-bottom: 2px solid #fecaca; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .hover-row:hover { background-color: #fff1f2 !important; }
+    
+    .btn-action { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px solid #fecaca; background: white; color: #dc2626; }
+    .btn-action:hover { background: #fee2e2; transform: scale(1.1); }
+    
+    .fw-800 { font-weight: 800; }
+</style>
+
+<div class="px-2 pb-5 animate__animated animate__fadeIn">
+    
+    <div class="pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark">
-                <i class="fa-solid fa-fire-flame-curved me-2 text-danger"></i>Pelanggan Ekstrem (Anomali)
+                <i class="fa-solid fa-fire-flame-curved me-2 text-danger"></i>Pelanggan Ekstrem
             </h4>
             <p class="text-muted small mb-0 fw-semibold">
                 <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                Klik <b>ID Pelanggan</b> untuk Cek History sebelum melakukan Investigasi.
+                Deteksi anomali lonjakan pemakaian air tidak wajar
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2">
-            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm fw-bold text-danger" 
+        <div class="d-flex gap-2">
+            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm fw-bold text-danger rounded-pill px-3" 
                    style="width: 150px; cursor: pointer;" onchange="loadEkstrem()">
-            <button class="btn btn-sm btn-success border shadow-sm rounded-circle p-2" onclick="downloadExcel()">
+            
+            <button class="btn btn-success shadow-sm rounded-circle p-2 btn-sm" onclick="downloadExcel()" title="Export Excel">
                 <i class="fa-solid fa-file-excel"></i>
             </button>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mx-3 mb-5 bg-white border-top border-5 border-danger">
-        <div class="card-body p-0">
-            <div class="table-responsive" style="max-height: 70vh;">
-                <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
-                    <thead class="bg-danger text-white sticky-top">
-                        <tr class="text-uppercase fw-800">
-                            <th class="ps-4 py-3">Pelanggan (Klik Nomen)</th>
-                            <th class="text-center">Avg Normal</th>
-                            <th class="text-center">Kubik Skrg</th>
-                            <th class="text-center">Lonjakan</th>
-                            <th>Analisa Penyebab</th>
-                            <th class="text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbody-ekstrem">
-                        <tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-danger"></div></td></tr>
-                    </tbody>
-                </table>
-            </div>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden border border-danger border-opacity-25">
+        <div class="table-responsive" style="max-height: 75vh;">
+            <table class="table table-hover align-middle mb-0 table-premium">
+                <thead class="sticky-top shadow-sm">
+                    <tr>
+                        <th class="ps-4 py-3 border-0">Identitas Pelanggan</th>
+                        <th class="text-center border-0">Rata-rata Normal</th>
+                        <th class="text-center border-0">Kubikasi Kini</th>
+                        <th class="text-center border-0">Lonjakan</th>
+                        <th class="border-0">Analisa Lapangan</th>
+                        <th class="text-center pe-4 border-0">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-ekstrem">
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <div class="spinner-border text-danger spinner-border-sm me-2"></div>
+                            <span class="fw-bold text-muted small">ANALISIS DATA PEMAKAIAN...</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
 <div class="modal fade" id="modalHistory" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-0 bg-light">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-light border-0 py-3 px-4">
                 <div>
-                    <h5 class="modal-title fw-800 text-dark" id="hist-nama">-</h5>
-                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" id="hist-nomen">-</span>
+                    <h6 class="modal-title fw-800 text-dark mb-1" id="hist-nama">-</h6>
+                    <span class="badge bg-white text-dark border fw-bold font-monospace" id="hist-nomen">-</span>
                 </div>
-                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="card border-0 shadow-sm mb-4 bg-white">
+                <div class="card border-0 shadow-sm mb-4 bg-white rounded-4 border">
                     <div class="card-body">
-                        <h6 class="fw-bold text-danger small mb-3"><i class="fa-solid fa-chart-line me-2"></i>Grafik Lonjakan Kubik</h6>
-                        <div style="height: 200px;"><canvas id="historyChart"></canvas></div>
+                        <h6 class="fw-bold text-danger small mb-3 text-uppercase">
+                            <i class="fa-solid fa-chart-line me-2"></i>Tren Lonjakan Pemakaian
+                        </h6>
+                        <div style="height: 220px;">
+                            <canvas id="historyChart"></canvas>
+                        </div>
                     </div>
                 </div>
+
                 <div class="table-responsive rounded-3 border">
-                    <table class="table table-hover table-striped mb-0 align-middle text-center" style="font-size: 0.8rem;">
+                    <table class="table table-hover table-sm mb-0 align-middle text-center small">
                         <thead class="bg-dark text-white">
                             <tr><th>Periode</th><th>Volume (m³)</th><th>Tagihan (Rp)</th><th>Status</th></tr>
                         </thead>
@@ -79,36 +106,42 @@
 
 <div class="modal fade" id="modalInvestigasi" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-0 bg-danger text-white">
-                <h6 class="modal-title fw-800"><i class="fa-solid fa-magnifying-glass me-2"></i>Form Investigasi Ekstrem</h6>
-                <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-danger text-white px-4 py-3">
+                <h6 class="modal-title fw-800"><i class="fa-solid fa-magnifying-glass me-2"></i>Investigasi Lapangan</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" id="modal-nomen">
-                <div class="alert alert-light border border-danger border-opacity-25 d-flex align-items-center mb-3">
-                    <i class="fa-solid fa-triangle-exclamation text-danger fs-4 me-3"></i>
+                
+                <div class="alert alert-danger border-0 bg-danger bg-opacity-10 d-flex align-items-center mb-4 rounded-3">
+                    <i class="fa-solid fa-triangle-exclamation text-danger fs-3 me-3"></i>
                     <div>
                         <h6 class="fw-bold mb-0 text-dark" id="modal-nama">-</h6>
-                        <small class="text-muted" id="modal-info">-</small>
+                        <small class="text-muted fw-bold" id="modal-info">-</small>
                     </div>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted">Dugaan Penyebab (Wajib)</label>
-                    <select id="modal-penyebab" class="form-select shadow-none fw-bold">
-                        <option value="" selected disabled>-- Pilih Penyebab --</option>
-                        <option value="BOCOR_PERSIL">💧 Bocor Instalasi Dalam (Persil)</option>
+                    <label class="form-label small fw-800 text-muted text-uppercase">Dugaan Penyebab</label>
+                    <select id="modal-penyebab" class="form-select shadow-none fw-bold bg-light border-0">
+                        <option value="" selected disabled>-- Analisa Petugas --</option>
+                        <option value="BOCOR_PERSIL">💧 Bocor Persil / Instalasi Dalam</option>
                         <option value="PEMAKAIAN_AKTIF">🎉 Pemakaian Aktif (Pesta/Proyek)</option>
-                        <option value="METER_RUSAK">⚙️ Meter Air Rusak/Loncat</option>
-                        <option value="SALAH_BACA">👁️ Kesalahan Baca/Input Stan</option>
+                        <option value="METER_RUSAK">⚙️ Meter Rusak / Loncat</option>
+                        <option value="SALAH_BACA">👁️ Kesalahan Baca Stan</option>
                         <option value="LAINNYA">❓ Lainnya</option>
                     </select>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-muted">Tindak Lanjut / Keterangan</label>
-                    <textarea id="modal-tindakan" class="form-control shadow-none" rows="3" placeholder="Contoh: Sudah dicek petugas..."></textarea>
+
+                <div class="mb-4">
+                    <label class="form-label small fw-800 text-muted text-uppercase">Tindak Lanjut</label>
+                    <textarea id="modal-tindakan" class="form-control shadow-none bg-light border-0" rows="3" placeholder="Tulis hasil pengecekan fisik..."></textarea>
                 </div>
-                <button onclick="saveInvestigasi()" class="btn btn-danger w-100 rounded-pill fw-bold py-2 shadow-sm">SIMPAN HASIL</button>
+
+                <button onclick="saveInvestigasi()" class="btn btn-danger w-100 rounded-pill fw-bold py-2 shadow-sm">
+                    <i class="fa-solid fa-floppy-disk me-2"></i> SIMPAN HASIL
+                </button>
             </div>
         </div>
     </div>
@@ -118,9 +151,7 @@
     let allData = [];
     let modalInvestigasi, modalHistory, chartInstance;
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
-    
-    // Helper Periode Indo
-    function formatPeriodeIndo(p) { if(!p) return "-"; const x=p.split('-'); if(x.length!=2) return p; const m=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"]; return `${m[parseInt(x[0])-1]} ${x[1]}`; }
+    function formatPeriodeIndo(p) { if(!p) return "-"; const x=p.split('-'); if(x.length!=2) return p; const m=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"]; return `${m[parseInt(x[0])-1]} ${x[1]}`; }
 
     document.addEventListener('DOMContentLoaded', () => {
         if(typeof bootstrap !== 'undefined') {
@@ -147,41 +178,47 @@
 
     function renderTable(data) {
         const tbody = document.getElementById('tbody-ekstrem');
-        if(data.length === 0) { tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted fw-bold">Aman! Tidak ada lonjakan ekstrem.</td></tr>`; return; }
+        if(data.length === 0) { 
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted small fw-bold"><i class="fa-solid fa-check-circle text-success fs-1 mb-2 d-block"></i>Aman! Tidak ada lonjakan ekstrem.</td></tr>`; 
+            return; 
+        }
 
         tbody.innerHTML = data.map((item, index) => {
-            let badgePenyebab = '<span class="badge bg-secondary bg-opacity-10 text-muted">Belum Dianalisa</span>';
+            let badgePenyebab = '<span class="badge bg-light text-muted border">Belum Cek</span>';
             if(item.penyebab !== '-') {
                 let color = 'secondary';
                 if(item.penyebab === 'BOCOR_PERSIL') color = 'warning';
-                if(item.penyebab === 'METER_RUSAK') color = 'danger';
-                if(item.penyebab === 'PEMAKAIAN_AKTIF') color = 'success';
-                badgePenyebab = `<span class="badge bg-${color}">${item.penyebab.replace('_', ' ')}</span>`;
+                else if(item.penyebab === 'METER_RUSAK') color = 'danger';
+                else if(item.penyebab === 'PEMAKAIAN_AKTIF') color = 'success';
+                badgePenyebab = `<span class="badge bg-${color} bg-opacity-10 text-${color} border border-${color} border-opacity-25">${item.penyebab.replace('_', ' ')}</span>`;
             }
 
             return `
-                <tr>
+                <tr class="hover-row transition-row border-bottom">
                     <td class="ps-4">
-                        <div class="fw-800 text-dark">${item.nama}</div>
+                        <div class="fw-800 text-dark text-uppercase small">${item.nama}</div>
                         <a href="javascript:void(0)" onclick="openHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')" 
-                           class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 text-decoration-none px-2 py-1 mt-1">
+                           class="badge bg-light text-primary border text-decoration-none mt-1 font-monospace">
                            <i class="fa-solid fa-chart-line me-1"></i>${item.nomen}
                         </a>
-                        <div class="small text-muted mt-1 text-truncate" style="max-width:200px"><i class="fa-solid fa-map-pin me-1"></i>${item.alamat}</div>
+                        <div class="small text-muted mt-1 text-truncate" style="max-width:180px">${item.alamat}</div>
                     </td>
-                    <td class="text-center align-middle text-muted fw-bold">${item.avg_hist} m³</td>
-                    <td class="text-center align-middle"><div class="fs-5 fw-800 text-dark">${item.kubik}</div></td>
-                    <td class="text-center align-middle">
-                        <span class="badge bg-danger blink-me"><i class="fa-solid fa-arrow-trend-up me-1"></i>+${item.persen_naik}%</span>
+                    <td class="text-center text-muted fw-bold small">${item.avg_hist} m³</td>
+                    <td class="text-center"><div class="fw-800 text-dark">${item.kubik}</div></td>
+                    <td class="text-center">
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 blink-me">
+                            <i class="fa-solid fa-arrow-trend-up me-1"></i>+${item.persen_naik}%
+                        </span>
                     </td>
-                    <td class="align-middle">
+                    <td>
                         ${badgePenyebab}
-                        <div class="small text-muted fst-italic mt-1 text-truncate" style="max-width: 200px;">${item.tindakan !== '-' ? item.tindakan : ''}</div>
+                        <div class="small text-muted fst-italic mt-1 text-truncate" style="max-width: 150px;">${item.tindakan !== '-' ? item.tindakan : ''}</div>
                     </td>
-                    <td class="text-center align-middle">
-                        <button class="btn btn-sm btn-outline-danger rounded-circle p-2 shadow-sm"
-                                onclick="openInvestigasi('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', ${item.kubik}, ${item.persen_naik}, '${item.penyebab}', '${item.tindakan.replace(/'/g, "\\'")}')">
-                            <i class="fa-solid fa-file-pen"></i>
+                    <td class="text-center pe-4">
+                        <button class="btn btn-action shadow-sm"
+                                onclick="openInvestigasi('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', ${item.kubik}, ${item.persen_naik}, '${item.penyebab}', '${item.tindakan.replace(/'/g, "\\'")}')"
+                                title="Input Hasil Investigasi">
+                            <i class="fa-solid fa-pen-to-square"></i>
                         </button>
                     </td>
                 </tr>
@@ -189,7 +226,6 @@
         }).join('');
     }
 
-    // --- FUNGSI HISTORY ---
     async function openHistory(nomen, nama) {
         document.getElementById('hist-nama').innerText = nama;
         document.getElementById('hist-nomen').innerText = nomen;
@@ -198,23 +234,21 @@
             const res = await fetch(`/api/ekstrem/history/${nomen}`);
             const result = await res.json();
             if(result.status === 'success') { renderHistoryData(result.data); }
-        } catch(e) { console.error(e); }
+        } catch(e) { }
     }
 
     function renderHistoryData(data) {
-        // Tabel
         const tbody = document.getElementById('hist-tbody');
         const reversed = [...data].reverse();
         tbody.innerHTML = reversed.map(r => `
             <tr>
                 <td class="fw-bold text-secondary">${formatPeriodeIndo(r.periode)}</td>
                 <td class="fw-800 text-dark">${r.kubik}</td>
-                <td>Rp ${formatIDR(r.nominal)}</td>
-                <td>${r.lunas==1?'<span class="badge bg-success rounded-pill">LUNAS</span>':'<span class="badge bg-danger rounded-pill">BELUM</span>'}</td>
+                <td class="text-muted small">Rp ${formatIDR(r.nominal)}</td>
+                <td>${r.lunas==1?'<span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size:0.6rem">LUNAS</span>':'<span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size:0.6rem">BELUM</span>'}</td>
             </tr>
         `).join('');
 
-        // Chart
         const ctx = document.getElementById('historyChart').getContext('2d');
         if(chartInstance) chartInstance.destroy();
         chartInstance = new Chart(ctx, {
@@ -222,20 +256,34 @@
             data: {
                 labels: data.map(d => formatPeriodeIndo(d.periode)),
                 datasets: [{
-                    label: 'Volume Air (m³)', data: data.map(d => d.kubik),
-                    borderColor: '#dc3545', backgroundColor: 'rgba(220, 53, 69, 0.1)',
-                    borderWidth: 2, pointRadius: 4, fill: true, tension: 0.3
+                    label: 'Volume Air (m³)', 
+                    data: data.map(d => d.kubik),
+                    borderColor: '#dc2626', 
+                    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                    borderWidth: 2, 
+                    pointRadius: 4, 
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#dc2626',
+                    fill: true, 
+                    tension: 0.4
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { display: false } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, 
+                    x: { grid: { display: false } } 
+                } 
+            }
         });
     }
 
-    // --- FUNGSI INVESTIGASI ---
     function openInvestigasi(nomen, nama, kubik, persen, penyebab, tindakan) {
         document.getElementById('modal-nomen').value = nomen;
         document.getElementById('modal-nama').innerText = nama;
-        document.getElementById('modal-info').innerText = `Kubik Skrg: ${kubik} m³ (Naik ${persen}%)`;
+        document.getElementById('modal-info').innerText = `Kubikasi Saat Ini: ${kubik} m³ (Naik ${persen}%)`;
         document.getElementById('modal-penyebab').value = penyebab !== '-' ? penyebab : "";
         document.getElementById('modal-tindakan').value = tindakan !== '-' ? tindakan : "";
         modalInvestigasi.show();
@@ -245,15 +293,18 @@
         const nomen = document.getElementById('modal-nomen').value;
         const penyebab = document.getElementById('modal-penyebab').value;
         const tindakan = document.getElementById('modal-tindakan').value;
-        if(!penyebab) { Swal.fire('Error', 'Pilih penyebab lonjakan!', 'warning'); return; }
+        
+        if(!penyebab) { Swal.fire({ icon: 'warning', title: 'Pilih Penyebab', text: 'Mohon pilih dugaan penyebab lonjakan.' }); return; }
+        
         const fd = new FormData();
         fd.append('nomen', nomen); fd.append('penyebab', penyebab); fd.append('tindakan', tindakan);
+        
         try {
             await fetch('/api/ekstrem/update', {method:'POST', body:fd});
             modalInvestigasi.hide();
             Swal.fire({icon:'success', title:'Tersimpan', timer:1000, showConfirmButton:false});
             loadEkstrem();
-        } catch(e) { Swal.fire('Error', 'Gagal simpan', 'error'); }
+        } catch(e) { Swal.fire('Error', 'Gagal menyimpan data.', 'error'); }
     }
 
     function downloadExcel() {
@@ -261,7 +312,7 @@
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(allData.map((d,i)=>({
             "No": i+1, "Nomen": d.nomen, "Nama": d.nama, "Rata-rata": d.avg_hist,
-            "Kubik Skrg": d.kubik, "Kenaikan (%)": d.persen_naik, "Analisa Penyebab": d.penyebab, "Keterangan": d.tindakan
+            "Kubik Skrg": d.kubik, "Lonjakan (%)": d.persen_naik, "Analisa Penyebab": d.penyebab, "Keterangan": d.tindakan
         })));
         XLSX.utils.book_append_sheet(wb, ws, "Pelanggan Ekstrem");
         XLSX.writeFile(wb, "Analisa_Ekstrem.xlsx");
@@ -269,7 +320,8 @@
 </script>
 
 <style>
-    .blink-me { animation: blinker 1.5s linear infinite; }
-    @keyframes blinker { 50% { opacity: 0.5; } }
+    .blink-me { animation: blinker 2s linear infinite; }
+    @keyframes blinker { 50% { opacity: 0.6; } }
+    .transition-row { transition: all 0.2s ease; }
 </style>
 {% endblock %}
