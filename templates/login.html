@@ -13,17 +13,15 @@
 
     <style>
         :root {
-            --primary-dark: #0f172a;
+            --primary-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             --accent-blue: #2563eb;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --input-focus: #3b82f6;
+            --glass-bg: rgba(30, 41, 59, 0.75);
+            --input-bg: rgba(255, 255, 255, 0.05);
         }
         
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--primary-dark);
-            /* Animasi gradient halus untuk kesan profesional */
-            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            background: var(--primary-gradient);
             height: 100vh;
             display: flex;
             align-items: center;
@@ -34,124 +32,88 @@
 
         .login-card {
             width: 100%;
-            max-width: 400px;
-            padding: 3rem 2.2rem;
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 35px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            max-width: 420px;
+            padding: 3rem 2.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             position: relative;
+            z-index: 1;
         }
 
-        /* Dekorasi cahaya di belakang card */
+        /* Decorative Elements */
         .login-card::before {
-            content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
-            background: linear-gradient(45deg, transparent, rgba(37, 99, 235, 0.3), transparent);
-            z-index: -1; border-radius: 37px;
+            content: ''; position: absolute; top: -1px; left: -1px; right: -1px; bottom: -1px;
+            background: linear-gradient(45deg, transparent 40%, rgba(37, 99, 235, 0.3), transparent 60%);
+            z-index: -1; border-radius: 2rem;
+            pointer-events: none;
         }
 
         .brand-logo {
-            width: 80px; height: 80px;
-            background: white;
+            width: 72px; height: 72px;
+            background: #ffffff;
             color: var(--accent-blue);
-            border-radius: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
             margin: 0 auto 1.5rem;
-            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
-            transform: rotate(-5deg);
-            transition: 0.3s;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+            transform: rotate(-3deg);
+            transition: transform 0.3s;
         }
-        
         .brand-logo:hover { transform: rotate(0deg) scale(1.05); }
 
         .form-label { 
-            font-size: 0.65rem; 
-            font-weight: 800; 
-            color: #94a3b8; 
-            text-transform: uppercase;
-            letter-spacing: 1.5px; 
-            margin-bottom: 0.6rem;
-            margin-left: 4px;
+            font-size: 0.7rem; font-weight: 700; color: #94a3b8; 
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;
         }
 
         .input-group { 
-            background: rgba(15, 23, 42, 0.6); 
-            border-radius: 18px; 
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            padding: 2px;
+            background: var(--input-bg); 
+            border-radius: 1rem; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            transition: all 0.3s ease; 
+            overflow: hidden;
         }
         
         .input-group:focus-within { 
-            border-color: var(--input-focus); 
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
-            background: rgba(15, 23, 42, 0.9);
+            border-color: var(--accent-blue); 
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15); 
+            background: rgba(255, 255, 255, 0.08);
         }
 
         .input-group-text { 
-            background: transparent; 
-            border: none; 
-            color: #475569; 
-            padding-left: 20px;
-            font-size: 1.1rem;
+            background: transparent; border: none; color: #64748b; 
+            padding-left: 1.25rem; font-size: 1.1rem;
         }
 
         .form-control {
-            background: transparent;
-            border: none;
-            color: white;
-            padding: 0.95rem 1rem 0.95rem 8px;
-            font-size: 0.95rem;
-            font-weight: 600;
+            background: transparent; border: none; color: white; 
+            padding: 1rem 1rem 1rem 0.75rem; font-size: 0.95rem; font-weight: 600;
         }
-
         .form-control:focus { background: transparent; color: white; box-shadow: none; }
-        .form-control::placeholder { color: #475569; font-weight: 400; }
+        .form-control::placeholder { color: #475569; font-weight: 500; }
 
         .btn-login {
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            border: none;
-            border-radius: 18px;
-            padding: 1.1rem;
-            font-weight: 800;
-            color: white;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            margin-top: 1.5rem;
+            border: none; border-radius: 1rem; padding: 1rem;
+            font-weight: 800; color: white; letter-spacing: 1px;
+            transition: all 0.3s ease; margin-top: 1.5rem;
+            width: 100%; box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
         }
-
-        .btn-login:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(37, 99, 235, 0.4);
-            filter: brightness(1.1);
-        }
-
+        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(37, 99, 235, 0.4); }
         .btn-login:active { transform: scale(0.98); }
 
         .help-link {
-            text-decoration: none;
-            font-size: 0.75rem;
-            color: var(--accent-blue);
-            font-weight: 700;
-            transition: 0.3s;
+            text-decoration: none; font-size: 0.8rem; color: var(--accent-blue); font-weight: 600;
+            transition: 0.3s; display: inline-block;
         }
+        .help-link:hover { color: #60a5fa; }
 
-        .help-link:hover { color: #60a5fa; text-shadow: 0 0 10px rgba(96, 165, 250, 0.3); }
-
-        .version-text { 
-            font-size: 0.65rem; 
-            color: #475569; 
-            margin-top: 2.5rem; 
-            font-weight: 700;
-            letter-spacing: 1px; 
-        }
+        .version-text { font-size: 0.7rem; color: #475569; margin-top: 2rem; font-weight: 600; letter-spacing: 0.5px; }
         
-        /* Loader Pulse */
         .spinner-border-sm { width: 1.2rem; height: 1.2rem; border-width: 0.15em; }
     </style>
 </head>
@@ -161,47 +123,45 @@
     <div class="login-card animate__animated animate__zoomIn">
         <div class="text-center mb-5">
             <div class="brand-logo animate__animated animate__fadeInDown animate__delay-1s">
-                <i class="fa-solid fa-bolt-lightning fa-2xl"></i>
+                <i class="fa-solid fa-bolt fa-2xl"></i>
             </div>
-            <h4 class="text-white fw-800 mb-0" style="letter-spacing: -1px; font-size: 1.6rem;">AREA SERVICE</h4>
-            <div class="d-flex justify-content-center mt-2">
-                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-2 px-3" style="font-size: 0.6rem; letter-spacing: 1.5px; border-radius: 10px;">
-                    <i class="fa-solid fa-shield-halved me-1"></i> SECURE GATEWAY V12.8
-                </span>
+            <h4 class="text-white fw-800 mb-1" style="letter-spacing: -0.5px; font-size: 1.5rem;">AREA SERVICE</h4>
+            <div class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-2 px-3 rounded-pill mt-2 fw-bold" style="font-size: 0.65rem; letter-spacing: 1px;">
+                <i class="fa-solid fa-shield-halved me-1"></i> SECURE GATEWAY V12.9
             </div>
         </div>
 
         <form id="loginForm">
             <div class="mb-4">
-                <label class="form-label">Username Kredensial</label>
+                <label class="form-label">Username / ID</label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-user-gear"></i></span>
-                    <input type="text" id="username" class="form-control" placeholder="ID Personel / Admin" required autocomplete="username">
+                    <span class="input-group-text"><i class="fa-regular fa-user"></i></span>
+                    <input type="text" id="username" class="form-control" placeholder="Masukkan ID Petugas" required autocomplete="username">
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Kunci Enkripsi (Password)</label>
+                <label class="form-label">Password</label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-key"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
                     <input type="password" id="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
                 </div>
             </div>
 
-            <div class="text-end mb-4">
-                <a href="https://wa.me/628123456789?text=Halo%20Admin,%20saya%20petugas%20mengalami%20kendala%20login" target="_blank" class="help-link">
-                    <i class="fa-solid fa-circle-question me-1"></i>Bantuan Akses?
+            <div class="d-flex justify-content-end mb-4">
+                <a href="https://wa.me/6285143465087?text=Halo%20Admin,%20saya%20petugas%20butuh%20bantuan%20login" target="_blank" class="help-link">
+                    <i class="fa-regular fa-circle-question me-1"></i>Butuh Bantuan?
                 </a>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-login w-100 shadow-sm" id="btnSubmit">
-                Masuk Sistem <i class="fa-solid fa-right-to-bracket ms-2"></i>
+            <button type="submit" class="btn btn-login" id="btnSubmit">
+                MASUK SISTEM <i class="fa-solid fa-arrow-right ms-2"></i>
             </button>
         </form>
 
         <div class="text-center version-text">
             <div class="text-uppercase mb-1">Integrated Operation System</div>
-            <div class="opacity-50">© 2026 Area Service Management Enterprise</div>
+            <div class="opacity-50">© 2026 Area Service Management</div>
         </div>
     </div>
 </div>
@@ -214,9 +174,9 @@
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        // Feedback Visual
+        // Visual Feedback
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>MENGOTORISASI...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> OTORISASI...';
 
         try {
             const response = await fetch('/api/auth/login', {
@@ -230,38 +190,31 @@
             if (response.ok) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Otorisasi Berhasil',
-                    text: `Selamat bertugas kembali, ${username.toUpperCase()}`,
-                    timer: 1800,
+                    title: 'Akses Diterima',
+                    text: `Selamat datang kembali, ${username.toUpperCase()}`,
+                    timer: 1500,
                     showConfirmButton: false,
                     background: '#1e293b',
                     color: '#fff',
-                    customClass: { popup: 'rounded-5 border border-primary' }
+                    customClass: { popup: 'rounded-4 border border-primary' }
                 }).then(() => {
                     window.location.href = result.data.redirect;
                 });
             } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Akses Ditolak',
-                    text: result.message || 'Kredensial tidak valid dalam database kami.',
-                    confirmButtonColor: '#2563eb',
-                    background: '#1e293b',
-                    color: '#fff',
-                    customClass: { popup: 'rounded-5' }
-                });
-                btn.disabled = false;
-                btn.innerHTML = 'Masuk Sistem <i class="fa-solid fa-right-to-bracket ms-2"></i>';
+                throw new Error(result.message || 'Kredensial tidak valid.');
             }
         } catch (error) {
             Swal.fire({
                 icon: 'error',
-                title: 'Jaringan Terputus',
-                text: 'Gagal sinkronisasi dengan server data.',
-                confirmButtonColor: '#ef4444'
+                title: 'Gagal Masuk',
+                text: error.message,
+                confirmButtonColor: '#2563eb',
+                background: '#1e293b',
+                color: '#fff',
+                customClass: { popup: 'rounded-4' }
             });
             btn.disabled = false;
-            btn.innerHTML = 'Masuk Sistem <i class="fa-solid fa-right-to-bracket ms-2"></i>';
+            btn.innerHTML = 'MASUK SISTEM <i class="fa-solid fa-arrow-right ms-2"></i>';
         }
     });
 
@@ -269,9 +222,10 @@
         const params = new URLSearchParams(window.location.search);
         if (params.has('logout')) {
             const Toast = Swal.mixin({
-                toast: true, position: 'top', showConfirmButton: false, timer: 3000, timerProgressBar: true
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true,
+                background: '#10b981', color: '#fff'
             });
-            Toast.fire({ icon: 'info', title: 'Sesi enkripsi ditutup secara aman.' });
+            Toast.fire({ icon: 'success', title: 'Sesi anda telah berakhir dengan aman.' });
         }
     };
 </script>
