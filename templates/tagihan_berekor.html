@@ -1,112 +1,140 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="animate__animated animate__fadeIn">
-    <div class="px-2 mb-4 d-flex justify-content-between align-items-center mt-3">
+<style>
+    :root {
+        --danger-gradient: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        --primary-solid: #2563eb;
+    }
+    
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:active { transform: scale(0.98); }
+    .shadow-premium { box-shadow: 0 10px 30px -10px rgba(220, 38, 38, 0.3); } /* Merah pudar */
+    
+    .fw-800 { font-weight: 800; }
+    .text-force-white { color: #ffffff !important; }
+    
+    /* Animasi Dot */
+    .pulse-dot-red {
+        width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%;
+        display: inline-block; animation: blink 1.5s infinite;
+    }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+</style>
+
+<div class="animate__animated animate__fadeIn px-2 pb-5">
+    
+    <div class="mb-4 d-flex justify-content-between align-items-center mt-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark">
                 <i class="fa-solid fa-file-invoice-dollar me-2 text-danger"></i>Tagihan Berekor
             </h4>
-            <p class="text-muted small mb-0 fw-semibold">Prioritas Outstanding ≥ 2 Periode (High Value)</p>
+            <p class="text-muted small mb-0 fw-semibold">Prioritas Outstanding Tinggi (High Risk)</p>
         </div>
-        <div id="status-badge">
-            <span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm animate__animated animate__pulse animate__infinite">
-                <i class="fa-solid fa-shield-halved me-1 text-success"></i> PROTECTED MODE
+        <div>
+            <span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm border border-secondary">
+                <span class="pulse-dot-red me-2"></span>PRIORITAS
             </span>
         </div>
     </div>
 
-    <div class="px-2 mb-4">
-        <div class="card border-0 shadow-sm rounded-4 bg-white border">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <small class="fw-800 text-muted text-uppercase" style="letter-spacing: 1px;"><i class="fa-solid fa-bars-progress me-1 text-danger"></i> Progres Audit Ardebt</small>
-                    <small id="progress-text" class="fw-800 text-danger">0%</small>
-                </div>
-                <div class="progress rounded-pill" style="height: 12px; background-color: #f1f1f1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
-                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-danger" 
-                         role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-                <div class="d-flex justify-content-between mt-2">
-                    <small id="stat-target" class="text-muted fw-bold" style="font-size: 0.65rem;">Target: 0 Unit</small>
-                    <small id="stat-realisasi" class="text-muted fw-bold" style="font-size: 0.65rem;">Realisasi: 0</small>
-                </div>
+    <div class="card border-0 shadow-sm rounded-4 bg-white border mb-4">
+        <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <small class="fw-800 text-muted text-uppercase" style="letter-spacing: 1px;">
+                    <i class="fa-solid fa-bars-progress me-1 text-danger"></i> Progress Penanganan
+                </small>
+                <small id="progress-text" class="fw-800 text-danger">0%</small>
+            </div>
+            <div class="progress rounded-pill" style="height: 10px; background-color: #fff1f2;">
+                <div id="progress-bar" class="progress-bar bg-danger progress-bar-striped progress-bar-animated" 
+                     role="progressbar" style="width: 0%;"></div>
+            </div>
+            <div class="d-flex justify-content-between mt-2">
+                <small id="stat-target" class="text-muted fw-bold" style="font-size: 0.65rem;">Target: 0</small>
+                <small id="stat-realisasi" class="text-muted fw-bold" style="font-size: 0.65rem;">Selesai: 0</small>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-4 mx-2 bg-white border">
+    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white border">
         <div class="card-body p-3">
             <div class="row g-2">
                 <div class="col-8">
-                    <label class="small fw-800 text-muted mb-1 text-uppercase" style="font-size: 0.6rem;">Alokasi Wilayah Kerja</label>
+                    <label class="small fw-800 text-muted mb-1 text-uppercase">Wilayah Kerja</label>
                     <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 shadow-none fw-800 text-dark" onchange="loadArdebt()">
                         {% if session['role'] == 'petugas' %}
-                            <option value="{{ session['petugas_id'] }}">{{ session['petugas_id'] }} (Akun Terhubung)</option>
+                            <option value="{{ session['petugas_id'] }}">{{ session['petugas_id'] }} (Saya)</option>
                         {% else %}
-                            <option value="all">-- Seluruh Personel --</option>
+                            <option value="all">-- Semua Petugas --</option>
                         {% endif %}
                     </select>
                 </div>
                 <div class="col-4 d-flex align-items-end">
-                    <button class="btn btn-dark rounded-3 w-100 fw-800 shadow-sm transition-btn" onclick="loadArdebt()">
-                        <i class="fa-solid fa-arrows-rotate me-1"></i> SYNC
+                    <button class="btn btn-dark rounded-3 w-100 fw-800 shadow-sm card-hover" onclick="loadArdebt()">
+                        <i class="fa-solid fa-arrows-rotate"></i>
                     </button>
                 </div>
                 <div class="col-12 mt-2">
-                    <div class="input-group bg-light rounded-3 px-3 border border-light overflow-hidden">
+                    <div class="input-group bg-light rounded-3 px-3 border border-light">
                         <span class="input-group-text border-0 bg-transparent ps-0">
                             <i class="fa-solid fa-magnifying-glass text-muted small"></i>
                         </span>
                         <input type="text" id="searchBar" class="form-control border-0 bg-transparent py-2 shadow-none small fw-bold" 
-                               placeholder="Cari Nama atau IDPEL..." onkeyup="liveSearch()">
+                               placeholder="Cari Nama / IDPEL..." onkeyup="liveSearch()">
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="summary-area" class="px-2 mb-3"></div>
-    <div id="list-container" class="px-2 pb-5"></div>
+    <div id="summary-area" class="mb-3"></div>
+
+    <div id="list-container" class="pb-5">
+        <div class="text-center py-5">
+            <div class="spinner-border text-danger" role="status"></div>
+            <p class="mt-2 text-muted small fw-800">Menarik data tagihan...</p>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="modalHistory" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-5 overflow-hidden">
             <div class="modal-header bg-dark text-white border-0 py-3 px-4">
-                <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-magnifying-glass-chart me-2 text-warning"></i>Audit & Rincian Tunggakan</h6>
+                <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-file-contract me-2 text-danger"></i>Rincian Tunggakan</h6>
                 <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4">
                 <div id="boxAnalisis" class="alert d-none mb-4 shadow-sm border-start border-4 animate__animated animate__fadeIn">
-                    <h6 class="fw-800 small mb-2 text-uppercase"><i class="fa-solid fa-microchip me-2"></i>Intelligence Analysis:</h6>
+                    <h6 class="fw-800 small mb-2 text-uppercase"><i class="fa-solid fa-triangle-exclamation me-2"></i>Peringatan Sistem:</h6>
                     <p id="txtSaran" class="mb-2 small text-dark fw-semibold">-</p>
                     <hr class="my-2 opacity-10">
                     <div id="txtTren" class="fw-800 text-danger" style="font-size: 0.75rem;"></div>
                 </div>
 
-                <h6 class="fw-800 small text-danger mb-2 ps-1">RINCIAN TAGIHAN BEREKOR (ARDEBT):</h6>
+                <h6 class="fw-800 small text-danger mb-2 ps-1">TAGIHAN TERUTANG (ARDEBT):</h6>
                 <div class="table-responsive rounded-4 shadow-sm bg-white border overflow-hidden mb-4">
                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                         <thead class="bg-danger text-white text-center text-uppercase" style="font-size: 0.6rem; font-weight: 800;">
                             <tr>
                                 <th class="py-2">Periode</th>
                                 <th class="py-2">Tipe</th>
-                                <th class="py-2">Volume</th>
-                                <th class="py-2">Jumlah</th>
+                                <th class="py-2">Vol</th>
+                                <th class="py-2">Total</th>
                             </tr>
                         </thead>
                         <tbody id="tableArdebtContent"></tbody>
                     </table>
                 </div>
 
-                <h6 class="fw-800 small text-primary mb-2 ps-1">HISTORY TAGIHAN BERJALAN:</h6>
+                <h6 class="fw-800 small text-primary mb-2 ps-1">RIWAYAT PEMBAYARAN:</h6>
                 <div class="table-responsive rounded-4 shadow-sm bg-white border overflow-hidden">
                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                         <thead class="bg-primary text-white text-center text-uppercase" style="font-size: 0.6rem; font-weight: 800;">
                             <tr>
                                 <th class="py-2">Periode</th>
-                                <th class="py-2">Volume</th>
+                                <th class="py-2">Vol</th>
                                 <th class="py-2">Tagihan</th>
                                 <th class="py-2">Status</th>
                             </tr>
@@ -116,7 +144,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-800 py-2 shadow-sm" data-bs-dismiss="modal">TUTUP LAPORAN AUDIT</button>
+                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-800 py-2 shadow-sm" data-bs-dismiss="modal">TUTUP</button>
             </div>
         </div>
     </div>
@@ -126,8 +154,8 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-5 overflow-hidden">
             <form id="formKunjungan">
-                <div class="modal-header border-0 bg-danger text-white p-3 px-4">
-                    <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-camera-retro me-2"></i>Laporan Kunjungan Ardebt</h6>
+                <div class="modal-header border-0 text-white p-3 px-4" style="background: var(--danger-gradient);">
+                    <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-camera-retro me-2"></i>Laporan Penindakan</h6>
                     <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
@@ -139,45 +167,50 @@
                     <input type="hidden" id="modal-lng" name="longitude">
                     
                     <div class="bg-danger bg-opacity-10 p-3 rounded-4 mb-4 border border-danger border-opacity-10 text-center shadow-xs">
-                        <i class="fa-solid fa-user-check fa-2x text-danger mb-2"></i>
+                        <div class="bg-white p-2 rounded-circle d-inline-block shadow-sm mb-2">
+                            <i class="fa-solid fa-user-xmark fa-lg text-danger"></i>
+                        </div>
                         <h6 id="modal-nama" class="fw-800 mb-1 text-dark text-uppercase"></h6>
-                        <small id="modal-sub-info" class="text-muted fw-800 d-block" style="font-size: 0.6rem; letter-spacing: 0.5px;"></small>
+                        <small id="modal-sub-info" class="text-muted fw-800 d-block" style="font-size: 0.65rem;"></small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-phone me-1"></i> Kontak WhatsApp *</label>
-                        <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 shadow-none border-light-subtle fw-bold" placeholder="628..." required>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Kontak WhatsApp</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-light-subtle"><i class="fa-brands fa-whatsapp text-success"></i></span>
+                            <input type="tel" id="modal-no-hp" name="no_hp" class="form-control shadow-none border-light-subtle fw-bold" placeholder="628..." required>
+                        </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-list-check me-1"></i> Hasil Koordinasi *</label>
-                        <select id="modal-hasil" name="hasil" class="form-select rounded-3 fw-800 bg-light border-0" required onchange="toggleJanjiInput()">
-                            <option value="">-- Klasifikasi Hasil --</option>
-                            <option value="Sudah Bayar">💰 Terkonfirmasi Lunas</option>
-                            <option value="Janji Bayar">🤝 Komitmen Pembayaran</option>
-                            <option value="Rumah Kosong">🏠 Tidak Bertemu Penghuni</option>
-                            <option value="Tutup Bor">🚫 Rekomendasi Segel/Tutup</option>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Hasil Penindakan</label>
+                        <select id="modal-hasil" name="hasil" class="form-select fw-800 bg-light border-0 py-2" required onchange="toggleJanjiInput()">
+                            <option value="">-- Pilih Status --</option>
+                            <option value="Sudah Bayar">💰 TERKONFIRMASI LUNAS</option>
+                            <option value="Janji Bayar">🤝 JANJI BAYAR</option>
+                            <option value="Rumah Kosong">🏠 RUMAH KOSONG</option>
+                            <option value="Tutup Bor">🚫 SEGEL / TUTUP BOR</option>
                         </select>
                     </div>
 
-                    <div class="mb-3 d-none animate__animated animate__pulse" id="group-janji">
-                        <label class="form-label small fw-800 text-danger text-uppercase" style="font-size: 0.6rem;">Batas Waktu Komitmen</label>
-                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control rounded-3 border-danger border-opacity-25 bg-danger bg-opacity-10 fw-bold text-danger">
+                    <div class="mb-3 d-none animate__animated animate__fadeIn" id="group-janji">
+                        <label class="form-label small fw-800 text-danger text-uppercase">Tanggal Janji Bayar</label>
+                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control border-danger bg-danger bg-opacity-10 fw-bold text-danger">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-pen-to-square me-1"></i> Narasi Evaluasi Petugas</label>
-                        <textarea id="modal-keterangan" name="catatan" class="form-control rounded-3 shadow-none bg-light border-0" rows="2" placeholder="Detail temuan lapangan..."></textarea>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Catatan Lapangan</label>
+                        <textarea id="modal-keterangan" name="catatan" class="form-control shadow-none bg-light border-0" rows="2" placeholder="Keterangan tambahan..."></textarea>
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-camera me-1"></i> Dokumentasi Visual *</label>
-                        <input type="file" id="modal-foto" name="foto" class="form-control rounded-3 border-light-subtle" accept="image/*" capture="camera" required>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Foto Bukti</label>
+                        <input type="file" id="modal-foto" name="foto" class="form-control border-light-subtle" accept="image/*" capture="camera" required>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
-                    <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-800 shadow-lg transition-btn">
-                        <i class="fa-solid fa-paper-plane me-2"></i> TRANSMISI DATA LAPORAN
+                    <button type="submit" class="btn btn-danger w-100 rounded-pill py-3 fw-800 shadow-premium card-hover" style="background: var(--danger-gradient); border:none;">
+                        <i class="fa-solid fa-paper-plane me-2"></i> KIRIM LAPORAN
                     </button>
                 </div>
             </form>
@@ -186,23 +219,19 @@
 </div>
 
 <script>
-    // 1. Deklarasi Global & Inisialisasi
     let modalKunjungan, modalHistory;
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Init Modals
         const elemKunjungan = document.getElementById('modalKunjungan');
         const elemHistory = document.getElementById('modalHistory');
         
         if (elemKunjungan) modalKunjungan = new bootstrap.Modal(elemKunjungan);
         if (elemHistory) modalHistory = new bootstrap.Modal(elemHistory);
 
-        // Init Core Functions
         fetchPetugasList();
         loadArdebt();
         
-        // Form Handling
         const formKunjungan = document.getElementById('formKunjungan');
         if (formKunjungan) {
             formKunjungan.addEventListener('submit', (e) => { 
@@ -212,40 +241,26 @@
         }
     });
 
-    // 2. Fungsi Utama untuk Membuka Modal
     function openModal(nomen, nama, total, nomet) {
-        const inputIdpel = document.getElementById('modal-idpel');
-        const inputNomet = document.getElementById('modal-nomet-val');
-        const inputNominal = document.getElementById('modal-nominal-val');
-        const inputNamaHidden = document.getElementById('modal-nama-hidden');
-        const displayNama = document.getElementById('modal-nama');
-        const displaySub = document.getElementById('modal-sub-info');
-        const formObj = document.getElementById('formKunjungan');
-
-        if (!inputIdpel) return;
-
-        // Set Values
-        inputIdpel.value = nomen;
-        if (inputNomet) inputNomet.value = nomet;
-        if (inputNominal) inputNominal.value = total;
-        if (inputNamaHidden) inputNamaHidden.value = nama;
+        document.getElementById('modal-idpel').value = nomen;
+        document.getElementById('modal-nomet-val').value = nomet;
+        document.getElementById('modal-nominal-val').value = total;
+        document.getElementById('modal-nama-hidden').value = nama;
         
-        // Set Displays
-        if (displayNama) displayNama.innerText = nama;
-        if (displaySub) displaySub.innerText = `ID: ${nomen} | Meter: ${nomet} | Tagihan: Rp ${formatIDR(total)}`;
+        document.getElementById('modal-nama').innerText = nama;
+        document.getElementById('modal-sub-info').innerText = `ID: ${nomen} | Meter: ${nomet} | Tagihan: Rp ${formatIDR(total)}`;
         
-        // Reset Visual Form
-        if (formObj) formObj.reset();
-        const groupJanji = document.getElementById('group-janji');
-        if (groupJanji) groupJanji.classList.add('d-none');
-        
-        // Show Modal
-        if (modalKunjungan) {
-            modalKunjungan.show();
-        }
+        document.getElementById('formKunjungan').reset();
+        document.getElementById('group-janji').classList.add('d-none');
+        modalKunjungan.show();
     }
 
-    // 3. API Loaders & Integrations
+    function toggleJanjiInput() {
+        const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
+        const group = document.getElementById('group-janji');
+        isJanji ? group.classList.remove('d-none') : group.classList.add('d-none');
+    }
+
     async function fetchPetugasList() {
         const select = document.getElementById('filter-petugas');
         if (!select || select.options.length > 1) return;
@@ -257,7 +272,7 @@
                 opt.value = p; opt.textContent = p;
                 select.appendChild(opt);
             });
-        } catch (e) { console.error("Sync petugas gagal."); }
+        } catch (e) { }
     }
 
     async function loadArdebt() {
@@ -273,50 +288,57 @@
             const data = await res.json();
             
             if (data.length === 0) {
-                container.innerHTML = `<div class="text-center mt-5 py-5"><i class="fa-solid fa-circle-check fa-3x text-success mb-3"></i><h6 class="fw-800">Target Audit Ardebt Selesai 🎉</h6></div>`;
+                container.innerHTML = `<div class="text-center mt-5 py-5 text-muted"><i class="fa-solid fa-check-double fa-3x text-success mb-3"></i><br>Semua target terselesaikan.</div>`;
             } else {
                 renderCards(data);
             }
             updateSummary(data);
             loadAuditProgress();
         } catch (err) { 
-            container.innerHTML = '<p class="text-center text-danger small py-5 fw-bold">Sinkronisasi server gagal.</p>'; 
+            container.innerHTML = '<p class="text-center text-danger py-5">Gagal memuat data.</p>'; 
         }
     }
 
-    // ✅ UPDATE: Card menampilkan Total Tagihan & Total Lembar
     function renderCards(data) {
         const container = document.getElementById('list-container');
         if (!container) return;
         container.innerHTML = data.map((item) => {
             const safeNama = item.nama.replace(/'/g, "\\'");
-            // Hitung total estimasi (Ardebt + MC Bulan Ini)
             const totalEstimasi = item.total_ardebt + item.nominal_mc;
             
             return `
-            <div class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp border" data-search="${item.nomen} ${item.nama}">
+            <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white card-hover border" data-search="${item.nomen} ${item.nama}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="badge bg-primary text-white rounded-pill px-2 py-1 fw-800" style="font-size: 9px;">${item.nama_petugas}</span>
-                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1 fw-800" style="font-size: 9px;">
-                            <i class="fa-solid fa-file-invoice me-1"></i>${item.lembar_ardebt} Lembar
+                        <span class="badge rounded-pill fw-800 px-2 py-1" style="background-color: #2563eb !important; color: white !important; font-size: 0.6rem;">
+                            <i class="fa-solid fa-user me-1"></i>${item.nama_petugas}
+                        </span>
+                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill fw-800" style="font-size: 0.6rem;">
+                            <i class="fa-solid fa-layer-group me-1"></i>${item.lembar_ardebt} Lembar
                         </span>
                     </div>
-                    <h6 class="fw-800 mb-1 text-dark text-uppercase" style="font-size: 0.85rem;">${item.nama}</h6>
+                    
+                    <h6 class="fw-800 mb-1 text-dark text-uppercase text-truncate" style="font-size: 0.9rem;">${item.nama}</h6>
+                    
                     <div class="d-flex justify-content-between small mb-2 fw-bold text-muted" style="font-size: 0.65rem;">
-                        <span><i class="fa-solid fa-fingerprint me-1 text-danger"></i> IDPEL: ${item.nomen}</span>
+                        <span><i class="fa-solid fa-fingerprint me-1 text-danger"></i> ${item.nomen}</span>
                         <span><i class="fa-solid fa-droplet me-1 text-primary"></i> ${item.total_kubik_ardebt || 0} m³</span>
                     </div>
-                    <p class="text-muted mb-3 border-start border-3 border-danger border-opacity-25 ps-2 fw-semibold" style="font-size: 0.65rem; line-height: 1.3;">${item.alamat}</p>
+                    
+                    <p class="text-muted mb-3 border-start border-3 border-danger ps-2 fw-semibold text-truncate" style="font-size: 0.7rem;">${item.alamat}</p>
+                    
                     <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-2">
                         <div>
-                            <small class="d-block text-muted fw-800" style="font-size: 8px; letter-spacing: 0.5px;">TOTAL ESTIMASI</small>
-                            <span class="fw-800 text-danger" style="font-size: 1.15rem;">Rp ${formatIDR(totalEstimasi)}</span>
+                            <small class="d-block text-muted fw-800" style="font-size: 0.55rem; letter-spacing: 0.5px;">TOTAL TUNGGAKAN</small>
+                            <span class="fw-800 text-danger" style="font-size: 1.1rem;">Rp ${formatIDR(totalEstimasi)}</span>
                         </div>
                         <div class="btn-group">
-                            <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${safeNama}')">AUDIT</button>
-                            <button class="btn btn-danger rounded-pill px-4 fw-800 shadow-sm btn-sm transition-btn" 
-                                    onclick="openModal('${item.nomen}', '${safeNama}', '${totalEstimasi}', '${item.no_seri_meter || '-'}')">LAPOR</button>
+                            <button class="btn btn-light border btn-sm rounded-pill px-3 fw-800 me-1" onclick="showHistory('${item.nomen}', '${safeNama}')">AUDIT</button>
+                            <button class="btn btn-danger btn-sm rounded-pill px-4 fw-800 shadow-sm" 
+                                    style="background: var(--danger-gradient); border:none;"
+                                    onclick="openModal('${item.nomen}', '${safeNama}', '${totalEstimasi}', '${item.no_seri_meter || '-'}')">
+                                LAPOR
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -325,43 +347,37 @@
     }
 
     async function validasiDanSimpan() {
-        Swal.fire({ title: 'Mendeteksi GPS...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Mencari Lokasi GPS...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                const latInput = document.getElementById('modal-lat');
-                const lngInput = document.getElementById('modal-lng');
-                if (latInput) latInput.value = pos.coords.latitude;
-                if (lngInput) lngInput.value = pos.coords.longitude;
+                document.getElementById('modal-lat').value = pos.coords.latitude;
+                document.getElementById('modal-lng').value = pos.coords.longitude;
                 await transmisiData();
             }, (err) => {
-                Swal.fire({ icon: 'warning', title: 'GPS Diperlukan', text: 'Aktifkan lokasi untuk memvalidasi laporan.' });
+                Swal.fire({ icon: 'warning', title: 'GPS Wajib Aktif', text: 'Mohon izinkan akses lokasi.' });
             }, { enableHighAccuracy: true });
         }
     }
 
     async function transmisiData() {
-        const formObj = document.getElementById('formKunjungan');
-        const petugasSelect = document.getElementById('filter-petugas');
-        if (!formObj) return;
-
-        const formData = new FormData(formObj);
-        formData.append('petugas_name', petugasSelect ? petugasSelect.value : 'all');
-        const inputNoHp = document.getElementById('modal-no-hp');
+        const formData = new FormData(document.getElementById('formKunjungan'));
+        formData.append('petugas_name', document.getElementById('filter-petugas').value);
+        const inputNoHp = document.getElementById('modal-no-hp').value;
 
         try {
             const res = await fetch('/api/ardebt/lapor', { method: 'POST', body: formData });
             const result = await res.json();
             if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'Data Dikunci', text: 'Snapshot operasional terkirim.' }).then(() => {
+                Swal.fire({ icon: 'success', title: 'Terkirim!', text: 'Laporan berhasil disimpan.', timer: 1500, showConfirmButton: false }).then(() => {
                     if(result.wa_data && result.wa_data.link_preview) {
-                        result.wa_data.no_hp_pelanggan = inputNoHp ? inputNoHp.value : '-';
+                        result.wa_data.no_hp_pelanggan = inputNoHp;
                         executeShareWA(result.wa_data);
                     }
                     if (modalKunjungan) modalKunjungan.hide();
                     loadArdebt();
                 });
-            } else { Swal.fire('Error', result.message, 'error'); }
-        } catch (err) { Swal.fire('Error', 'Kesalahan transmisi.', 'error'); }
+            } else { Swal.fire('Gagal', result.message, 'error'); }
+        } catch (err) { Swal.fire('Error', 'Koneksi bermasalah.', 'error'); }
     }
 
     function executeShareWA(wa) {
@@ -381,9 +397,9 @@
             `📞 *No HP:* ${wa.no_hp_pelanggan || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
-            `📝 *Analisis:* ${wa.catatan || '-'}%0A` +
+            `📝 *Catatan:* ${wa.catatan || '-'}%0A` +
             `💰 *TOTAL TAGIHAN: Rp ${formatIDR(wa.total)}*%0A%0A` +
-            `👉 *LIHAT FOTO KUNJUNGAN:*%0A` +
+            `👉 *FOTO KUNJUNGAN:*%0A` +
             `${wa.link_preview}`; 
 
         window.open(`https://api.whatsapp.com/send?text=${pesan}`, '_blank');
@@ -409,21 +425,19 @@
                     boxAnalisis.classList.remove('d-none');
                     boxAnalisis.className = `alert alert-${resData.analysis.level} mb-4 shadow-sm border-start border-4 animate__animated animate__fadeIn`;
                 }
-                const saranElem = document.getElementById('txtSaran');
-                const trenElem = document.getElementById('txtTren');
-                if (saranElem) saranElem.innerText = resData.analysis.saran;
-                if (trenElem) trenElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> Terdeteksi ${resData.analysis.count_nunggak} Periode Outstanding`;
+                document.getElementById('txtSaran').innerText = resData.analysis.saran;
+                document.getElementById('txtTren').innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> Terdeteksi ${resData.analysis.count_nunggak} Periode Tunggakan`;
                 
                 let rows = resData.history.map(h => `
                     <tr class="text-center align-middle ${h.status_lunas == 0 ? 'table-danger text-danger fw-bold' : ''}">
                         <td class="text-start ps-4 fw-bold">${h.periode}</td>
                         <td class="fw-semibold">${h.pemakaian_air}</td>
                         <td class="fw-bold">${formatIDR(h.rupiah)}</td>
-                        <td><span class="badge ${h.status_lunas == 1 ? 'bg-success' : 'bg-danger'} rounded-pill px-3">${h.status_lunas == 1 ? 'LUNAS' : 'BELUM'}</span></td>
+                        <td><span class="badge ${h.status_lunas == 1 ? 'bg-success' : 'bg-danger'} rounded-pill" style="font-size: 0.6rem;">${h.status_lunas == 1 ? 'LUNAS' : 'BELUM'}</span></td>
                     </tr>`).join('');
                 if (historyContent) historyContent.innerHTML = rows;
             }
-        } catch (e) { console.error("History MC Error", e); }
+        } catch (e) { }
 
         try {
             const res2 = await fetch(`/api/ardebt/detail/${nomen}`);
@@ -441,26 +455,28 @@
             } else {
                 if (ardebtContent) ardebtContent.innerHTML = '<tr><td colspan="4" class="text-center small text-muted">Tidak ada rincian.</td></tr>';
             }
-        } catch (e) { console.error("Ardebt Detail Error", e); }
+        } catch (e) { }
     }
 
     function liveSearch() {
-        const searchInput = document.getElementById('searchBar');
-        if (!searchInput) return;
-        const q = searchInput.value.toLowerCase();
-        document.querySelectorAll('.customer-card').forEach(c => {
-            c.style.display = c.dataset.search.toLowerCase().includes(q) ? 'block' : 'none';
+        const q = document.getElementById('searchBar').value.toLowerCase();
+        document.querySelectorAll('.card').forEach(c => {
+            if(c.dataset.search) c.style.display = c.dataset.search.toLowerCase().includes(q) ? 'block' : 'none';
         });
     }
 
     function updateSummary(data) {
-        const area = document.getElementById('summary-area');
-        if (!area) return;
         const total = data.reduce((acc, curr) => acc + (curr.total_ardebt + curr.nominal_mc), 0);
-        area.innerHTML = `
-            <div class="bg-danger shadow-lg rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn">
-                <div><div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Outstanding Target</div><div class="fw-800 h5 mb-0">${data.length} <small style="font-size: 0.6rem;">UNIT</small></div></div>
-                <div class="text-end"><div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Potensi Recovery</div><div class="fw-800 h5 mb-0">Rp ${formatIDR(total)}</div></div>
+        document.getElementById('summary-area').innerHTML = `
+            <div class="shadow-premium rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn" style="background: var(--danger-gradient);">
+                <div>
+                    <div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Outstanding</div>
+                    <div class="fw-800 h4 mb-0">${data.length}</div>
+                </div>
+                <div class="text-end">
+                    <div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Recovery</div>
+                    <div class="fw-800 h4 mb-0">Rp ${formatIDR(total)}</div>
+                </div>
             </div>`;
     }
 
@@ -468,42 +484,17 @@
         try {
             const res = await fetch('/api/ardebt/progress');
             const data = await res.json();
-            const bar = document.getElementById('progress-bar');
-            const text = document.getElementById('progress-text');
-            const targetLabel = document.getElementById('stat-target');
-            const realLabel = document.getElementById('stat-realisasi');
-
-            if (bar) bar.style.width = `${data.percentage}%`;
-            if (text) text.innerText = `${data.percentage}%`;
-            if (targetLabel) targetLabel.innerText = `Target: ${data.total_target} Unit`;
-            if (realLabel) realLabel.innerText = `Realisasi: ${data.total_realisasi}`;
-            
-            if (data.percentage >= 100 && bar) bar.classList.replace('bg-danger', 'bg-success');
-        } catch(e) { console.error("Progress fail."); }
+            document.getElementById('progress-bar').style.width = `${data.percentage}%`;
+            document.getElementById('progress-text').innerText = `${data.percentage}%`;
+            document.getElementById('stat-target').innerText = `Target: ${data.total_target}`;
+            document.getElementById('stat-realisasi').innerText = `Selesai: ${data.total_realisasi}`;
+        } catch(e) { }
     }
 
     function toggleJanjiInput() {
-        const hasilSelect = document.getElementById('modal-hasil');
-        const groupJanji = document.getElementById('group-janji');
-        if (hasilSelect && groupJanji) {
-            const isJanji = hasilSelect.value === 'Janji Bayar';
-            if (isJanji) {
-                groupJanji.classList.remove('d-none');
-            } else {
-                groupJanji.classList.add('d-none');
-            }
-        }
+        const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
+        const group = document.getElementById('group-janji');
+        isJanji ? group.classList.remove('d-none') : group.classList.add('d-none');
     }
 </script>
-
-<style>
-    .fw-800 { font-weight: 800; }
-    .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .bg-danger-subtle { background-color: #fff5f5 !important; }
-    .customer-card { border: 1px solid #f2f2f2 !important; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
-    .customer-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.06) !important; border-color: #ef4444 !important; }
-    .transition-btn { transition: transform 0.2s ease; }
-    .transition-btn:active { transform: scale(0.95); }
-    .progress-bar-animated { animation: progress-bar-stripes 1s linear infinite; }
-</style>
 {% endblock %}
