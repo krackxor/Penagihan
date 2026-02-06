@@ -10,7 +10,7 @@
                     {% if session.get('role') == 'admin' %} 
                         Pusat Kendali Area Service ⚡ 
                     {% elif session.get('role') == 'petugas' %} 
-                        Key Performance Indicator (KPI) Saya 📈 
+                        KPI Petugas Lapangan 📈 
                     {% else %}
                         Monitoring Realisasi Global 🌏
                     {% endif %}
@@ -53,27 +53,27 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden text-white" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+    <div class="card border-0 shadow-lg mb-4 rounded-5 overflow-hidden" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff !important;">
         <div class="card-body p-4 text-center">
-            <small class="opacity-75 fw-800 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem;">Efektivitas Penagihan</small>
-            <h1 class="fw-bold mb-0 animate__animated animate__pulse animate__infinite" id="stat-percent" style="font-size: 4.5rem; letter-spacing: -3px;">0%</h1>
+            <small class="opacity-75 fw-800 text-uppercase" style="letter-spacing: 1.5px; font-size: 0.6rem; color: #ffffff !important;">Efektivitas Penagihan</small>
+            <h1 class="fw-bold mb-0 animate__animated animate__pulse animate__infinite" id="stat-percent" style="font-size: 4.5rem; letter-spacing: -3px; color: #ffffff !important;">0%</h1>
             
             <div class="progress my-3 bg-white bg-opacity-10 shadow-inner" style="height: 14px; border-radius: 20px;">
                 <div id="prog-bar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 0%;"></div>
             </div>
-            <p class="small mb-4 fw-medium text-white-50" id="stat-realisasi">Menunggu sinkronisasi...</p>
+            <p class="small mb-4 fw-medium" id="stat-realisasi" style="color: rgba(255,255,255,0.8) !important;">Menunggu sinkronisasi...</p>
 
             <div class="row g-2">
                 <div class="col-6">
-                    <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block text-info fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">TRANSFER BANK (UNDUE)</small>
-                        <span class="fw-bold d-block text-white" id="val-undue" style="font-size: 0.85rem;">Rp 0</span>
+                    <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
+                        <small class="d-block fw-800" style="font-size: 0.5rem; letter-spacing: 1px; color: #60a5fa !important;">TRANSFER BANK (UNDUE)</small>
+                        <span class="fw-bold d-block" id="val-undue" style="font-size: 0.85rem; color: #ffffff !important;">Rp 0</span>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="bg-white bg-opacity-5 p-2 rounded-4 border border-white border-opacity-10">
-                        <small class="d-block text-warning fw-800" style="font-size: 0.5rem; letter-spacing: 1px;">BAYAR DITEMPAT (CURRENT)</small>
-                        <span class="fw-bold d-block text-white" id="val-current" style="font-size: 0.85rem;">Rp 0</span>
+                    <div class="bg-white bg-opacity-10 p-2 rounded-4 border border-white border-opacity-10">
+                        <small class="d-block fw-800" style="font-size: 0.5rem; letter-spacing: 1px; color: #fbbf24 !important;">BAYAR DITEMPAT (CURRENT)</small>
+                        <span class="fw-bold d-block" id="val-current" style="font-size: 0.85rem; color: #ffffff !important;">Rp 0</span>
                     </div>
                 </div>
             </div>
@@ -124,7 +124,6 @@
 <script>
     let myChart = null;
     const USER_ROLE = "{{ session.get('role', 'guest')|lower }}";
-
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
     
     document.addEventListener('DOMContentLoaded', () => { 
@@ -149,10 +148,9 @@
         try {
             const res = await fetch(`/api/dashboard/pusat-kendali?periode=${periode}`);
             const result = await res.json();
-            
             if(!res.ok) throw new Error(result.message);
+            
             const s = result.summary;
-
             document.getElementById('label-target-rek').innerText = `REK TAGIHAN: ${s.target_rekening}`;
             document.getElementById('g-nomen-mc').innerText = s.nomen.total.toLocaleString();
             document.getElementById('g-nom-mc').innerText = toIDR(s.rupiah.mc);
@@ -171,19 +169,13 @@
             renderLeaderboard(result.analytics.leaderboard);
             if (USER_ROLE === 'admin') renderChart(result.analytics.leaderboard);
             renderLiveLogs(result.logs);
-
-        } catch (e) { 
-            console.error("Dashboard Sync Failure:", e); 
-        } finally { 
-            setTimeout(() => icon.classList.remove('fa-spin'), 800); 
-        }
+        } catch (e) { console.error("Sync Error", e); } finally { setTimeout(() => icon.classList.remove('fa-spin'), 800); }
     }
 
     function renderLeaderboard(leaderboard) {
         const lb = document.getElementById('leaderboard-section');
         if (!leaderboard || leaderboard.length === 0) {
-            lb.innerHTML = '<div class="text-center py-4 small text-muted">Belum ada aktivitas di periode ini</div>';
-            return;
+            lb.innerHTML = '<div class="text-center py-4 small text-muted">Belum ada aktivitas</div>'; return;
         }
         lb.innerHTML = leaderboard.map((o, i) => `
             <div class="card border-0 shadow-sm rounded-4 p-3 mb-2 bg-light bg-opacity-50">
@@ -209,30 +201,16 @@
             type: 'bar',
             data: {
                 labels: leaderboard.map(o => (o.petugas || 'N/A').split(' ')[0]),
-                datasets: [{ 
-                    label: 'Efektivitas %', 
-                    data: leaderboard.map(o => o.pct_nomen), 
-                    backgroundColor: '#2563eb', 
-                    borderRadius: 8,
-                    barPercentage: 0.6
-                }]
+                datasets: [{ label: 'Efektivitas %', data: leaderboard.map(o => o.pct_nomen), backgroundColor: '#2563eb', borderRadius: 8, barPercentage: 0.6 }]
             },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { legend: { display: false } },
-                scales: { 
-                    y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' } }, 
-                    x: { grid: { display: false }, ticks: { font: { size: 10, weight: '600' } } } 
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' } }, x: { grid: { display: false }, ticks: { font: { size: 10, weight: '600' } } } } }
         });
     }
 
     function renderLiveLogs(logs) {
         const container = document.getElementById('list-history-petugas');
         if (!logs || logs.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted small py-5">Menunggu aktivitas lapangan...</div>';
-            return;
+            container.innerHTML = '<div class="text-center text-muted small py-5">Menunggu aktivitas lapangan...</div>'; return;
         }
         container.innerHTML = logs.map(log => `
             <div class="card border-0 shadow-sm p-3 mb-2 rounded-4 bg-white animate__animated animate__fadeInLeft">
@@ -251,14 +229,7 @@
 <style>
     .fw-800 { font-weight: 800; }
     .realtime-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: pulse-red 2s infinite; }
-    @keyframes pulse-red { 
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 
-        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 
-    }
-    .btn-white { background: white; border: 1px solid #e2e8f0; }
-    .progress-bar { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
-    .card { transition: all 0.2s ease; border: 1px solid transparent; }
+    @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     .card:hover { border-color: rgba(37, 99, 235, 0.1); }
 </style>
 {% endblock %}
