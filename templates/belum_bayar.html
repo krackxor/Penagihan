@@ -1,82 +1,106 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="animate__animated animate__fadeIn">
-    <div class="px-2 mb-4 d-flex justify-content-between align-items-center mt-3">
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        --glass-white: rgba(255, 255, 255, 0.95);
+    }
+    
+    /* Card Styles */
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:active { transform: scale(0.98); }
+    .shadow-premium { box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.2); }
+    
+    /* Utility */
+    .fw-800 { font-weight: 800; }
+    .text-force-white { color: #ffffff !important; }
+    
+    /* Animasi */
+    .pulse-dot {
+        width: 8px; height: 8px; background-color: #10b981; border-radius: 50%;
+        display: inline-block; animation: blink 1.5s infinite;
+    }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+</style>
+
+<div class="animate__animated animate__fadeIn px-2 pb-5">
+    
+    <div class="mb-4 d-flex justify-content-between align-items-center mt-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark">
                 <i class="fa-solid fa-file-invoice me-2 text-primary"></i>Belum Bayar
             </h4>
-            <p class="text-muted small mb-0 fw-semibold">Monitoring Penagihan Reguler (Current Month)</p>
+            <p class="text-muted small mb-0 fw-semibold">Monitoring Penagihan Reguler</p>
         </div>
-        <div id="status-badge">
-            <span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm animate__animated animate__pulse animate__infinite">
-                <i class="fa-solid fa-circle-check me-1 text-info"></i> LIVE MONITORING
+        <div>
+            <span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm border border-secondary">
+                <span class="pulse-dot me-2"></span>LIVE
             </span>
         </div>
     </div>
 
-    <div class="px-2 mb-4">
-        <div class="card border-0 shadow-sm rounded-4 bg-white border">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <small class="fw-800 text-muted text-uppercase" style="letter-spacing: 1px;"><i class="fa-solid fa-bars-progress me-1 text-primary"></i> Progres Kunjungan</small>
-                    <small id="progress-text" class="fw-800 text-primary">0%</small>
-                </div>
-                <div class="progress rounded-pill" style="height: 12px; background-color: #f1f1f1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
-                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
-                         role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-                <div class="d-flex justify-content-between mt-2">
-                    <small id="stat-target" class="text-muted fw-bold" style="font-size: 0.65rem;">Target: 0 Unit</small>
-                    <small id="stat-realisasi" class="text-muted fw-bold" style="font-size: 0.65rem;">Realisasi: 0</small>
-                </div>
+    <div class="card border-0 shadow-sm rounded-4 bg-white border mb-4">
+        <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <small class="fw-800 text-muted text-uppercase" style="letter-spacing: 1px;">
+                    <i class="fa-solid fa-bars-progress me-1 text-primary"></i> Progress Audit
+                </small>
+                <small id="progress-text" class="fw-800 text-primary">0%</small>
+            </div>
+            <div class="progress rounded-pill" style="height: 10px; background-color: #f1f5f9;">
+                <div id="progress-bar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" 
+                     role="progressbar" style="width: 0%;"></div>
+            </div>
+            <div class="d-flex justify-content-between mt-2">
+                <small id="stat-target" class="text-muted fw-bold" style="font-size: 0.65rem;">Target: 0</small>
+                <small id="stat-realisasi" class="text-muted fw-bold" style="font-size: 0.65rem;">Selesai: 0</small>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mb-4 mx-2 bg-white border">
+    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white border">
         <div class="card-body p-3">
             <div class="row g-2">
                 <div class="col-12 mb-2">
-                    <label class="small fw-800 text-muted mb-1 text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-calendar-day me-1"></i>Periode Penagihan</label>
+                    <label class="small fw-800 text-muted mb-1 text-uppercase"><i class="fa-solid fa-calendar-day me-1"></i>Periode Tagihan</label>
                     <input type="month" id="filter-periode" class="form-control border-0 bg-light rounded-3 shadow-none fw-800 text-primary" onchange="loadBelumBayar()">
                 </div>
                 
                 <div class="col-8">
-                    <label class="small fw-800 text-muted mb-1 text-uppercase" style="font-size: 0.6rem;">Wilayah Kerja</label>
+                    <label class="small fw-800 text-muted mb-1 text-uppercase">Wilayah Kerja</label>
                     <select id="filter-petugas" class="form-select border-0 bg-light rounded-3 shadow-none fw-800 text-dark" onchange="loadBelumBayar()">
                         {% if session['role'] == 'petugas' %}
-                            <option value="{{ session['petugas_id'] }}">{{ session['petugas_id'] }} (Akun Terhubung)</option>
+                            <option value="{{ session['petugas_id'] }}">{{ session['petugas_id'] }} (Saya)</option>
                         {% else %}
-                            <option value="all">-- Seluruh Personel --</option>
+                            <option value="all">-- Semua Petugas --</option>
                         {% endif %}
                     </select>
                 </div>
                 <div class="col-4 d-flex align-items-end">
-                    <button class="btn btn-dark rounded-3 w-100 fw-800 shadow-sm transition-btn" onclick="loadBelumBayar()">
-                        <i class="fa-solid fa-arrows-rotate me-1"></i> SYNC
+                    <button class="btn btn-dark rounded-3 w-100 fw-800 shadow-sm card-hover" onclick="loadBelumBayar()">
+                        <i class="fa-solid fa-arrows-rotate"></i>
                     </button>
                 </div>
                 <div class="col-12 mt-2">
-                    <div class="input-group bg-light rounded-3 px-3 border border-light overflow-hidden">
+                    <div class="input-group bg-light rounded-3 px-3 border border-light">
                         <span class="input-group-text border-0 bg-transparent ps-0">
                             <i class="fa-solid fa-magnifying-glass text-muted small"></i>
                         </span>
                         <input type="text" id="searchBar" class="form-control border-0 bg-transparent py-2 shadow-none small fw-bold" 
-                               placeholder="Cari Nama atau IDPEL..." onkeyup="liveSearch()">
+                               placeholder="Cari Nama / IDPEL..." onkeyup="liveSearch()">
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="summary-area" class="px-2 mb-3"></div>
+    <div id="summary-area" class="mb-3"></div>
 
-    <div id="list-container" class="px-2 pb-5">
+    <div id="list-container" class="pb-5">
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted small fw-800">Menyinkronkan daftar tagihan...</p>
+            <p class="mt-2 text-muted small fw-800">Menyiapkan data...</p>
         </div>
     </div>
 </div>
@@ -85,25 +109,25 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-5 overflow-hidden">
             <div class="modal-header bg-dark text-white border-0 py-3 px-4">
-                <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-magnifying-glass-chart me-2 text-info"></i>Audit Rekam Jejak Piutang</h6>
+                <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-clock-rotate-left me-2 text-warning"></i>Rekam Jejak Piutang</h6>
                 <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4">
                 <div id="boxAnalisis" class="alert d-none mb-4 shadow-sm border-start border-4 animate__animated animate__fadeIn">
-                    <h6 class="fw-800 small mb-2 text-uppercase"><i class="fa-solid fa-microchip me-2"></i>Intelligence Analysis:</h6>
+                    <h6 class="fw-800 small mb-2 text-uppercase"><i class="fa-solid fa-microchip me-2"></i>Analisis Cerdas:</h6>
                     <p id="txtSaran" class="mb-2 small text-dark fw-semibold">-</p>
                     <hr class="my-2 opacity-10">
                     <div id="txtTren" class="fw-800 text-danger" style="font-size: 0.75rem;"></div>
                 </div>
+                
                 <div class="table-responsive rounded-4 shadow-sm bg-white border overflow-hidden">
                     <table class="table table-sm table-hover mb-0" style="font-size: 0.75rem;">
                         <thead class="table-dark text-center text-uppercase" style="font-size: 0.6rem; font-weight: 800;">
                             <tr>
-                                <th class="py-3 text-start ps-4">Periode</th>
-                                <th class="py-3">Volume (m³)</th>
-                                <th class="py-3">Tagihan (Rp)</th>
-                                <th class="py-3">Gol. Tarif</th>
-                                <th class="py-3 pe-4">Status</th>
+                                <th class="py-3 ps-4 text-start">Periode</th>
+                                <th class="py-3">Volume</th>
+                                <th class="py-3">Tagihan</th>
+                                <th class="py-3">Status</th>
                             </tr>
                         </thead>
                         <tbody id="tableHistoryContent"></tbody>
@@ -111,7 +135,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-800 py-2 shadow-sm" data-bs-dismiss="modal">TUTUP LAPORAN AUDIT</button>
+                <button type="button" class="btn btn-secondary w-100 rounded-pill fw-800 py-2 shadow-sm" data-bs-dismiss="modal">TUTUP</button>
             </div>
         </div>
     </div>
@@ -121,8 +145,8 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-5 overflow-hidden">
             <form id="formKunjungan">
-                <div class="modal-header border-0 bg-primary text-white p-3 px-4">
-                    <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-camera-retro me-2"></i>Laporan Kunjungan Tagihan</h6>
+                <div class="modal-header border-0 bg-primary text-white p-3 px-4" style="background: var(--primary-gradient);">
+                    <h6 class="modal-title fw-800 small text-uppercase"><i class="fa-solid fa-camera me-2"></i>Laporan Lapangan</h6>
                     <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
@@ -133,46 +157,51 @@
                     <input type="hidden" id="modal-nominal-val" name="nominal_display">
                     <input type="hidden" id="modal-nama-hidden" name="nama_pelanggan">
                     
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-4 mb-4 border border-primary border-opacity-10 text-center shadow-xs">
-                        <i class="fa-solid fa-user-check fa-2x text-primary mb-2"></i>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-4 mb-4 border border-primary border-opacity-10 text-center">
+                        <div class="bg-white p-2 rounded-circle d-inline-block shadow-sm mb-2">
+                            <i class="fa-solid fa-user-tag fa-lg text-primary"></i>
+                        </div>
                         <h6 id="modal-nama" class="fw-800 mb-1 text-dark text-uppercase"></h6>
-                        <small id="modal-sub-info" class="text-muted fw-800 d-block" style="font-size: 0.6rem; letter-spacing: 0.5px;"></small>
+                        <small id="modal-sub-info" class="text-muted fw-800 d-block" style="font-size: 0.65rem;"></small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-phone me-1"></i> Kontak WhatsApp *</label>
-                        <input type="tel" id="modal-no-hp" name="no_hp" class="form-control rounded-3 shadow-none border-light-subtle fw-bold" placeholder="628..." required>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Kontak WhatsApp</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-light-subtle"><i class="fa-brands fa-whatsapp text-success"></i></span>
+                            <input type="tel" id="modal-no-hp" name="no_hp" class="form-control shadow-none border-light-subtle fw-bold" placeholder="628..." required>
+                        </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-list-check me-1"></i> Hasil Koordinasi *</label>
-                        <select id="modal-hasil" name="hasil" class="form-select rounded-3 fw-800 bg-light border-0" required onchange="toggleJanjiInput()">
-                            <option value="">-- Klasifikasi Hasil --</option>
-                            <option value="Sudah Bayar">💰 Terkonfirmasi Lunas</option>
-                            <option value="Janji Bayar">🤝 Komitmen Pembayaran</option>
-                            <option value="Rumah Kosong">🏠 Tidak Bertemu Penghuni</option>
-                            <option value="Tutup Bor">🚫 Rekomendasi Segel/Tutup</option>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Hasil Kunjungan</label>
+                        <select id="modal-hasil" name="hasil" class="form-select fw-800 bg-light border-0 py-2" required onchange="toggleJanjiInput()">
+                            <option value="">-- Pilih Status --</option>
+                            <option value="Sudah Bayar">✅ LUNAS / SUDAH BAYAR</option>
+                            <option value="Janji Bayar">🤝 JANJI BAYAR</option>
+                            <option value="Rumah Kosong">🏠 RUMAH KOSONG</option>
+                            <option value="Tutup Bor">🚫 REKOMENDASI SEGEL</option>
                         </select>
                     </div>
 
-                    <div class="mb-3 d-none animate__animated animate__pulse" id="group-janji">
-                        <label class="form-label small fw-800 text-primary text-uppercase" style="font-size: 0.6rem;">Batas Waktu Komitmen</label>
-                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control rounded-3 border-primary border-opacity-25 bg-primary bg-opacity-10 fw-bold text-primary">
+                    <div class="mb-3 d-none animate__animated animate__fadeIn" id="group-janji">
+                        <label class="form-label small fw-800 text-primary text-uppercase">Tanggal Janji Bayar</label>
+                        <input type="date" id="modal-janji-dt" name="janji_bayar_dt" class="form-control border-primary bg-primary bg-opacity-10 fw-bold text-primary">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-pen-to-square me-1"></i> Narasi Evaluasi</label>
-                        <textarea id="modal-keterangan" name="catatan" class="form-control rounded-3 shadow-none bg-light border-0" rows="2" placeholder="Detail temuan lapangan..."></textarea>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Catatan Petugas</label>
+                        <textarea id="modal-keterangan" name="catatan" class="form-control shadow-none bg-light border-0" rows="2" placeholder="Keterangan tambahan..."></textarea>
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label small fw-800 text-muted text-uppercase" style="font-size: 0.6rem;"><i class="fa-solid fa-camera me-1"></i> Dokumentasi Visual *</label>
-                        <input type="file" id="modal-foto" name="foto" class="form-control rounded-3 border-light-subtle" accept="image/*" capture="camera" required>
+                        <label class="form-label small fw-800 text-muted text-uppercase">Foto Bukti</label>
+                        <input type="file" id="modal-foto" name="foto" class="form-control border-light-subtle" accept="image/*" capture="camera" required>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
-                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-800 shadow-lg transition-btn">
-                        <i class="fa-solid fa-paper-plane me-2"></i> TRANSMISI DATA LAPORAN
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-800 shadow-premium card-hover" style="background: var(--primary-gradient); border:none;">
+                        <i class="fa-solid fa-paper-plane me-2"></i> KIRIM LAPORAN
                     </button>
                 </div>
             </form>
@@ -206,12 +235,10 @@
         document.getElementById('modal-nomet-val').value = nomet;
         document.getElementById('modal-nominal-val').value = total;
         document.getElementById('modal-nama-hidden').value = nama;
-        
-        // Simpan volume ke dataset form untuk dikirim
         document.getElementById('formKunjungan').dataset.vol = vol;
         
         document.getElementById('modal-nama').innerText = nama;
-        document.getElementById('modal-sub-info').innerText = `ID: ${nomen} | Vol: ${vol} m³ | Tagihan: Rp ${formatIDR(total)}`;
+        document.getElementById('modal-sub-info').innerText = `ID: ${nomen} | Vol: ${vol} m³ | Rp ${formatIDR(total)}`;
         
         document.getElementById('formKunjungan').reset();
         document.getElementById('group-janji').classList.add('d-none');
@@ -220,12 +247,8 @@
 
     function toggleJanjiInput() {
         const isJanji = document.getElementById('modal-hasil').value === 'Janji Bayar';
-        const groupJanji = document.getElementById('group-janji');
-        if (isJanji) {
-            groupJanji.classList.remove('d-none');
-        } else {
-            groupJanji.classList.add('d-none');
-        }
+        const group = document.getElementById('group-janji');
+        isJanji ? group.classList.remove('d-none') : group.classList.add('d-none');
     }
 
     async function fetchPetugasList() {
@@ -239,7 +262,7 @@
                 opt.value = p; opt.textContent = p;
                 select.appendChild(opt);
             });
-        } catch (e) { console.error("Sync petugas gagal."); }
+        } catch (e) { }
     }
 
     async function loadBelumBayar() {
@@ -260,14 +283,14 @@
             const data = await res.json();
             
             if (data.length === 0) {
-                container.innerHTML = `<div class="text-center mt-5 py-5"><i class="fa-solid fa-circle-check fa-3x text-success mb-3"></i><h6 class="fw-800">Target Penagihan Selesai 🎉</h6></div>`;
+                container.innerHTML = `<div class="text-center mt-5 py-5 text-muted"><i class="fa-solid fa-check-circle fa-3x text-success mb-3"></i><br>Tidak ada tagihan tertunggak.</div>`;
             } else {
                 renderCards(data);
             }
             updateSummary(data);
             loadAuditProgress();
         } catch (err) { 
-            container.innerHTML = '<p class="text-center text-danger small py-5 fw-bold">Sinkronisasi server gagal.</p>'; 
+            container.innerHTML = '<p class="text-center text-danger py-5">Gagal memuat data.</p>'; 
         }
     }
 
@@ -276,38 +299,48 @@
             const res = await fetch('/api/dashboard/pusat-kendali');
             const result = await res.json();
             const s = result.summary;
-            const pct = s.nomen.pct_bayar || 0;
-            document.getElementById('progress-bar').style.width = `${pct}%`;
-            document.getElementById('progress-text').innerText = `${pct}%`;
-            document.getElementById('stat-target').innerText = `Target: ${s.nomen.total} Unit`;
-            document.getElementById('stat-realisasi').innerText = `Lunas: ${s.nomen.bayar}`;
-        } catch(e) { console.error("Progress fail."); }
+            document.getElementById('progress-bar').style.width = `${s.nomen.pct_bayar || 0}%`;
+            document.getElementById('progress-text').innerText = `${s.nomen.pct_bayar || 0}%`;
+            document.getElementById('stat-target').innerText = `Total Target: ${s.nomen.total}`;
+            document.getElementById('stat-realisasi').innerText = `Terealisi: ${s.nomen.bayar}`;
+        } catch(e) { }
     }
 
     function renderCards(data) {
         const container = document.getElementById('list-container');
         container.innerHTML = data.map((item) => `
-            <div id="card-${item.nomen}" class="card border-0 shadow-sm rounded-4 mb-3 customer-card bg-white animate__animated animate__fadeInUp border" data-search="${item.nomen} ${item.nama}">
+            <div id="card-${item.nomen}" class="card border-0 shadow-sm rounded-4 mb-3 bg-white card-hover border" data-search="${item.nomen} ${item.nama}">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="badge bg-primary text-white rounded-pill px-2 py-1 fw-800" style="font-size: 9px;">${item.nama_petugas}</span>
-                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2 py-1 fw-800" style="font-size: 9px;"><i class="fa-solid fa-droplet me-1"></i>${item.pemakaian_air} m³</span>
+                        <span class="badge rounded-pill fw-800 px-2 py-1" style="background-color: #2563eb !important; color: white !important; font-size: 0.6rem;">
+                            <i class="fa-solid fa-user me-1"></i>${item.nama_petugas}
+                        </span>
+                        <span class="badge bg-light text-primary border rounded-pill fw-800" style="font-size: 0.6rem;">
+                            <i class="fa-solid fa-droplet me-1"></i>${item.pemakaian_air} m³
+                        </span>
                     </div>
-                    <h6 class="fw-800 mb-1 text-dark text-uppercase" style="font-size: 0.85rem;">${item.nama}</h6>
+                    
+                    <h6 class="fw-800 mb-1 text-dark text-uppercase text-truncate" style="font-size: 0.9rem;">${item.nama}</h6>
+                    
                     <div class="d-flex justify-content-between small mb-2 fw-bold text-muted" style="font-size: 0.65rem;">
-                        <span><i class="fa-solid fa-fingerprint me-1 text-primary"></i> IDPEL: ${item.nomen}</span>
-                        <span><i class="fa-solid fa-gauge me-1 text-primary"></i> METER: ${item.no_seri_meter || '-'}</span>
+                        <span><i class="fa-solid fa-fingerprint me-1 text-primary"></i> ${item.nomen}</span>
+                        <span><i class="fa-solid fa-gauge me-1 text-secondary"></i> ${item.no_seri_meter || '-'}</span>
                     </div>
-                    <p class="text-muted mb-3 border-start border-3 border-primary border-opacity-25 ps-2 fw-semibold" style="font-size: 0.65rem; line-height: 1.3;">${item.alamat}</p>
+                    
+                    <p class="text-muted mb-3 border-start border-3 border-primary ps-2 fw-semibold text-truncate" style="font-size: 0.7rem;">${item.alamat}</p>
+                    
                     <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-2">
                         <div>
-                            <small class="d-block text-muted fw-800" style="font-size: 8px; letter-spacing: 0.5px;">ESTIMASI TAGIHAN</small>
-                            <span class="fw-800 text-primary" style="font-size: 1.15rem;">Rp ${formatIDR(item.nominal)}</span>
+                            <small class="d-block text-muted fw-800" style="font-size: 0.55rem; letter-spacing: 0.5px;">TOTAL TAGIHAN</small>
+                            <span class="fw-800 text-primary" style="font-size: 1.1rem;">Rp ${formatIDR(item.nominal)}</span>
                         </div>
                         <div class="btn-group">
-                            <button class="btn btn-outline-dark rounded-pill px-3 fw-800 me-2 btn-sm shadow-xs" onclick="showHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')">AUDIT</button>
-                            <button class="btn btn-primary rounded-pill px-4 fw-800 shadow-sm btn-sm transition-btn" 
-                                    onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${item.nominal}', '${item.no_seri_meter || '-'}', '${item.alamat.replace(/'/g, "\\'")}', '${item.pemakaian_air || 0}')">LAPOR</button>
+                            <button class="btn btn-light border btn-sm rounded-pill px-3 fw-800 me-1" onclick="showHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')">AUDIT</button>
+                            <button class="btn btn-primary btn-sm rounded-pill px-4 fw-800 shadow-sm" 
+                                    style="background: var(--primary-gradient); border:none;"
+                                    onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${item.nominal}', '${item.no_seri_meter || '-'}', '${item.alamat.replace(/'/g, "\\'")}', '${item.pemakaian_air || 0}')">
+                                LAPOR
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -316,14 +349,14 @@
     }
 
     async function validasiDanSimpan() {
-        Swal.fire({ title: 'Mendeteksi GPS...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Mencari Lokasi GPS...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 document.getElementById('modal-lat').value = pos.coords.latitude;
                 document.getElementById('modal-lng').value = pos.coords.longitude;
                 await transmisiData();
             }, (err) => {
-                Swal.fire({ icon: 'warning', title: 'GPS Diperlukan', text: 'Aktifkan lokasi untuk memvalidasi laporan.' });
+                Swal.fire({ icon: 'warning', title: 'GPS Wajib Aktif', text: 'Mohon izinkan akses lokasi.' });
             }, { enableHighAccuracy: true });
         }
     }
@@ -338,7 +371,7 @@
             const res = await fetch('/api/belum-bayar/lapor', { method: 'POST', body: formData });
             const result = await res.json();
             if (res.ok) {
-                Swal.fire({ icon: 'success', title: 'Data Dikunci', text: 'Laporan tagihan terkirim.' }).then(() => {
+                Swal.fire({ icon: 'success', title: 'Terkirim!', text: 'Laporan berhasil disimpan.', timer: 1500, showConfirmButton: false }).then(() => {
                     if(result.wa_data) {
                         result.wa_data.no_hp_pelanggan = inputNoHp;
                         executeShareWA(result.wa_data);
@@ -346,16 +379,16 @@
                     modalKunjungan.hide();
                     loadBelumBayar();
                 });
-            } else { Swal.fire('Error', result.message, 'error'); }
-        } catch (err) { Swal.fire('Error', 'Kesalahan transmisi.', 'error'); }
+            } else { Swal.fire('Gagal', result.message, 'error'); }
+        } catch (err) { Swal.fire('Error', 'Koneksi bermasalah.', 'error'); }
     }
 
+    // TEMPLATE WA DISAMAKAN DENGAN TAGIHAN BEREKOR
     function executeShareWA(wa) {
         const lat = document.getElementById('modal-lat').value;
         const lng = document.getElementById('modal-lng').value;
         const gmapsLink = `https://maps.google.com/?q=${lat},${lng}`;
         
-        // TEMPLATE WA: DISAMAKAN DENGAN TAGIHAN BEREKOR
         const pesan = 
             `*🚨 LAPORAN KUNJUNGAN PENAGIHAN (BELUM BAYAR)*%0A` +
             `-------------------------------------------%0A` +
@@ -369,9 +402,9 @@
             `📞 *No HP:* ${wa.no_hp_pelanggan || '-'}%0A%0A` +
             `*HASIL EVALUASI:*%0A` +
             `🏁 *Status:* *${wa.status.toUpperCase()}*%0A` +
-            `📝 *Analisis:* ${wa.catatan || '-'}%0A` +
+            `📝 *Catatan:* ${wa.catatan || '-'}%0A` +
             `💰 *TOTAL TAGIHAN: Rp ${formatIDR(wa.total)}*%0A%0A` +
-            `👉 *LIHAT FOTO KUNJUNGAN:*%0A` +
+            `👉 *FOTO KUNJUNGAN:*%0A` +
             `${wa.link_preview}`;
 
         window.open(`https://api.whatsapp.com/send?text=${pesan}`, '_blank');
@@ -389,18 +422,18 @@
                 box.classList.remove('d-none');
                 box.className = `alert alert-${resData.analysis.level} mb-4 shadow-sm border-start border-4 animate__animated animate__fadeIn`;
                 document.getElementById('txtSaran').innerText = resData.analysis.saran;
-                document.getElementById('txtTren').innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> Terdeteksi ${resData.analysis.count_nunggak} Periode Outstanding`;
+                document.getElementById('txtTren').innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> Terdeteksi ${resData.analysis.count_nunggak} Periode Tunggakan`;
+                
                 let rows = resData.history.map(h => `
-                    <tr class="text-center align-middle ${h.status_lunas == 0 ? 'table-danger text-danger fw-bold' : ''}">
+                    <tr class="text-center align-middle ${h.status_lunas == 0 ? 'table-danger fw-bold text-danger' : ''}">
                         <td class="text-start ps-4 fw-bold">${h.periode}</td>
                         <td class="fw-semibold">${h.pemakaian_air}</td>
                         <td class="fw-bold">${formatIDR(h.rupiah)}</td>
-                        <td>${h.tarif}</td>
-                        <td class="pe-4"><span class="badge ${h.status_lunas == 1 ? 'bg-success' : 'bg-danger'} rounded-pill px-3">${h.status_lunas == 1 ? 'SETTLED' : 'UNPAID'}</span></td>
+                        <td class="pe-4"><span class="badge ${h.status_lunas == 1 ? 'bg-success' : 'bg-danger'} rounded-pill" style="font-size: 0.6rem;">${h.status_lunas == 1 ? 'LUNAS' : 'BELUM'}</span></td>
                     </tr>`).join('');
                 document.querySelector('#tableHistoryContent').innerHTML = rows;
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { }
     }
 
     function liveSearch() {
@@ -413,19 +446,17 @@
     function updateSummary(data) {
         const total = data.reduce((acc, curr) => acc + curr.nominal, 0);
         document.getElementById('summary-area').innerHTML = `
-            <div class="bg-primary shadow-lg rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn">
-                <div><div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Sisa Kunjungan</div><div class="fw-800 h5 mb-0">${data.length} <small style="font-size: 0.6rem;">UNIT</small></div></div>
-                <div class="text-end"><div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Total Tagihan</div><div class="fw-800 h5 mb-0">Rp ${formatIDR(total)}</div></div>
+            <div class="shadow-premium rounded-4 p-3 d-flex justify-content-between align-items-center mx-1 text-white animate__animated animate__fadeIn" 
+                 style="background: var(--primary-gradient);">
+                <div>
+                    <div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Total Unit</div>
+                    <div class="fw-800 h4 mb-0">${data.length}</div>
+                </div>
+                <div class="text-end">
+                    <div class="opacity-75 fw-800 text-uppercase" style="font-size: 0.6rem; letter-spacing: 1px;">Potensi Tagihan</div>
+                    <div class="fw-800 h4 mb-0">Rp ${formatIDR(total)}</div>
+                </div>
             </div>`;
     }
 </script>
-
-<style>
-    .fw-800 { font-weight: 800; }
-    .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .customer-card { border: 1px solid #f2f2f2 !important; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
-    .customer-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.06) !important; border-color: #2563eb !important; }
-    .transition-btn { transition: transform 0.2s ease; }
-    .transition-btn:active { transform: scale(0.95); }
-</style>
 {% endblock %}
