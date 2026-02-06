@@ -8,16 +8,16 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
         :root { 
-            /* Palet Warna High Contrast */
-            --primary-bg: #f3f4f6;       /* Abu-abu sangat muda, nyaman di mata */
-            --text-main: #111827;        /* Hitam pekat untuk teks utama */
-            --text-muted: #4b5563;       /* Abu-abu tua untuk teks sekunder */
-            --service-blue: #0284c7;     /* Biru cerah yang enak dilihat */
+            --primary-bg: #f8fafc;        
+            --text-main: #0f172a;        
+            --text-muted: #64748b;        
+            --service-blue: #2563eb;      
             --sidebar-bg: #ffffff;
+            --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         }
 
         body { 
@@ -32,40 +32,40 @@
         /* Navbar Atas */
         .navbar { 
             background: #ffffff !important; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            border-bottom: 1px solid #f1f5f9;
             z-index: 1030;
             padding: 0.8rem 0;
         }
 
         /* Menu Samping (Offcanvas) */
         .offcanvas { 
-            border-radius: 0 20px 20px 0; 
+            border-radius: 0 24px 24px 0; 
             border: none; 
             width: 300px !important; 
         }
         
         .user-profile-box { 
-            background: linear-gradient(to right, #2563eb, #1d4ed8); 
+            background: var(--primary-gradient); 
             border-radius: 16px; 
             padding: 1.5rem; 
             color: white; 
             margin: 1rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
         }
 
         /* Link Menu */
         .nav-link-custom {
             color: var(--text-muted);
-            font-weight: 500;
-            font-size: 0.95rem;
-            padding: 0.75rem 1rem;
-            margin: 0.25rem 0.75rem;
-            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.85rem 1.25rem;
+            margin: 0.25rem 1rem;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         
         .nav-link-custom i { 
@@ -73,11 +73,12 @@
             text-align: center; 
             margin-right: 12px; 
             font-size: 1.1rem; 
-            color: #9ca3af;
+            color: #94a3b8;
+            transition: color 0.2s;
         }
 
         .nav-link-custom:hover { 
-            background-color: #f3f4f6; 
+            background-color: #f1f5f9; 
             color: var(--service-blue); 
         }
         
@@ -86,26 +87,25 @@
         }
 
         .active-menu {
-            background-color: #e0f2fe !important; /* Biru sangat muda */
-            color: #0369a1 !important;           /* Biru tua */
-            font-weight: 600;
+            background-color: #eff6ff !important; 
+            color: #1d4ed8 !important;            
         }
         .active-menu i {
-            color: #0284c7 !important;
+            color: #2563eb !important;
         }
 
         /* Label Kategori Menu */
         .section-label { 
-            font-size: 0.7rem; 
-            font-weight: 700; 
+            font-size: 0.65rem; 
+            font-weight: 800; 
             text-transform: uppercase; 
-            color: #9ca3af; 
-            letter-spacing: 0.05em; 
-            padding: 1rem 1.5rem 0.5rem; 
+            color: #94a3b8; 
+            letter-spacing: 1px; 
+            padding: 1.5rem 1.5rem 0.5rem; 
             display: block; 
         }
 
-        .menu-divider { border-top: 1px solid #f3f4f6; margin: 0.5rem 0; }
+        .menu-divider { border-top: 1px solid #f1f5f9; margin: 0.5rem 1rem; }
 
         /* Navigasi Bawah (HP) */
         .bottom-nav {
@@ -113,20 +113,21 @@
             background: #ffffff;
             display: flex; justify-content: space-around;
             padding: 12px 0 calc(env(safe-area-inset-bottom) + 12px) 0;
-            border-top: 1px solid #e5e7eb; 
+            border-top: 1px solid #f1f5f9; 
             z-index: 1000;
-            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
         }
         
         .nav-item-link { 
             text-decoration: none; 
-            color: #6b7280; 
+            color: #94a3b8; 
             text-align: center; 
-            font-size: 0.7rem; 
-            font-weight: 600; 
+            font-size: 0.65rem; 
+            font-weight: 700; 
             width: 20%; 
+            transition: color 0.2s;
         }
-        .nav-item-link i { font-size: 1.4rem; margin-bottom: 4px; display: block; }
+        .nav-item-link i { font-size: 1.3rem; margin-bottom: 4px; display: block; }
         .nav-item-link.active { color: var(--service-blue); }
 
         @media (min-width: 992px) { .bottom-nav { display: none !important; } }
@@ -137,142 +138,142 @@
 
     <nav class="navbar sticky-top">
         <div class="container-fluid px-3">
-            <button class="btn btn-light border shadow-sm rounded-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
+            <button class="btn btn-light border-0 shadow-sm rounded-circle p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
                 <i class="fas fa-bars text-dark"></i>
             </button>
             
-            <a class="navbar-brand mx-auto fw-bold text-dark" href="/">
-                AREA SERVICE
+            <a class="navbar-brand mx-auto fw-bold text-dark" href="/" style="letter-spacing: -0.5px;">
+                <i class="fas fa-bolt text-primary me-1"></i>AREA SERVICE
             </a>
 
             {% if session.get('username') %}
             <div class="dropdown">
                 <button class="btn p-0 border-0" data-bs-toggle="dropdown">
-                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=0284c7&color=fff&bold=true" class="rounded-circle shadow-sm" style="width: 38px; height: 38px;">
+                    <img src="https://ui-avatars.com/api/?name={{ session['username'] }}&background=2563eb&color=fff&bold=true&length=1" class="rounded-circle shadow-sm border border-2 border-white" style="width: 38px; height: 38px;">
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3 rounded-3">
-                    <li class="px-3 py-2 text-center"><small class="fw-bold text-dark">{{ session['username']|upper }}</small></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="/api/auth/logout"><i class="fas fa-sign-out-alt me-2"></i> Keluar</a></li>
+                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-3 rounded-4 p-2">
+                    <li class="px-3 py-2 text-center"><small class="fw-bold text-muted d-block" style="font-size: 0.65rem;">LOGGED IN AS</small><span class="fw-bold text-dark">{{ session['username']|upper }}</span></li>
+                    <li><hr class="dropdown-divider my-2"></li>
+                    <li><a class="dropdown-item text-danger rounded-3 fw-bold small" href="/api/auth/logout"><i class="fas fa-sign-out-alt me-2"></i> Keluar</a></li>
                 </ul>
             </div>
             {% else %}
-            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold">Masuk</a>
+            <a href="/login" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm" style="background: var(--primary-gradient); border:none;">Masuk</a>
             {% endif %}
         </div>
     </nav>
 
     <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasNav">
-        <div class="offcanvas-header border-bottom">
-            <h6 class="offcanvas-title fw-bold text-dark">MENU UTAMA</h6>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        <div class="offcanvas-header pt-4 px-4 pb-0">
+            <h6 class="offcanvas-title fw-bold text-dark" style="letter-spacing: -0.5px;">MENU UTAMA</h6>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
         </div>
         
         <div class="offcanvas-body p-0">
             {% if session.get('username') %}
             <div class="user-profile-box">
                 <div class="d-flex align-items-center">
-                    <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 40px; height: 40px;">
-                        <i class="fas fa-user"></i>
+                    <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-3 border border-white border-opacity-25" style="width: 48px; height: 48px;">
+                        <i class="fas fa-user-shield fa-lg"></i>
                     </div>
                     <div>
                         <h6 class="mb-0 fw-bold">{{ session['username']|upper }}</h6>
-                        <small style="opacity: 0.9;">{{ current_role|capitalize }}</small>
+                        <small class="opacity-75" style="font-size: 0.75rem; letter-spacing: 0.5px;">{{ current_role|upper }}</small>
                     </div>
                 </div>
             </div>
             {% endif %}
 
-            <div class="py-2">
+            <div class="py-2 pb-5">
                 {% if session.get('role') %}
-                    <span class="section-label">Umum</span>
+                    <span class="section-label">Dashboard</span>
                     <a href="/" class="nav-link-custom {% if request.path == '/' %}active-menu{% endif %}">
                         <i class="fas fa-home"></i>Beranda
                     </a>
                     <a href="/performa" class="nav-link-custom {% if request.path == '/performa' %}active-menu{% endif %}">
-                        <i class="fas fa-chart-line"></i>Performa Tim
+                        <i class="fas fa-chart-pie"></i>Performa Tim
                     </a>
                     <a href="/monitoring-collection" class="nav-link-custom {% if request.path == '/monitoring-collection' %}active-menu{% endif %}">
-                        <i class="fas fa-stopwatch"></i>Pantau Setoran (Live)
+                        <i class="fas fa-stopwatch"></i>Live Monitoring
                     </a>
                     <a href="/monitoring-lokasi" class="nav-link-custom {% if request.path == '/monitoring-lokasi' %}active-menu{% endif %}">
-                        <i class="fas fa-map-marked-alt"></i>Peta Lokasi Petugas
+                        <i class="fas fa-map-location-dot"></i>Peta Petugas
                     </a>
 
                     <div class="menu-divider"></div>
 
-                    <span class="section-label">Operasional Lapangan</span>
+                    <span class="section-label">Operasional</span>
                     <a href="/belum-bayar" class="nav-link-custom {% if request.path == '/belum-bayar' %}active-menu{% endif %}">
-                        <i class="fas fa-clipboard-list"></i>Tagihan Bulan Ini
+                        <i class="fas fa-clipboard-list"></i>Tagihan Reguler
                     </a>
                     <a href="/tagihan-berekor" class="nav-link-custom {% if request.path == '/tagihan-berekor' %}active-menu{% endif %}">
-                        <i class="fas fa-history"></i>Tunggakan Lama
+                        <i class="fas fa-clock-rotate-left"></i>Tunggakan Lama
                     </a>
                     <a href="/janji-bayar" class="nav-link-custom {% if request.path == '/janji-bayar' %}active-menu{% endif %}">
-                        <i class="fas fa-calendar-alt"></i>Jadwal Janji Bayar
+                        <i class="fas fa-calendar-check"></i>Jadwal Janji Bayar
                     </a>
                     <a href="/galeri" class="nav-link-custom {% if request.path == '/galeri' %}active-menu{% endif %}">
-                        <i class="fas fa-image"></i>Galeri Foto
+                        <i class="fas fa-images"></i>Dokumentasi
                     </a>
 
                     <div class="menu-divider"></div>
 
                     {% if current_role == 'admin' %}
-                    <span class="section-label">Menu Admin</span>
+                    <span class="section-label">Administrator</span>
                     <a href="/admin/dashboard" class="nav-link-custom {% if request.path == '/admin/dashboard' %}active-menu{% endif %}">
-                        <i class="fas fa-cogs"></i>Admin Panel
+                        <i class="fas fa-user-gear"></i>Admin Panel
                     </a>
                     
                     <a href="/analisa-top500" class="nav-link-custom {% if request.path == '/analisa-top500' %}active-menu{% endif %}">
-                        <i class="fas fa-star text-warning"></i>500 Pelanggan Besar
+                        <i class="fas fa-crown text-warning"></i>Top 500 Pareto
                     </a>
 
                     <a href="/premium-customer" class="nav-link-custom {% if request.path == '/premium-customer' %}active-menu{% endif %}">
-                        <i class="fas fa-medal text-info"></i>Pelanggan Prioritas
+                        <i class="fas fa-medal text-info"></i>Pelanggan Premium
                     </a>
 
                     <a href="/pelanggan-ekstrem" class="nav-link-custom {% if request.path == '/pelanggan-ekstrem' %}active-menu{% endif %}">
-                        <i class="fas fa-arrow-up text-danger"></i>Pemakaian Melonjak
+                        <i class="fas fa-arrow-trend-up text-danger"></i>Pemakaian Ekstrem
                     </a>
 
                     <a href="/pelanggan-drop" class="nav-link-custom {% if request.path == '/pelanggan-drop' %}active-menu{% endif %}">
-                        <i class="fas fa-arrow-down text-warning"></i>Pemakaian Anjlok
+                        <i class="fas fa-arrow-trend-down text-warning"></i>Pemakaian Drop
                     </a>
 
                     <a href="/peta-sebaran" class="nav-link-custom {% if request.path == '/peta-sebaran' %}active-menu{% endif %}">
-                        <i class="fas fa-map text-success"></i>Peta Sebaran Pelanggan
+                        <i class="fas fa-map text-success"></i>Peta Sebaran
                     </a>
 
                     <a href="/wa-blast" class="nav-link-custom {% if request.path == '/wa-blast' %}active-menu{% endif %}">
-                        <i class="fab fa-whatsapp"></i>Kirim WA Massal
+                        <i class="fab fa-whatsapp text-success"></i>WA Blast
                     </a>
                     <a href="/history" class="nav-link-custom {% if request.path == '/history' %}active-menu{% endif %}">
-                        <i class="fas fa-list-ul"></i>Log Aktivitas Sistem
+                        <i class="fas fa-list-check"></i>Log Aktivitas
                     </a>
                     <div class="menu-divider"></div>
                     {% endif %}
                 {% endif %}
 
-                <span class="section-label">Pusat Bantuan</span>
+                <span class="section-label">Bantuan</span>
                 <a href="/youtube" class="nav-link-custom {% if request.path == '/youtube' %}active-menu{% endif %}">
-                    <i class="fab fa-youtube text-danger"></i>Video Panduan
+                    <i class="fab fa-youtube text-danger"></i>Tutorial Video
                 </a>
                 <a href="/materi" class="nav-link-custom {% if request.path == '/materi' %}active-menu{% endif %}">
-                    <i class="fas fa-book"></i>Buku Materi
+                    <i class="fas fa-book-open"></i>Materi PDF
                 </a>
             </div>
         </div>
 
         {% if session.get('username') %}
         <div class="offcanvas-footer p-3 border-top bg-light">
-            <a href="/api/auth/logout" class="btn btn-outline-danger w-100 fw-bold btn-sm">
-                <i class="fas fa-sign-out-alt me-2"></i>Keluar Aplikasi
+            <a href="/api/auth/logout" class="btn btn-outline-danger w-100 fw-bold rounded-pill">
+                <i class="fas fa-power-off me-2"></i>Log Out
             </a>
         </div>
         {% endif %}
     </div>
 
-    <main class="container-fluid py-3 main-content">
+    <main class="container-fluid py-3 main-content pb-5 mb-5">
         {% block content %}{% endblock %}
     </main>
 
@@ -288,11 +289,11 @@
                 <i class="fas fa-chart-pie"></i>Live
             </a>
             <a href="/tagihan-berekor" class="nav-item-link {% if request.path == '/tagihan-berekor' or request.path == '/tunggakan-berekor' %}active{% endif %}">
-                <i class="fas fa-clock"></i>Tunggakan
+                <i class="fas fa-clock"></i>Ardebt
             </a>
         {% else %}
             <a href="/login" class="nav-item-link">
-                <i class="fas fa-lock"></i>Masuk
+                <i class="fas fa-lock"></i>Login
             </a>
         {% endif %}
         <a href="javascript:void(0)" class="nav-item-link" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNav">
@@ -310,7 +311,6 @@
                 const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
                 document.querySelectorAll('.nav-link-custom').forEach(link => {
                     link.addEventListener('click', () => {
-                        // Tutup menu otomatis jika di HP setelah klik
                         if (window.innerWidth < 992) bsOffcanvas.hide();
                     });
                 });
