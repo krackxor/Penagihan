@@ -1,57 +1,103 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+    
+    .materi-list-item {
+        border: 1px solid transparent;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+    }
+    .materi-list-item:hover {
+        background-color: #f8fafc;
+        transform: translateX(5px);
+        border-color: #f1f5f9;
+    }
+    .materi-list-item.active {
+        background-color: #eff6ff !important;
+        border-color: #2563eb !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+    }
+    .materi-list-item .icon-wrapper {
+        width: 42px; height: 42px;
+        min-width: 42px;
+        background: #f1f5f9;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 12px;
+        transition: 0.3s;
+    }
+    .materi-list-item:hover .icon-wrapper {
+        background: #fff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .materi-list-item.active .icon-wrapper {
+        background: #2563eb;
+        color: white !important;
+    }
+    .materi-list-item.active .icon-wrapper i { color: white !important; }
+
+    #docFrame {
+        width: 100%; height: 750px;
+        border: none;
+        border-radius: 16px;
+        background: #f8fafc;
+    }
+    
+    .fw-800 { font-weight: 800; }
+</style>
+
 <div class="container py-4 animate__animated animate__fadeIn">
     
     <div class="mb-4">
         <h4 class="fw-bold text-dark mb-1">
-            <i class="fa-solid fa-graduation-cap me-2 text-primary"></i>Knowledge Center Area Service
+            <i class="fa-solid fa-graduation-cap me-2 text-primary"></i>Knowledge Center
         </h4>
-        <p class="text-muted small fw-semibold">Repositori Dokumentasi Teknis & Regulasi Operasional Terpadu.</p>
+        <p class="text-muted small fw-semibold">Repositori Dokumentasi & Regulasi Operasional</p>
     </div>
 
     <div class="row g-4">
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm rounded-4 bg-white p-3 border">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-3 border h-100">
                 <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-                    <h6 class="fw-800 mb-0 small text-uppercase" style="letter-spacing: 1px;">Katalog Literatur</h6>
-                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill fw-800" style="font-size: 0.6rem;">
+                    <h6 class="fw-800 mb-0 small text-uppercase text-muted">Katalog Literatur</h6>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill fw-bold" style="font-size: 0.6rem;">
                         {{ files|length }} BERKAS
                     </span>
                 </div>
                 
-                <div class="px-2 mb-3">
-                    <div class="input-group bg-light rounded-3 px-2 border border-light overflow-hidden">
-                        <span class="input-group-text border-0 bg-transparent ps-2">
-                            <i class="fa-solid fa-magnifying-glass text-muted small"></i>
-                        </span>
-                        <input type="text" id="searchMateri" class="form-control border-0 bg-transparent py-2 shadow-none small fw-semibold" 
-                               placeholder="Cari literatur..." onkeyup="filterMateri()">
+                <div class="px-1 mb-3">
+                    <div class="input-group bg-light rounded-pill px-3 border border-light">
+                        <span class="input-group-text border-0 bg-transparent ps-0"><i class="fa-solid fa-magnifying-glass text-muted small"></i></span>
+                        <input type="text" id="searchMateri" class="form-control border-0 bg-transparent shadow-none small fw-bold" 
+                               placeholder="Cari dokumen..." onkeyup="filterMateri()">
                     </div>
                 </div>
 
-                <div class="list-group list-group-flush overflow-auto custom-scrollbar" style="max-height: 500px;">
+                <div class="list-group list-group-flush overflow-auto custom-scrollbar pe-1" style="max-height: 600px;">
                     {% if files %}
                         {% for file in files %}
-                        <button class="list-group-item list-group-item-action border-0 rounded-4 mb-2 d-flex align-items-center gap-3 materi-item animate__animated animate__fadeInUp" 
-                                onclick="viewDocument('{{ file }}')"
-                                data-filename="{{ file }}"
-                                style="animation-delay: {{ loop.index0 * 0.05 }}s">
-                            <div class="icon-box rounded-3 d-flex align-items-center justify-content-center shadow-xs" style="width: 42px; height: 42px; min-width: 42px;">
+                        <div class="list-group-item border-0 rounded-4 mb-2 p-3 d-flex align-items-center gap-3 materi-list-item animate__animated animate__fadeInUp" 
+                             onclick="viewDocument('{{ file }}')" 
+                             data-filename="{{ file }}"
+                             style="animation-delay: {{ loop.index0 * 0.05 }}s">
+                            
+                            <div class="icon-wrapper">
                                 <i class="fa-solid {% if '.pdf' in file|lower %}fa-file-pdf text-danger{% elif '.doc' in file|lower %}fa-file-word text-primary{% else %}fa-file-lines text-secondary{% endif %} fa-lg"></i>
                             </div>
+                            
                             <div class="text-truncate">
-                                <div class="small fw-800 text-dark text-truncate">{{ file }}</div>
-                                <small class="text-muted fw-bold" style="font-size: 0.55rem; letter-spacing: 0.5px;">
-                                    <i class="fa-solid fa-link me-1"></i>TRANSMISI: DIGITAL LINK
-                                </small>
+                                <div class="fw-bold text-dark text-truncate small mb-1">{{ file }}</div>
+                                <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.55rem;">DIGITAL ASSET</span>
                             </div>
-                        </button>
+                        </div>
                         {% endfor %}
                     {% else %}
                         <div class="text-center py-5">
-                            <i class="fa-solid fa-folder-open fa-3x text-light mb-3 opacity-50"></i>
-                            <p class="text-muted small fw-800">Belum ada dokumen yang diunggah.</p>
+                            <i class="fa-solid fa-folder-open fa-3x text-light mb-3"></i>
+                            <p class="text-muted small fw-bold">Tidak ada dokumen tersedia.</p>
                         </div>
                     {% endif %}
                 </div>
@@ -59,32 +105,27 @@
         </div>
 
         <div class="col-md-8">
-            <div class="card border-0 shadow-sm rounded-4 bg-white p-2 h-100 border" style="min-height: 700px;">
-                <div id="viewerEmpty" class="text-center py-5 mt-5">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-1 h-100 border">
+                <div id="viewerEmpty" class="text-center py-5 mt-5 h-100 d-flex flex-column justify-content-center">
                     <div class="mb-4">
-                        <i class="fa-solid fa-file-shield fa-4x text-light opacity-50"></i>
+                        <div class="bg-light rounded-circle d-inline-flex p-4">
+                            <i class="fa-solid fa-book-open fa-3x text-secondary opacity-25"></i>
+                        </div>
                     </div>
-                    <h6 class="text-muted fw-800 text-uppercase" style="letter-spacing: 1px;">Pilih literatur dari katalog</h6>
-                    <p class="small text-muted px-5 fw-semibold">Regulasi dan petunjuk teknis dapat diakses secara terenkripsi melalui portal Area Service.</p>
+                    <h6 class="text-dark fw-800 text-uppercase">Pilih Dokumen</h6>
+                    <p class="small text-muted px-5">Silakan pilih literatur dari daftar di samping untuk melihat preview.</p>
                 </div>
                 
                 <div id="viewerActive" class="d-none h-100 animate__animated animate__fadeIn">
-                    <div class="d-flex justify-content-between align-items-center mb-3 px-3 pt-2">
-                        <div>
-                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 fw-800" style="font-size: 0.6rem; letter-spacing: 1px;">
-                                <i class="fa-solid fa-shield-halved me-1"></i> SECURE PREVIEW
-                            </span>
-                        </div>
-                        <div class="text-end">
-                            <small id="docTitle" class="fw-800 text-dark d-block text-uppercase text-truncate" style="font-size: 0.7rem; max-width: 250px;"></small>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center px-4 py-3 border-bottom">
+                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill fw-bold px-3">
+                            <i class="fa-solid fa-eye me-1"></i> PREVIEW MODE
+                        </span>
+                        <small id="docTitle" class="fw-800 text-dark text-uppercase text-truncate" style="max-width: 300px;"></small>
                     </div>
                     
-                    <div class="px-2 pb-2 h-100">
-                        <iframe id="docFrame" 
-                                src="" 
-                                style="width:100%; height:750px; border: 1px solid #f1f5f9; border-radius: 16px; background: #f8fafc;">
-                        </iframe>
+                    <div class="p-2 h-100">
+                        <iframe id="docFrame" src=""></iframe>
                     </div>
                 </div>
             </div>
@@ -92,48 +133,15 @@
     </div>
 </div>
 
-<style>
-    .fw-800 { font-weight: 800; }
-    .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
-    
-    /* Katalog Interaction */
-    .materi-item { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent !important; }
-    .materi-item .icon-box { background: #f8fafc; transition: 0.3s; border: 1px solid #f1f5f9; }
-    .materi-item:hover { background-color: #f8fafc; transform: translateX(5px); }
-    .materi-item:hover .icon-box { background: #fff; border-color: #2563eb; }
-    
-    .materi-item.active { background-color: #eff6ff !important; border-left: 5px solid #2563eb !important; }
-    .materi-item.active .small { color: #2563eb !important; }
-    
-    /* Viewer Enhancement */
-    #docFrame { box-shadow: inset 0 2px 10px rgba(0,0,0,0.02); }
-    
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-
-    @media (max-width: 767.98px) {
-        .card { min-height: auto !important; }
-        #docFrame { height: 550px !important; }
-        .materi-item:hover { transform: none; }
-    }
-</style>
-
 <script>
-    /**
-     * FILTER MATERI: Fitur pencarian cepat katalog.
-     */
     function filterMateri() {
         const query = document.getElementById('searchMateri').value.toLowerCase();
-        document.querySelectorAll('.materi-item').forEach(item => {
+        document.querySelectorAll('.materi-list-item').forEach(item => {
             const filename = item.getAttribute('data-filename').toLowerCase();
             item.style.display = filename.includes(query) ? 'flex' : 'none';
         });
     }
 
-    /**
-     * TRANSMISI DOKUMEN: Memuat berkas ke iframe aman.
-     */
     function viewDocument(filename) {
         const empty = document.getElementById('viewerEmpty');
         const active = document.getElementById('viewerActive');
@@ -144,31 +152,26 @@
         
         titleDisplay.innerText = filename;
         empty.classList.add('d-none');
+        empty.classList.remove('d-flex');
         active.classList.remove('d-none');
 
         const isPDF = filename.toLowerCase().endsWith('.pdf');
-
         if (isPDF) {
             frame.src = fileUrl;
         } else {
-            // High Reliability Google Viewer for DOCX/XLSX
             frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
         }
 
-        // State Update
-        document.querySelectorAll('.materi-item').forEach(item => {
+        // Active State Styling
+        document.querySelectorAll('.materi-list-item').forEach(item => {
             item.classList.remove('active');
             if(item.getAttribute('data-filename') === filename) {
                 item.classList.add('active');
             }
         });
 
-        // Mobile UX: Autoscroll to Viewer
         if(window.innerWidth < 768) {
-            window.scrollTo({
-                top: active.offsetTop - 80,
-                behavior: 'smooth'
-            });
+            active.scrollIntoView({ behavior: 'smooth' });
         }
     }
 </script>
