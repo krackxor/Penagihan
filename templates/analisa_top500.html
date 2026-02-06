@@ -3,55 +3,104 @@
 {% block content %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        --dark-gradient: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        --glass-white: rgba(255, 255, 255, 0.95);
+    }
+    
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:active { transform: scale(0.98); }
+    .shadow-premium { box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.2); }
+    
+    .nav-pills-premium .nav-link {
+        border-radius: 50rem;
+        padding: 0.5rem 1.5rem;
+        font-weight: 700;
+        color: #64748b;
+        background: #f1f5f9;
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+    }
+    .nav-pills-premium .nav-link.active {
+        background: var(--dark-gradient);
+        color: white;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+    }
+    .nav-pills-premium .nav-link:hover:not(.active) { background: #e2e8f0; }
+    
+    .table-premium thead th { 
+        background: #1e293b; color: white; border: none; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .hover-row:hover { background-color: #f8fafc !important; }
+    
+    .btn-gradient {
+        background: var(--primary-gradient);
+        border: none;
+        color: white;
+        font-weight: 700;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    
+    .fw-800 { font-weight: 800; }
+</style>
+
 <div class="container-fluid py-4 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
     
     <div class="container mb-4">
         <div class="row align-items-center g-3">
             <div class="col-12 col-md-6">
                 <h3 class="fw-bold text-dark mb-1">
-                    <i class="fas fa-crown me-2 text-warning"></i>Analisa Top 500 Belum Bayar
+                    <i class="fas fa-crown me-2 text-warning"></i>Analisa Top 500
                 </h3>
-                <p class="text-muted small mb-0">
-                    Periode Data: <span id="label-periode" class="text-primary fw-bold">Memuat...</span>
+                <p class="text-muted small mb-0 fw-semibold">
+                    Periode Data: <span id="label-periode" class="text-primary">Memuat...</span>
                 </p>
             </div>
+            
             <div class="col-12 col-md-6 d-flex justify-content-md-end gap-2">
-                <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm fw-bold text-primary" 
-                       style="width: 160px; cursor: pointer;" onchange="loadTop500()">
-                
-                <button class="btn btn-sm btn-light border shadow-sm rounded-circle p-2" onclick="loadTop500()" title="Refresh Data">
-                    <i class="fas fa-sync-alt text-primary" id="refresh-icon"></i>
-                </button>
+                <div class="bg-white p-1 rounded-pill shadow-sm border d-flex align-items-center">
+                    <input type="month" id="filter-periode" 
+                           class="form-control form-control-sm border-0 bg-transparent fw-bold text-primary ps-3" 
+                           style="width: 140px; cursor: pointer;" onchange="loadTop500()">
+                    
+                    <button class="btn btn-sm btn-light rounded-circle shadow-none border-start ms-1" onclick="loadTop500()" title="Refresh">
+                        <i class="fas fa-sync-alt text-primary fa-sm" id="refresh-icon"></i>
+                    </button>
+                </div>
 
-                <button class="btn btn-sm btn-success border shadow-sm rounded-circle p-2" onclick="downloadExcel()" title="Export ke Excel">
-                    <i class="fas fa-file-excel"></i>
+                <button class="btn btn-success rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2" onclick="downloadExcel()">
+                    <i class="fas fa-file-excel"></i> <span>Export</span>
                 </button>
             </div>
         </div>
     </div>
 
     <div class="container">
-        <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="card border-0 shadow-lg rounded-4 bg-white overflow-hidden">
             
             <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <ul class="nav nav-pills nav-custom" id="pills-tab" role="tablist">
-                    <li class="nav-item me-2">
-                        <button class="nav-link active rounded-pill px-4 fw-bold small shadow-sm" id="pills-34-tab" data-bs-toggle="pill" data-bs-target="#pills-34" type="button">
+                <ul class="nav nav-pills nav-pills-premium" id="pills-tab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="pills-34-tab" data-bs-toggle="pill" data-bs-target="#pills-34" type="button">
                             <i class="fas fa-building me-2"></i>RAYON 34 
-                            <span class="badge bg-white text-primary ms-1 shadow-sm" id="count-34">0</span>
+                            <span class="badge bg-white text-dark ms-2 shadow-sm rounded-pill" id="count-34">0</span>
                         </button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link rounded-pill px-4 fw-bold small shadow-sm" id="pills-35-tab" data-bs-toggle="pill" data-bs-target="#pills-35" type="button">
+                        <button class="nav-link" id="pills-35-tab" data-bs-toggle="pill" data-bs-target="#pills-35" type="button">
                             <i class="fas fa-city me-2"></i>RAYON 35 
-                            <span class="badge bg-white text-info ms-1 shadow-sm" id="count-35">0</span>
+                            <span class="badge bg-white text-dark ms-2 shadow-sm rounded-pill" id="count-35">0</span>
                         </button>
                     </li>
                 </ul>
 
-                <div class="search-box position-relative" style="width: 250px;">
-                    <i class="fas fa-search position-absolute text-muted" style="left: 15px; top: 50%; transform: translateY(-50%);"></i>
-                    <input type="text" id="searchBox" class="form-control border-0 shadow-sm ps-5 rounded-pill small fw-bold" placeholder="Cari Pelanggan..." onkeyup="filterTable()">
+                <div class="input-group" style="width: 300px;">
+                    <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="searchBox" class="form-control border-start-0 bg-white rounded-end-pill shadow-none" placeholder="Cari Pelanggan..." onkeyup="filterTable()">
                 </div>
             </div>
 
@@ -59,16 +108,16 @@
                 <div class="tab-content" id="pills-tabContent">
                     
                     <div class="tab-pane fade show active" id="pills-34">
-                        <div class="table-responsive" style="max-height: 60vh;">
-                            <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
-                                <thead class="bg-primary text-white sticky-top">
-                                    <tr class="text-uppercase fw-bold small">
-                                        <th class="ps-4 py-3" style="width: 50px;">#</th>
-                                        <th style="width: 140px;">Zona</th>
+                        <div class="table-responsive custom-scrollbar" style="max-height: 65vh;">
+                            <table class="table table-hover align-middle mb-0 table-premium">
+                                <thead class="sticky-top shadow-sm">
+                                    <tr>
+                                        <th class="ps-4 py-3 text-center" style="width: 50px;">#</th>
+                                        <th>Zona & Petugas</th>
                                         <th>Identitas Pelanggan</th>
                                         <th class="text-end">Tagihan</th>
-                                        <th style="width: 30%;">Analisa</th>
-                                        <th class="text-center pe-4" style="width: 60px;">Aksi</th>
+                                        <th style="width: 35%;">Analisa Lapangan</th>
+                                        <th class="text-center pe-4" style="width: 80px;">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-34">
@@ -79,16 +128,16 @@
                     </div>
 
                     <div class="tab-pane fade" id="pills-35">
-                        <div class="table-responsive" style="max-height: 60vh;">
-                            <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
-                                <thead class="bg-info text-white sticky-top">
-                                    <tr class="text-uppercase fw-bold small">
-                                        <th class="ps-4 py-3" style="width: 50px;">#</th>
-                                        <th style="width: 140px;">Zona</th>
+                        <div class="table-responsive custom-scrollbar" style="max-height: 65vh;">
+                            <table class="table table-hover align-middle mb-0 table-premium">
+                                <thead class="sticky-top shadow-sm">
+                                    <tr>
+                                        <th class="ps-4 py-3 text-center" style="width: 50px;">#</th>
+                                        <th>Zona & Petugas</th>
                                         <th>Identitas Pelanggan</th>
                                         <th class="text-end">Tagihan</th>
-                                        <th style="width: 30%;">Analisa</th>
-                                        <th class="text-center pe-4" style="width: 60px;">Aksi</th>
+                                        <th style="width: 35%;">Analisa Lapangan</th>
+                                        <th class="text-center pe-4" style="width: 80px;">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-35">
@@ -106,37 +155,31 @@
 
 <div class="modal fade" id="modalAnalisa" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-0 bg-light px-4 pt-4">
-                <h6 class="modal-title fw-bold"><i class="fas fa-edit me-2 text-primary"></i>Update Analisa</h6>
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-light px-4 pt-4 pb-2">
+                <h6 class="modal-title fw-bold text-uppercase"><i class="fas fa-edit me-2 text-primary"></i>Update Analisa</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
+            <div class="modal-body p-4 pt-2">
                 <input type="hidden" id="modal-nomen">
-                <div class="mb-4 text-center p-3 bg-light rounded-4 border border-dashed">
+                
+                <div class="bg-primary bg-opacity-10 p-3 rounded-4 text-center border border-primary border-opacity-25 mb-3">
                     <h5 class="fw-bold mb-1 text-dark" id="modal-nama">-</h5>
-                    <div class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" id="modal-sub">-</div>
+                    <small class="text-muted fw-bold d-block" id="modal-sub">-</small>
                 </div>
+
                 <div class="mb-4">
-                    <label class="form-label small fw-bold text-muted">Keterangan Hasil Kunjungan</label>
-                    <textarea id="modal-keterangan" class="form-control rounded-3 shadow-sm border p-3" rows="4" placeholder="Tulis hasil analisa lapangan di sini..."></textarea>
+                    <label class="form-label small fw-bold text-muted text-uppercase">Keterangan Hasil Kunjungan</label>
+                    <textarea id="modal-keterangan" class="form-control rounded-3 shadow-sm border p-3" rows="5" placeholder="Tulis hasil analisa lapangan di sini..."></textarea>
                 </div>
-                <button onclick="saveAnalisa()" class="btn btn-primary w-100 rounded-pill fw-bold py-3 shadow-lg">
+                
+                <button onclick="saveAnalisa()" class="btn btn-gradient w-100 rounded-pill py-3 shadow-lg card-hover">
                     <i class="fas fa-save me-2"></i> SIMPAN PERUBAHAN
                 </button>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    .nav-custom .nav-link.active { background-color: #0f172a; color: white; }
-    .nav-custom .nav-link { background-color: #e2e8f0; color: #64748b; }
-    .table-responsive::-webkit-scrollbar { width: 6px; height: 6px; }
-    .table-responsive::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    .btn-light { background: #fff; border-color: #e2e8f0; }
-    .btn-light:hover { background: #f8fafc; }
-</style>
 
 <script>
     let modalInstance; 
@@ -185,76 +228,50 @@
         }
     }
 
-    // EXPORT EXCEL
-    function downloadExcel() {
-        if (allData34.length === 0 && allData35.length === 0) {
-            Swal.fire('Data Kosong', 'Tidak ada data untuk diekspor', 'info');
-            return;
-        }
-
-        const formatData = (data) => data.map((item, index) => ({
-            "No": index + 1,
-            "ID Pelanggan": item.nomen,
-            "Nama Pelanggan": item.nama,
-            "Alamat": item.alamat,
-            "Rayon": item.rayon,
-            "Zona (PCEZ)": item.pcez,
-            "Petugas": item.petugas_rute,
-            "Tagihan (Rp)": item.nominal,
-            "Kubikasi": item.kubik,
-            "Analisa": item.analisa,
-            "Auditor": item.auditor
-        }));
-
-        const wb = XLSX.utils.book_new();
-        if (allData34.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatData(allData34)), "Rayon 34");
-        if (allData35.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatData(allData35)), "Rayon 35");
-
-        XLSX.writeFile(wb, `Analisa_Pareto_${document.getElementById('label-periode').innerText}.xlsx`);
-    }
-
     function renderTable(tbodyId, data) {
         const tbody = document.getElementById(tbodyId);
         if(data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted small">Data Bersih / Lunas Semua! 🎉</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted small"><i class="fas fa-check-circle fa-2x text-success mb-2"></i><br>Data Bersih / Lunas Semua!</td></tr>`;
             return;
         }
 
         tbody.innerHTML = data.map((item, index) => {
             const hasAnalisa = item.analisa !== '-';
-            const rowBg = hasAnalisa ? 'bg-success bg-opacity-10' : '';
+            const rowClass = hasAnalisa ? 'bg-success bg-opacity-10' : 'hover-row';
             
             const analisaDisplay = hasAnalisa 
                 ? `<div class="d-flex flex-column">
                      <span class="fw-bold text-dark" style="font-size: 0.75rem;">${item.analisa}</span>
-                     <span class="text-muted small mt-1" style="font-size: 0.65rem;"><i class="fas fa-user-check me-1"></i>${item.auditor}</span>
+                     <span class="text-muted small mt-1 badge bg-light text-dark border w-auto align-self-start"><i class="fas fa-user-check me-1 text-success"></i>${item.auditor}</span>
                    </div>` 
-                : `<span class="badge bg-light text-muted border" style="font-size: 0.65rem;">BELUM ADA CEK</span>`;
+                : `<span class="badge bg-light text-muted border fw-normal" style="font-size: 0.65rem;">BELUM ADA CEK</span>`;
 
             return `
-                <tr class="${rowBg}">
-                    <td class="ps-4 fw-bold text-muted text-center small">${index + 1}</td>
+                <tr class="${rowClass}">
+                    <td class="ps-4 fw-bold text-secondary text-center small">${index + 1}</td>
                     <td>
-                        <span class="badge bg-white text-dark border fw-bold">${item.pcez}</span>
-                        <div class="small text-primary mt-1 fw-bold text-truncate" style="font-size: 0.65rem; max-width: 100px;">
+                        <span class="badge bg-dark rounded-pill fw-bold px-2 mb-1">${item.pcez}</span>
+                        <div class="small text-primary fw-bold text-truncate" style="font-size: 0.7rem; max-width: 120px;">
                             ${item.petugas_rute}
                         </div>
                     </td>
                     <td>
-                        <div class="fw-bold text-dark" style="font-size: 0.8rem;">${item.nama}</div>
-                        <div class="small text-muted font-monospace">${item.nomen}</div>
-                        <div class="small text-muted text-truncate" style="max-width: 200px; font-size: 0.7rem;">${item.alamat}</div>
+                        <div class="fw-bold text-dark" style="font-size: 0.85rem;">${item.nama}</div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.6rem;">${item.nomen}</span>
+                            <span class="text-muted small text-truncate" style="max-width: 180px; font-size: 0.7rem;">${item.alamat}</span>
+                        </div>
                     </td>
-                    <td class="text-end fw-bold text-danger" style="font-size: 0.85rem;">
+                    <td class="text-end fw-800 text-danger" style="font-size: 0.9rem;">
                         Rp ${formatIDR(item.nominal)}
                     </td>
-                    <td class="align-middle border-start border-end bg-white bg-opacity-50">
+                    <td class="align-middle border-start border-end bg-white bg-opacity-50 px-3">
                         ${analisaDisplay}
                     </td>
                     <td class="text-center pe-4">
-                        <button class="btn btn-sm btn-white border shadow-sm rounded-circle p-2" 
+                        <button class="btn btn-sm btn-white border shadow-sm rounded-circle p-2 card-hover" 
                                 onclick="openModal('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}', '${formatIDR(item.nominal)}', '${item.analisa.replace(/'/g, "\\'")}')">
-                            <i class="fas fa-pencil-alt text-primary"></i>
+                            <i class="fas fa-pen text-primary"></i>
                         </button>
                     </td>
                 </tr>
@@ -296,7 +313,7 @@
             const result = await res.json();
             
             if(result.status === 'success') {
-                Swal.fire({ icon: 'success', title: 'Tersimpan', timer: 800, showConfirmButton: false });
+                Swal.fire({ icon: 'success', title: 'Tersimpan', timer: 1000, showConfirmButton: false });
                 modalInstance.hide();
                 loadTop500(); 
             } else {
@@ -305,6 +322,33 @@
         } catch(e) {
             Swal.fire('Error', 'Gagal terhubung ke server', 'error');
         }
+    }
+
+    function downloadExcel() {
+        if (allData34.length === 0 && allData35.length === 0) {
+            Swal.fire('Data Kosong', 'Tidak ada data untuk diekspor', 'info');
+            return;
+        }
+
+        const formatData = (data) => data.map((item, index) => ({
+            "No": index + 1,
+            "ID Pelanggan": item.nomen,
+            "Nama Pelanggan": item.nama,
+            "Alamat": item.alamat,
+            "Rayon": item.rayon,
+            "Zona (PCEZ)": item.pcez,
+            "Petugas": item.petugas_rute,
+            "Tagihan (Rp)": item.nominal,
+            "Kubikasi": item.kubik,
+            "Analisa": item.analisa,
+            "Auditor": item.auditor
+        }));
+
+        const wb = XLSX.utils.book_new();
+        if (allData34.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatData(allData34)), "Rayon 34");
+        if (allData35.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatData(allData35)), "Rayon 35");
+
+        XLSX.writeFile(wb, `Analisa_Pareto_${document.getElementById('label-periode').innerText}.xlsx`);
     }
 </script>
 {% endblock %}
