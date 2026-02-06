@@ -5,83 +5,112 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
+    /* Premium Table Styling */
+    .table-premium thead th { 
+        background: #1e293b; color: white; border: none; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle;
+    }
+    
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-2px); }
+    
+    .nav-pills-premium .nav-link {
+        border-radius: 50rem;
+        padding: 0.5rem 1.5rem;
+        font-weight: 700;
+        color: #64748b;
+        background: #f1f5f9;
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+    }
+    .nav-pills-premium .nav-link.active {
+        background: #0f172a;
+        color: white;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+    }
+    .nav-pills-premium .nav-link:hover:not(.active) { background: #e2e8f0; }
+
     .pulse-red { animation: pulse-red-anim 2s infinite; }
     @keyframes pulse-red-anim {
         0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
         70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
         100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
     }
+    
     .pulse-yellow { animation: pulse-yellow-anim 2s infinite; }
     @keyframes pulse-yellow-anim {
         0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
         70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
         100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
     }
-    .blink-me { animation: blinker 1.5s linear infinite; }
-    @keyframes blinker { 50% { opacity: 0; } }
+    
+    .fw-800 { font-weight: 800; }
 </style>
 
-<div class="animate__animated animate__fadeIn">
-    <div class="px-3 pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+<div class="px-2 pb-5 animate__animated animate__fadeIn">
+    
+    <div class="pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
             <h4 class="fw-bold mb-1 text-dark">
-                <i class="fa-solid fa-gem me-2 text-warning"></i>Pelanggan Premium Stabil
+                <i class="fa-solid fa-gem me-2 text-warning"></i>Pelanggan Premium
             </h4>
             <p class="text-muted small mb-0 fw-semibold">
                 <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                Klik <b>ID Pelanggan (Nomen)</b> untuk melihat history. Baris berwarna menandakan <b>Anomali</b>.
+                Monitoring kestabilan dan deteksi dini anomali pemakaian.
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2">
-            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm fw-bold text-primary" 
+        <div class="d-flex gap-2">
+            <input type="month" id="filter-periode" class="form-control form-control-sm border-0 shadow-sm fw-bold text-primary rounded-pill px-3" 
                    style="width: 150px; cursor: pointer;" onchange="loadPremium()">
             
-            <button class="btn btn-sm btn-success border shadow-sm rounded-circle p-2" onclick="downloadExcel()" title="Export Excel">
+            <button class="btn btn-success shadow-sm rounded-circle p-2 btn-sm" onclick="downloadExcel()" title="Export Excel">
                 <i class="fa-solid fa-file-excel"></i>
             </button>
         </div>
     </div>
 
-    <div class="mx-3 mb-3 d-flex gap-3 flex-wrap">
-        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2">
-            <i class="fa-solid fa-triangle-exclamation me-1"></i> LONJAKAN (>50%)
+    <div class="mb-4 d-flex gap-2 flex-wrap px-2">
+        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2 rounded-pill fw-bold small">
+            <i class="fa-solid fa-arrow-trend-up me-1"></i> LONJAKAN (>50%)
         </span>
-        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2">
-            <i class="fa-solid fa-arrow-down-long me-1"></i> DROP EKSTREM (>50%)
+        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2 rounded-pill fw-bold small">
+            <i class="fa-solid fa-arrow-trend-down me-1"></i> DROP (>50%)
         </span>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4 mx-3 mb-5 bg-white border">
-        <div class="card-body p-0">
-            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center rounded-top-4 flex-wrap gap-3">
-                <ul class="nav nav-pills nav-sm" id="pills-tab" role="tablist">
-                    <li class="nav-item me-2">
-                        <button class="nav-link active rounded-pill px-4 fw-bold small shadow-sm" data-bs-toggle="pill" data-bs-target="#pills-34">
-                            RAYON 34 <span class="badge bg-white text-primary ms-1" id="count-34">0</span>
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link rounded-pill px-4 fw-bold small shadow-sm" data-bs-toggle="pill" data-bs-target="#pills-35">
-                            RAYON 35 <span class="badge bg-white text-info ms-1" id="count-35">0</span>
-                        </button>
-                    </li>
-                </ul>
+    <div class="card border-0 shadow-lg rounded-4 overflow-hidden bg-white">
+        
+        <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <ul class="nav nav-pills nav-pills-premium" id="pills-tab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pills-34">
+                        RAYON 34 <span class="badge bg-white text-dark ms-2 shadow-sm rounded-pill" id="count-34">0</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-35">
+                        RAYON 35 <span class="badge bg-white text-dark ms-2 shadow-sm rounded-pill" id="count-35">0</span>
+                    </button>
+                </li>
+            </ul>
 
-                <div class="input-group" style="width: 250px;">
-                    <span class="input-group-text border-0 bg-white ps-3"><i class="fa-solid fa-search text-muted"></i></span>
-                    <input type="text" id="searchBox" class="form-control border-0 shadow-none small fw-bold" placeholder="Cari Nama / IDPEL..." onkeyup="filterTable()">
-                </div>
+            <div class="input-group" style="width: 250px;">
+                <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="searchBox" class="form-control border-start-0 bg-white rounded-end-pill shadow-none fw-bold small" 
+                       placeholder="Cari Pelanggan..." onkeyup="filterTable()">
             </div>
+        </div>
 
+        <div class="card-body p-0">
             <div class="tab-content" id="pills-tabContent">
+                
                 <div class="tab-pane fade show active" id="pills-34">
-                    <div class="table-responsive" style="max-height: 65vh;">
-                        <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
-                            <thead class="bg-dark text-warning sticky-top">
-                                <tr class="text-uppercase fw-800">
-                                    <th class="ps-4 py-3">No</th>
-                                    <th>Identitas Pelanggan (Klik Nomen)</th>
-                                    <th class="text-center">Avg Historis</th>
+                    <div class="table-responsive custom-scrollbar" style="max-height: 65vh;">
+                        <table class="table table-hover align-middle mb-0 table-premium">
+                            <thead class="sticky-top shadow-sm">
+                                <tr>
+                                    <th class="ps-4 py-3 text-center" style="width: 50px;">No</th>
+                                    <th>Identitas Pelanggan</th>
+                                    <th class="text-center">Rata-rata</th>
                                     <th class="text-end">Kubik Kini</th>
                                     <th class="text-end pe-4">Tagihan</th>
                                 </tr>
@@ -92,13 +121,13 @@
                 </div>
 
                 <div class="tab-pane fade" id="pills-35">
-                    <div class="table-responsive" style="max-height: 65vh;">
-                        <table class="table table-hover align-middle mb-0" style="font-size: 0.75rem;">
-                            <thead class="bg-dark text-warning sticky-top">
-                                <tr class="text-uppercase fw-800">
-                                    <th class="ps-4 py-3">No</th>
-                                    <th>Identitas Pelanggan (Klik Nomen)</th>
-                                    <th class="text-center">Avg Historis</th>
+                    <div class="table-responsive custom-scrollbar" style="max-height: 65vh;">
+                        <table class="table table-hover align-middle mb-0 table-premium">
+                            <thead class="sticky-top shadow-sm">
+                                <tr>
+                                    <th class="ps-4 py-3 text-center" style="width: 50px;">No</th>
+                                    <th>Identitas Pelanggan</th>
+                                    <th class="text-center">Rata-rata</th>
                                     <th class="text-end">Kubik Kini</th>
                                     <th class="text-end pe-4">Tagihan</th>
                                 </tr>
@@ -107,6 +136,7 @@
                         </table>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -114,43 +144,42 @@
 
 <div class="modal fade" id="modalHistory" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-0 bg-light">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-light border-0 px-4 pt-4 pb-2">
                 <div>
-                    <h5 class="modal-title fw-800 text-dark" id="modalNama">-</h5>
+                    <h5 class="modal-title fw-800 text-dark mb-1" id="modalNama">-</h5>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-warning text-dark border border-dark border-opacity-25" id="modalNomen">-</span>
-                        <small class="text-muted fw-bold">Riwayat Pemakaian & Pembayaran</small>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" id="modalNomen">-</span>
+                        <small class="text-muted fw-bold">Riwayat Pemakaian</small>
                     </div>
                 </div>
-                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
-                
-                <div class="card border-0 shadow-sm mb-4 bg-white">
+            <div class="modal-body p-4 pt-2">
+                <div class="card border-0 shadow-sm mb-4 bg-white rounded-4 border">
                     <div class="card-body">
-                        <h6 class="fw-bold text-primary small mb-3"><i class="fa-solid fa-chart-line me-2"></i>Grafik Kestabilan Kubik</h6>
-                        <div style="height: 200px;">
+                        <h6 class="fw-bold text-primary small mb-3 text-uppercase">
+                            <i class="fa-solid fa-chart-line me-2"></i>Tren Kestabilan Kubikasi
+                        </h6>
+                        <div style="height: 220px;">
                             <canvas id="stabilityChart"></canvas>
                         </div>
                     </div>
                 </div>
 
                 <div class="table-responsive rounded-3 border">
-                    <table class="table table-hover table-striped mb-0 align-middle" style="font-size: 0.8rem;">
-                        <thead class="bg-primary text-white">
+                    <table class="table table-hover table-sm mb-0 align-middle text-center small">
+                        <thead class="bg-dark text-white">
                             <tr>
-                                <th class="ps-3 py-2">Periode</th>
-                                <th class="text-center">Volume (m³)</th>
+                                <th class="py-2">Periode</th>
+                                <th>Volume (m³)</th>
                                 <th class="text-end">Nominal (Rp)</th>
-                                <th class="text-center pe-3">Status Bayar</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody id="modalTableBody">
-                            </tbody>
+                        <tbody id="modalTableBody"></tbody>
                     </table>
                 </div>
-
             </div>
         </div>
     </div>
@@ -169,8 +198,7 @@
         if (parts.length !== 2) return periodeStr;
         const bulanIndex = parseInt(parts[0]) - 1;
         const tahun = parts[1];
-        const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-                           "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const namaBulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
         return `${namaBulan[bulanIndex]} ${tahun}`;
     }
 
@@ -204,58 +232,54 @@
         } catch(e) { console.error(e); }
     }
 
-    // ✅ RENDER TABLE DENGAN DETEKSI ANOMALI
     function renderTable(tbodyId, data) {
         const tbody = document.getElementById(tbodyId);
         if(data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-5 text-muted">Tidak ada data premium.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-5 text-muted small fw-bold">Tidak ada data premium.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = data.map((item, index) => {
-            // LOGIKA ANOMALI (Merah/Kuning)
-            let rowClass = "transition-row";
+            let rowClass = "hover-row";
             let warningBadge = "";
             let pulseClass = "";
 
             if (item.anomali_status === 'HIGH') {
-                rowClass = "table-danger border-danger"; // Warna Merah
-                warningBadge = `<div class="badge bg-danger blink-me mt-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>LONJAKAN EKSTREM</div>`;
+                rowClass = "table-danger border-danger";
+                warningBadge = `<div class="badge bg-danger text-white border border-light mt-1 shadow-sm"><i class="fa-solid fa-arrow-trend-up me-1"></i>NAIK EKSTREM</div>`;
                 pulseClass = "pulse-red";
             } else if (item.anomali_status === 'LOW') {
-                rowClass = "table-warning border-warning"; // Warna Kuning
-                warningBadge = `<div class="badge bg-warning text-dark mt-1"><i class="fa-solid fa-arrow-down me-1"></i>DROP DRASTIS</div>`;
+                rowClass = "table-warning border-warning";
+                warningBadge = `<div class="badge bg-warning text-dark border border-dark border-opacity-25 mt-1 shadow-sm"><i class="fa-solid fa-arrow-trend-down me-1"></i>DROP DRASTIS</div>`;
                 pulseClass = "pulse-yellow";
             }
 
             const trendIcon = item.kubik >= item.avg_kubik_historis 
-                ? '<i class="fa-solid fa-arrow-trend-up text-success ms-1"></i>' 
-                : '<i class="fa-solid fa-arrow-trend-down text-danger ms-1"></i>';
+                ? '<i class="fa-solid fa-caret-up text-success ms-1"></i>' 
+                : '<i class="fa-solid fa-caret-down text-danger ms-1"></i>';
 
             return `
                 <tr class="${rowClass}">
-                    <td class="ps-4 fw-800 text-muted ${pulseClass}">${index + 1}</td>
+                    <td class="ps-4 fw-800 text-secondary text-center small ${pulseClass}">${index + 1}</td>
                     <td>
-                        <div class="fw-800 text-dark">${item.nama}</div>
-                        
-                        <a href="javascript:void(0)" 
-                           onclick="openHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')" 
-                           class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 text-decoration-none px-2 py-1 mt-1 fs-6">
-                           <i class="fa-solid fa-search me-1"></i>${item.nomen}
+                        <div class="fw-800 text-dark small text-uppercase">${item.nama}</div>
+                        <a href="javascript:void(0)" onclick="openHistory('${item.nomen}', '${item.nama.replace(/'/g, "\\'")}')" 
+                           class="badge bg-white text-primary border text-decoration-none mt-1 font-monospace shadow-sm">
+                           ${item.nomen}
                         </a>
                         ${warningBadge}
                         <div class="small text-muted mt-1 text-truncate" style="max-width: 250px;">
-                            <i class="fa-solid fa-map-pin me-1 text-danger"></i>${item.alamat}
+                            <i class="fa-solid fa-location-dot me-1 text-secondary"></i>${item.alamat}
                         </div>
                     </td>
-                    <td class="text-center align-middle">
-                        <span class="fw-bold text-secondary">${item.avg_kubik_historis} m³</span>
-                        <div class="small text-muted" style="font-size:0.65rem">Rata-rata</div>
+                    <td class="text-center">
+                        <span class="fw-bold text-secondary small">${item.avg_kubik_historis} m³</span>
+                        <div class="small text-muted" style="font-size:0.6rem">Rata-rata</div>
                     </td>
-                    <td class="text-end align-middle fw-800 fs-5 text-dark">
+                    <td class="text-end fw-800 text-dark">
                         ${item.kubik} ${trendIcon}
                     </td>
-                    <td class="text-end align-middle fw-800 text-primary pe-4">
+                    <td class="text-end fw-bold text-primary pe-4 small">
                         Rp ${formatIDR(item.nominal)}
                     </td>
                 </tr>
@@ -263,7 +287,6 @@
         }).join('');
     }
 
-    // ✅ KLIK NOMEN -> FETCH DATA HISTORY
     async function openHistory(nomen, nama) {
         document.getElementById('modalNama').innerText = nama;
         document.getElementById('modalNomen').innerText = nomen;
@@ -277,32 +300,29 @@
             if(result.status === 'success') {
                 renderChartAndTable(result.data);
             }
-        } catch(e) {
-            console.error("Gagal load history", e);
-        }
+        } catch(e) { console.error("Gagal load history", e); }
     }
 
     function renderChartAndTable(data) {
-        // 1. Render Tabel Detail (Urutan Terbaru di Atas)
         const tbody = document.getElementById('modalTableBody');
         const reversedData = [...data].reverse(); 
         
         tbody.innerHTML = reversedData.map(row => {
             const statusBadge = row.lunas == 1
-                ? '<span class="badge bg-success rounded-pill shadow-sm"><i class="fa-solid fa-check me-1"></i>LUNAS</span>'
-                : '<span class="badge bg-danger rounded-pill shadow-sm"><i class="fa-solid fa-xmark me-1"></i>BELUM</span>';
+                ? '<span class="badge bg-success bg-opacity-10 text-success rounded-pill border border-success border-opacity-25">LUNAS</span>'
+                : '<span class="badge bg-danger bg-opacity-10 text-danger rounded-pill border border-danger border-opacity-25">BELUM</span>';
 
             return `
                 <tr>
                     <td class="ps-3 fw-bold text-secondary">${formatPeriodeIndo(row.periode)}</td>
-                    <td class="text-center fw-800 text-dark fs-6">${row.kubik}</td>
-                    <td class="text-end fw-bold text-primary">Rp ${formatIDR(row.nominal)}</td>
-                    <td class="text-center pe-3">${statusBadge}</td>
+                    <td class="fw-800 text-dark">${row.kubik}</td>
+                    <td class="text-end text-muted small">Rp ${formatIDR(row.nominal)}</td>
+                    <td class="text-center">${statusBadge}</td>
                 </tr>
             `;
         }).join('');
 
-        // 2. Render Chart (Urutan Lama -> Baru)
+        // Chart
         const labels = data.map(d => formatPeriodeIndo(d.periode));
         const values = data.map(d => d.kubik);
 
@@ -319,9 +339,9 @@
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(37, 99, 235, 0.1)',
                     borderWidth: 2,
+                    pointRadius: 4,
                     pointBackgroundColor: '#fff',
                     pointBorderColor: '#2563eb',
-                    pointRadius: 5,
                     fill: true,
                     tension: 0.3
                 }]
