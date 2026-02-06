@@ -1,29 +1,28 @@
-Tentu, mari kita buat panduan ini menjadi **lebih terstruktur, rapi, dan lengkap**.
+Menjalankan aplikasi **tanpa venv** berarti Anda akan menginstal semua library Python langsung ke sistem utama Ubuntu. Ini lebih praktis jika VPS tersebut memang hanya digunakan untuk satu aplikasi ini saja.
 
-Panduan ini sudah saya sesuaikan agar mencakup solusi untuk masalah **upload file besar (16MB)** yang sebelumnya gagal karena *timeout* atau limitasi Nginx.
-
-Berikut adalah **"Master Guide: Migrasi & Setup Server Penagihan"**.
+Berikut adalah panduan instalasi lengkap dari awal tanpa menggunakan venv, lengkap dengan kesimpulan dan tips maintenance:
 
 ---
 
-### 📋 Tahap 1: Persiapan Lingkungan Server (VPS)
+### **Panduan Lengkap Setup Server Penagihan (Tanpa Venv)**
 
-Lakukan ini segera setelah login ke VPS baru via SSH.
+Memindahkan aplikasi dari VPS lama ke VPS baru memang membutuhkan ketelitian. Karena kamu sudah memiliki domain **areaservice.site**, prosesnya akan lebih cepat karena kita hanya perlu mengarahkan domain ke IP yang baru (**174.138.22.143**).
 
-**1. Update & Install Paket Wajib**
+---
+
+#### **Langkah 1: Persiapan Server Baru**
+
+Masuk ke VPS baru melalui SSH dan update sistemnya.
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install python3-pip python3-venv nginx git certbot python3-certbot-nginx sqlite3 -y
+sudo apt install python3-pip nginx git certbot python3-certbot-nginx sqlite3 -y
 
 ```
 
----
+#### **Langkah 2: Pindahkan Kode Aplikasi**
 
-### 📥 Tahap 2: Instalasi Kode Aplikasi
-
-**1. Clone Repository**
-Pastikan Anda berada di direktori `root` atau `home`.
+Gunakan Git untuk menarik kode kamu kembali ke VPS baru.
 
 ```bash
 cd ~
@@ -32,25 +31,21 @@ cd Penagihan
 
 ```
 
-**2. Setup Virtual Environment (Venv)**
-Ini wajib agar library Python terisolasi dan tidak merusak sistem.
+#### **Langkah 3: Install Library Langsung ke Sistem**
+
+Karena tidak menggunakan `venv`, kita instal library langsung menggunakan `pip`.
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-
-```
-
-**3. Install Library & Gunicorn**
-
-```bash
+# Instal library pengolah gambar dan server produksi
+pip install Pillow gunicorn
+# Instal sisa library dari requirements
 pip install -r requirements.txt
-pip install gunicorn
 
 ```
 
-**4. Inisialisasi Database**
-Kita buat folder database dan isi struktur tabelnya.
+#### **Langkah 4: Inisialisasi Database**
+
+Buat database SQLite kembali berdasarkan skema yang ada.
 
 ```bash
 mkdir -p instance
@@ -58,78 +53,52 @@ sqlite3 instance/penagihan.db < schema.sql
 
 ```
 
-*(Cek apakah file terbentuk dengan `ls instance/`)*.
+#### **Langkah 5: Konfigurasi Gunicorn Service (Auto-Run)**
 
----
+Agar aplikasi tidak mati saat terminal ditutup dan sanggup memproses file besar.
 
-### ⚙️ Tahap 3: Konfigurasi Service Aplikasi (Systemd)
-
-Kita tidak akan menjalankan Gunicorn secara manual. Kita akan menjadikannya **Service** agar otomatis menyala jika server restart, dan kita akan menyematkan konfigurasi **Anti-Timeout** di sini.
-
-**1. Buat File Service**
-
-```bash
-sudo nano /etc/systemd/system/penagihan.service
-
-```
-
-**2. Isi Konfigurasi (Copy-Paste Semua)**
-*Perhatikan bagian `ExecStart`, kita sudah menambahkan timeout 600 detik (10 menit) untuk menangani upload file besar.*
+1. Buka file: `sudo nano /etc/systemd/system/penagihan.service`
+2. Tempelkan kode ini:
 
 ```ini
 [Unit]
-Description=Gunicorn Instance untuk Aplikasi Penagihan
+Description=Gunicorn Penagihan
 After=network.target
 
 [Service]
-# User root (atau ganti sesuai user VPS kamu, misal: ubuntu)
 User=root
-Group=www-data
-
-# Lokasi Folder Aplikasi
 WorkingDirectory=/root/Penagihan
-
-# Lokasi Environment Python
-Environment="PATH=/root/Penagihan/venv/bin"
-
-# Perintah Eksekusi (PENTING: Timeout 600s & Workers 3)
-ExecStart=/root/Penagihan/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --timeout 600 --limit-request-line 0 "app:create_app()"
+# Jalankan gunicorn langsung dari sistem (tanpa path venv)
+ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --timeout 600 --limit-request-line 0 "app:create_app()"
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
 
 ```
 
-**3. Aktifkan Service**
+3. Aktifkan:
 
 ```bash
-sudo systemctl start penagihan
+sudo systemctl daemon-reload
 sudo systemctl enable penagihan
+sudo systemctl start penagihan
 
 ```
 
----
+#### **Langkah 6: Konfigurasi Nginx (Pintu Masuk)**
 
-### 🌐 Tahap 4: Konfigurasi Nginx (Gateway)
+Atur Nginx agar mendukung upload file besar dan sinkron dengan timeout Gunicorn.
 
-Kita harus mengatur Nginx agar menerima file besar (hingga 64MB) dan tidak memutus koneksi saat Gunicorn sedang memproses data.
-
-**1. Buat File Konfigurasi Nginx**
-
-```bash
-sudo nano /etc/nginx/sites-available/penagihan
-
-```
-
-**2. Isi Konfigurasi (Copy-Paste Semua)**
+1. Buka file: `sudo nano /etc/nginx/sites-available/penagihan`
+2. Tempelkan kode ini:
 
 ```nginx
 server {
     listen 80;
     server_name areaservice.site www.areaservice.site;
 
-    # PENTING: Izinkan upload file hingga 64MB
-    client_max_body_size 64M;
+    client_max_body_size 64M; # Agar file 16MB tidak ditolak
 
     location / {
         proxy_pass http://127.0.0.1:5000;
@@ -138,7 +107,6 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # PENTING: Timeout Nginx disamakan dengan Gunicorn (10 menit)
         proxy_read_timeout 600;
         proxy_connect_timeout 600;
         proxy_send_timeout 600;
@@ -147,64 +115,51 @@ server {
 
 ```
 
-**3. Aktifkan Konfigurasi**
+3. Aktifkan:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/penagihan /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default  # Hapus config default jika ada
-sudo nginx -t                             # Cek apakah ada error syntax
-sudo systemctl restart nginx
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
 
 ```
 
----
+#### **Langkah 7: Update DNS & SSL**
 
-### 🔒 Tahap 5: Update DNS & SSL (HTTPS)
+1. Ganti IP di Dashboard Domain ke: **174.138.22.143**.
+2. Jalankan Certbot untuk HTTPS:
 
-1. **Update DNS:** Buka panel domain Anda, ubah **A Record** domain `areaservice.site` ke IP VPS Baru.
-2. **Install SSL:**
 ```bash
 sudo certbot --nginx -d areaservice.site -d www.areaservice.site
 
 ```
 
+---
 
-*(Ikuti instruksi di layar, pilih Redirect HTTP to HTTPS jika ditanya).*
+### **Tips Cepat: Cara Kill & Run (Maintenance)**
+
+Jika kamu ingin mematikan atau menjalankan ulang secara manual setelah edit kode:
+
+**1. Menggunakan Systemd (Rekomendasi)**
+
+* **Kill:** `sudo systemctl stop penagihan`
+* **Run:** `sudo systemctl start penagihan`
+* **Restart (Update Kode):** `sudo systemctl restart penagihan`
+* **Cek Log (Jika error):** `sudo journalctl -u penagihan -f`
+
+**2. Menggunakan Cara Manual (Jika Gunicorn jalan di Background)**
+
+* **Cari ID & Matikan:** `pkill gunicorn`
+* **Cara Paksa (Jika pkill gagal):** 1. Cari PID: `ps aux | grep gunicorn`
+2. Matikan ID-nya (misal 1234): `kill -9 1234`
+* **Jalankan lagi:**
+`gunicorn --bind 127.0.0.1:5000 --timeout 600 "app:create_app()"`
 
 ---
 
-### 🛠️ Cheat Sheet: Perawatan & Monitoring
+### **Kesimpulan**
 
-Simpan daftar perintah ini untuk kebutuhan maintenance sehari-hari:
-
-**1. Aplikasi Error / Habis Update Kode?**
-Setiap kali Anda mengubah kode Python (`app.py`, dll), Anda harus merestart service Gunicorn:
-
-```bash
-sudo systemctl restart penagihan
-
-```
-
-**2. Mengubah Konfigurasi Nginx?**
-
-```bash
-sudo systemctl restart nginx
-
-```
-
-**3. Cek Log Error (Jika ada masalah)**
-Gunakan ini untuk melihat kenapa aplikasi error (misal 500 Internal Server Error):
-
-```bash
-sudo journalctl -u penagihan -f
-
-```
-
-**4. Cek Log Akses Nginx**
-
-```bash
-sudo tail -f /var/log/nginx/error.log
-
-```
-
-Sekarang server Anda sudah siap, aman, dan sanggup menangani upload data besar. Selamat mencoba!
+1. **Tanpa Venv Lebih Simpel**: Kamu tidak perlu melakukan `source venv/bin/activate` setiap kali masuk ke server, namun pastikan tidak ada aplikasi Python lain yang versinya bentrok.
+2. **Solusi File Besar**: Dengan konfigurasi **timeout 600** dan **client_max_body_size 64M**, file history 16MB kamu kini bisa ter-upload dengan aman tanpa terputus.
+3. **Otomatisasi**: Berkat Systemd (Langkah 5), aplikasi akan otomatis nyala sendiri jika server reboot, sehingga web selalu bisa diakses oleh petugas.
+4. **Monitoring**: Selalu gunakan perintah `journalctl` jika web menampilkan "Internal Server Error" untuk melihat letak kesalahannya.
