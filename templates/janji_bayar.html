@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1080;">
     <div id="statusToast" class="toast align-items-center text-white bg-dark border-0 rounded-4 shadow-lg" role="alert">
         <div class="d-flex">
             <div class="toast-body">
                 <i class="fa-solid fa-satellite-dish me-2 text-warning animate__animated animate__pulse animate__infinite"></i> 
-                <span id="toastMessage" class="fw-semibold">Menghubungkan ke pusat data...</span>
+                <span id="toastMessage" class="fw-bold small">Menghubungkan...</span>
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
@@ -13,33 +14,29 @@
 </div>
 
 <div class="px-2 pb-5 animate__animated animate__fadeIn">
+    
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h4 class="fw-bold mb-1 text-dark">
-                <i class="fa-solid fa-calendar-check me-2 text-primary"></i>Monitoring Komitmen
+                <i class="fa-solid fa-calendar-check me-2 text-primary"></i>Komitmen Bayar
             </h4>
-            <p class="text-muted small mb-0 fw-semibold">
-                {% if session['role'] == 'admin' %} 
-                    <i class="fa-solid fa-user-shield me-1"></i> Dashboard pengawasan komitmen global 
-                {% else %} 
-                    <i class="fa-solid fa-person-walking-luggage me-1"></i> Penjadwalan tindak lanjut operasional 
-                {% endif %}
-            </p>
+            <p class="text-muted small mb-0 fw-semibold">Monitoring Jadwal & Realisasi Janji</p>
         </div>
+        
         <div class="d-flex flex-column align-items-end">
             <input type="month" id="filter-janji" 
-                   class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-800 text-primary" 
-                   style="width: 150px; font-size: 0.75rem;" 
+                   class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-bold text-primary" 
+                   style="width: 150px; cursor: pointer;" 
                    onchange="loadJanjiBayar()">
         </div>
     </div>
 
-    <div id="summary-janji" class="px-1 mb-3"></div>
+    <div id="summary-janji" class="mb-4"></div>
 
     <div id="list-janji-container">
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="text-muted small mt-2 fw-800">Menganalisis sinkronisasi pelunasan Area Service...</p>
+            <p class="text-muted small mt-2 fw-bold">Memuat jadwal...</p>
         </div>
     </div>
 </div>
@@ -71,7 +68,7 @@
         const [year, month] = pickerValue.split('-');
         const periode = `${month}-${year}`;
 
-        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary border-width-2"></div></div>';
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
 
         try {
             const res = await fetch(`/api/performance/reminders?periode=${periode}`);
@@ -80,23 +77,26 @@
             if (!data || data.length === 0) {
                 summary.innerHTML = '';
                 container.innerHTML = `
-                    <div class="text-center mt-5 py-5 animate__animated animate__fadeIn">
-                        <i class="fa-solid fa-clipboard-list fa-4x text-light mb-3 opacity-50"></i>
-                        <p class="text-muted small fw-800">Seluruh komitmen terjadwal telah diselesaikan<br>atau tidak ditemukan entitas aktif.</p>
+                    <div class="text-center mt-5 py-5 text-muted">
+                        <i class="fa-regular fa-calendar-xmark fa-3x mb-3 opacity-50"></i>
+                        <p class="small fw-bold">Tidak ada jadwal janji bayar pada periode ini.</p>
                     </div>`;
                 return;
             }
 
             const totalNominal = data.reduce((acc, curr) => acc + (Number(curr.nominal) || 0), 0);
+            
             summary.innerHTML = `
-                <div class="bg-white rounded-4 p-3 shadow-sm d-flex justify-content-between align-items-center mx-1 border-start border-primary border-4">
-                    <div>
-                        <small class="text-muted d-block text-uppercase fw-800" style="font-size: 0.6rem; letter-spacing:1px;">Akumulasi Komitmen</small>
-                        <span class="fw-800 text-dark h5 mb-0">${data.length} <small class="fw-bold" style="font-size: 0.7rem;">UNIT</small></span>
-                    </div>
-                    <div class="text-end">
-                        <small class="text-muted d-block text-uppercase fw-800" style="font-size: 0.6rem; letter-spacing:1px;">Proyeksi Recovery</small>
-                        <span class="fw-800 text-primary h5 mb-0">Rp ${totalNominal.toLocaleString('id-ID')}</span>
+                <div class="card border-0 shadow-sm rounded-4 bg-white border-start border-4 border-primary">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.6rem; letter-spacing:1px;">Total Jadwal</small>
+                            <span class="fw-800 text-dark h4 mb-0">${data.length} <small class="fw-bold h6 text-muted">Unit</small></span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.6rem; letter-spacing:1px;">Potensi Tagihan</small>
+                            <span class="fw-800 text-primary h4 mb-0">Rp ${totalNominal.toLocaleString('id-ID')}</span>
+                        </div>
                     </div>
                 </div>`;
 
@@ -106,52 +106,59 @@
                 const waLink = item.no_hp ? `https://wa.me/${item.no_hp.replace(/[^0-9]/g, '')}` : '#';
                 
                 const isLunas = item.status_bayar === 'LUNAS';
-                const statusBadge = isLunas ? 'bg-success bg-opacity-10 text-success' : 'bg-warning bg-opacity-10 text-warning';
-                const statusIcon = isLunas ? 'fa-circle-check' : 'fa-clock';
-                const labelStatus = isLunas ? 'VERIFIED: SETTLED' : `FOLLOW UP: ${tglFormat}`;
+                const statusBadge = isLunas 
+                    ? 'bg-success bg-opacity-10 text-success border border-success' 
+                    : 'bg-warning bg-opacity-10 text-warning border border-warning';
+                const statusIcon = isLunas ? 'fa-check-circle' : 'fa-clock';
+                const labelStatus = isLunas ? 'SUDAH LUNAS' : `JATUH TEMPO: ${tglFormat}`;
 
                 return `
-                <div class="card border-0 shadow-sm rounded-4 mb-3 mx-1 border-start border-4 ${isLunas ? 'border-success' : 'border-warning'} animate__animated animate__fadeInUp" style="animation-delay: ${idx * 0.03}s">
+                <div class="card border-0 shadow-sm rounded-4 mb-3 card-hover bg-white animate__animated animate__fadeInUp" style="animation-delay: ${idx * 0.05}s">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div class="pe-2">
-                                <span class="badge ${statusBadge} mb-2 rounded-pill px-3 py-1 fw-800" style="font-size: 9px; letter-spacing: 0.5px;">
-                                    <i class="fa-solid ${statusIcon} me-1"></i>${labelStatus.toUpperCase()}
-                                </span>
-                                <h6 class="fw-800 mb-1 ${isLunas ? 'text-muted text-decoration-line-through' : 'text-dark'} text-uppercase small" style="letter-spacing: 0.3px;">${item.nama}</h6>
-                                <small class="text-muted fw-bold font-monospace" style="font-size: 10px;">IDPEL: ${item.nomen}</small>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="badge ${statusBadge} rounded-pill px-3 py-1 fw-bold" style="font-size: 0.6rem;">
+                                <i class="fa-solid ${statusIcon} me-1"></i>${labelStatus}
+                            </span>
+                            <small class="fw-bold text-muted font-monospace" style="font-size: 0.65rem;">${item.nomen}</small>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h6 class="fw-800 mb-0 text-dark text-uppercase small ${isLunas ? 'text-decoration-line-through text-muted' : ''}">${item.nama}</h6>
+                                <small class="text-muted fw-bold" style="font-size: 0.65rem;">
+                                    <i class="fa-solid fa-user-gear me-1 text-primary"></i>${item.petugas_name}
+                                </small>
                             </div>
                             <div class="text-end">
-                                <small class="text-muted d-block fw-800" style="font-size: 8px;">VALUE</small>
-                                <span class="fw-800 ${isLunas ? 'text-success' : 'text-danger'}" style="font-size: 1.1rem;">Rp ${(Number(item.nominal) || 0).toLocaleString('id-ID')}</span>
+                                <span class="d-block fw-800 ${isLunas ? 'text-success' : 'text-danger'}" style="font-size: 1rem;">
+                                    Rp ${(Number(item.nominal) || 0).toLocaleString('id-ID')}
+                                </span>
                             </div>
                         </div>
 
                         <div class="bg-light p-2 rounded-3 mb-3 border border-light">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <small class="text-muted fw-bold" style="font-size: 10px;"><i class="fa-solid fa-id-card-clip me-1"></i>Pelaksana:</small>
-                                <small class="fw-800 text-dark text-uppercase" style="font-size: 10px;">${item.petugas_name}</small>
-                            </div>
-                            <div class="text-muted bg-white p-2 rounded-2 mt-1 border border-light fw-semibold" style="font-size: 11px; line-height: 1.4;">
-                                <i class="fa-solid fa-quote-left me-1 text-primary opacity-50 small"></i>${item.catatan || 'Tidak ditemukan narasi tambahan.'}
-                            </div>
+                            <p class="mb-0 small text-muted fst-italic text-truncate" title="${item.catatan}">
+                                <i class="fa-solid fa-quote-left me-2 text-secondary opacity-50"></i>${item.catatan || 'Tidak ada catatan khusus.'}
+                            </p>
                         </div>
 
                         <div class="d-grid">
-                            <a href="${waLink}" target="_blank"
-                               class="btn ${isLunas ? 'btn-outline-success border-2' : 'btn-primary'} rounded-pill fw-800 py-2 shadow-sm ${!item.no_hp ? 'disabled opacity-50' : ''}">
-                                <i class="fa-brands fa-whatsapp fa-lg me-2"></i> ${isLunas ? 'KIRIM KONFIRMASI' : 'HUBUNGI KONSUMEN'}
+                            <a href="${waLink}" target="_blank" 
+                               class="btn ${isLunas ? 'btn-outline-success' : 'btn-primary'} rounded-pill fw-bold py-2 shadow-sm ${!item.no_hp ? 'disabled' : ''}">
+                                <i class="fa-brands fa-whatsapp fa-lg me-2"></i> ${isLunas ? 'KIRIM BUKTI LUNAS' : 'TAGIH SEKARANG'}
                             </a>
                         </div>
+
                     </div>
                 </div>`;
             }).join('');
 
-            showNotify(`Sinkronisasi ${data.length} komitmen berhasil`, "success");
+            showNotify(`Berhasil memuat ${data.length} jadwal komitmen`, "success");
 
         } catch (e) {
-            console.error("Critical: Komitmen Load Error", e);
-            container.innerHTML = '<div class="alert alert-danger mx-2 rounded-4 small text-center fw-800"><i class="fa-solid fa-triangle-exclamation me-2"></i>Terjadi gangguan pada transmisi data. Mohon refresh halaman.</div>';
+            console.error("Error:", e);
+            container.innerHTML = '<div class="alert alert-danger mx-2 rounded-4 text-center small fw-bold">Gagal memuat data jadwal.</div>';
         }
     }
 
@@ -163,13 +170,9 @@
 
 <style>
     .fw-800 { font-weight: 800; }
-    .border-warning { border-color: #f59e0b !important; }
-    .border-success { border-color: #10b981 !important; }
-    .bg-info-subtle { background-color: #eff6ff !important; }
-    .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid #f1f5f9 !important; }
-    .card:hover { transform: translateY(-4px); border-color: #2563eb !important; box-shadow: 0 15px 30px rgba(0,0,0,0.06) !important; }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: default; }
+    .card-hover:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(37, 99, 235, 0.1) !important; border-color: #2563eb !important; }
     .btn-primary { background: #2563eb; border: none; transition: 0.3s; }
     .btn-primary:hover { background: #1e40af; transform: scale(1.02); }
-    .spinner-border { border-width: 0.15em; }
 </style>
 {% endblock %}
