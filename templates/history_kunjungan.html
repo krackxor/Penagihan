@@ -1,55 +1,79 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="px-2 pb-5 animate__animated animate__fadeIn" style="background: #f8fafc; min-height: 100vh;">
+<style>
+    .filter-btn { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid #e2e8f0; font-weight: 700; font-size: 0.7rem; }
+    .filter-btn:hover { transform: translateY(-2px); }
+    .filter-btn.active { background-color: #0f172a; color: white; border-color: #0f172a; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3); }
+    
+    .table-premium thead th { 
+        background: #1e293b; color: white; border: none; font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle;
+    }
+    .hover-row:hover { background-color: #f8fafc !important; }
+    
+    .badge-soft { padding: 0.35em 0.65em; font-size: 0.6rem; font-weight: 700; border-radius: 50rem; }
+    .bg-soft-primary { background-color: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
+    .bg-soft-success { background-color: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+    .bg-soft-warning { background-color: #fefce8; color: #854d0e; border: 1px solid #fef9c3; }
+    .bg-soft-danger { background-color: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+    
+    .btn-action { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px solid #e2e8f0; background: white; }
+    .btn-action:hover { background: #f1f5f9; transform: scale(1.1); border-color: #cbd5e1; }
+    
+    .fw-800 { font-weight: 800; }
+</style>
+
+<div class="px-2 pb-5 animate__animated animate__fadeIn">
     
     <div class="pt-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
             <h4 class="fw-bold mb-0 text-dark">
-                <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Audit Riwayat Kunjungan
+                <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Audit Riwayat
             </h4>
-            <p class="text-muted small mb-0 fw-semibold">Verifikasi Snapshot Data & Lokasi Geospasial Petugas</p>
+            <p class="text-muted small mb-0 fw-semibold">Rekam Jejak Aktivitas Lapangan</p>
         </div>
-        <div class="d-flex gap-2 align-items-center">
-            <label class="small fw-800 text-muted d-none d-md-block text-uppercase" style="letter-spacing: 1px;">Periode Audit:</label>
+        <div class="d-flex gap-2 align-items-center bg-white p-1 rounded-pill shadow-sm border">
             <input type="month" id="filter-periode" 
-                   class="form-control form-control-sm border-0 shadow-sm rounded-pill px-3 fw-800 text-primary" 
-                   style="width: 170px;" onchange="loadHistory()">
+                   class="form-control form-control-sm border-0 bg-transparent fw-bold text-primary ps-3" 
+                   style="width: 140px; cursor: pointer;" onchange="loadHistory()">
+            <button class="btn btn-sm btn-light rounded-circle shadow-none" onclick="loadHistory()">
+                <i class="fas fa-rotate text-secondary"></i>
+            </button>
         </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="btn-group btn-group-sm shadow-sm p-1 bg-white rounded-pill border">
-            <button class="btn btn-dark rounded-pill px-3 filter-btn active fw-800" onclick="applyFilter('ALL', this)">SEMUA</button>
-            <button class="btn btn-outline-warning rounded-pill px-3 filter-btn fw-800" onclick="applyFilter('JANJI', this)">JANJI</button>
-            <button class="btn btn-outline-danger rounded-pill px-3 filter-btn fw-800" onclick="applyFilter('RKS', this)">RKS/SEGEL</button>
-            <button class="btn btn-outline-success rounded-pill px-3 filter-btn fw-800" onclick="applyFilter('BAYAR', this)">LUNAS</button>
+        <div class="d-flex gap-2 overflow-auto pb-1" style="scrollbar-width: none;">
+            <button class="btn filter-btn active rounded-pill px-3" onclick="applyFilter('ALL', this)">SEMUA</button>
+            <button class="btn filter-btn bg-white text-secondary rounded-pill px-3" onclick="applyFilter('JANJI', this)">JANJI BAYAR</button>
+            <button class="btn filter-btn bg-white text-secondary rounded-pill px-3" onclick="applyFilter('RKS', this)">RKS / SEGEL</button>
+            <button class="btn filter-btn bg-white text-secondary rounded-pill px-3" onclick="applyFilter('BAYAR', this)">LUNAS</button>
         </div>
         <div class="text-end">
-            <span class="badge bg-white text-dark border rounded-pill px-3 py-2 shadow-sm fw-800" id="filter-count" style="font-size: 0.65rem;">
-                <i class="fa-solid fa-sync fa-spin me-1 text-primary"></i> MENGHUBUNGKAN...
+            <span class="badge bg-white text-dark border rounded-pill px-3 py-2 shadow-sm fw-bold" id="filter-count" style="font-size: 0.65rem;">
+                <i class="fa-solid fa-list-check me-1 text-primary"></i> -- DATA
             </span>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden border">
         <div class="table-responsive" style="max-height: 75vh;">
-            <table class="table table-hover align-middle mb-0 bg-white">
-                <thead class="bg-dark text-white sticky-top">
-                    <tr style="font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; font-weight: 800;">
-                        <th class="ps-3 py-3 border-0">Waktu & Personel</th>
-                        <th class="border-0">Entitas Pelanggan</th>
-                        <th class="border-0">Alamat Audit</th>
-                        <th class="border-0">Tugas (Rec/Ardebt)</th>
-                        <th class="text-center border-0">Hasil / Analisis</th>
-                        <th class="text-end pe-3 border-0">Audit Tool</th>
+            <table class="table table-hover align-middle mb-0 bg-white table-premium">
+                <thead class="sticky-top shadow-sm">
+                    <tr>
+                        <th class="ps-4 py-3 border-0">Waktu & Petugas</th>
+                        <th class="border-0">Identitas Pelanggan</th>
+                        <th class="border-0">Lokasi Audit</th>
+                        <th class="border-0 text-center">Tagihan</th>
+                        <th class="text-center border-0">Hasil Kunjungan</th>
+                        <th class="text-center pe-4 border-0">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="history-body">
                     <tr>
                         <td colspan="6" class="text-center py-5">
                             <div class="spinner-border text-primary spinner-border-sm me-2"></div>
-                            <span class="fw-800 text-muted small">SINKRONISASI DATA AUDIT...</span>
+                            <span class="fw-bold text-muted small">SINKRONISASI DATA...</span>
                         </td>
                     </tr>
                 </tbody>
@@ -65,12 +89,10 @@
     const toIDR = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Set default filter ke bulan sekarang
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         document.getElementById('filter-periode').value = `${year}-${month}`;
-        
         loadHistory();
     });
 
@@ -78,10 +100,8 @@
         const picker = document.getElementById('filter-periode').value;
         if (!picker) return;
 
-        // Reset tampilan loading
-        document.getElementById('history-body').innerHTML = `<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary spinner-border-sm me-2"></div><span class="fw-800 text-muted small">MEMUAT DATA...</span></td></tr>`;
+        document.getElementById('history-body').innerHTML = `<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary spinner-border-sm me-2"></div><span class="fw-bold text-muted small">MEMUAT DATA...</span></td></tr>`;
 
-        // Format Period YYYY-MM -> MM-YYYY
         const parts = picker.split('-');
         const formattedPeriod = `${parts[1]}-${parts[0]}`;
 
@@ -91,27 +111,24 @@
             
             if (result.status === 'success') {
                 rawHistoryData = result.data || [];
-                // Apply filter default (ALL)
                 applyFilter('ALL', document.querySelector('.filter-btn.active'));
             } else {
-                document.getElementById('history-body').innerHTML = `<tr><td colspan="6" class="text-center py-5 text-danger fw-bold">Gagal memuat data: ${result.message}</td></tr>`;
+                document.getElementById('history-body').innerHTML = `<tr><td colspan="6" class="text-center py-5 text-danger fw-bold">Gagal memuat data.</td></tr>`;
             }
         } catch (e) {
             console.error(e);
-            Swal.fire('Error System', 'Gagal sinkronisasi pangkalan data audit.', 'error');
+            Swal.fire('Error System', 'Gagal koneksi server.', 'error');
         }
     }
 
     function applyFilter(criteria, btn) {
-        // Update UI tombol filter
         document.querySelectorAll('.filter-btn').forEach(b => {
-            b.classList.remove('btn-dark', 'active');
-            b.classList.add('btn-outline-secondary');
+            b.classList.remove('active');
+            b.classList.add('bg-white', 'text-secondary');
         });
-        btn.classList.add('btn-dark', 'active');
-        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('active');
+        btn.classList.remove('bg-white', 'text-secondary');
 
-        // Logic Filter
         let filtered = rawHistoryData;
         if (criteria !== 'ALL') {
             filtered = rawHistoryData.filter(item => {
@@ -123,70 +140,63 @@
             });
         }
 
-        document.getElementById('filter-count').innerHTML = `<i class="fa-solid fa-database me-1 text-primary"></i> ${filtered.length} RECORD TERDETEKSI`;
+        document.getElementById('filter-count').innerHTML = `<i class="fa-solid fa-list-ul me-1 text-primary"></i> ${filtered.length} RECORD`;
         renderTable(filtered);
     }
 
     function renderTable(data) {
         const body = document.getElementById('history-body');
         if (data.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted small fw-800 italic">TIDAK ADA DATA KUNJUNGAN SESUAI FILTER.</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted small fw-bold italic">TIDAK ADA DATA KUNJUNGAN.</td></tr>';
             return;
         }
 
         body.innerHTML = data.map(item => {
-            // Styling Badge Status
-            let statusBadge = 'bg-secondary bg-opacity-10 text-dark';
+            let statusBadge = 'badge-soft bg-soft-primary';
             const ket = (item.keterangan || '').toUpperCase();
             
-            if (ket.includes('JANJI')) statusBadge = 'bg-warning bg-opacity-10 text-warning border border-warning';
-            else if (ket.includes('BAYAR') || ket.includes('LUNAS')) statusBadge = 'bg-success bg-opacity-10 text-success border border-success';
-            else if (ket.includes('RKS') || ket.includes('SEGEL') || ket.includes('TUTUP')) statusBadge = 'bg-danger bg-opacity-10 text-danger border border-danger';
+            if (ket.includes('JANJI')) statusBadge = 'badge-soft bg-soft-warning';
+            else if (ket.includes('BAYAR') || ket.includes('LUNAS')) statusBadge = 'badge-soft bg-soft-success';
+            else if (ket.includes('RKS') || ket.includes('SEGEL') || ket.includes('TUTUP')) statusBadge = 'badge-soft bg-soft-danger';
 
-            // Google Maps Link
             const mapsLink = `https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`;
+            const totalTagihan = (item.mc || 0) + (item.ardebt || 0);
 
             return `
-            <tr class="border-bottom transition-row">
-                <td class="ps-3">
-                    <div class="fw-800 text-dark" style="font-size: 0.75rem;">${moment(item.waktu).format('DD/MM/YYYY')}</div>
-                    <div class="text-primary small fw-800" style="font-size: 0.7rem;">${moment(item.waktu).format('HH:mm')} WIB</div>
-                    <div class="mt-1 small text-muted text-uppercase fw-800" style="font-size: 0.55rem; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-user-gear me-1 text-secondary"></i>${item.petugas_name}
-                    </div>
+            <tr class="border-bottom hover-row transition-row">
+                <td class="ps-4">
+                    <div class="fw-bold text-dark" style="font-size: 0.75rem;">${moment(item.waktu).format('DD MMM YYYY')}</div>
+                    <div class="text-muted small mb-1" style="font-size: 0.65rem;">${moment(item.waktu).format('HH:mm')} WIB</div>
+                    <span class="badge bg-light text-dark border rounded-pill px-2 py-1" style="font-size: 0.55rem;">
+                        <i class="fa-solid fa-user me-1 text-secondary"></i>${item.petugas_name}
+                    </span>
                 </td>
                 <td>
-                    <div class="fw-800 text-dark text-uppercase" style="font-size: 0.7rem;">${item.nama || 'Tanpa Nama'}</div>
-                    <span class="badge bg-light text-primary border mt-1 fw-800 font-monospace" style="font-size: 0.6rem;">ID: ${item.nomen}</span>
+                    <div class="fw-bold text-dark text-uppercase small">${item.nama || 'Tanpa Nama'}</div>
+                    <span class="badge bg-light text-primary border font-monospace mt-1" style="font-size: 0.6rem;">ID: ${item.nomen}</span>
                 </td>
                 <td style="max-width: 200px;">
-                    <div class="text-muted fw-semibold text-truncate" style="font-size: 0.65rem; line-height: 1.3;" title="${item.alamat}">
+                    <div class="text-muted fw-semibold text-truncate small" title="${item.alamat}">
                         <i class="fa-solid fa-location-dot text-danger me-1"></i>${item.alamat || '-'}
                     </div>
                 </td>
-                <td>
-                    <div class="small d-flex justify-content-between mb-1 fw-semibold" style="width: 140px;">
-                        <span class="text-muted" style="font-size: 0.6rem;">TAGIHAN:</span> 
-                        <span class="fw-800 text-dark" style="font-size: 0.65rem;">${toIDR(item.mc || 0)}</span>
-                    </div>
-                    <div class="small d-flex justify-content-between fw-semibold" style="width: 140px;">
-                        <span class="text-danger" style="font-size: 0.6rem;">TUNGGAKAN:</span> 
-                        <span class="fw-800 text-danger" style="font-size: 0.65rem;">${toIDR(item.ardebt || 0)}</span>
-                    </div>
+                <td class="text-center">
+                    <span class="fw-800 text-dark small d-block">${toIDR(totalTagihan)}</span>
+                    <small class="text-muted" style="font-size: 0.6rem;">Total Kewajiban</small>
                 </td>
                 <td class="text-center">
-                    <span class="badge ${statusBadge} px-2 py-1 text-uppercase mb-1 fw-800 shadow-xs" style="font-size: 0.55rem;">${item.keterangan}</span>
-                    <div class="text-muted italic fw-semibold text-truncate" style="font-size: 0.6rem; max-width: 150px; margin: 0 auto;" title="${item.catatan}">
+                    <span class="${statusBadge} mb-1 d-inline-block">${item.keterangan}</span>
+                    <div class="text-muted fst-italic text-truncate small mx-auto" style="max-width: 150px;" title="${item.catatan}">
                         "${item.catatan || '-'}"
                     </div>
                 </td>
-                <td class="text-end pe-3">
-                    <div class="btn-group btn-group-sm shadow-sm border rounded-3 bg-light p-1">
-                        <button class="btn btn-white border-0 hover-scale" onclick="viewPhoto('${item.foto_path}')" title="Lihat Foto">
-                            <i class="fa-solid fa-camera text-primary"></i>
+                <td class="text-center pe-4">
+                    <div class="d-flex justify-content-center gap-2">
+                        <button class="btn-action text-primary" onclick="viewPhoto('${item.foto_path}')" title="Lihat Foto">
+                            <i class="fa-solid fa-camera"></i>
                         </button>
-                        <a href="${mapsLink}" target="_blank" class="btn btn-white border-0 hover-scale" title="Cek Lokasi">
-                            <i class="fa-solid fa-map-location-dot text-success"></i>
+                        <a href="${mapsLink}" target="_blank" class="btn-action text-success" title="Cek Lokasi">
+                            <i class="fa-solid fa-map-location-dot"></i>
                         </a>
                     </div>
                 </td>
@@ -196,7 +206,7 @@
 
     function viewPhoto(path) {
         if(!path || path === 'None' || path === '-') {
-            Swal.fire('Info', 'Dokumentasi foto tidak tersedia.', 'info');
+            Swal.fire({ icon: 'info', title: 'Tidak Ada Foto', text: 'Dokumentasi visual tidak tersedia.', confirmButtonColor: '#0f172a' });
             return;
         }
         Swal.fire({
@@ -205,28 +215,9 @@
             showCloseButton: true,
             showConfirmButton: false,
             background: '#fff',
-            customClass: { 
-                popup: 'rounded-4 border-0 shadow-lg p-0 overflow-hidden',
-                image: 'm-0 w-100 rounded-top-4'
-            }
+            padding: 0,
+            customClass: { popup: 'rounded-4 border-0 shadow-lg overflow-hidden', image: 'm-0 w-100' }
         });
     }
 </script>
-
-<style>
-    .fw-800 { font-weight: 800; }
-    .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
-    .transition-row { transition: background 0.2s ease; }
-    .transition-row:hover { background-color: #f1f5f9 !important; }
-    .btn-white { background: white; }
-    .filter-btn { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .table thead th { border-bottom: none; }
-    .italic { font-style: italic; }
-    .hover-scale { transition: transform 0.2s; }
-    .hover-scale:hover { transform: scale(1.1); color: #0d6efd; }
-    
-    /* Scrollbar Table */
-    .table-responsive::-webkit-scrollbar { width: 5px; height: 5px; }
-    .table-responsive::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-</style>
 {% endblock %}
