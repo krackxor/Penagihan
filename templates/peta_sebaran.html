@@ -4,38 +4,39 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<div class="animate__animated animate__fadeIn h-100">
-    <div class="row g-0 h-100" style="min-height: 85vh;">
+<div class="animate__animated animate__fadeIn" style="height: calc(100vh - 70px); overflow: hidden;">
+    <div class="row g-0 h-100">
         
-        <div class="col-md-3 bg-white border-end shadow-sm d-flex flex-column">
+        <div class="col-md-3 bg-white border-end shadow-sm d-flex flex-column h-100">
             <div class="p-3 border-bottom bg-light">
                 <h6 class="fw-bold mb-2"><i class="fa-solid fa-map text-primary me-2"></i>GIS Intelligence</h6>
                 <input type="text" id="searchList" class="form-control form-control-sm" placeholder="Cari Nama/Nomen..." onkeyup="filterList()">
                 
                 <div class="mt-2 d-flex gap-1 flex-wrap" style="font-size: 0.65rem;">
+                    <span class="badge text-white flex-fill" style="background-color: #6f42c1;">VIP</span>
                     <span class="badge bg-danger flex-fill">Ekstrem</span>
                     <span class="badge bg-warning text-dark flex-fill">Drop</span>
-                    <span class="badge" style="background-color: #6f42c1;">Prioritas Nunggak</span>
+                    <span class="badge flex-fill" style="background-color: #fd7e14; color: white;">Nunggak</span>
                 </div>
             </div>
             
-            <div class="overflow-auto flex-grow-1 p-2" id="customerList">
+            <div class="overflow-auto flex-grow-1 p-2" id="customerList" style="background-color: #f8f9fa;">
                 <div class="text-center py-5 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Memuat Data...</div>
             </div>
         </div>
 
-        <div class="col-md-9 position-relative">
+        <div class="col-md-9 position-relative h-100">
             <div id="map" style="height: 100%; width: 100%; z-index: 1;"></div>
             
             <div class="position-absolute bottom-0 start-0 m-3 p-3 bg-white rounded-3 shadow-lg animate__animated animate__fadeInUp" 
-                 style="z-index: 1000; min-width: 200px; border-left: 4px solid #343a40;">
-                <h6 class="fw-bold small mb-2 text-dark">Keterangan Warna Pin</h6>
+                 style="z-index: 1000; min-width: 200px; border-left: 5px solid #6f42c1;">
+                <h6 class="fw-bold small mb-2 text-dark">Keterangan Pin</h6>
                 <ul class="list-unstyled small mb-0" style="font-size: 0.75rem;">
+                    <li class="mb-1"><span class="badge text-white me-2" style="width:25px; background-color: #6f42c1;">&nbsp;</span> <strong>NOMEN VIP</strong> (> 75 M³)</li>
                     <li class="mb-1"><span class="badge bg-danger me-2" style="width:25px;">&nbsp;</span> Ekstrem (Lonjakan)</li>
-                    <li class="mb-1"><span class="badge bg-warning text-dark me-2" style="width:25px;">&nbsp;</span> Drop (Meter Macet)</li>
-                    <li class="mb-1"><span class="badge text-white me-2" style="width:25px; background-color: #6f42c1;">&nbsp;</span> Premium Nunggak (VIP)</li>
-                    <li class="mb-1"><span class="badge bg-warning text-white me-2" style="width:25px; background-color: #fd7e14 !important;">&nbsp;</span> Belum Bayar (Umum)</li>
-                    <li class="mb-1"><span class="badge bg-primary me-2" style="width:25px;">&nbsp;</span> Premium Lancar</li>
+                    <li class="mb-1"><span class="badge bg-warning text-dark me-2" style="width:25px;">&nbsp;</span> Drop (Pemakaian Turun)</li>
+                    <li class="mb-1"><span class="badge text-white me-2" style="width:25px; background-color: #fd7e14;">&nbsp;</span> Belum Bayar (Umum)</li>
+                    <li class="mb-1"><span class="badge bg-secondary me-2" style="width:25px;">&nbsp;</span> Normal / Lancar</li>
                 </ul>
             </div>
 
@@ -51,7 +52,7 @@
                 
                 <div class="alert alert-info py-2 px-2 small mb-3">
                     <i class="fa-solid fa-circle-info me-1"></i>
-                    Geser <b>Pin Biru</b> ke lokasi rumah.
+                    Geser <b>Pin Edit</b> ke lokasi rumah.
                 </div>
 
                 <div class="d-grid gap-2">
@@ -75,7 +76,7 @@
     let allCustomers = [];
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    // ✅ DEFINISI IKON WARNA-WARNI
+    // ✅ DEFINISI IKON WARNA-WARNI BARU
     const createIcon = (color) => {
         return L.divIcon({
             className: 'custom-div-icon', 
@@ -85,12 +86,11 @@
     };
 
     const icons = {
-        'EKSTREM': createIcon('#dc3545'),           // Merah
-        'DROP': createIcon('#ffc107'),              // Kuning
-        'PREMIUM_NUNGGAK': createIcon('#6f42c1'),   // Ungu
-        'BELUM_BAYAR': createIcon('#fd7e14'),       // Orange
-        'PREMIUM': createIcon('#0d6efd'),           // Biru
-        'NORMAL': createIcon('#6c757d'),            // Abu
+        'NOMEN_VIP': createIcon('#6f42c1'),   // Ungu (Prioritas Utama)
+        'EKSTREM': createIcon('#dc3545'),     // Merah
+        'DROP': createIcon('#ffc107'),        // Kuning
+        'BELUM_BAYAR': createIcon('#fd7e14'), // Orange
+        'NORMAL': createIcon('#6c757d'),      // Abu-abu
         'EDIT': L.icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -104,6 +104,7 @@
     });
 
     function initMap() {
+        // Default View Jakarta Utara
         map = L.map('map').setView([-6.1384, 106.8637], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OSM Contributors'
@@ -124,27 +125,34 @@
 
     function renderList(data) {
         const container = document.getElementById('customerList');
-        if(data.length === 0) {
+        
+        // Batasi render DOM jika data terlalu banyak agar tidak lag
+        const displayData = data.length > 1000 ? data.slice(0, 500) : data;
+
+        if(displayData.length === 0) {
             container.innerHTML = '<div class="text-center py-4 small text-muted">Tidak ada data.</div>';
             return;
         }
 
-        container.innerHTML = data.map(c => {
+        container.innerHTML = displayData.map(c => {
             const hasLoc = c.latitude && c.longitude;
             let badgeClass = 'bg-secondary';
             let label = 'Normal';
-
-            // Mapping Label List
-            if(c.kategori === 'EKSTREM') { badgeClass = 'bg-danger'; label = 'EKSTREM'; }
-            else if(c.kategori === 'DROP') { badgeClass = 'bg-warning text-dark'; label = 'DROP'; }
-            else if(c.kategori === 'PREMIUM_NUNGGAK') { badgeClass = 'text-white'; label = 'VIP NUNGGAK'; } // handled via style below
-            else if(c.kategori === 'BELUM_BAYAR') { badgeClass = 'bg-warning text-dark'; label = 'NUNGGAK'; } // Orange handled via style
-            else if(c.kategori === 'PREMIUM') { badgeClass = 'bg-primary'; label = 'PREMIUM'; }
-
-            // Custom Style for Orange/Purple
             let customStyle = "";
-            if(c.kategori === 'PREMIUM_NUNGGAK') customStyle = "background-color: #6f42c1;";
-            if(c.kategori === 'BELUM_BAYAR') customStyle = "background-color: #fd7e14; color: white;";
+
+            // LOGIKA VISUAL LIST SESUAI KATEGORI BARU
+            if(c.kategori === 'NOMEN_VIP') { 
+                badgeClass = 'text-white'; 
+                label = 'VIP'; 
+                customStyle = "background-color: #6f42c1;"; 
+            }
+            else if(c.kategori === 'EKSTREM') { badgeClass = 'bg-danger'; label = 'EKSTREM'; }
+            else if(c.kategori === 'DROP') { badgeClass = 'bg-warning text-dark'; label = 'DROP'; }
+            else if(c.kategori === 'BELUM_BAYAR') { 
+                badgeClass = 'text-white'; 
+                label = 'NUNGGAK'; 
+                customStyle = "background-color: #fd7e14;"; 
+            }
 
             const statusBtn = hasLoc 
                 ? `<button class="btn btn-sm btn-light text-success border px-2" onclick="focusOnMap('${c.nomen}')"><i class="fa-solid fa-location-dot"></i></button>`
@@ -175,7 +183,7 @@
         markers = [];
         data.forEach(c => {
             if(c.latitude && c.longitude) {
-                // Tentukan Ikon berdasarkan Kategori
+                // Tentukan Ikon berdasarkan Kategori Baru
                 let icon = icons[c.kategori] || icons['NORMAL'];
                 
                 const m = L.marker([c.latitude, c.longitude], {icon: icon})
@@ -193,11 +201,15 @@
         });
     }
 
-    // --- FITUR AUTO DETECT & MANUAL (Sama seperti sebelumnya) ---
+    // --- FITUR AUTO DETECT (DIPERBARUI DENGAN LOCK JAKARTA UTARA) ---
     async function autoDetectLocation(nomen, address) {
+        // Bersihkan alamat dari karakter aneh
         let cleanAddress = address.replace(/NO\.?\s?\d+/gi, '').replace(/RT.*?RW.*?/gi, '').replace(/BLOK.*?/gi, '').trim();
+        
+        // PENTING: Tambahkan "Jakarta Utara" agar pencarian tidak lari ke luar kota
         const query = `${cleanAddress}, Jakarta Utara, Indonesia`;
-        Swal.fire({ title: 'Mencari...', didOpen: () => Swal.showLoading() });
+        
+        Swal.fire({ title: 'Mencari Lokasi...', didOpen: () => Swal.showLoading() });
 
         try {
             const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
@@ -208,11 +220,16 @@
                 await saveToDb(nomen, data[0].lat, data[0].lon);
                 Swal.fire({ icon: 'success', title: 'Ketemu!', timer: 1000, showConfirmButton: false });
                 loadData(); 
-                map.flyTo([data[0].lat, data[0].lon], 16);
+                map.flyTo([data[0].lat, data[0].lon], 17);
             } else {
-                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Coba manual.', confirmButtonText: 'Manual' }).then(() => startTagging(nomen));
+                Swal.fire({ 
+                    icon: 'warning', 
+                    title: 'Tidak Ditemukan', 
+                    text: 'Sistem tidak menemukan alamat pasti. Silakan tandai manual.', 
+                    confirmButtonText: 'Tandai Manual' 
+                }).then(() => startTagging(nomen));
             }
-        } catch (e) { Swal.fire('Error', 'Koneksi gagal', 'error'); }
+        } catch (e) { Swal.fire('Error', 'Koneksi ke server peta gagal', 'error'); }
     }
 
     function startTagging(nomen) {
@@ -223,8 +240,11 @@
         document.getElementById('editNomen').innerText = nomen;
         document.getElementById('rawAddressHidden').value = c.alamat;
         document.getElementById('editPanel').classList.remove('d-none');
+        
+        // Jika belum ada lat/lng, ambil tengah peta
         let lat = c.latitude ? parseFloat(c.latitude) : map.getCenter().lat;
         let lng = c.longitude ? parseFloat(c.longitude) : map.getCenter().lng;
+        
         if(editMarker) map.removeLayer(editMarker);
         editMarker = L.marker([lat, lng], {draggable: true, icon: icons['EDIT']}).addTo(map);
         map.flyTo([lat, lng], 16);
@@ -239,7 +259,7 @@
         const { lat, lng } = editMarker.getLatLng();
         await saveToDb(currentEditNomen, lat, lng);
         loadData(); cancelEdit();
-        Swal.fire({icon:'success', title:'Tersimpan', toast:true, position:'top-end', timer:2000, showConfirmButton:false});
+        Swal.fire({icon:'success', title:'Posisi Tersimpan', toast:true, position:'top-end', timer:2000, showConfirmButton:false});
     }
 
     async function saveToDb(nomen, lat, lng) {
@@ -265,7 +285,7 @@
 </script>
 
 <style>
-    .hover-bg-light:hover { background-color: #f8f9fa; border-left: 4px solid #0d6efd; transition: 0.2s; }
+    .hover-bg-light:hover { background-color: #e9ecef !important; border-left: 4px solid #0d6efd; transition: 0.2s; cursor: pointer; }
     .cursor-pointer { cursor: pointer; }
 </style>
 {% endblock %}
