@@ -1,6 +1,6 @@
 """
-Flask Application - Area Service Integrated System (V13.3 GIS Mapping)
-Updated: 2026-02-04
+Flask Application - Area Service Integrated System (V13.4 Landing Page Update)
+Updated: 2026-02-07
 ---------------------------------------------------------------------------
 Fixes Log:
 1. ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
@@ -11,6 +11,7 @@ Fixes Log:
 6. ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
 7. ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
 8. ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
+9. ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
 """
 
 import os
@@ -37,7 +38,7 @@ from api.analisa_top_500 import analisa_top500_bp
 from api.premium import premium_bp 
 from api.ekstrem import ekstrem_bp 
 from api.drop import drop_bp 
-from api.map_gis import map_bp # <--- ✅ IMPORT BARU (GIS)
+from api.map_gis import map_bp 
 
 def create_app():
     app = Flask(__name__)
@@ -79,7 +80,8 @@ def create_app():
             'static',          # Folder CSS, JS, Images
             'serve_kunjungan_photo',
             'index',           # Beranda/Landing Page
-            'history.public_share_view' # <--- WA Share Link
+            'public_cek_tagihan', # API Cek Tagihan Publik
+            'history.public_share_view' # WA Share Link
         ]
         
         endpoint = request.endpoint
@@ -106,7 +108,7 @@ def create_app():
             'premium_customer_page',
             'pelanggan_ekstrem_page',
             'pelanggan_drop_page',
-            'peta_sebaran_page' # <--- ✅ Page Baru Admin Only (GIS)
+            'peta_sebaran_page' 
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -127,15 +129,56 @@ def create_app():
     app.register_blueprint(premium_bp, url_prefix='/api/premium')
     app.register_blueprint(ekstrem_bp, url_prefix='/api/ekstrem') 
     app.register_blueprint(drop_bp, url_prefix='/api/drop') 
-    app.register_blueprint(map_bp, url_prefix='/api/map') # <--- ✅ REGISTRASI API GIS BARU
+    app.register_blueprint(map_bp, url_prefix='/api/map') 
     
     register_pcez_routes(app, get_db_connection)
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
     
     @app.route('/')
-    def index(): 
-        return render_template('index.html')
+    def index():
+        # LOGIKA BARU: Redirect Petugas ke Dashboard, Publik ke Landing Page
+        if 'role' in session:
+            # Jika sudah login, lempar ke Dashboard Internal (Pusat Kendali)
+            # Pastikan 'dashboard.pusat_kendali' sesuai dengan nama fungsi di blueprint dashboard
+            # Jika blueprint Anda mendefinisikan route '/' sebagai pusat_kendali, sesuaikan url_for nya.
+            # Asumsi: Anda punya route dashboard page
+            return render_template('index.html') 
+        
+        # Jika belum login (Publik), tampilkan Landing Page
+        return render_template('landing.html')
+
+    # API CHECK TAGIHAN PUBLIK (Baru)
+    @app.route('/api/public/cek-tagihan/<nomen>')
+    def public_cek_tagihan(nomen):
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            # Ambil data terbaru saja (LIMIT 1)
+            cursor.execute("""
+                SELECT nomen, nama, periode, kubik, nominal, status_lunas 
+                FROM master_pelanggan 
+                WHERE nomen = ? ORDER BY id DESC LIMIT 1
+            """, (nomen,))
+            row = cursor.fetchone()
+            
+            if row:
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "nomen": row['nomen'],
+                        "nama": row['nama'][:3] + "***", # Samarkan nama demi privasi
+                        "periode": row['periode'],
+                        "kubik": row['kubik'],
+                        "nominal": row['nominal'],
+                        "lunas": row['status_lunas'] == 1
+                    }
+                })
+            return jsonify({"status": "error", "message": "ID Pelanggan tidak ditemukan"}), 404
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+        finally:
+            conn.close()
 
     @app.route('/login')
     def login_page(): 
@@ -206,7 +249,6 @@ def create_app():
     def analisa_top500_page():
         return render_template('analisa_top500.html')
 
-    # ✅ MENU BARU: PREMIUM & ANOMALI
     @app.route('/premium-customer')
     def premium_customer_page():
         return render_template('premium_customer.html')
@@ -219,7 +261,6 @@ def create_app():
     def pelanggan_drop_page():
         return render_template('pelanggan_drop.html')
 
-    # ✅ MENU BARU: GIS MAPPING
     @app.route('/peta-sebaran')
     def peta_sebaran_page():
         return render_template('peta_sebaran.html')
