@@ -16,19 +16,49 @@
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; color: #334155; }
         
-        /* Hero Section */
+        /* --- HERO SECTION VIDEO STYLE --- */
         .hero-section {
-            background: var(--primary-gradient);
-            color: white;
-            padding: 100px 0 140px;
-            border-radius: 0 0 50px 50px;
             position: relative;
+            padding: 140px 0 180px;
+            border-radius: 0 0 50px 50px;
             overflow: hidden;
+            background-color: #0f172a;
         }
-        .hero-section::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: url('https://img.freepik.com/free-photo/water-ripples-blue-background_125540-108.jpg?w=1380') center/cover;
-            opacity: 0.15; mix-blend-mode: overlay;
+
+        /* Video Background */
+        .video-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 0;
+        }
+
+        /* Overlay Gelap */
+        .hero-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.7), rgba(37, 99, 235, 0.5));
+            z-index: 1;
+        }
+
+        /* Konten Hero */
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            color: white;
+        }
+
+        /* Navbar Transparan */
+        .navbar {
+            background: rgba(15, 23, 42, 0.85) !important;
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
         /* Search Card */
@@ -42,7 +72,7 @@
             z-index: 10;
         }
 
-        /* Cards Design */
+        /* Feature & Contact Cards */
         .card-feature {
             transition: all 0.3s ease;
             border: 1px solid #f1f5f9 !important;
@@ -63,12 +93,7 @@
         }
         
         /* Map Container */
-        .map-container iframe {
-            width: 100%;
-            height: 250px;
-            border-radius: 16px;
-            border: 0;
-        }
+        .map-container iframe { width: 100%; height: 250px; border-radius: 16px; border: 0; }
 
         /* Social Media Icons */
         .social-btn {
@@ -90,7 +115,7 @@
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark absolute-top" style="background: var(--primary-gradient);">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand animate__animated animate__fadeInLeft" href="#">
                 <i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE
@@ -103,11 +128,18 @@
         </div>
     </nav>
 
-    <section class="hero-section text-center animate__animated animate__fadeIn">
-        <div class="container position-relative z-1">
+    <section class="hero-section text-center">
+        <video class="video-bg" autoplay muted loop playsinline>
+            <source src="{{ url_for('static', filename='videos/landing_bg.mp4') }}" type="video/mp4">
+            Browser Anda tidak mendukung tag video.
+        </video>
+        
+        <div class="hero-overlay"></div>
+
+        <div class="container hero-content animate__animated animate__fadeInUp">
             <h1 class="display-5 fw-800 mb-3">Layanan Informasi Pelanggan</h1>
-            <p class="lead opacity-75 fw-light mx-auto mb-5" style="max-width: 600px;">
-                Cek tagihan, pendaftaran sambungan baru, dan layanan pengaduan terpadu satu pintu.
+            <p class="lead opacity-90 fw-light mx-auto mb-5" style="max-width: 600px;">
+                Cek tagihan, pendaftaran sambungan baru, dan layanan pengaduan terpadu satu pintu secara real-time.
             </p>
         </div>
     </section>
@@ -202,7 +234,7 @@
                             <div class="col-md-6 bg-light map-container">
                                 <iframe 
                                     src="https://maps.google.com/maps?q=Jl.+Danau+Indah+Permai,+Sunter+Jaya,+Kec.+Tj.+Priok,+Jkt+Utara&t=&z=15&ie=UTF8&iwloc=&output=embed" 
-                                    allowfullscreen="" loading="lazy" style="height: 100%; min-height: 250px;">
+                                    allowfullscreen="" loading="lazy">
                                 </iframe>
                             </div>
                         </div>
@@ -244,7 +276,7 @@
                             <i class="fa-solid fa-envelope"></i>
                         </div>
                         <small class="text-uppercase fw-bold text-muted" style="font-size: 0.65rem;">EMAIL</small>
-                        <a href="mailto:customercare@pamjaya.co.id" class="fw-bold text-dark mt-1 mb-0 d-block text-decoration-none small">
+                        <a href="mailto:customercare@pamjaya.co.id" class="fw-bold text-dark mt-1 mb-0 d-block text-decoration-none small text-truncate">
                             customercare@pamjaya.co.id
                         </a>
                     </div>
@@ -283,7 +315,7 @@
                 &copy; 2026 AREA SERVICE. All Rights Reserved.
             </p>
             <p class="small text-muted opacity-75" style="font-size: 0.7rem;">
-                Integrated Service System V13.5
+                Integrated Service System V13.7
             </p>
         </div>
     </footer>
