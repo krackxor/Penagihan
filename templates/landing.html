@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal Pelayanan Pelanggan - Area Service</title>
+    <title>Portal Pelayanan Pelanggan - PAM JAYA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
@@ -13,14 +13,15 @@
         :root {
             --primary-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             --accent-blue: #2563eb;
+            --brand-color: #0099ff;
         }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; color: #334155; }
         
         /* Hero Section */
         .hero-section {
             background: var(--primary-gradient);
             color: white;
-            padding: 80px 0 120px;
+            padding: 100px 0 140px;
             border-radius: 0 0 50px 50px;
             position: relative;
             overflow: hidden;
@@ -28,36 +29,59 @@
         .hero-section::before {
             content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: url('https://img.freepik.com/free-photo/water-ripples-blue-background_125540-108.jpg?w=1380') center/cover;
-            opacity: 0.1; mix-blend-mode: overlay;
+            opacity: 0.15; mix-blend-mode: overlay;
         }
 
         /* Search Card */
         .search-card {
-            margin-top: -60px;
+            margin-top: -80px;
             background: white;
             border-radius: 24px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.08);
             border: 1px solid rgba(0,0,0,0.05);
-            overflow: hidden;
+            position: relative;
+            z-index: 10;
         }
 
-        .btn-check {
-            background: var(--accent-blue); color: white; border: none; font-weight: 700;
-            padding: 12px 30px; border-radius: 12px; transition: 0.3s;
+        /* Feature & Contact Cards */
+        .card-feature {
+            transition: all 0.3s ease;
+            border: 1px solid #f1f5f9 !important;
         }
-        .btn-check:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2); }
-
-        .feature-icon {
-            width: 60px; height: 60px; background: #eff6ff; color: var(--accent-blue);
-            border-radius: 16px; display: flex; align-items: center; justify-content: center;
-            font-size: 1.5rem; margin-bottom: 1rem; transition: 0.3s;
+        .card-feature:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(37, 99, 235, 0.1) !important;
+            border-color: var(--accent-blue) !important;
         }
-        .card-feature:hover .feature-icon { background: var(--accent-blue); color: white; transform: rotate(10deg); }
 
-        .navbar-brand { font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; }
+        .icon-circle {
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
         
-        /* Footer */
-        footer { background: white; padding: 40px 0; border-top: 1px solid #e2e8f0; margin-top: 80px; }
+        /* Contact Link Styles */
+        .contact-link { text-decoration: none; color: inherit; display: block; }
+        .contact-link:hover h6 { color: var(--accent-blue); }
+
+        /* Social Media Icons */
+        .social-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: #fff;
+            color: #64748b;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid #e2e8f0;
+            transition: 0.3s;
+            margin: 0 5px;
+            font-size: 1.1rem;
+        }
+        .social-btn:hover { background: var(--accent-blue); color: white; transform: translateY(-3px); border-color: var(--accent-blue); }
+
+        .navbar-brand { font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; }
+        footer { background: white; border-top: 1px solid #e2e8f0; padding: 60px 0 30px; margin-top: 80px; }
     </style>
 </head>
 <body>
@@ -65,7 +89,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark absolute-top" style="background: var(--primary-gradient);">
         <div class="container">
             <a class="navbar-brand animate__animated animate__fadeInLeft" href="#">
-                <i class="fa-solid fa-droplet text-primary me-2"></i>AREA SERVICE
+                <i class="fa-solid fa-droplet text-info me-2"></i>PAM JAYA
             </a>
             <div class="ms-auto animate__animated animate__fadeInRight">
                 <a href="/login" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
@@ -77,9 +101,9 @@
 
     <section class="hero-section text-center animate__animated animate__fadeIn">
         <div class="container position-relative z-1">
-            <h1 class="display-4 fw-800 mb-3">Layanan Informasi Pelanggan</h1>
-            <p class="lead opacity-75 fw-light mx-auto" style="max-width: 600px;">
-                Pantau tagihan air, riwayat pemakaian, dan informasi gangguan layanan secara real-time dan transparan.
+            <h1 class="display-5 fw-800 mb-3">Layanan Informasi Pelanggan</h1>
+            <p class="lead opacity-75 fw-light mx-auto mb-5" style="max-width: 600px;">
+                Cek tagihan, daftar sambungan baru, dan layanan pengaduan terpadu dalam satu pintu.
             </p>
         </div>
     </section>
@@ -90,26 +114,26 @@
                 
                 <div class="card search-card p-4 p-md-5 animate__animated animate__fadeInUp">
                     <h4 class="fw-bold text-dark mb-1 text-center">Cek Tagihan & Status</h4>
-                    <p class="text-muted small text-center mb-4">Masukkan Nomor ID Pelanggan (Nomen) Anda</p>
+                    <p class="text-muted small text-center mb-4">Masukkan Nomor ID Pelanggan (Nomen)</p>
                     
                     <form onsubmit="cekTagihan(event)" class="position-relative">
-                        <div class="input-group input-group-lg shadow-sm rounded-4 overflow-hidden border">
+                        <div class="input-group input-group-lg shadow-sm rounded-pill overflow-hidden border">
                             <span class="input-group-text bg-white border-0 ps-4"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                            <input type="number" id="idpel" class="form-control border-0 bg-transparent fw-bold" placeholder="Contoh: 10203040" required>
-                            <button type="submit" class="btn btn-primary fw-bold px-4">CEK SEKARANG</button>
+                            <input type="number" id="idpel" class="form-control border-0 bg-transparent fw-bold text-dark" placeholder="Contoh: 10203040" required>
+                            <button type="submit" class="btn btn-primary fw-bold px-4 rounded-pill m-1">CEK SEKARANG</button>
                         </div>
                     </form>
 
                     <div id="result-area" class="mt-4 d-none">
-                        <div class="alert alert-light border border-primary border-opacity-25 rounded-4 p-3">
+                        <div class="alert alert-light border border-primary border-opacity-25 rounded-4 p-3 shadow-sm bg-white">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="badge bg-primary bg-opacity-10 text-primary">HASIL PENCARIAN</span>
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">HASIL PENCARIAN</span>
                                 <small class="text-muted fw-bold" id="res-periode">-</small>
                             </div>
                             <h5 class="fw-bold text-dark mb-0" id="res-nama">NAMA PELANGGAN</h5>
                             <small class="text-muted font-monospace" id="res-nomen">ID: -</small>
-                            <hr class="my-2 opacity-10">
-                            <div class="row text-center mt-3">
+                            <hr class="my-3 opacity-10">
+                            <div class="row text-center">
                                 <div class="col-6 border-end">
                                     <small class="text-muted fw-bold d-block" style="font-size: 0.65rem;">VOLUME AIR</small>
                                     <span class="fw-800 text-dark h5" id="res-kubik">0 m³</span>
@@ -128,50 +152,113 @@
         </div>
 
         <div class="row g-4 mt-5">
-            <div class="col-md-4">
-                <div class="card border-0 bg-white shadow-sm rounded-4 p-4 h-100 card-feature text-center">
-                    <div class="feature-icon mx-auto"><i class="fa-solid fa-clock-rotate-left"></i></div>
-                    <h6 class="fw-bold text-dark">Riwayat Pemakaian</h6>
-                    <p class="text-muted small mb-0">Lihat grafik pemakaian air Anda selama 3 bulan terakhir.</p>
-                </div>
+            <div class="col-md-6">
+                <a href="https://pelanggan.pamjaya.co.id//sambungan-baru" target="_blank" class="card card-feature border-0 shadow-sm rounded-4 p-4 h-100 text-decoration-none bg-primary bg-opacity-10">
+                    <div class="d-flex align-items-center">
+                        <div class="icon-circle bg-primary text-white me-3">
+                            <i class="fa-solid fa-faucet-drip"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1">Daftar Sambungan Baru</h6>
+                            <p class="text-muted small mb-0 fw-semibold">Ajukan pemasangan instalasi air baru secara online.</p>
+                        </div>
+                        <div class="ms-auto">
+                            <i class="fa-solid fa-arrow-right text-primary"></i>
+                        </div>
+                    </div>
+                </a>
             </div>
-            <div class="col-md-4">
-                <div class="card border-0 bg-white shadow-sm rounded-4 p-4 h-100 card-feature text-center">
-                    <div class="feature-icon mx-auto"><i class="fa-solid fa-headset"></i></div>
-                    <h6 class="fw-bold text-dark">Layanan Aduan</h6>
-                    <p class="text-muted small mb-0">Laporkan kebocoran atau gangguan air langsung ke petugas.</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border-0 bg-white shadow-sm rounded-4 p-4 h-100 card-feature text-center">
-                    <div class="feature-icon mx-auto"><i class="fa-brands fa-whatsapp"></i></div>
-                    <h6 class="fw-bold text-dark">Info via WhatsApp</h6>
-                    <p class="text-muted small mb-0">Dapatkan notifikasi tagihan otomatis melalui WhatsApp resmi.</p>
-                </div>
+
+            <div class="col-md-6">
+                <a href="https://wa.me/6281212222423" target="_blank" class="card card-feature border-0 shadow-sm rounded-4 p-4 h-100 text-decoration-none">
+                    <div class="d-flex align-items-center">
+                        <div class="icon-circle bg-success bg-opacity-10 text-success me-3">
+                            <i class="fa-brands fa-whatsapp fa-lg"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1">Layanan WhatsApp</h6>
+                            <p class="text-muted small mb-0">Chat interaktif: <span class="fw-bold text-dark font-monospace">0812 1222 2423</span></p>
+                        </div>
+                    </div>
+                </a>
             </div>
         </div>
+
+        <div class="mt-5">
+            <h5 class="fw-bold text-center mb-4">Pusat Layanan Pelanggan</h5>
+            <div class="row g-3 justify-content-center">
+                
+                <div class="col-6 col-md-3">
+                    <div class="card card-feature border-0 shadow-sm rounded-4 text-center p-3 h-100">
+                        <div class="icon-circle bg-danger bg-opacity-10 text-danger mx-auto">
+                            <i class="fa-solid fa-headset"></i>
+                        </div>
+                        <small class="text-uppercase fw-bold text-muted" style="font-size: 0.65rem;">CALL CENTER</small>
+                        <h6 class="fw-bold text-dark mt-1 mb-0">1500 223</h6>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <div class="card card-feature border-0 shadow-sm rounded-4 text-center p-3 h-100">
+                        <div class="icon-circle bg-warning bg-opacity-10 text-warning mx-auto">
+                            <i class="fa-solid fa-envelope"></i>
+                        </div>
+                        <small class="text-uppercase fw-bold text-muted" style="font-size: 0.65rem;">EMAIL</small>
+                        <a href="mailto:customercare@pamjaya.co.id" class="fw-bold text-dark mt-1 mb-0 d-block text-decoration-none small">
+                            customercare@pamjaya.co.id
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <div class="card card-feature border-0 shadow-sm rounded-4 text-center p-3 h-100">
+                        <div class="icon-circle bg-info bg-opacity-10 text-info mx-auto">
+                            <i class="fa-solid fa-comment-sms"></i>
+                        </div>
+                        <small class="text-uppercase fw-bold text-muted" style="font-size: 0.65rem;">SMS CENTER</small>
+                        <h6 class="fw-bold text-dark mt-1 mb-0">0816 725 952</h6>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
     </div>
 
-    <footer class="text-center">
-        <div class="container">
-            <small class="text-muted fw-bold">© 2026 Area Service Management System. All Rights Reserved.</small>
+    <footer>
+        <div class="container text-center">
+            <div class="mb-4">
+                <a href="https://www.facebook.com/pamjayajakarta/?locale=id_ID" target="_blank" class="social-btn" title="Facebook">
+                    <i class="fa-brands fa-facebook-f"></i>
+                </a>
+                <a href="https://www.instagram.com/pamjaya_dki/?hl=id" target="_blank" class="social-btn" title="Instagram">
+                    <i class="fa-brands fa-instagram"></i>
+                </a>
+                <a href="https://www.youtube.com/channel/UCSvn7qsPcIdM13MeFzjHoYA" target="_blank" class="social-btn" title="YouTube">
+                    <i class="fa-brands fa-youtube"></i>
+                </a>
+            </div>
+            
+            <p class="small text-muted mb-1">
+                &copy; 2026 PAM JAYA DKI JAKARTA. All Rights Reserved.
+            </p>
+            <p class="small text-muted opacity-75" style="font-size: 0.7rem;">
+                Area Service Integrated System V13.4
+            </p>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        // Simulasi API Cek Tagihan Publik
-        // Anda perlu membuat endpoint khusus di Flask misal: /api/public/cek-tagihan
+        // Fungsi Cek Tagihan Publik
         async function cekTagihan(e) {
             e.preventDefault();
             const idpel = document.getElementById('idpel').value;
             const resArea = document.getElementById('result-area');
             
-            // Loading State
             Swal.fire({ title: 'Mencari Data...', didOpen: () => Swal.showLoading() });
 
             try {
-                // Ganti URL ini dengan endpoint API publik Anda
                 const res = await fetch(`/api/public/cek-tagihan/${idpel}`);
                 const data = await res.json();
 
@@ -188,19 +275,15 @@
                     document.getElementById('res-total').innerText = "Rp " + Number(item.nominal).toLocaleString('id-ID');
                     
                     const badge = item.lunas 
-                        ? '<span class="badge bg-success w-100 py-2">LUNAS</span>' 
-                        : '<span class="badge bg-danger w-100 py-2">BELUM BAYAR</span>';
+                        ? '<span class="badge bg-success w-100 py-2 rounded-pill"><i class="fa-solid fa-check me-1"></i>LUNAS</span>' 
+                        : '<span class="badge bg-danger w-100 py-2 rounded-pill"><i class="fa-solid fa-xmark me-1"></i>BELUM BAYAR</span>';
                     document.getElementById('status-lunas-badge').innerHTML = badge;
                 } else {
                     Swal.fire('Tidak Ditemukan', 'ID Pelanggan tidak terdaftar.', 'warning');
                     resArea.classList.add('d-none');
                 }
             } catch (err) {
-                // Mockup data jika API belum siap (Hapus blok ini jika sudah ada API)
-                setTimeout(() => {
-                    Swal.close();
-                    Swal.fire('Demo Mode', 'API Publik belum terhubung. Ini tampilan contoh.', 'info');
-                }, 1000);
+                Swal.fire('Info', 'Sistem sedang dalam pemeliharaan. Silakan coba sesaat lagi.', 'info');
             }
         }
     </script>
