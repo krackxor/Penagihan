@@ -5,31 +5,32 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
-    /* FIX: Pastikan Container Peta Punya Tinggi */
+    /* KONTAINER UTAMA AGAR PETA MUNCUL */
     .map-wrapper {
-        height: calc(100vh - 80px); /* Sesuaikan tinggi layar */
+        height: calc(100vh - 80px);
         width: 100%;
         position: relative;
         overflow: hidden;
         border-radius: 1rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
         border: 1px solid #e2e8f0;
     }
 
     #map {
         height: 100%;
         width: 100%;
-        z-index: 1; /* Pastikan peta di lapisan paling bawah */
-        background: #f1f5f9; /* Warna background jika peta loading */
+        z-index: 1;
+        background: #e5e7eb; /* Warna abu jika loading */
     }
     
+    /* SIDEBAR LIST */
     .sidebar-list {
         background: #fff;
         height: 100%;
         overflow-y: auto;
         border-right: 1px solid #e2e8f0;
+        z-index: 2;
         position: relative;
-        z-index: 2; /* Sidebar di atas peta */
     }
     
     .customer-item {
@@ -38,21 +39,22 @@
         transition: all 0.2s;
         padding: 1rem;
     }
-    .customer-item:hover { background-color: #f8fafc; border-left: 4px solid #2563eb; }
+    .customer-item:hover {
+        background-color: #f0f9ff;
+        border-left: 4px solid #2563eb;
+    }
     
-    /* Panel Edit Slide-in */
+    /* PANEL EDIT SLIDE-IN */
     #editPanel {
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         transform: translateX(120%);
     }
     #editPanel.active { transform: translateX(0); }
     
-    /* Legend Styling */
     .legend-box {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(5px);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(4px);
         border: 1px solid rgba(0,0,0,0.1);
-        font-family: 'Inter', sans-serif;
     }
     
     .fw-800 { font-weight: 800; }
@@ -68,13 +70,14 @@
                 <div class="input-group mb-3 shadow-sm">
                     <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
                     <input type="text" id="searchList" class="form-control bg-white border-start-0 shadow-none" 
-                           placeholder="Cari Pelanggan..." onkeyup="filterList()">
+                           placeholder="Cari Nama / ID..." onkeyup="filterList()">
                 </div>
                 
                 <div class="d-flex gap-1 flex-wrap">
-                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 flex-fill">VIP</span>
-                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 flex-fill">Ekstrem</span>
-                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 flex-fill">Drop</span>
+                    <span class="badge bg-primary flex-fill">VIP</span>
+                    <span class="badge bg-danger flex-fill">Ekstrem</span>
+                    <span class="badge bg-warning text-dark flex-fill">Drop</span>
+                    <span class="badge bg-secondary flex-fill">Normal</span>
                 </div>
             </div>
             
@@ -90,16 +93,16 @@
             <div id="map"></div>
             
             <div class="position-absolute bottom-0 start-0 m-3 p-3 rounded-4 shadow-lg legend-box z-3" style="min-width: 180px;">
-                <h6 class="fw-bold small mb-2 text-dark border-bottom pb-2">Legenda Peta</h6>
+                <h6 class="fw-bold small mb-2 text-dark border-bottom pb-2">Legenda</h6>
                 <ul class="list-unstyled small mb-0 fw-semibold" style="font-size: 0.7rem;">
-                    <li class="mb-1 d-flex align-items-center"><span class="badge bg-primary rounded-circle p-1 me-2" style="width:10px; height:10px;"> </span> VIP (> 75 M³)</li>
-                    <li class="mb-1 d-flex align-items-center"><span class="badge bg-danger rounded-circle p-1 me-2" style="width:10px; height:10px;"> </span> Ekstrem</li>
-                    <li class="mb-1 d-flex align-items-center"><span class="badge bg-warning rounded-circle p-1 me-2" style="width:10px; height:10px;"> </span> Drop</li>
-                    <li class="mb-1 d-flex align-items-center"><span class="badge bg-secondary rounded-circle p-1 me-2" style="width:10px; height:10px;"> </span> Normal</li>
+                    <li class="mb-1"><span class="badge bg-primary p-1 rounded-circle me-2"> </span> VIP (> 75 M³)</li>
+                    <li class="mb-1"><span class="badge bg-danger p-1 rounded-circle me-2"> </span> Ekstrem (Naik)</li>
+                    <li class="mb-1"><span class="badge bg-warning p-1 rounded-circle me-2"> </span> Drop (Turun)</li>
+                    <li><span class="badge bg-secondary p-1 rounded-circle me-2"> </span> Normal</li>
                 </ul>
             </div>
 
-            <div id="editPanel" class="position-absolute top-0 end-0 h-100 bg-white shadow-lg z-3 border-start p-4 d-flex flex-column" style="width: 320px;">
+            <div id="editPanel" class="position-absolute top-0 end-0 h-100 bg-white shadow-lg z-3 border-start p-4 d-flex flex-column" style="width: 340px;">
                 <div class="d-flex justify-content-between align-items-start mb-4">
                     <div>
                         <h6 class="fw-bold text-dark mb-1" id="editNama">-</h6>
@@ -113,7 +116,7 @@
                 </div>
 
                 <div class="flex-grow-1">
-                    <label class="small fw-bold text-muted mb-2">Alamat Terdaftar</label>
+                    <label class="small fw-bold text-muted mb-2">Alamat Database</label>
                     <div class="p-3 bg-light rounded-3 border mb-3 small text-secondary fst-italic" id="editAlamat">
                         -
                     </div>
@@ -121,7 +124,7 @@
 
                 <div class="d-grid gap-2 mt-auto">
                     <button onclick="saveLocation()" class="btn btn-primary fw-bold py-2 rounded-pill shadow-sm">
-                        <i class="fa-solid fa-floppy-disk me-2"></i> SIMPAN POSISI
+                        <i class="fa-solid fa-floppy-disk me-2"></i> SIMPAN POSISI BARU
                     </button>
                     <button onclick="triggerAutoDetect()" class="btn btn-outline-dark fw-bold py-2 rounded-pill border-2">
                         <i class="fa-solid fa-wand-magic-sparkles me-2"></i> AUTO DETECT
@@ -140,19 +143,19 @@
     let allCustomers = [];
     const formatIDR = (n) => new Intl.NumberFormat('id-ID').format(n);
 
-    // Custom Icons Leaflet
+    // Custom Icons Generator
     const createIcon = (color) => L.divIcon({
         className: 'custom-div-icon', 
-        html: `<div style='background-color:${color};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 3px 6px rgba(0,0,0,0.4)'></div>`, 
-        iconSize: [14, 14],
-        iconAnchor: [7, 7]
+        html: `<div style='background-color:${color};width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 3px 6px rgba(0,0,0,0.4)'></div>`, 
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
     });
 
     const icons = {
-        'NOMEN_VIP': createIcon('#2563eb'),   // Biru
-        'EKSTREM': createIcon('#dc3545'),     // Merah
-        'DROP': createIcon('#ffc107'),        // Kuning
-        'NORMAL': createIcon('#64748b'),      // Abu
+        'NOMEN_VIP': createIcon('#2563eb'),   
+        'EKSTREM': createIcon('#dc3545'),     
+        'DROP': createIcon('#ffc107'),        
+        'NORMAL': createIcon('#64748b'),      
         'EDIT': L.icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -166,18 +169,19 @@
     });
 
     function initMap() {
-        // FIX: Koordinat Tengah Jakarta Utara (Koja/Priok)
-        // Zoom Level 13 agar mencakup area pelayanan
+        // 1. SET KOORDINAT JAKARTA UTARA (Koja/Tanjung Priok)
+        // Koordinat: -6.121435, 106.90
         map = L.map('map', {zoomControl: false}).setView([-6.121435, 106.90], 13);
         
-        // Menggunakan OpenStreetMap Standar (Lebih detail untuk nama jalan Jakarta)
+        // Layer Peta OSM Standar
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap Contributors'
+            attribution: '&copy; OpenStreetMap',
+            maxZoom: 19
         }).addTo(map);
         
         L.control.zoom({position: 'bottomright'}).addTo(map);
         
-        // Workaround agar peta merender ulang saat load
+        // Refresh peta agar tidak abu-abu
         setTimeout(() => { map.invalidateSize(); }, 500);
     }
 
@@ -188,7 +192,6 @@
             
             if(json.status === 'success') {
                 allCustomers = json.data;
-                console.log("Data loaded:", allCustomers.length); // Debug
                 renderList(allCustomers);
                 renderMarkers(allCustomers);
             }
@@ -197,7 +200,8 @@
 
     function renderList(data) {
         const container = document.getElementById('customerList');
-        const displayData = data.length > 300 ? data.slice(0, 300) : data; // Limit render DOM
+        // Render max 300 item agar browser tidak berat
+        const displayData = data.length > 300 ? data.slice(0, 300) : data;
 
         if(displayData.length === 0) {
             container.innerHTML = '<div class="text-center py-5 small text-muted">Data tidak ditemukan.</div>';
@@ -205,7 +209,9 @@
         }
 
         container.innerHTML = displayData.map(c => {
-            const hasLoc = c.latitude && c.longitude;
+            // Cek apakah punya koordinat valid (bukan 0, bukan null)
+            const hasLoc = c.latitude && parseFloat(c.latitude) !== 0;
+            
             let badgeClass = 'bg-secondary';
             let label = 'Normal';
             
@@ -213,13 +219,14 @@
             else if(c.kategori === 'EKSTREM') { badgeClass = 'bg-danger'; label = 'EKSTREM'; }
             else if(c.kategori === 'DROP') { badgeClass = 'bg-warning text-dark'; label = 'DROP'; }
 
+            // Tombol Aksi: Jika punya lokasi -> Icon Target, Jika tidak -> Icon Plus (Tambah)
             const actionBtn = hasLoc 
-                ? `<button class="btn btn-sm btn-light text-primary border rounded-circle shadow-sm" onclick="focusOnMap('${c.nomen}')"><i class="fa-solid fa-crosshairs"></i></button>`
-                : `<button class="btn btn-sm btn-light text-secondary border rounded-circle shadow-sm" onclick="startTagging('${c.nomen}')"><i class="fa-solid fa-plus"></i></button>`;
+                ? `<button class="btn btn-sm btn-light text-primary border rounded-circle shadow-sm" onclick="focusOnMap('${c.nomen}', event)"><i class="fa-solid fa-crosshairs"></i></button>`
+                : `<button class="btn btn-sm btn-light text-secondary border rounded-circle shadow-sm" onclick="startTagging('${c.nomen}', event)"><i class="fa-solid fa-plus"></i></button>`;
 
             return `
-                <div class="customer-item d-flex justify-content-between align-items-center">
-                    <div class="flex-grow-1" onclick="startTagging('${c.nomen}')">
+                <div class="customer-item d-flex justify-content-between align-items-center" onclick="itemClick('${c.nomen}', ${hasLoc})">
+                    <div class="flex-grow-1">
                         <div class="d-flex align-items-center mb-1">
                             <span class="badge ${badgeClass} rounded-pill me-2" style="font-size:0.5rem;">${label}</span>
                             <h6 class="fw-bold mb-0 text-truncate text-dark small" style="max-width: 140px;">${c.nama}</h6>
@@ -239,33 +246,65 @@
         markers.forEach(m => map.removeLayer(m));
         markers = [];
         
-        let validMarkers = 0;
-
         data.forEach(c => {
-            // Validasi Latitude/Longitude tidak nol atau null
+            // 2. VALIDASI KOORDINAT: Hanya render jika Lat/Lng tidak 0 dan tidak null
             if(c.latitude && c.longitude && parseFloat(c.latitude) !== 0) {
                 let icon = icons[c.kategori] || icons['NORMAL'];
                 
-                const m = L.marker([c.latitude, c.longitude], {icon: icon})
+                const m = L.marker([parseFloat(c.latitude), parseFloat(c.longitude)], {icon: icon})
                     .bindPopup(`
-                        <div class='text-center p-2' style='font-family: sans-serif;'>
-                            <h6 class='fw-bold text-dark mb-1' style='font-size:0.9rem'>${c.nama}</h6>
-                            <span class='badge bg-dark text-white mb-2' style='font-size:0.6rem'>${c.kategori}</span>
+                        <div class='text-center p-2'>
+                            <h6 class='fw-bold text-dark mb-1'>${c.nama}</h6>
+                            <span class='badge bg-light text-dark border mb-2'>${c.kategori}</span>
                             <p class='small text-muted mb-1'>${c.alamat}</p>
-                            <b class='text-primary'>Rp ${formatIDR(c.nominal)}</b>
+                            <button onclick="startTagging('${c.nomen}')" class="btn btn-sm btn-outline-primary w-100 mt-2">Edit Lokasi</button>
                         </div>
                     `)
                     .addTo(map);
                 markers.push(m);
-                validMarkers++;
             }
         });
+    }
+
+    // --- FUNGSI INTERAKSI ---
+    
+    // Klik Item di List
+    function itemClick(nomen, hasLoc) {
+        if(hasLoc) {
+            focusOnMap(nomen);
+        } else {
+            startTagging(nomen);
+        }
+    }
+
+    // 3. FUNGSI FOCUS ON MAP (AUTO ZOOM KE RUMAH)
+    function focusOnMap(nomen, event) {
+        if(event) event.stopPropagation(); // Mencegah klik ganda
         
-        console.log("Markers rendered:", validMarkers);
+        const c = allCustomers.find(x => x.nomen === nomen);
+        
+        if(c && c.latitude && parseFloat(c.latitude) !== 0) {
+            // Terbang ke lokasi
+            map.flyTo([parseFloat(c.latitude), parseFloat(c.longitude)], 18);
+            
+            // Buka Popup marker yang sesuai
+            // Cari marker terdekat (opsional, untuk UX lebih baik)
+        } else {
+            Swal.fire({
+                icon: 'info',
+                title: 'Lokasi Belum Ada',
+                text: 'Silakan tandai lokasi pelanggan ini secara manual.',
+                confirmButtonText: 'Tandai Sekarang'
+            }).then((result) => {
+                if (result.isConfirmed) startTagging(nomen);
+            });
+        }
     }
 
     // --- FITUR EDIT ---
-    function startTagging(nomen) {
+    function startTagging(nomen, event) {
+        if(event) event.stopPropagation();
+        
         const c = allCustomers.find(x => x.nomen === nomen);
         if(!c) return;
         currentEditNomen = nomen;
@@ -277,7 +316,7 @@
         
         document.getElementById('editPanel').classList.add('active'); // Slide In
         
-        // Jika ada lokasi, pakai itu. Jika tidak, pakai tengah peta saat ini.
+        // Ambil koordinat jika ada, jika tidak ambil tengah peta
         let lat = (c.latitude && parseFloat(c.latitude) !== 0) ? parseFloat(c.latitude) : map.getCenter().lat;
         let lng = (c.longitude && parseFloat(c.longitude) !== 0) ? parseFloat(c.longitude) : map.getCenter().lng;
         
@@ -286,7 +325,6 @@
         
         map.flyTo([lat, lng], 17);
         
-        // Listener saat marker digeser
         editMarker.on('dragend', function(event){
             var marker = event.target;
             var position = marker.getLatLng();
@@ -304,7 +342,6 @@
         if(!editMarker || !currentEditNomen) return;
         const { lat, lng } = editMarker.getLatLng();
         
-        // Kirim ke backend
         const fd = new FormData(); 
         fd.append('nomen', currentEditNomen); 
         fd.append('lat', lat); 
@@ -313,8 +350,6 @@
         try {
             await fetch('/api/map/save-point', {method:'POST', body:fd});
             Swal.fire({icon:'success', title:'Lokasi Tersimpan', toast:true, position:'top-end', timer:2000, showConfirmButton:false});
-            
-            // Reload data tanpa refresh halaman
             loadData(); 
             cancelEdit();
         } catch(e) {
@@ -322,14 +357,10 @@
         }
     }
 
-    // Auto Detect menggunakan Nominatim OpenStreetMap
     async function triggerAutoDetect() {
         let address = document.getElementById('rawAddressHidden').value;
-        // Bersihkan alamat agar lebih mudah dicari
         let cleanAddress = address.replace(/NO\.?\s?\d+/gi, '').replace(/RT.*?RW.*?/gi, '').replace(/BLOK.*?/gi, '').trim();
-        
-        // Lock pencarian ke Jakarta Utara agar tidak nyasar
-        const query = `${cleanAddress}, Jakarta Utara, Indonesia`;
+        const query = `${cleanAddress}, Jakarta Utara, Indonesia`; // Force Jakarta Utara
         
         Swal.fire({ title: 'Mencari...', didOpen: () => Swal.showLoading() });
 
@@ -342,20 +373,14 @@
                 let lat = parseFloat(data[0].lat);
                 let lon = parseFloat(data[0].lon);
                 
-                // Update posisi marker edit
                 if(editMarker) editMarker.setLatLng([lat, lon]);
                 map.flyTo([lat, lon], 18);
                 
                 Swal.fire({ icon: 'success', title: 'Ketemu!', timer: 800, showConfirmButton: false });
             } else {
-                Swal.fire({ icon: 'warning', title: 'Tidak Ditemukan', text: 'Alamat tidak spesifik. Silakan geser pin manual.' });
+                Swal.fire({ icon: 'warning', title: 'Tidak Ditemukan', text: 'Alamat kurang spesifik. Geser pin manual.' });
             }
-        } catch (e) { Swal.fire('Error', 'Gagal koneksi server peta.', 'error'); }
-    }
-
-    function focusOnMap(nomen) {
-        const c = allCustomers.find(x => x.nomen === nomen);
-        if(c && c.latitude) map.flyTo([c.latitude, c.longitude], 18);
+        } catch (e) { Swal.fire('Error', 'Gagal koneksi peta.', 'error'); }
     }
 
     function filterList() {
