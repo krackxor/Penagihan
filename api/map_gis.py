@@ -9,89 +9,136 @@ from datetime import datetime
 map_bp = Blueprint('map', __name__)
 
 def get_active_period(cursor):
-    cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
-    row = cursor.fetchone()
-    return row['periode'] if row else datetime.now().strftime('%m-%Y')
+    """Mengambil periode transaksi terakhir yang aktif"""
+    try:
+        cursor.execute("SELECT periode FROM master_pelanggan ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        return row['periode'] if row else datetime.now().strftime('%m-%Y')
+    except Exception:
+        return datetime.now().strftime('%m-%Y')
 
 @map_bp.route('/data', methods=['GET'])
 def get_map_data():
+    """
+    API Utama untuk GIS Intelligence.
+    Mengambil semua data pelanggan dan melakukan klasifikasi kategori 
+    untuk pewarnaan marker di peta (Front-End).
+    """
+    # 1. Security Check
     if session.get('role') != 'admin':
-        return jsonify({"status": "error"}), 403
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
 
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
         periode = get_active_period(cursor)
 
-        # UPDATE 1: Query mengambil SEMUA data tanpa filter aneh-aneh
-        # Tujuannya agar semua pelanggan (termasuk yang normal) bisa muncul
+        # 2. Query Data: Mengambil SEMUA data periode ini 
+        # (Subquery avg_hist untuk perbandingan anomali)
         query = """
             SELECT 
                 p.nomen, p.nama, p.alamat, p.kubik, p.nominal, p.status_lunas,
                 p.latitude, p.longitude,
-                (SELECT ROUND(AVG(m.kubik), 1) FROM master_pelanggan m WHERE m.nomen = p.nomen) as avg_hist
+                COALESCE(
+                    (SELECT AVG(m.kubik) FROM master_pelanggan m WHERE m.nomen = p.nomen), 
+                    p.kubik
+                ) as avg_hist
             FROM master_pelanggan p
             WHERE p.periode = ?
         """
         cursor.execute(query, (periode,))
         rows = [dict(row) for row in cursor.fetchall()]
         
-        # LOGIKA BARU: Penentuan Kategori & Warna
+        # 3. Logic Processor: Penentuan Kategori & Warna
         processed = []
         for r in rows:
-            kubik = float(r['kubik']) if r['kubik'] else 0
-            avg = float(r['avg_hist']) if r['avg_hist'] else 1.0
-            lunas = int(r['status_lunas'])
+            # Sanitasi Data Angka
+            kubik = float(r['kubik']) if r['kubik'] is not None else 0.0
+            avg = float(r['avg_hist']) if r['avg_hist'] is not None else 0.0
+            lunas = int(r['status_lunas']) if r['status_lunas'] is not None else 0
             
-            kategori = 'NORMAL' # Default
+            # Default Category
+            kategori = 'NORMAL' 
             
-            # Cek kondisi teknis dulu
+            # --- Deteksi Anomali Teknis ---
             is_ekstrem = False
             is_drop = False
             
             if avg > 0:
+                # Logika Ekstrem: Pemakaian > 500 ATAU (Diatas 20m3 DAN Naik 2x Lipat Rata2)
                 if kubik > 500 or (kubik > 20 and kubik > (avg * 2)):
                     is_ekstrem = True
-                elif (kubik == 0 and avg > 5) or (kubik < (avg * 0.5)):
+                
+                # Logika Drop: (0 m3 padahal biasanya > 5) ATAU (Turun dibawah 50% Rata2)
+                elif (kubik == 0 and avg > 5) or (kubik > 0 and kubik < (avg * 0.5)):
                     is_drop = True
-            
-            # URUTAN PRIORITAS BARU (Sesuai Request):
-            # 1. NOMEN VIP (Kubik > 75) - Tidak peduli nunggak/lancar, tetap ungu
-            if kubik > 75:
-                kategori = 'NOMEN_VIP'    # UNGU
-            # 2. EKSTREM (Lonjakan)
-            elif is_ekstrem:
-                kategori = 'EKSTREM'      # MERAH
-            # 3. DROP (Turun Drastis)
-            elif is_drop:
-                kategori = 'DROP'         # KUNING
-            # 4. BELUM BAYAR (Umum / < 75 kubik)
-            elif lunas == 0:
-                kategori = 'BELUM_BAYAR'  # ORANGE
-            # 5. Sisanya NORMAL
-            else:
-                kategori = 'NORMAL'       # ABU-ABU
 
+            # --- Penentuan Prioritas Kategori (Hierarchy) ---
+            
+            # 1. NOMEN VIP (Kubik > 75) - Prioritas Tertinggi (Marker Biru/Ungu)
+            if kubik > 75:
+                kategori = 'NOMEN_VIP'
+            
+            # 2. EKSTREM (Lonjakan Tidak Wajar) - (Marker Merah)
+            elif is_ekstrem:
+                kategori = 'EKSTREM'
+            
+            # 3. DROP (Indikasi Meter Macet/Rumah Kosong) - (Marker Kuning)
+            elif is_drop:
+                kategori = 'DROP'
+            
+            # 4. BELUM BAYAR (Tunggakan Umum) - (Marker Orange)
+            elif lunas == 0:
+                kategori = 'BELUM_BAYAR'
+            
+            # 5. NORMAL (Lunas & Stabil) - (Marker Abu/Hijau)
+            else:
+                kategori = 'NORMAL'
+
+            # Attach hasil analisa ke data row
             r['kategori'] = kategori
+            
+            # Format angka untuk tampilan (opsional, biar rapi di JSON)
+            r['avg_hist'] = round(avg, 1)
+            
             processed.append(r)
         
         return jsonify({"status": "success", "data": processed})
+
+    except Exception as e:
+        print(f"Error Map Data: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
 
-# Fungsi Simpan Titik (TIDAK DIHAPUS)
 @map_bp.route('/save-point', methods=['POST'])
 def save_point():
-    if session.get('role') != 'admin': return jsonify({"status": "error"}), 403
+    """
+    Menyimpan titik koordinat (Latitude/Longitude) hasil drag-and-drop
+    atau auto-detect ke database.
+    """
+    if session.get('role') != 'admin':
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
     
     nomen = request.form.get('nomen')
     lat = request.form.get('lat')
     lng = request.form.get('lng')
     
+    if not nomen or not lat or not lng:
+        return jsonify({"status": "error", "message": "Data tidak lengkap"}), 400
+
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("UPDATE master_pelanggan SET latitude=?, longitude=? WHERE nomen=?", (lat, lng, nomen))
+        # Update koordinat untuk pelanggan tersebut (berlaku global untuk nomen ini)
+        # Note: Idealnya master koordinat dipisah tabelnya, tapi untuk simpel 
+        # kita update row yang ada atau semua row dengan nomen sama.
+        cursor.execute("""
+            UPDATE master_pelanggan 
+            SET latitude = ?, longitude = ? 
+            WHERE nomen = ?
+        """, (lat, lng, nomen))
+        
         conn.commit()
         return jsonify({"status": "success"})
     except Exception as e:
