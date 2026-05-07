@@ -188,7 +188,7 @@ END;
 -- 6. SEEDING SECURITY (FIX UNIQUE CONSTRAINT ERROR)
 -- Menggunakan INSERT OR IGNORE untuk mencegah Database Init Error
 INSERT OR IGNORE INTO users (username, password, role, petugas_id) 
-VALUES ('admin_sunter', 'pbkdf2:sha256:250000$tJ9...', 'admin', 'ADMIN_PUSAT');
+VALUES ('admin_sunter', 'admin123', 'admin', 'ADMIN_PUSAT');
 
 -- 7. INDEX OPTIMIZATION
 CREATE INDEX IF NOT EXISTS idx_mc_nomen_per ON master_pelanggan(nomen, periode);
