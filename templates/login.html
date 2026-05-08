@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Autentikasi Sesi - Area Service</title>
+    <title>Login Petugas - Area Service</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -33,7 +33,7 @@
         .login-card {
             width: 100%;
             max-width: 420px;
-            padding: 3rem 2.5rem;
+            padding: 2.5rem;
             background: var(--glass-bg);
             backdrop-filter: blur(25px);
             -webkit-backdrop-filter: blur(25px);
@@ -41,102 +41,88 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             position: relative;
-            z-index: 1;
-        }
-
-        /* Decorative Elements */
-        .login-card::before {
-            content: ''; position: absolute; top: -1px; left: -1px; right: -1px; bottom: -1px;
-            background: linear-gradient(45deg, transparent 40%, rgba(37, 99, 235, 0.3), transparent 60%);
-            z-index: -1; border-radius: 2rem;
-            pointer-events: none;
         }
 
         .brand-logo {
-            width: 72px; height: 72px;
+            width: 65px; height: 65px;
             background: #ffffff;
             color: var(--accent-blue);
-            border-radius: 20px;
+            border-radius: 18px;
             display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+            margin: 0 auto 1.2rem;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
             transform: rotate(-3deg);
-            transition: transform 0.3s;
+            transition: 0.3s;
         }
         .brand-logo:hover { transform: rotate(0deg) scale(1.05); }
 
         .form-label { 
-            font-size: 0.7rem; font-weight: 700; color: #94a3b8; 
-            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;
+            font-size: 0.75rem; font-weight: 700; color: #94a3b8; 
+            margin-bottom: 0.5rem;
         }
 
         .input-group { 
             background: var(--input-bg); 
             border-radius: 1rem; 
             border: 1px solid rgba(255, 255, 255, 0.1); 
-            transition: all 0.3s ease; 
+            transition: 0.3s; 
             overflow: hidden;
         }
         
         .input-group:focus-within { 
             border-color: var(--accent-blue); 
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15); 
             background: rgba(255, 255, 255, 0.08);
         }
 
         .input-group-text { 
             background: transparent; border: none; color: #64748b; 
-            padding-left: 1.25rem; font-size: 1.1rem;
+            padding-left: 1.25rem;
         }
 
         .form-control {
             background: transparent; border: none; color: white; 
-            padding: 1rem 1rem 1rem 0.75rem; font-size: 0.95rem; font-weight: 600;
+            padding: 0.85rem 1rem 0.85rem 0.75rem; font-size: 1rem;
         }
         .form-control:focus { background: transparent; color: white; box-shadow: none; }
-        .form-control::placeholder { color: #475569; font-weight: 500; }
+        .form-control::placeholder { color: #475569; }
 
         .btn-login {
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             border: none; border-radius: 1rem; padding: 1rem;
-            font-weight: 800; color: white; letter-spacing: 1px;
-            transition: all 0.3s ease; margin-top: 1.5rem;
+            font-weight: 800; color: white; 
+            transition: 0.3s; margin-top: 1rem;
             width: 100%; box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
         }
         .btn-login:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(37, 99, 235, 0.4); }
         .btn-login:active { transform: scale(0.98); }
 
         .help-link {
-            text-decoration: none; font-size: 0.8rem; color: var(--accent-blue); font-weight: 600;
-            transition: 0.3s; display: inline-block;
+            text-decoration: none; font-size: 0.85rem; color: #94a3b8;
+            transition: 0.3s;
         }
-        .help-link:hover { color: #60a5fa; }
+        .help-link:hover { color: white; }
 
-        .version-text { font-size: 0.7rem; color: #475569; margin-top: 2rem; font-weight: 600; letter-spacing: 0.5px; }
-        
-        .spinner-border-sm { width: 1.2rem; height: 1.2rem; border-width: 0.15em; }
+        .version-text { font-size: 0.7rem; color: #475569; margin-top: 2rem; font-weight: 600; }
     </style>
 </head>
 <body>
 
 <div class="container px-4">
     <div class="login-card animate__animated animate__zoomIn">
-        <div class="text-center mb-5">
-            <div class="brand-logo animate__animated animate__fadeInDown animate__delay-1s">
-                <i class="fa-solid fa-bolt fa-2xl"></i>
+        <div class="text-center mb-4">
+            <div class="brand-logo">
+                <i class="fa-solid fa-droplet fa-2xl"></i>
             </div>
-            <h4 class="text-white fw-800 mb-1" style="letter-spacing: -0.5px; font-size: 1.5rem;">AREA SERVICE</h4>
-            <div class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-2 px-3 rounded-pill mt-2 fw-bold" style="font-size: 0.65rem; letter-spacing: 1px;">
-                <i class="fa-solid fa-shield-halved me-1"></i> SECURE GATEWAY V12.9
-            </div>
+            <h4 class="text-white fw-800 mb-1" style="font-size: 1.5rem;">AREA SERVICE</h4>
+            <p class="text-muted small">Silakan masuk untuk akses sistem</p>
         </div>
 
         <form id="loginForm">
             <div class="mb-4">
-                <label class="form-label">Username / ID</label>
+                <label class="form-label">Username / ID Petugas</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-regular fa-user"></i></span>
-                    <input type="text" id="username" class="form-control" placeholder="Masukkan ID Petugas" required autocomplete="username">
+                    <input type="text" id="username" class="form-control" placeholder="Masukkan ID Anda" required autocomplete="username">
                 </div>
             </div>
 
@@ -148,20 +134,20 @@
                 </div>
             </div>
 
-            <div class="d-flex justify-content-end mb-4">
+            <div class="text-center mb-4">
                 <a href="https://wa.me/6285143465087?text=Halo%20Admin,%20saya%20petugas%20butuh%20bantuan%20login" target="_blank" class="help-link">
-                    <i class="fa-regular fa-circle-question me-1"></i>Butuh Bantuan?
+                    Lupa password atau butuh bantuan?
                 </a>
             </div>
 
             <button type="submit" class="btn btn-login" id="btnSubmit">
-                MASUK SISTEM <i class="fa-solid fa-arrow-right ms-2"></i>
+                MASUK SEKARANG <i class="fa-solid fa-arrow-right ms-2"></i>
             </button>
         </form>
 
         <div class="text-center version-text">
-            <div class="text-uppercase mb-1">Integrated Operation System</div>
             <div class="opacity-50">© 2026 Area Service Management</div>
+            <div class="mt-1 badge bg-dark text-muted fw-normal" style="font-size: 0.6rem;">Versi 12.9</div>
         </div>
     </div>
 </div>
@@ -174,9 +160,8 @@
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        // Visual Feedback
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> OTORISASI...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Mencoba Masuk...';
 
         try {
             const response = await fetch('/api/auth/login', {
@@ -190,18 +175,17 @@
             if (response.ok) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Akses Diterima',
-                    text: `Selamat datang kembali, ${username.toUpperCase()}`,
+                    title: 'Login Berhasil',
+                    text: `Selamat bekerja, ${username.toUpperCase()}`,
                     timer: 1500,
                     showConfirmButton: false,
                     background: '#1e293b',
-                    color: '#fff',
-                    customClass: { popup: 'rounded-4 border border-primary' }
+                    color: '#fff'
                 }).then(() => {
                     window.location.href = result.data.redirect;
                 });
             } else {
-                throw new Error(result.message || 'Kredensial tidak valid.');
+                throw new Error(result.message || 'Username atau password salah.');
             }
         } catch (error) {
             Swal.fire({
@@ -210,11 +194,10 @@
                 text: error.message,
                 confirmButtonColor: '#2563eb',
                 background: '#1e293b',
-                color: '#fff',
-                customClass: { popup: 'rounded-4' }
+                color: '#fff'
             });
             btn.disabled = false;
-            btn.innerHTML = 'MASUK SISTEM <i class="fa-solid fa-arrow-right ms-2"></i>';
+            btn.innerHTML = 'MASUK SEKARANG <i class="fa-solid fa-arrow-right ms-2"></i>';
         }
     });
 
@@ -225,7 +208,7 @@
                 toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true,
                 background: '#10b981', color: '#fff'
             });
-            Toast.fire({ icon: 'success', title: 'Sesi anda telah berakhir dengan aman.' });
+            Toast.fire({ icon: 'success', title: 'Anda telah keluar dari sistem.' });
         }
     };
 </script>
