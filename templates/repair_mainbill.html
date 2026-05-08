@@ -52,7 +52,7 @@
         <div class="upload-card">
             <i class="fa-solid fa-file-csv fa-3x text-primary mb-3"></i>
             <h3 class="fw-bold text-dark mb-2">Pembersih Mainbill</h3>
-            <p class="text-muted small mb-4">Format akan diubah menjadi mode Koma (Comma) murni persis seperti Book1.</p>
+            <p class="text-muted small mb-4">Merapikan data agar bisa langsung masuk ke Access menggunakan pilihan pemisah Koma.</p>
             
             <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
                 <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
@@ -83,38 +83,76 @@
 
             Swal.fire({
                 title: 'Sedang Memproses...',
+                text: 'Mencopot tanda kutip dan merapikan kolom...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                let text = e.target.result;
-                
-                // JURUS SEDERHANA & AMPUH:
-                
-                // 1. Hancurkan semua tanda kutip (")
-                text = text.replace(/"/g, "");
+                try {
+                    let text = e.target.result;
+                    // Pecah data per baris (enter)
+                    let lines = text.split(/\r?\n/);
+                    
+                    // Deteksi otomatis apakah file pakai koma atau titik koma
+                    let delimiter = lines[0].includes(';') ? ';' : ',';
+                    
+                    let outputLines = [];
+                    
+                    // Kita periksa baris demi baris
+                    for(let i = 0; i < lines.length; i++) {
+                        let line = lines[i];
+                        if(line.trim() === "") continue; // Lewati jika barisnya kosong
+                        
+                        // Pecah baris menjadi potongan-potongan kolom
+                        let columns = line.split(delimiter);
+                        let cleanColumns = [];
+                        
+                        // Kita bersihkan masing-masing kolom
+                        for(let j = 0; j < columns.length; j++) {
+                            let col = columns[j];
+                            
+                            // 1. Buang semua tanda kutip
+                            col = col.replace(/"/g, "");
+                            
+                            // 2. Buang spasi kosong yang berlebihan di tulisan
+                            col = col.trim();
+                            
+                            // 3. Buang akhiran .00 atau ,00 jika itu adalah angka
+                            if(col.endsWith('.00')) {
+                                col = col.substring(0, col.length - 3);
+                            } else if(col.endsWith(',00')) {
+                                col = col.substring(0, col.length - 3);
+                            }
+                            
+                            cleanColumns.push(col);
+                        }
+                        
+                        // Sambungkan kembali potongan tersebut hanya dengan KOMA
+                        outputLines.push(cleanColumns.join(","));
+                    }
+                    
+                    // Gabungkan semua baris menjadi satu teks utuh (dengan Enter khusus Windows)
+                    let finalOutput = outputLines.join("\r\n");
+                    
+                    // Download sebagai file murni (Tanpa kode BOM agar Access tidak bingung)
+                    const blob = new Blob([finalOutput], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    
+                    a.href = url;
+                    // Namanya akan ditambah _BERSIH agar mudah dicari
+                    a.download = fileInput.files[0].name.replace('.txt', '') + "_BERSIH.txt";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
 
-                // 2. Hapus .00 dan ,00
-                text = text.replace(/\.00(?=[,;\r\n]|$)/g, "");
-                text = text.replace(/,00(?=[,;\r\n]|$)/g, "");
-
-                // 3. Paksa semua titik koma (;) menjadi koma (,)
-                text = text.replace(/;/g, ",");
-
-                // Download hasil akhirnya
-                const blob = new Blob([text], { type: 'text/plain;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                
-                a.href = url;
-                a.download = fileInput.files[0].name.replace('.txt', '') + "_FINAL.txt";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-
-                Swal.fire('Sukses!', 'Data sudah bersih dan menggunakan format Koma.', 'success');
+                    Swal.fire('Selesai!', 'Silakan import file _BERSIH.txt ke Access, lalu pilih "Comma".', 'success');
+                    
+                } catch (err) {
+                    Swal.fire('Gagal', 'Pastikan file yang dimasukkan adalah file teks dari sistem.', 'error');
+                }
             };
             
             reader.readAsText(fileInput.files[0]);
