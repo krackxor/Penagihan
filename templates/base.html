@@ -251,6 +251,17 @@
                         <i class="fas fa-list-check"></i>Log Aktivitas
                     </a>
                     <div class="menu-divider"></div>
+
+                    <span class="section-label text-primary"><i class="fa-solid fa-bolt me-1"></i> Modul SBRS LNP</span>
+                    
+                    <a href="/upload-sbrs" class="nav-link-custom {% if request.path == '/upload-sbrs' %}active-menu{% endif %}">
+                        <i class="fa-solid fa-file-import text-primary"></i>Upload LNP
+                    </a>
+                    
+                    <a href="/summary-sbrs" class="nav-link-custom {% if request.path == '/summary-sbrs' %}active-menu{% endif %}">
+                        <i class="fa-solid fa-chart-line text-info"></i>Summary LNP
+                    </a>
+                    <div class="menu-divider"></div>
                     {% endif %}
                 {% endif %}
 
