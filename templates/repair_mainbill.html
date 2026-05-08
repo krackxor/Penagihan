@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repair Mainbill Tool - AREA SERVICE</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-bg: #0f172a;
+            --accent-blue: #2563eb;
+        }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f8fafc; 
+            color: #334155; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh;
+        }
+        
+        /* Navbar Style */
+        .navbar {
+            background: rgba(15, 23, 42, 0.95) !important;
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        .navbar-brand { font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; color: white !important;}
+        
+        /* Main Container Adjustments */
+        .tool-container {
+            margin-top: 100px;
+            flex-grow: 1;
+            padding-bottom: 50px;
+        }
+
+        /* Card Style */
+        .upload-card {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.05);
+            padding: 40px;
+        }
+
+        /* Drop Zone Style */
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 16px;
+            background: #f1f5f9;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 40px 20px;
+        }
+        .drop-zone:hover {
+            border-color: var(--accent-blue);
+            background: #eff6ff;
+        }
+        .drop-zone i {
+            color: #94a3b8;
+            transition: 0.3s;
+        }
+        .drop-zone:hover i {
+            color: var(--accent-blue);
+        }
+
+        /* Footer */
+        footer { 
+            background: white; 
+            border-top: 1px solid #e2e8f0; 
+            padding: 30px 0; 
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE
+            </a>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <a href="{{ url_for('index') }}" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
+                    <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI KE BERANDA
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container tool-container d-flex align-items-center justify-content-center animate__animated animate__fadeIn">
+        <div class="row justify-content-center w-100">
+            <div class="col-md-8 col-lg-6">
+                
+                <div class="upload-card text-center">
+                    <div class="mb-4">
+                        <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 rounded-circle" style="width: 80px; height: 80px;">
+                            <i class="fa-solid fa-file-medical fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                    
+                    <h3 class="fw-bold text-dark mb-2">Repair Mainbill File</h3>
+                    <p class="text-muted small mb-4">Bersihkan desimal <code>.00</code>, spasi kosong, dan format agar siap untuk di-import ke MS Access.</p>
+                    
+                    <div id="dropZone" class="drop-zone mb-4">
+                        <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3"></i>
+                        <h5 id="fileNameDisplay" class="fw-bold text-dark mb-1">Klik atau Pilih File .TXT</h5>
+                        <p class="text-muted small mb-0">Hanya menerima format teks (.txt)</p>
+                        <input type="file" id="fileInput" accept=".txt" style="display:none">
+                    </div>
+
+                    <button onclick="processFile()" class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm" style="background-color: var(--accent-blue);">
+                        <i class="fa-solid fa-wand-magic-sparkles me-2"></i>MULAI PERBAIKI DATA
+                    </button>
+                    
+                    <div class="mt-4 pt-3 border-top text-start">
+                        <p class="small fw-bold text-muted mb-2"><i class="fa-solid fa-circle-info me-1"></i> Apa yang dilakukan sistem?</p>
+                        <ul class="text-muted small mb-0 ps-3">
+                            <li>Otomatis hapus angka <code>.00</code> pada Nominal & Kubikasi.</li>
+                            <li>Hapus spasi hantu (<i>Trim Space</i>) pada kolom Nomen/Nama.</li>
+                            <li>Ganti pemisah koma <code>( , )</code> menjadi titik koma <code>( ; )</code>.</li>
+                        </ul>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container text-center">
+            <p class="small text-muted mb-0">
+                © 2026 AREA SERVICE. All Rights Reserved. | Mainbill Tool Engine
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+        // Klik area dropzone akan membuka window pilih file
+        dropZone.onclick = () => fileInput.click();
+
+        // Saat file dipilih, tampilkan namanya di kotak
+        fileInput.onchange = () => {
+            if(fileInput.files.length > 0) {
+                const fName = fileInput.files[0].name;
+                fileNameDisplay.innerHTML = `<i class="fa-solid fa-file-check text-success me-2"></i> ${fName}`;
+                fileNameDisplay.classList.add("text-primary");
+            }
+        };
+
+        // Fungsi Pembersihan Utama
+        function processFile() {
+            if (!fileInput.files[0]) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Pilih File Dulu',
+                    text: 'Anda belum memilih file Mainbill (.txt) yang akan diperbaiki.',
+                    confirmButtonColor: '#2563eb'
+                });
+                return;
+            }
+
+            // Tampilkan animasi loading
+            Swal.fire({
+                title: 'Sedang Memproses...',
+                text: 'Merapikan data ribuan baris, mohon tunggu sebentar.',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let content = e.target.result;
+
+                    // 1. Hapus .00 jika diikuti koma, baris baru, atau akhir string
+                    content = content.replace(/\.00(?=,|\r|\n|$)/g, "");
+
+                    // 2. Trim spasi kosong di dalam tanda kutip ("Teks    " -> "Teks")
+                    content = content.replace(/"\s*(.*?)\s*"/g, '"$1"');
+
+                    // 3. Ubah separator (,) menjadi (;) agar ramah MS Access & Excel Regional Indonesia
+                    content = content.split('","').join('";"');
+                    content = content.replace(/",/g, '";').replace(/,"/g, ';"');
+
+                    // Buat file CSV untuk diunduh (Tambah BOM agar UTF-8 dikenali sempurna)
+                    const blob = new Blob(["\ufeff", content], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    
+                    // Format Nama File (Contoh: MainBill_REPAIRED.csv)
+                    const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_REPAIRED.csv";
+                    
+                    a.href = url;
+                    a.download = newName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+
+                    // Tutup loading dan tampilkan Sukses
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Selesai!',
+                        text: 'File berhasil diperbaiki dan sudah otomatis terunduh.',
+                        confirmButtonColor: '#2563eb'
+                    });
+                    
+                } catch (err) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Memproses',
+                        text: 'Terjadi kesalahan saat membaca file. Pastikan format file benar.',
+                        confirmButtonColor: '#d33'
+                    });
+                }
+            };
+            
+            // Baca file sebagai text
+            reader.readAsText(fileInput.files[0]);
+        }
+    </script>
+</body>
+</html>
