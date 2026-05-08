@@ -17,7 +17,7 @@ Fixes Log:
 12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
 13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
 14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP dengan Auto-Detect Cycle & Periode.
-15. ✅ API SBRS: Tambahan API Get-Summary (Bulletproof ROWID) & Download Excel LNP.
+15. ✅ API SBRS: Tambahan API Get-Summary (Bulletproof) & Download Excel LNP.
 """
 
 import os
@@ -495,8 +495,6 @@ def create_app():
             col_nama = 'cmr_nama' if 'cmr_nama' in kolom_db else ('Nama' if 'Nama' in kolom_db else ('nama_pelanggan' if 'nama_pelanggan' in kolom_db else kolom_db[1]))
             col_skip = 'cmr_skip_code' if 'cmr_skip_code' in kolom_db else None
             col_trbl = 'cmr_trbl1_code' if 'cmr_trbl1_code' in kolom_db else None
-            col_vol_riil = 'Vol_Riil' if 'Vol_Riil' in kolom_db else '0'
-            col_hb = 'Selisih_HB' if 'Selisih_HB' in kolom_db else '0'
 
             # Filter Query
             where_clause = ""
@@ -506,7 +504,7 @@ def create_app():
                 params.append(cycle)
 
             # 1. Hitung Akumulasi Atas
-            cursor.execute(f"SELECT COUNT(*) as tot_obj, SUM({col_vol_riil}) as tot_vol, SUM({col_hb}) as tot_hb FROM history_lnp {where_clause}", params)
+            cursor.execute(f"SELECT COUNT(*) as tot_obj, SUM(Vol_Riil) as tot_vol, SUM(Selisih_HB) as tot_hb FROM history_lnp {where_clause}", params)
             row_sum = cursor.fetchone()
             
             # Hitung Kendala
@@ -533,21 +531,19 @@ def create_app():
             if col_skip:
                 cursor.execute(f"SELECT {col_skip} as kode, COUNT(*) as jumlah FROM history_lnp {where_clause} {'AND' if where_clause else 'WHERE'} {col_skip} IS NOT NULL GROUP BY {col_skip}", params)
                 for r in cursor.fetchall():
-                    val = str(r['kode']).strip()
-                    if val not in ['0', 'None', 'nan', '']:
-                        skip_data.append({"kode": val, "alasan": "Kendala Lapangan", "jumlah": r['jumlah']})
+                    if str(r['kode']).strip() not in ['0', 'None', 'nan', '']:
+                        skip_data.append({"kode": r['kode'], "alasan": "Masalah Lapangan", "jumlah": r['jumlah']})
 
             # 3. Rekap Trouble
             trouble_data = []
             if col_trbl:
                 cursor.execute(f"SELECT {col_trbl} as kode, COUNT(*) as jumlah FROM history_lnp {where_clause} {'AND' if where_clause else 'WHERE'} {col_trbl} IS NOT NULL GROUP BY {col_trbl}", params)
                 for r in cursor.fetchall():
-                    val = str(r['kode']).strip()
-                    if val not in ['0', 'None', 'nan', '']:
-                        trouble_data.append({"kode": val, "alasan": "Masalah Teknis", "jumlah": r['jumlah']})
+                    if str(r['kode']).strip() not in ['0', 'None', 'nan', '']:
+                        trouble_data.append({"kode": r['kode'], "alasan": "Kendala Teknis", "jumlah": r['jumlah']})
 
-            # 4. Ambil 100 Data Terakhir (PENTING: Pakai ROWID)
-            cursor.execute(f"SELECT * FROM history_lnp {where_clause} ORDER BY ROWID DESC LIMIT 100", params)
+            # 4. Ambil 100 Data Terakhir
+            cursor.execute(f"SELECT * FROM history_lnp {where_clause} ORDER BY id DESC LIMIT 100", params)
             
             master_data = []
             for r in cursor.fetchall():
@@ -573,7 +569,7 @@ def create_app():
             })
 
         except Exception as e:
-            return jsonify({"status": "error", "message": f"Terjadi Kesalahan SQL: {str(e)}"})
+            return jsonify({"status": "error", "message": str(e)})
         finally:
             conn.close()
 
