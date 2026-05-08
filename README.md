@@ -1,3 +1,10 @@
+Siap, Mas Khoirul! Saya sudah memperbarui **`README.md`** Anda ke versi **v13.9**.
+
+Pembaruan ini mencakup penambahan fitur **OCR (Ekstrak Teks Gambar Multi-Bahasa)** ke dalam daftar fitur utama, teknologi yang digunakan, serta langkah instalasi mesin Tesseract di bagian setup server agar siapa pun yang membaca (atau Mas sendiri di kemudian hari) tidak melewatkan langkah krusial tersebut.
+
+Silakan salin dan tempel kode di bawah ini ke GitHub Anda:
+
+```markdown
 # 💧 Area Service Integrated System (ASIS) v13.9
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
@@ -50,3 +57,103 @@ sudo apt install python3-pip nginx git certbot python3-certbot-nginx sqlite3 -y
 
 # Instal Engine Konversi & OCR (PENTING)
 sudo apt install libreoffice tesseract-ocr tesseract-ocr-all -y
+
+```
+
+### 2. Kloning Repository & Instalasi Library
+
+```bash
+cd ~
+git clone [https://github.com/username-anda/penagihan.git](https://github.com/username-anda/penagihan.git) Penagihan
+cd Penagihan
+
+# Instal library secara global (untuk Ubuntu 23.04+)
+pip install gunicorn --break-system-packages
+pip install -r requirements.txt --break-system-packages
+
+```
+
+### 3. Inisialisasi Database
+
+```bash
+mkdir -p instance
+sqlite3 instance/penagihan.db < schema.sql
+
+```
+
+### 4. Konfigurasi Gunicorn (Auto-Run Service)
+
+Buat file service: `sudo nano /etc/systemd/system/penagihan.service`
+
+```ini
+[Unit]
+Description=Gunicorn Service untuk Area Service
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/Penagihan
+ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --timeout 600 --limit-request-line 0 "app:create_app()"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable penagihan && sudo systemctl start penagihan
+
+```
+
+### 5. Konfigurasi Nginx (Reverse Proxy)
+
+Buat blok server: `sudo nano /etc/nginx/sites-available/penagihan`
+
+```nginx
+server {
+    listen 80;
+    server_name areaservice.site www.areaservice.site;
+    client_max_body_size 64M;
+
+    location / {
+        proxy_pass [http://127.0.0.1:5000](http://127.0.0.1:5000);
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 600;
+    }
+}
+
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/penagihan /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
+
+```
+
+### 6. Aktivasi SSL HTTPS
+
+```bash
+sudo certbot --nginx -d areaservice.site -d www.areaservice.site
+
+```
+
+---
+
+## ⚙️ Operasional & Perawatan (Maintenance)
+
+* **Melihat Log Real-time:** `sudo journalctl -u penagihan -f`
+* **Update Kode (Restart):** `sudo systemctl restart penagihan`
+* **Cek Status Service:** `sudo systemctl status penagihan`
+
+---
+
+© 2026 Area Service - Hak Cipta Dilindungi.
+
+```
+
+Versi ini sudah sangat lengkap, Mas. Semua komponen "mesin" (LibreOffice dan Tesseract) sudah masuk di urutan instalasi paling awal agar fitur-fitur canggih yang Mas minta tadi langsung menyala begitu server aktif!
+
+```
