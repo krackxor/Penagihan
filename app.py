@@ -17,6 +17,7 @@ Fixes Log:
 12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
 13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
 14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP dengan Auto-Detect Cycle & Periode.
+15. ✅ API SBRS: Tambahan API Get-Summary & Download Excel LNP.
 """
 
 import os
@@ -25,6 +26,7 @@ import pandas as pd
 from datetime import timedelta, datetime
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify, send_file
+import sqlite3 # Tambahan untuk query manual
 
 # [IMPORT CORE]
 from config import Config
@@ -387,11 +389,10 @@ def create_app():
             file_cust = request.files['fileCust']
             file_spot = request.files['fileSpot']
 
-            # 1. BACA FILE & BERSIHKAN HEADER (Asumsi delimiter titik koma / ;)
+            # 1. BACA FILE & BERSIHKAN HEADER
             df_cust = pd.read_csv(file_cust, sep=';', dtype=str, on_bad_lines='skip')
             df_spot = pd.read_csv(file_spot, sep=';', dtype=str, on_bad_lines='skip')
 
-            # Bersihkan spasi berlebih pada nama kolom agar tidak error saat merge
             df_cust.columns = df_cust.columns.str.strip()
             df_spot.columns = df_spot.columns.str.strip()
 
@@ -399,33 +400,30 @@ def create_app():
             df_final = pd.merge(df_cust, df_spot, left_on='cmr_account', right_on='Nomen', how='inner')
 
             # ---------------------------------------------------------
-            # 🌟 FITUR BARU: AUTO-DETECT CYCLE & PERIODE DARI FILE
+            # 🌟 AUTO-DETECT CYCLE & PERIODE DARI FILE
             # ---------------------------------------------------------
-            # Deteksi Cycle (Ambil yang paling banyak muncul/modus)
             if 'cmr_cycle' in df_final.columns:
                 cycle_terdeteksi = str(df_final['cmr_cycle'].mode()[0]).strip()
-                cycle_input = cycle_terdeteksi.zfill(2) # Ubah '1' jadi '01'
+                cycle_input = cycle_terdeteksi.zfill(2)
             else:
                 cycle_input = "Unknown"
 
-            # Deteksi Periode dari 'cmr_rd_date' (Format: DDMMYYYY -> 22042026)
             if 'cmr_rd_date' in df_final.columns:
                 tanggal_terdeteksi = str(df_final['cmr_rd_date'].mode()[0]).strip()
                 if len(tanggal_terdeteksi) == 8:
-                    bulan = tanggal_terdeteksi[2:4] # Ambil karakter index 2-3 (Misal '04')
-                    tahun = tanggal_terdeteksi[4:8] # Ambil karakter index 4-7 (Misal '2026')
-                    periode_otomatis = f"{tahun}-{bulan}" # Hasil: '2026-04'
+                    bulan = tanggal_terdeteksi[2:4] 
+                    tahun = tanggal_terdeteksi[4:8] 
+                    periode_otomatis = f"{tahun}-{bulan}" 
                 else:
                     periode_otomatis = datetime.now().strftime('%Y-%m')
             else:
                 periode_otomatis = datetime.now().strftime('%Y-%m')
             
-            # Terapkan ke dalam tabel akhir
             df_final['cmr_cycle'] = cycle_input
             df_final['periode_sbrs'] = periode_otomatis
             # ---------------------------------------------------------
 
-            # 3. KONVERSI TIPE DATA UNTUK KALKULASI LNP (Ubah string jadi angka)
+            # 3. KONVERSI TIPE DATA
             kolom_numerik = ['cmr_reading', 'cmr_prev_read', 'Curr_Read_1', 'Prev_Read_1', 'SB_Stand']
             for col in kolom_numerik:
                 if col in df_final.columns:
@@ -441,7 +439,6 @@ def create_app():
             if 'SB_Stand' in df_final.columns and 'Prev_Read_1' in df_final.columns:
                 df_final['Vol_SB'] = df_final['SB_Stand'] - df_final['Prev_Read_1']
 
-            # Setting Default Sementara
             if 'Vol_Lap' in df_final.columns:
                 df_final['Vol_Riil'] = df_final['Vol_Lap'] 
             df_final['Selisih_HB'] = 31 
@@ -449,19 +446,16 @@ def create_app():
             # 5. SIMPAN HASIL KE DATABASE SQLITE (APPEND & ANTI-DOUBLE)
             from sqlalchemy import create_engine, text
             
-            # Buat koneksi ke database SQLite lokal
             os.makedirs(os.path.join(app.root_path, 'instance'), exist_ok=True)
             db_path = os.path.join(app.root_path, 'instance', 'database.db')
             engine = create_engine(f'sqlite:///{db_path}')
 
-            # Bersihkan dulu data Cycle yang sama di Periode yang sama biar tidak dobel
             with engine.begin() as conn:
                 try:
                     conn.execute(text(f"DELETE FROM history_lnp WHERE cmr_cycle = '{cycle_input}' AND periode_sbrs = '{periode_otomatis}'"))
                 except Exception:
-                    pass # Abaikan kalau tabel history_lnp belum terbuat di upload pertama
+                    pass 
 
-            # Proses Append / Suntik data ke tabel
             df_final.to_sql('history_lnp', con=engine, if_exists='append', index=False)
 
             return jsonify({
@@ -472,6 +466,132 @@ def create_app():
 
         except Exception as e:
             return jsonify({"status": "error", "message": f"Gagal memproses file: {str(e)}"}), 500
+
+    # --- API BARU: AMBIL DATA SUMMARY SBRS ---
+    @app.route('/api/get-summary-sbrs', methods=['GET'])
+    def get_summary_sbrs():
+        cycle = request.args.get('cycle', 'all')
+        
+        db_path = os.path.join(app.root_path, 'instance', 'database.db')
+        if not os.path.exists(db_path):
+            return jsonify({"status": "error", "message": "Database tidak ditemukan."})
+
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Pastikan tabel sudah ada
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history_lnp'")
+            if not cursor.fetchone():
+                return jsonify({"status": "success", "summary": {"total_objek": 0, "total_vol_riil": 0, "total_hb": 0, "total_kendala": 0}, "skip": [], "trouble": [], "master": []})
+
+            # Filter Query
+            where_clause = ""
+            params = ()
+            if cycle != 'all':
+                where_clause = "WHERE cmr_cycle = ?"
+                params = (cycle,)
+
+            # 1. Hitung Akumulasi Atas
+            cursor.execute(f"SELECT COUNT(*) as tot_obj, SUM(Vol_Riil) as tot_vol, SUM(Selisih_HB) as tot_hb FROM history_lnp {where_clause}", params)
+            row_sum = cursor.fetchone()
+            
+            # Hitung Kendala (Jika ada kode skip/trouble)
+            cursor.execute(f"SELECT COUNT(*) as tot_kendala FROM history_lnp {where_clause} AND (cmr_skip_code IS NOT NULL OR cmr_trbl1_code IS NOT NULL)", params)
+            row_kendala = cursor.fetchone()
+
+            summary = {
+                "total_objek": row_sum['tot_obj'] or 0,
+                "total_vol_riil": row_sum['tot_vol'] or 0,
+                "total_hb": row_sum['tot_hb'] or 0,
+                "total_kendala": row_kendala['tot_kendala'] or 0
+            }
+
+            # 2. Rekap Skip Code (Asumsi kolom bernama cmr_skip_code)
+            # Jika kolomnya beda, bisa disesuaikan nanti. Kita pakaikan Try Except agar aman.
+            skip_data = []
+            try:
+                cursor.execute(f"SELECT cmr_skip_code as kode, COUNT(*) as jumlah FROM history_lnp {where_clause} AND cmr_skip_code IS NOT NULL GROUP BY cmr_skip_code", params)
+                for r in cursor.fetchall():
+                    if str(r['kode']).strip() != '0' and str(r['kode']).strip() != 'None' and str(r['kode']).strip() != 'nan':
+                        skip_data.append({"kode": r['kode'], "alasan": "Skip Dilapangan", "jumlah": r['jumlah']})
+            except: pass
+
+            # 3. Rekap Trouble Code (Asumsi kolom bernama cmr_trbl1_code)
+            trouble_data = []
+            try:
+                cursor.execute(f"SELECT cmr_trbl1_code as kode, COUNT(*) as jumlah FROM history_lnp {where_clause} AND cmr_trbl1_code IS NOT NULL GROUP BY cmr_trbl1_code", params)
+                for r in cursor.fetchall():
+                    if str(r['kode']).strip() != '0' and str(r['kode']).strip() != 'None' and str(r['kode']).strip() != 'nan':
+                        trouble_data.append({"kode": r['kode'], "alasan": "Masalah Teknis", "jumlah": r['jumlah']})
+            except: pass
+
+            # 4. Ambil 100 Data Master Terakhir
+            cursor.execute(f"""
+                SELECT nomen, cmr_nama as nama, Vol_Lap, Vol_Bill, Vol_Riil, Vol_SB, Selisih_HB, 
+                cmr_skip_code as skip, cmr_trbl1_code as trouble 
+                FROM history_lnp {where_clause} ORDER BY id DESC LIMIT 100
+            """, params)
+            
+            master_data = []
+            for r in cursor.fetchall():
+                master_data.append({
+                    "nomen": r['nomen'] if 'nomen' in r.keys() else '-',
+                    "nama": r['nama'] if 'nama' in r.keys() else 'Pelanggan',
+                    "vol_lap": r['Vol_Lap'] or 0,
+                    "vol_bill": r['Vol_Bill'] or 0,
+                    "vol_riil": r['Vol_Riil'] or 0,
+                    "vol_sb": r['Vol_SB'] or 0,
+                    "hb": r['Selisih_HB'] or 0,
+                    "skip": r['skip'] or '-',
+                    "trouble": r['trouble'] or '-'
+                })
+
+            return jsonify({
+                "status": "success",
+                "summary": summary,
+                "skip": skip_data,
+                "trouble": trouble_data,
+                "master": master_data
+            })
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+        finally:
+            conn.close()
+
+    # --- API BARU: DOWNLOAD EXCEL LNP ---
+    @app.route('/api/download-sbrs-excel', methods=['GET'])
+    def download_sbrs_excel():
+        cycle = request.args.get('cycle', 'all')
+        db_path = os.path.join(app.root_path, 'instance', 'database.db')
+        
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            
+            # Ambil data pakai Pandas
+            query = "SELECT * FROM history_lnp"
+            if cycle != 'all':
+                query += f" WHERE cmr_cycle = '{cycle}'"
+                
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            if df.empty:
+                return "Data tidak ditemukan untuk diekspor", 404
+
+            # Simpan ke folder temporary
+            temp_dir = tempfile.mkdtemp()
+            output_path = os.path.join(temp_dir, f"Laporan_SBRS_Cycle_{cycle}.xlsx")
+            
+            df.to_excel(output_path, index=False)
+            
+            return send_file(output_path, as_attachment=True, download_name=f"Laporan_SBRS_Cycle_{cycle}.xlsx")
+            
+        except Exception as e:
+            return f"Terjadi kesalahan saat membuat Excel: {str(e)}", 500
 
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
