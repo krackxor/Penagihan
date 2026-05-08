@@ -1,51 +1,69 @@
-Menjalankan aplikasi **tanpa venv** berarti Anda akan menginstal semua library Python langsung ke sistem utama Ubuntu. Ini lebih praktis jika VPS tersebut memang hanya digunakan untuk satu aplikasi ini saja.
+```markdown
+# 💧 Area Service Integrated System (ASIS) v13.8
 
-Berikut adalah panduan instalasi lengkap dari awal tanpa menggunakan venv, lengkap dengan kesimpulan dan tips maintenance:
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)
+![SQLite](https://img.shields.io/badge/Database-SQLite-lightgrey.svg)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3-purple.svg)
+
+**Area Service Integrated System** adalah platform web terpadu untuk operasional layanan pelanggan, manajemen penagihan, serta alat bantu administratif berbasis web. Sistem ini dirancang khusus untuk memproses data bervolume besar dan memudahkan pekerjaan tim teknis di lapangan maupun di kantor pelayanan.
 
 ---
 
-### **Panduan Lengkap Setup Server Penagihan (Tanpa Venv)**
+## ✨ Fitur Utama
 
-Memindahkan aplikasi dari VPS lama ke VPS baru memang membutuhkan ketelitian. Karena kamu sudah memiliki domain **areaservice.site**, prosesnya akan lebih cepat karena kita hanya perlu mengarahkan domain ke IP yang baru (**174.138.22.143**).
+### 🌐 Akses Publik (Tanpa Login)
+* **Cek Tagihan Real-Time:** Pencarian tagihan berdasarkan Nomor ID Pelanggan (Nomen).
+* **Portal Informasi:** Tautan cepat untuk Pendaftaran Sambungan Baru dan Layanan Pengaduan Terpadu (WhatsApp, Call Center, Email).
+* **Pembersih Format Mainbill:** Alat otomatis untuk menstandarkan format file TXT ke MS Access (Pemisah Semicolon, Pembersihan Desimal, UTF-8 BOM).
+* **Penggabung File Ardebt:** Mesin *chunking* pemroses file bervolume besar (1GB+) di RAM lokal untuk menggabungkan banyak file menjadi satu dokumen dengan injeksi Header standar.
+* **Konversi Dokumen:** Fasilitas alih media otomatis untuk merubah **PDF ke Word**, **Gambar ke PDF**, dan **Word ke PDF** (Didukung oleh LibreOffice Engine).
+
+### 🔒 Akses Petugas & Administrator (Dashboard)
+* **Monitoring Penagihan:** Lacak performa *collection*, histori pembayaran, dan histori kunjungan.
+* **Peta Sebaran (GIS):** Visualisasi lokasi pelanggan dan penandaan anomali di lapangan.
+* **Modul Investigasi:** Analitik khusus untuk Pelanggan Drop (>50% penurunan), Pelanggan Ekstrem (>100% lonjakan), dan Pelanggan Premium.
+* **Analisa Pareto (Top 500):** Analisis 500 pelanggan dengan konsumsi/tunggakan tertinggi.
+* **WA Gateway / Blast:** Sistem notifikasi penagihan massal via WhatsApp.
 
 ---
 
-#### **Langkah 1: Persiapan Server Baru**
+## 🛠️ Teknologi yang Digunakan
 
-Masuk ke VPS baru melalui SSH dan update sistemnya.
+* **Backend:** Python (Flask, Werkzeug)
+* **Database:** SQLite3
+* **Frontend:** HTML5, CSS3, JavaScript, Bootstrap 5, SweetAlert2, Animate.css, FontAwesome 6
+* **Data Processing:** Pandas, Numpy, PapaParse (JS), PyExcel
+* **Document Engine:** PDF2Docx, Pillow, LibreOffice Headless
+* **Deployment:** Ubuntu Linux, Nginx, Gunicorn, Systemd, Certbot (SSL)
 
+---
+
+## 🚀 Panduan Setup Server (Production - Ubuntu)
+
+Panduan ini ditujukan untuk *deployment* pada *Dedicated VPS* menggunakan mode Global (Tanpa Venv). 
+
+### 1. Persiapan Server & Instalasi Komponen
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install python3-pip nginx git certbot python3-certbot-nginx sqlite3 -y
+sudo apt install python3-pip nginx git certbot python3-certbot-nginx sqlite3 libreoffice -y
 
 ```
 
-#### **Langkah 2: Pindahkan Kode Aplikasi**
-
-Gunakan Git untuk menarik kode kamu kembali ke VPS baru.
+### 2. Kloning Repository & Instalasi Library
 
 ```bash
 cd ~
-git clone https://github.com/username/penagihan.git Penagihan
+git clone [https://github.com/username-anda/penagihan.git](https://github.com/username-anda/penagihan.git) Penagihan
 cd Penagihan
 
-```
-
-#### **Langkah 3: Install Library Langsung ke Sistem**
-
-Karena tidak menggunakan `venv`, kita instal library langsung menggunakan `pip`.
-
-```bash
-# Instal library pengolah gambar dan server produksi
-pip install Pillow gunicorn
-# Instal sisa library dari requirements
-pip install -r requirements.txt
+# Instal library secara global (untuk Ubuntu 23.04+)
+pip install gunicorn --break-system-packages
+pip install -r requirements.txt --break-system-packages
 
 ```
 
-#### **Langkah 4: Inisialisasi Database**
-
-Buat database SQLite kembali berdasarkan skema yang ada.
+### 3. Inisialisasi Database
 
 ```bash
 mkdir -p instance
@@ -53,22 +71,25 @@ sqlite3 instance/penagihan.db < schema.sql
 
 ```
 
-#### **Langkah 5: Konfigurasi Gunicorn Service (Auto-Run)**
+### 4. Konfigurasi Gunicorn (Auto-Run Service)
 
-Agar aplikasi tidak mati saat terminal ditutup dan sanggup memproses file besar.
+Buat file service systemd:
 
-1. Buka file: `sudo nano /etc/systemd/system/penagihan.service`
-2. Tempelkan kode ini:
+```bash
+sudo nano /etc/systemd/system/penagihan.service
+
+```
+
+Isi dengan konfigurasi berikut:
 
 ```ini
 [Unit]
-Description=Gunicorn Penagihan
+Description=Gunicorn Service untuk Area Service
 After=network.target
 
 [Service]
 User=root
 WorkingDirectory=/root/Penagihan
-# Jalankan gunicorn langsung dari sistem (tanpa path venv)
 ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --timeout 600 --limit-request-line 0 "app:create_app()"
 Restart=always
 
@@ -77,7 +98,7 @@ WantedBy=multi-user.target
 
 ```
 
-3. Aktifkan:
+Aktifkan Service:
 
 ```bash
 sudo systemctl daemon-reload
@@ -86,22 +107,26 @@ sudo systemctl start penagihan
 
 ```
 
-#### **Langkah 6: Konfigurasi Nginx (Pintu Masuk)**
+### 5. Konfigurasi Nginx (Reverse Proxy)
 
-Atur Nginx agar mendukung upload file besar dan sinkron dengan timeout Gunicorn.
+Buat blok server Nginx:
 
-1. Buka file: `sudo nano /etc/nginx/sites-available/penagihan`
-2. Tempelkan kode ini:
+```bash
+sudo nano /etc/nginx/sites-available/penagihan
+
+```
+
+Isi dengan:
 
 ```nginx
 server {
     listen 80;
     server_name areaservice.site www.areaservice.site;
 
-    client_max_body_size 64M; # Agar file 16MB tidak ditolak
+    client_max_body_size 64M;
 
     location / {
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass [http://127.0.0.1:5000](http://127.0.0.1:5000);
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -115,7 +140,7 @@ server {
 
 ```
 
-3. Aktifkan:
+Aktifkan Nginx:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/penagihan /etc/nginx/sites-enabled/
@@ -124,10 +149,7 @@ sudo nginx -t && sudo systemctl restart nginx
 
 ```
 
-#### **Langkah 7: Update DNS & SSL**
-
-1. Ganti IP di Dashboard Domain ke: **174.138.22.143**.
-2. Jalankan Certbot untuk HTTPS:
+### 6. Aktivasi SSL HTTPS
 
 ```bash
 sudo certbot --nginx -d areaservice.site -d www.areaservice.site
@@ -136,30 +158,20 @@ sudo certbot --nginx -d areaservice.site -d www.areaservice.site
 
 ---
 
-### **Tips Cepat: Cara Kill & Run (Maintenance)**
+## ⚙️ Operasional & Perawatan (Maintenance)
 
-Jika kamu ingin mematikan atau menjalankan ulang secara manual setelah edit kode:
+Perintah cepat untuk manajemen aplikasi di server:
 
-**1. Menggunakan Systemd (Rekomendasi)**
-
-* **Kill:** `sudo systemctl stop penagihan`
-* **Run:** `sudo systemctl start penagihan`
-* **Restart (Update Kode):** `sudo systemctl restart penagihan`
-* **Cek Log (Jika error):** `sudo journalctl -u penagihan -f`
-
-**2. Menggunakan Cara Manual (Jika Gunicorn jalan di Background)**
-
-* **Cari ID & Matikan:** `pkill gunicorn`
-* **Cara Paksa (Jika pkill gagal):** 1. Cari PID: `ps aux | grep gunicorn`
-2. Matikan ID-nya (misal 1234): `kill -9 1234`
-* **Jalankan lagi:**
-`gunicorn --bind 127.0.0.1:5000 --timeout 600 "app:create_app()"`
+* **Melihat Log Error:** `sudo journalctl -u penagihan -f`
+* **Restart Aplikasi (Setelah update kode):** `sudo systemctl restart penagihan`
+* **Mematikan Aplikasi:** `sudo systemctl stop penagihan`
 
 ---
 
-### **Kesimpulan**
+© 2026 Area Service - Hak Cipta Dilindungi.
 
-1. **Tanpa Venv Lebih Simpel**: Kamu tidak perlu melakukan `source venv/bin/activate` setiap kali masuk ke server, namun pastikan tidak ada aplikasi Python lain yang versinya bentrok.
-2. **Solusi File Besar**: Dengan konfigurasi **timeout 600** dan **client_max_body_size 64M**, file history 16MB kamu kini bisa ter-upload dengan aman tanpa terputus.
-3. **Otomatisasi**: Berkat Systemd (Langkah 5), aplikasi akan otomatis nyala sendiri jika server reboot, sehingga web selalu bisa diakses oleh petugas.
-4. **Monitoring**: Selalu gunakan perintah `journalctl` jika web menampilkan "Internal Server Error" untuk melihat letak kesalahannya.
+```
+
+Tampilannya di GitHub nanti akan sangat rapi dengan dukungan tabel otomatis, *highlighting* warna kode (syntax), dan tombol *copy* langsung di terminalnya. Kalau ada logo PAM JAYA atau logo aplikasi yang mau diselipkan, tinggal taruh link gambarnya di bagian atas ya Mas!
+
+```
