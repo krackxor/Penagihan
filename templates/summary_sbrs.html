@@ -179,24 +179,22 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // Fungsi untuk format angka ribuan (biar rapi)
     const formatRibuan = (angka) => new Intl.NumberFormat('id-ID').format(angka || 0);
 
-    // Fungsi Utama: Mengambil data dari server
     async function loadDataSBRS(cycle) {
+        // Tampilkan loading saat proses fetch berjalan
+        document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>Sedang memuat data dari database...</td></tr>';
+        
         try {
-            // Tembak ke endpoint API yang nanti kita buat di app.py
             const response = await fetch(`/api/get-summary-sbrs?cycle=${cycle}`);
             const data = await response.json();
 
-            if (data.status === 'success') {
-                // 1. Update Kartu Summary Atas
+            if (response.ok && data.status === 'success') {
                 document.getElementById('totObjek').innerText = formatRibuan(data.summary.total_objek);
                 document.getElementById('totVolRiil').innerText = formatRibuan(data.summary.total_vol_riil);
                 document.getElementById('totHb').innerText = formatRibuan(data.summary.total_hb);
                 document.getElementById('totKendala').innerText = formatRibuan(data.summary.total_kendala);
 
-                // 2. Update Tabel Skip
                 let htmlSkip = '';
                 let totalSkip = 0;
                 if(data.skip.length > 0) {
@@ -210,7 +208,6 @@
                 document.getElementById('bodySkip').innerHTML = htmlSkip;
                 document.getElementById('totSkipBawah').innerText = totalSkip;
 
-                // 3. Update Tabel Trouble
                 let htmlTrouble = '';
                 let totalTrouble = 0;
                 if(data.trouble.length > 0) {
@@ -224,12 +221,11 @@
                 document.getElementById('bodyTrouble').innerHTML = htmlTrouble;
                 document.getElementById('totTroubleBawah').innerText = totalTrouble;
 
-                // 4. Update Tabel Master (Pratinjau)
                 let htmlMaster = '';
                 if(data.master.length > 0) {
                     data.master.forEach(row => {
-                        let skipBadge = row.skip && row.skip !== '0' ? `<span class="badge bg-danger">${row.skip}</span>` : '-';
-                        let trblBadge = row.trouble && row.trouble !== '0' ? `<span class="badge bg-warning text-dark">${row.trouble}</span>` : '-';
+                        let skipBadge = row.skip && row.skip !== '0' && row.skip !== '-' ? `<span class="badge bg-danger">${row.skip}</span>` : '-';
+                        let trblBadge = row.trouble && row.trouble !== '0' && row.trouble !== '-' ? `<span class="badge bg-warning text-dark">${row.trouble}</span>` : '-';
                         
                         htmlMaster += `
                         <tr>
@@ -245,27 +241,31 @@
                         </tr>`;
                     });
                 } else {
-                    htmlMaster = '<tr><td colspan="9" class="text-center text-muted py-4">Data belum tersedia untuk Cycle ini.</td></tr>';
+                    htmlMaster = '<tr><td colspan="9" class="text-center text-muted py-4">Data LNP kosong. Silakan upload file terlebih dahulu.</td></tr>';
                 }
                 document.getElementById('bodyMaster').innerHTML = htmlMaster;
+            } else {
+                // Tampilkan pesan error dari backend
+                let errMsg = data.message || "Kesalahan pada server.";
+                document.getElementById('bodyMaster').innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4 fw-bold"><i class="fa-solid fa-triangle-exclamation fa-2x mb-2 d-block"></i>Gagal memuat: ${errMsg}</td></tr>`;
+                document.getElementById('bodySkip').innerHTML = `<tr><td colspan="3" class="text-center text-danger">Data tidak tersedia</td></tr>`;
+                document.getElementById('bodyTrouble').innerHTML = `<tr><td colspan="3" class="text-center text-danger">Data tidak tersedia</td></tr>`;
             }
         } catch (error) {
             console.error("Gagal menarik data:", error);
+            document.getElementById('bodyMaster').innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4 fw-bold"><i class="fa-solid fa-wifi fa-2x mb-2 d-block"></i>Gagal menghubungi server. Periksa koneksi atau jalankan ulang aplikasi.</td></tr>`;
             Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Gagal memuat data LNP', showConfirmButton: false, timer: 3000 });
         }
     }
 
-    // Event Listener ketika Dropdown Cycle diganti
     document.getElementById('filterCycle').addEventListener('change', function() {
         loadDataSBRS(this.value);
     });
 
-    // Load data pertama kali halaman dibuka (Otomatis panggil data 'all')
     document.addEventListener("DOMContentLoaded", () => {
         loadDataSBRS('all');
     });
 
-    // Fungsi Tombol Excel
     function downloadExcel() {
         let cycle = document.getElementById('filterCycle').value;
         Swal.fire({
