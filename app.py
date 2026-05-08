@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V13.4 Landing Page Update)
+Flask Application - Area Service Integrated System (V13.5 Landing Page Update)
 Updated: 2026-02-07
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -12,6 +12,7 @@ Fixes Log:
 7. ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
 8. ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
 9. ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
+10.✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
 """
 
 import os
@@ -81,7 +82,8 @@ def create_app():
             'serve_kunjungan_photo',
             'index',           # Beranda/Landing Page
             'public_cek_tagihan', # API Cek Tagihan Publik
-            'history.public_share_view' # WA Share Link
+            'history.public_share_view', # WA Share Link
+            'repair_mainbill'  # ✅ DITAMBAHKAN: Akses publik untuk tool Mainbill
         ]
         
         endpoint = request.endpoint
@@ -139,10 +141,6 @@ def create_app():
     def index():
         # LOGIKA BARU: Redirect Petugas ke Dashboard, Publik ke Landing Page
         if 'role' in session:
-            # Jika sudah login, lempar ke Dashboard Internal (Pusat Kendali)
-            # Pastikan 'dashboard.pusat_kendali' sesuai dengan nama fungsi di blueprint dashboard
-            # Jika blueprint Anda mendefinisikan route '/' sebagai pusat_kendali, sesuaikan url_for nya.
-            # Asumsi: Anda punya route dashboard page
             return render_template('index.html') 
         
         # Jika belum login (Publik), tampilkan Landing Page
@@ -195,6 +193,11 @@ def create_app():
         materi_dir = os.path.join(app.root_path, 'static', 'uploads', 'materi')
         files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
         return render_template('materi.html', files=files)
+
+    # ✅ RUTING BARU: REPAIR MAINBILL TOOL
+    @app.route('/repair-mainbill')
+    def repair_mainbill():
+        return render_template('repair_mainbill.html')
 
     # --- RUTE TERPROTEKSI (MEMERLUKAN LOGIN) ---
     @app.route('/performa')
