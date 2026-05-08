@@ -15,7 +15,7 @@ Fixes Log:
 10. ✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
 11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
 12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
-13. ✅ TOOLS: OCR Gambar ke Teks terintegrasi (Membutuhkan Tesseract di Server).
+13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa (Membutuhkan tesseract-ocr-all di Server).
 """
 
 import os
@@ -86,7 +86,7 @@ def create_app():
             'repair_mainbill', 
             'merger_ardebt',   
             'converter_tool',
-            'image_to_txt',    # DITAMBAHKAN: Akses publik untuk OCR Image to Text
+            'image_to_txt',    # Akses publik untuk OCR Image to Text
             'api_convert'      
         ]
         
@@ -205,7 +205,7 @@ def create_app():
     def image_to_txt():
         return render_template('image_to_txt.html')
 
-    # ✅ API MESIN KONVERSI (DENGAN OCR GAMBAR KE TEKS)
+    # ✅ API MESIN KONVERSI (DENGAN OCR MULTI-BAHASA)
     @app.route('/api/convert', methods=['POST'])
     def api_convert():
         try:
@@ -293,7 +293,7 @@ def create_app():
                         "message": "Server tidak memiliki MS Word atau LibreOffice. Minta tim IT untuk meng-install LibreOffice di server agar fitur ini berfungsi."
                     }), 500
 
-            # --- 4. EKSTRAKSI GAMBAR KE TEKS (OCR) ---
+            # --- 4. EKSTRAKSI GAMBAR KE TEKS (OCR MULTI-BAHASA) ---
             elif conv_type == 'img_to_txt':
                 try:
                     import pytesseract
@@ -303,8 +303,11 @@ def create_app():
                     img_path = os.path.join(temp_dir, secure_filename(file.filename))
                     file.save(img_path)
                     
-                    # Membaca gambar dengan bahasa Indonesia (ind) dan English (eng)
-                    extracted_text = pytesseract.image_to_string(Image.open(img_path), lang='ind+eng')
+                    # Ambil pilihan bahasa dari frontend (default: ind+eng)
+                    ocr_lang = request.form.get('lang', 'ind+eng')
+                    
+                    # Membaca gambar sesuai bahasa yang dipilih pengguna
+                    extracted_text = pytesseract.image_to_string(Image.open(img_path), lang=ocr_lang)
                     
                     # Simpan ke file .txt
                     output_path = os.path.join(temp_dir, "Hasil_Ekstraksi.txt")
@@ -315,7 +318,7 @@ def create_app():
                 except Exception as e:
                     return jsonify({
                         "status": "error", 
-                        "message": "Server memerlukan instalasi mesin Tesseract OCR. Minta tim IT untuk menginstalnya melalui terminal (apt install tesseract-ocr tesseract-ocr-ind)."
+                        "message": "Pastikan bahasa yang dipilih sudah terinstal di server. Minta tim IT menjalankan: sudo apt install tesseract-ocr-all -y"
                     }), 500
 
             return jsonify({"status": "error", "message": "Tipe konversi tidak didukung."}), 400
