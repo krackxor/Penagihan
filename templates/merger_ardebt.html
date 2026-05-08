@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Penggabung File Ardebt - AREA SERVICE</title>
+    <title>Gabung File Ardebt - AREA SERVICE</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -18,17 +18,20 @@
         .card-box {
             background: white; border-radius: 20px; padding: 40px;
             margin-top: 40px; margin-bottom: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .drop-zone {
             border: 2px dashed #cbd5e1; border-radius: 16px; background: #f8fafc;
-            padding: 60px; text-align: center; cursor: pointer; transition: 0.3s;
+            padding: 50px 20px; text-align: center; cursor: pointer; transition: 0.3s;
         }
         .drop-zone:hover { background: #eff6ff; border-color: #2563eb; }
 
         .log-box {
             background: #0f172a; color: #22c55e; padding: 15px; border-radius: 12px;
-            height: 300px; overflow: auto; margin-top: 20px; white-space: pre-wrap;
+            height: 250px; overflow: auto; margin-top: 20px; white-space: pre-wrap;
             font-size: 13px; font-family: monospace;
         }
 
@@ -38,8 +41,9 @@
         .summary-card {
             border-radius: 16px; padding: 20px; background: white;
             box-shadow: 0 5px 15px rgba(0,0,0,0.05); height: 100%; border: 1px solid #f1f5f9;
+            text-align: center;
         }
-        .summary-card h3 { font-weight: 800; color: #0f172a; margin-top: 5px; }
+        .summary-card h3 { font-weight: 800; color: #0f172a; margin-top: 5px; font-size: 1.5rem;}
         table { font-size: 13px; }
     </style>
 </head>
@@ -52,7 +56,7 @@
         </a>
         <div class="ms-auto d-flex align-items-center gap-2">
             <a href="{{ url_for('index') }}" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
-                <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI KE BERANDA
+                <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI
             </a>
         </div>
     </div>
@@ -62,39 +66,39 @@
     <div class="card-box">
         <div class="text-center mb-4">
             <i class="fa-solid fa-object-group fa-3x text-primary mb-3"></i>
-            <h2 class="fw-bold">Penggabung File Ardebt</h2>
-            <p class="text-muted">Fasilitas untuk menggabungkan beberapa file TXT menjadi satu dokumen terpadu, lengkap dengan standardisasi format header MS Access.</p>
+            <h3 class="fw-bold text-dark mb-2">Gabung File Ardebt</h3>
+            <p class="text-muted small">Gabungkan banyak file TXT menjadi satu file dengan cepat dan rapi.</p>
         </div>
 
         <div class="drop-zone" onclick="document.getElementById('files').click()">
             <i class="fa-solid fa-file-arrow-up fa-3x mb-3 text-secondary"></i>
-            <h5 class="fw-bold">Pilih atau Lepas File TXT di Sini</h5>
-            <p class="text-muted mb-0">Mendukung pemrosesan data bervolume besar secara lokal.</p>
+            <h5 class="fw-bold text-dark mb-1">Pilih File TXT</h5>
+            <p class="text-muted small mb-0">Bisa langsung pilih banyak file sekaligus.</p>
             <input type="file" id="files" accept=".txt,.csv" multiple hidden>
         </div>
 
         <div class="row mt-4 g-3">
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="summary-card">
                     <small class="text-muted fw-bold">Total File</small>
                     <h3 id="totalFiles">0</h3>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="summary-card">
                     <small class="text-muted fw-bold">Total Ukuran</small>
                     <h3 id="totalSize">0 MB</h3>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="summary-card">
                     <small class="text-muted fw-bold">Total Baris</small>
                     <h3 id="totalRowsTxt">0</h3>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="summary-card">
-                    <small class="text-muted fw-bold">Header Disaring</small>
+                    <small class="text-muted fw-bold">Judul Dihapus</small>
                     <h3 id="headerRemovedTxt">0</h3>
                 </div>
             </div>
@@ -102,7 +106,7 @@
 
         <div class="mt-4">
             <div class="d-flex justify-content-between mb-2">
-                <span class="fw-bold text-dark">Status Pemrosesan</span>
+                <span class="fw-bold text-dark">Proses Gabung</span>
                 <span id="progressText" class="fw-bold text-primary">0%</span>
             </div>
             <div class="progress">
@@ -111,14 +115,14 @@
         </div>
 
         <button id="mergeBtn" class="btn btn-primary btn-lg w-100 mt-4 fw-bold shadow-sm" style="border-radius: 12px; padding: 15px;">
-            <i class="fa-solid fa-play me-2"></i> MULAI PROSES PENGGABUNGAN
+            <i class="fa-solid fa-play me-2"></i> GABUNGKAN FILE
         </button>
 
         <button id="downloadBtn" class="btn btn-success btn-lg w-100 mt-3 fw-bold shadow-sm" style="display:none; border-radius: 12px; padding: 15px;">
-            <i class="fa-solid fa-download me-2"></i> UNDUH HASIL PENGGABUNGAN
+            <i class="fa-solid fa-download me-2"></i> DOWNLOAD HASIL
         </button>
 
-        <div id="logs" class="log-box">Sistem siap digunakan.</div>
+        <div id="logs" class="log-box">Sistem siap.</div>
 
         <div class="table-responsive mt-4">
             <table class="table table-bordered table-hover">
@@ -146,11 +150,11 @@
     const progressText = document.getElementById('progressText');
     const previewTable = document.getElementById('previewTable');
     
-    // Pembatasan memori proses per 20MB
+    // Potong file per 20MB biar aman di memori
     const CHUNK_SIZE = 20 * 1024 * 1024; 
     let finalBlobUrl = null;
 
-    // Header standar untuk Ardebt
+    // Header mutlak untuk Ardebt
     const HEADER_MUTLAK = `"LOADRDP";"PROCESS_PERIODE";"BILL_ID";"THN_BILL";"NOMEN";"BILL_PERIODE";"BILL_AMT";"WATER";"BEB";"SEW";"MATERAI";"TAX";"DENDA"`;
 
     function log(message) {
@@ -190,8 +194,8 @@
         if (files.length === 0) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Perhatian',
-                text: 'Silakan pilih file TXT yang akan digabungkan terlebih dahulu.'
+                title: 'Info',
+                text: 'Pilih file-nya dulu ya.'
             });
             return;
         }
@@ -201,11 +205,10 @@
         updateProgress(0);
 
         log('=================================');
-        log('Memulai proses penggabungan data...');
-        log('Menerapkan format header standar...');
+        log('Mulai menggabungkan file...');
+        log('Menyiapkan header otomatis...');
         log('=================================');
 
-        // Memasukkan header standar di baris pertama
         let outputBlobs = [new Blob([HEADER_MUTLAK + "\r\n"])]; 
         
         let totalRows = 0;
@@ -217,8 +220,8 @@
 
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
-            log(`\nMemproses file: ${file.name}`);
-            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-warning text-dark">Memproses</span>';
+            log(`\nMembaca file: ${file.name}`);
+            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-warning text-dark">Proses</span>';
 
             let offset = 0;
             let leftover = ""; 
@@ -236,7 +239,7 @@
                     let line = lines[j].trim();
                     if (line === "") continue;
 
-                    // Menyaring header bawaan dari file asli
+                    // Buang header bawaan dari file asli
                     if (line.toUpperCase().includes("LOADRDP") || line.toUpperCase().includes("PROCESS_PERIODE")) {
                         headerRemoved++;
                         continue;
@@ -255,7 +258,7 @@
                 updateProgress((processedSize / totalSizeAllFiles) * 100);
             }
 
-            // Memproses sisa baris di akhir file
+            // Sisa teks di akhir file
             if (leftover.trim() !== "") {
                 if (leftover.toUpperCase().includes("LOADRDP") || leftover.toUpperCase().includes("PROCESS_PERIODE")) {
                     headerRemoved++;
@@ -266,11 +269,10 @@
             }
 
             previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-success">Selesai</span>';
-            log(`Selesai memproses: ${file.name}`);
         }
 
         log('\n=================================');
-        log('Menyusun dan mengompilasi hasil akhir...');
+        log('Menyatukan semua data...');
         
         let finalBlob = new Blob(outputBlobs, { type: "text/plain;charset=utf-8" });
         if (finalBlobUrl) URL.revokeObjectURL(finalBlobUrl);
@@ -279,7 +281,7 @@
         downloadBtn.onclick = () => {
             const a = document.createElement("a");
             a.href = finalBlobUrl;
-            a.download = `Data_Gabungan_Ardebt_(${files.length}_File).txt`;
+            a.download = `Hasil_Gabung_Ardebt_(${files.length}_File).txt`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -290,14 +292,14 @@
         downloadBtn.style.display = 'block';
         mergeBtn.disabled = false;
         
-        log(`Proses penggabungan selesai.`);
-        log(`Total baris data: ${totalRows.toLocaleString()}`);
-        log(`Total header yang disaring: ${headerRemoved.toLocaleString()}`);
+        log(`Selesai.`);
+        log(`Total baris: ${totalRows.toLocaleString()}`);
+        log(`Judul yang dihapus: ${headerRemoved.toLocaleString()}`);
         
         Swal.fire({
             icon: 'success',
-            title: 'Proses Selesai',
-            text: 'File berhasil digabungkan dengan format header standar. Silakan unduh hasilnya.'
+            title: 'Selesai',
+            text: 'File sudah digabung dan siap didownload.'
         });
     };
 </script>
