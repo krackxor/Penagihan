@@ -121,7 +121,7 @@
                         <ul class="text-muted small mb-0 ps-3">
                             <li>Otomatis hapus angka <code>.00</code> atau <code>,00</code> pada angka nominal.</li>
                             <li>Hapus seluruh tanda kutip ganda (<code>"</code>) agar file bersih.</li>
-                            <li><strong>Mempertahankan koma asli</strong> agar kolom tidak bergeser atau kosong saat masuk ke Access.</li>
+                            <li><strong>Menyimpan hasil ke format .TXT</strong> (Mempertahankan pemisah aslinya).</li>
                         </ul>
                     </div>
 
@@ -185,18 +185,15 @@
                     text = text.replace(/,00(?=;|\r|\n|$)/g, "");
 
                     // 3. Hapus SEMUA tanda kutip ganda (") agar persis seperti Book1 
-                    // Book1 tidak memiliki kutip, semua data telanjang ("Rumah Tangga" -> Rumah Tangga)
                     text = text.replace(/"/g, "");
 
-                    // Tidak ada lagi kode aneh yang mengubah koma jadi titik koma. 
-                    // Struktur file akan TETAP UTUH seperti aslinya.
-
-                    // Buat file CSV (UTF-8)
-                    const blob = new Blob(["\ufeff" + text], { type: 'text/csv;charset=utf-8;' });
+                    // Buat file TXT (Format Plain Text dengan UTF-8)
+                    const blob = new Blob(["\ufeff" + text], { type: 'text/plain;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     
-                    const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_REPAIRED.csv";
+                    // Ekstensi dikembalikan ke .txt
+                    const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_REPAIRED.txt";
                     
                     a.href = url;
                     a.download = newName;
@@ -207,7 +204,7 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'Selesai!',
-                        text: 'Data .00 telah dihilangkan dan format dikembalikan stabil seperti Book1!',
+                        text: 'Data .00 telah dihilangkan dan file .TXT sudah berhasil diunduh!',
                         confirmButtonColor: '#2563eb'
                     });
                     
