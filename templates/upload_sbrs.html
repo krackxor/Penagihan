@@ -34,21 +34,21 @@
 
         .drop-zone {
             border: 2px dashed #cbd5e1; border-radius: 16px;
-            padding: 30px; text-align: center; transition: 0.3s;
-            cursor: pointer; margin-bottom: 20px; background: #fdfdfd;
+            padding: 35px; text-align: center; transition: 0.3s;
+            cursor: pointer; margin-bottom: 24px; background: #fdfdfd;
         }
 
         .drop-zone:hover { border-color: var(--sbrs-blue); background: #f0f7ff; }
         
         .btn-sbrs {
             background: var(--sbrs-dark); color: white; border: none;
-            padding: 14px; border-radius: 12px; font-weight: 700;
-            width: 100%; transition: 0.3s;
+            padding: 16px; border-radius: 12px; font-weight: 700;
+            width: 100%; transition: 0.3s; font-size: 1.05rem;
         }
 
-        .btn-sbrs:hover { background: #1e293b; transform: translateY(-2px); }
+        .btn-sbrs:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.3); }
 
-        .file-info { font-size: 0.8rem; color: #64748b; margin-top: 8px; }
+        .file-info { font-size: 0.85rem; color: #64748b; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -69,34 +69,35 @@
 
 <div class="main-content">
     <div class="text-center mb-5">
+        <span class="badge bg-primary rounded-pill px-3 py-2 mb-3"><i class="fa-solid fa-wand-magic-sparkles me-2"></i>Fitur Auto-Detect Aktif</span>
         <h3 class="fw-800">Proses Data SBRS</h3>
-        <p class="text-muted">Upload file Customer dan Spot Bill untuk penggabungan LNP</p>
+        <p class="text-muted">Sistem akan membaca Cycle & Periode secara otomatis dari file.</p>
     </div>
 
     <div class="upload-card">
         <form id="uploadForm">
-            <div class="mb-4">
-                <label class="form-label fw-bold small text-uppercase">1. Data Customer (.txt)</label>
+            <div class="mb-3">
+                <label class="form-label fw-bold small text-uppercase text-secondary">1. Data Customer (.txt)</label>
                 <div class="drop-zone" onclick="document.getElementById('fileCust').click()">
-                    <i class="fa-solid fa-users-gear fa-2x text-primary mb-2"></i>
-                    <p class="mb-0 small text-muted">Klik atau seret file <b>customer.txt</b></p>
+                    <i class="fa-solid fa-users-gear fa-2xl text-primary mb-3 mt-2"></i>
+                    <p class="mb-0 text-muted">Klik atau seret file <b>customer.txt</b></p>
                     <input type="file" id="fileCust" hidden accept=".txt">
-                    <div id="nameCust" class="file-info fw-bold">Belum ada file</div>
+                    <div id="nameCust" class="file-info fw-bold">Belum ada file dipilih</div>
                 </div>
             </div>
 
             <div class="mb-4">
-                <label class="form-label fw-bold small text-uppercase">2. Data Spot Bill (.txt)</label>
+                <label class="form-label fw-bold small text-uppercase text-secondary">2. Data Spot Bill (.txt)</label>
                 <div class="drop-zone" onclick="document.getElementById('fileSpot').click()">
-                    <i class="fa-solid fa-file-invoice-dollar fa-2x text-success mb-2"></i>
-                    <p class="mb-0 small text-muted">Klik atau seret file <b>spot_bill.txt</b></p>
+                    <i class="fa-solid fa-file-invoice-dollar fa-2xl text-success mb-3 mt-2"></i>
+                    <p class="mb-0 text-muted">Klik atau seret file <b>spot_bill.txt</b></p>
                     <input type="file" id="fileSpot" hidden accept=".txt">
-                    <div id="nameSpot" class="file-info fw-bold">Belum ada file</div>
+                    <div id="nameSpot" class="file-info fw-bold">Belum ada file dipilih</div>
                 </div>
             </div>
 
-            <button type="submit" class="btn-sbrs shadow">
-                PROSES GABUNG DATA (MEGA-MERGE) <i class="fa-solid fa-bolt ms-2"></i>
+            <button type="submit" class="btn-sbrs" id="btnSubmit">
+                JALANKAN MEGA-MERGE LNP <i class="fa-solid fa-bolt ms-2 text-warning"></i>
             </button>
         </form>
     </div>
@@ -112,29 +113,59 @@
         if(e.target.files.length > 0) document.getElementById('nameSpot').innerText = e.target.files[0].name;
     };
 
-    // Simulasi proses upload
-    document.getElementById('uploadForm').onsubmit = (e) => {
+    // Proses pengiriman data ke backend (app.py)
+    document.getElementById('uploadForm').onsubmit = async (e) => {
         e.preventDefault();
         
-        let f1 = document.getElementById('fileCust').files.length;
-        let f2 = document.getElementById('fileSpot').files.length;
+        let fileCust = document.getElementById('fileCust').files[0];
+        let fileSpot = document.getElementById('fileSpot').files[0];
 
-        if(f1 === 0 || f2 === 0) {
-            Swal.fire({ icon: 'error', title: 'File Kurang', text: 'Pastikan kedua file sudah dipilih ya Mas.', background: '#fff' });
+        if(!fileCust || !fileSpot) {
+            Swal.fire({ icon: 'error', title: 'File Tidak Lengkap', text: 'Pastikan file Customer dan Spot Bill sudah dipilih.', background: '#fff' });
             return;
         }
 
+        // Animasi Loading
         Swal.fire({
-            title: 'Sedang Menggabungkan...',
-            text: 'Menghitung Vol_Riil dan Selisih_HB',
+            title: 'Memproses Data...',
+            html: `Mendeteksi Cycle, Periode, dan menghitung Volume LNP.<br>Mohon tunggu sebentar...`,
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
 
-        // Di sini nanti ditaruh fungsi upload ke server (app.py)
-        setTimeout(() => {
-            window.location.href = '/summary-sbrs';
-        }, 2000);
+        // Siapkan paket data untuk dikirim
+        let formData = new FormData();
+        formData.append('fileCust', fileCust);
+        formData.append('fileSpot', fileSpot);
+        // Note: Tidak perlu ngirim nilai Cycle karena backend yang akan nyari sendiri
+
+        try {
+            // Tembak ke rute API di app.py
+            let response = await fetch('/api/process-sbrs', {
+                method: 'POST',
+                body: formData
+            });
+            
+            let result = await response.json();
+
+            // Jika sukses diproses oleh backend
+            if(response.ok && result.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'LNP Berhasil!',
+                    text: result.message, // Pesan ini dikirim dari Python (contoh: "Data Cycle 15 berhasil masuk...")
+                    confirmButtonColor: '#2563eb'
+                }).then(() => {
+                    window.location.href = '/summary-sbrs'; // Redirect ke dashboard summary
+                });
+            } else {
+                // Jika backend menolak / error (contoh format file salah)
+                Swal.fire({ icon: 'error', title: 'Gagal Diproses', text: result.message || 'Terjadi kesalahan sistem di server.' });
+            }
+        } catch (error) {
+            // Jika server mati / internet putus
+            Swal.fire({ icon: 'error', title: 'Error Koneksi', text: 'Gagal menghubungi server APSI. Pastikan VPS berjalan.' });
+        }
     };
 </script>
 
