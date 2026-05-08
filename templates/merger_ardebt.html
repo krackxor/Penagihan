@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Merge TXT Mainbill PRO</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -15,7 +14,7 @@
 
         body{
             background:#f1f5f9;
-            font-family:Arial, sans-serif;
+            font-family:Arial,sans-serif;
         }
 
         .card-box{
@@ -23,6 +22,7 @@
             border-radius:20px;
             padding:40px;
             margin-top:40px;
+            margin-bottom:40px;
             box-shadow:0 10px 30px rgba(0,0,0,0.05);
         }
 
@@ -30,7 +30,7 @@
             border:2px dashed #cbd5e1;
             border-radius:16px;
             background:#f8fafc;
-            padding:50px;
+            padding:60px;
             text-align:center;
             cursor:pointer;
             transition:0.3s;
@@ -41,26 +41,42 @@
             border-color:#2563eb;
         }
 
-        .log-box{
-            background:#0f172a;
-            color:#22c55e;
-            padding:15px;
-            border-radius:12px;
-            height:250px;
-            overflow:auto;
-            font-size:13px;
-            margin-top:20px;
-        }
-
         .summary-card{
             border-radius:16px;
             padding:20px;
             background:white;
             box-shadow:0 5px 15px rgba(0,0,0,0.05);
+            height:100%;
+        }
+
+        .log-box{
+            background:#0f172a;
+            color:#22c55e;
+            padding:15px;
+            border-radius:12px;
+            height:260px;
+            overflow:auto;
+            font-size:13px;
+            margin-top:20px;
+            white-space:pre-wrap;
+        }
+
+        .progress{
+            height:28px;
+            border-radius:50px;
+            overflow:hidden;
+        }
+
+        .progress-bar{
+            font-weight:bold;
         }
 
         table{
             font-size:13px;
+        }
+
+        .download-section{
+            display:none;
         }
 
     </style>
@@ -80,7 +96,7 @@
             </h2>
 
             <p class="text-muted">
-                Gabungkan banyak file TXT jadi 1 file tanpa duplicate header.
+                Gabungkan banyak file TXT jadi 1 tanpa duplicate header.
             </p>
 
         </div>
@@ -90,12 +106,12 @@
 
             <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
 
-            <h5>
+            <h4 class="fw-bold">
                 Upload Banyak File TXT
-            </h5>
+            </h4>
 
             <p class="text-muted mb-0">
-                Bisa 7 file atau lebih
+                Support file besar 95MB+ per file
             </p>
 
             <input
@@ -107,48 +123,136 @@
 
         </div>
 
-        <div class="row mt-4">
+        <div class="row mt-4 g-3">
 
             <div class="col-md-3">
+
                 <div class="summary-card">
-                    <small class="text-muted">Total File</small>
-                    <h3 id="totalFiles">0</h3>
+
+                    <small class="text-muted">
+                        Total File
+                    </small>
+
+                    <h3 id="totalFiles">
+                        0
+                    </h3>
+
                 </div>
+
             </div>
 
             <div class="col-md-3">
+
                 <div class="summary-card">
-                    <small class="text-muted">Total Rows</small>
-                    <h3 id="totalRows">0</h3>
+
+                    <small class="text-muted">
+                        Total Rows
+                    </small>
+
+                    <h3 id="totalRows">
+                        0
+                    </h3>
+
                 </div>
+
             </div>
 
             <div class="col-md-3">
+
                 <div class="summary-card">
-                    <small class="text-muted">Header Dihapus</small>
-                    <h3 id="headerRemoved">0</h3>
+
+                    <small class="text-muted">
+                        Header Dihapus
+                    </small>
+
+                    <h3 id="headerRemoved">
+                        0
+                    </h3>
+
                 </div>
+
             </div>
 
             <div class="col-md-3">
+
                 <div class="summary-card">
-                    <small class="text-muted">Ukuran Total</small>
-                    <h3 id="totalSize">0 MB</h3>
+
+                    <small class="text-muted">
+                        Ukuran Total
+                    </small>
+
+                    <h3 id="totalSize">
+                        0 MB
+                    </h3>
+
                 </div>
+
+            </div>
+
+        </div>
+
+        <div class="mt-4">
+
+            <div class="d-flex justify-content-between mb-2">
+
+                <span class="fw-bold">
+                    Progress
+                </span>
+
+                <span id="progressText">
+                    0%
+                </span>
+
+            </div>
+
+            <div class="progress">
+
+                <div
+                    id="progressBar"
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    style="width:0%">
+
+                    0%
+
+                </div>
+
             </div>
 
         </div>
 
         <button
+            id="mergeBtn"
             onclick="mergeFiles()"
             class="btn btn-primary btn-lg w-100 mt-4 fw-bold">
 
             <i class="fa-solid fa-wand-magic-sparkles me-2"></i>
+
             GABUNGKAN FILE
+
         </button>
 
-        <div class="log-box mt-4" id="logs">
-            SYSTEM READY...
+        <div
+            id="downloadSection"
+            class="download-section">
+
+            <button
+                id="downloadBtn"
+                class="btn btn-success btn-lg w-100 mt-3 fw-bold">
+
+                <i class="fa-solid fa-download me-2"></i>
+
+                DOWNLOAD FILE
+
+            </button>
+
+        </div>
+
+        <div
+            id="logs"
+            class="log-box">
+
+SYSTEM READY...
+
         </div>
 
         <div class="table-responsive mt-4">
@@ -159,8 +263,7 @@
 
                     <tr>
                         <th>File</th>
-                        <th>Rows</th>
-                        <th>Size</th>
+                        <th>Ukuran</th>
                         <th>Status</th>
                     </tr>
 
@@ -184,6 +287,15 @@ const HEADER =
 
 let selectedFiles = [];
 
+let downloadURL = null;
+
+
+/*
+========================================
+SELECT FILE
+========================================
+*/
+
 document
 .getElementById('files')
 .addEventListener('change', function(e){
@@ -195,16 +307,57 @@ document
 });
 
 
+/*
+========================================
+LOG
+========================================
+*/
+
 function log(message){
 
-    const logs = document.getElementById('logs');
+    const logs =
+        document.getElementById('logs');
 
-    logs.innerHTML += `<br>> ${message}`;
+    logs.innerHTML += `\n> ${message}`;
 
     logs.scrollTop = logs.scrollHeight;
 
 }
 
+
+/*
+========================================
+PROGRESS
+========================================
+*/
+
+function updateProgress(percent){
+
+    const bar =
+        document.getElementById('progressBar');
+
+    const text =
+        document.getElementById('progressText');
+
+    percent = Math.floor(percent);
+
+    bar.style.width =
+        percent + '%';
+
+    bar.innerText =
+        percent + '%';
+
+    text.innerText =
+        percent + '%';
+
+}
+
+
+/*
+========================================
+PREVIEW
+========================================
+*/
 
 function renderPreview(){
 
@@ -220,17 +373,29 @@ function renderPreview(){
         totalSize += file.size;
 
         tbody.innerHTML += `
+
             <tr>
-                <td>${file.name}</td>
-                <td>-</td>
-                <td>${(file.size / 1024 / 1024).toFixed(2)} MB</td>
+
                 <td>
+                    ${file.name}
+                </td>
+
+                <td>
+                    ${(file.size / 1024 / 1024).toFixed(2)} MB
+                </td>
+
+                <td>
+
                     <span class="badge bg-success">
                         READY
                     </span>
+
                 </td>
+
             </tr>
+
         `;
+
     });
 
     document.getElementById('totalFiles').innerText =
@@ -242,6 +407,12 @@ function renderPreview(){
 }
 
 
+/*
+========================================
+MERGE FILES
+========================================
+*/
+
 async function mergeFiles(){
 
     if(selectedFiles.length === 0){
@@ -252,7 +423,14 @@ async function mergeFiles(){
 
     }
 
-    log('START MERGE PROCESS...');
+    document.getElementById('downloadSection')
+        .style.display = 'none';
+
+    updateProgress(0);
+
+    log('=================================');
+    log('START MERGE PROCESS');
+    log('=================================');
 
     let mergedData = [];
 
@@ -261,27 +439,41 @@ async function mergeFiles(){
     let headerRemoved = 0;
 
     /*
-    HEADER 1X SAJA
+    HEADER 1X
     */
     mergedData.push(HEADER);
 
+    /*
+    LOOP FILE
+    */
     for(let i=0;i<selectedFiles.length;i++){
 
-        const file = selectedFiles[i];
+        const file =
+            selectedFiles[i];
 
-        log(`MEMBACA: ${file.name}`);
+        log(`MEMBACA FILE: ${file.name}`);
 
+        /*
+        UPDATE PROGRESS
+        */
+        updateProgress(
+            ((i + 1) / selectedFiles.length) * 70
+        );
+
+        /*
+        READ FILE
+        */
         const text =
             await file.text();
 
         /*
-        Pecah per baris
+        SPLIT
         */
         let lines =
             text.split(/\r?\n/);
 
         /*
-        Buang kosong
+        FILTER
         */
         lines =
             lines.filter(line =>
@@ -291,7 +483,7 @@ async function mergeFiles(){
         log(`TOTAL LINE: ${lines.length}`);
 
         /*
-        Loop line
+        LOOP BARIS
         */
         for(let x=0;x<lines.length;x++){
 
@@ -299,7 +491,7 @@ async function mergeFiles(){
                 lines[x].trim();
 
             /*
-            Buang HEADER DUPLIKAT
+            HAPUS HEADER
             */
             if(
                 line
@@ -314,11 +506,9 @@ async function mergeFiles(){
                 headerRemoved++;
 
                 continue;
+
             }
 
-            /*
-            Skip line kosong
-            */
             if(line === ''){
 
                 continue;
@@ -333,7 +523,18 @@ async function mergeFiles(){
 
         log(`SELESAI: ${file.name}`);
 
+        /*
+        Delay kecil
+        */
+        await new Promise(r =>
+            setTimeout(r, 50)
+        );
+
     }
+
+    log('MEMBUAT FILE DOWNLOAD...');
+
+    updateProgress(80);
 
     /*
     EXPORT
@@ -342,30 +543,66 @@ async function mergeFiles(){
         mergedData.join('\r\n');
 
     const blob = new Blob(
+
         ["\uFEFF" + finalText],
+
         {
             type:'text/plain;charset=utf-8;'
         }
+
     );
 
-    const url =
+    updateProgress(90);
+
+    /*
+    URL DOWNLOAD
+    */
+    if(downloadURL){
+
+        URL.revokeObjectURL(downloadURL);
+
+    }
+
+    downloadURL =
         URL.createObjectURL(blob);
 
-    const a =
-        document.createElement('a');
+    /*
+    SHOW DOWNLOAD
+    */
+    document.getElementById('downloadSection')
+        .style.display = 'block';
 
-    a.href = url;
+    const downloadBtn =
+        document.getElementById('downloadBtn');
 
-    a.download =
-        'MERGED_MAINBILL.txt';
+    downloadBtn.onclick = () => {
 
-    document.body.appendChild(a);
+        const a =
+            document.createElement('a');
 
-    a.click();
+        a.href = downloadURL;
 
-    document.body.removeChild(a);
+        a.download =
+            'MERGED_MAINBILL.txt';
 
-    URL.revokeObjectURL(url);
+        document.body.appendChild(a);
+
+        a.click();
+
+        document.body.removeChild(a);
+
+    };
+
+    /*
+    AUTO DOWNLOAD
+    */
+    setTimeout(()=>{
+
+        downloadBtn.click();
+
+    }, 1000);
+
+    updateProgress(100);
 
     /*
     SUMMARY
@@ -376,11 +613,14 @@ async function mergeFiles(){
     document.getElementById('headerRemoved').innerText =
         headerRemoved.toLocaleString();
 
+    log('=================================');
     log('MERGE SUCCESS');
     log(`TOTAL ROWS: ${totalRows}`);
     log(`HEADER REMOVED: ${headerRemoved}`);
+    log('DOWNLOAD READY');
+    log('=================================');
 
-    alert('BERHASIL DIGABUNGKAN');
+    alert('FILE BERHASIL DIGABUNGKAN');
 
 }
 
