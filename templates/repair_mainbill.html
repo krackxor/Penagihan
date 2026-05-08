@@ -4,131 +4,336 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Repair Mainbill Tool - AREA SERVICE</title>
-    
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
+
     <style>
-        body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
-        .navbar { background: rgba(15, 23, 42, 0.95); padding: 15px 0; }
-        .navbar-brand { font-weight: 800; font-size: 1.4rem; color: white !important; text-decoration: none;}
-        
+        body {
+            background-color: #f8fafc;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .navbar {
+            background: rgba(15, 23, 42, 0.95);
+            padding: 15px 0;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: white !important;
+            text-decoration: none;
+        }
+
         .upload-card {
-            background: white; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.05);
-            padding: 40px; margin: 60px auto; max-width: 550px; text-align: center;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+            padding: 40px;
+            margin: 60px auto;
+            max-width: 550px;
+            text-align: center;
         }
 
         .drop-zone {
-            border: 2px dashed #cbd5e1; border-radius: 12px; background: #f1f5f9;
-            cursor: pointer; padding: 40px 20px; margin-bottom: 25px; transition: 0.3s;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            background: #f1f5f9;
+            cursor: pointer;
+            padding: 40px 20px;
+            margin-bottom: 25px;
+            transition: 0.3s;
         }
-        .drop-zone:hover { border-color: #2563eb; background: #eff6ff; }
+
+        .drop-zone:hover {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 14px;
+            text-align: left;
+            margin-top: 20px;
+        }
+
+        .status-box {
+            margin-top: 15px;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .success-text {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+        .error-text {
+            color: #dc2626;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <nav class="navbar shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="#"><i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE</a>
-        </div>
-    </nav>
-
+<nav class="navbar shadow-sm">
     <div class="container">
-        <div class="upload-card">
-            <i class="fa-solid fa-database fa-3x text-primary mb-3"></i>
-            <h3 class="fw-bold text-dark mb-2">Pembersih Mainbill PRO</h3>
-            <p class="text-muted small mb-4">Menggunakan <b>PapaParse Engine</b>. Membaca data per-sel untuk menjamin kolom tidak meleset/kosong saat masuk ke MS Access (Mode Koma).</p>
-            
-            <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
-                <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
-                <h5 id="fileNameDisplay" class="fw-bold text-dark mb-1">Pilih File .TXT</h5>
-                <input type="file" id="fileInput" accept=".txt" style="display:none">
-            </div>
-
-            <button onclick="processFile()" class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm">
-                MULAI PERBAIKI
-            </button>
-        </div>
+        <a class="navbar-brand" href="#">
+            <i class="fa-solid fa-droplet text-info me-2"></i>
+            AREA SERVICE
+        </a>
     </div>
+</nav>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    
-    <script>
-        document.getElementById('fileInput').onchange = function() {
-            if(this.files.length > 0) {
-                document.getElementById('fileNameDisplay').innerHTML = `<i class="fa-solid fa-check text-success"></i> ${this.files[0].name}`;
-            }
-        };
+<div class="container">
+    <div class="upload-card">
 
-        function processFile() {
-            const fileInput = document.getElementById('fileInput');
-            if (!fileInput.files[0]) {
-                Swal.fire('Oops!', 'Pilih file terlebih dahulu.', 'warning');
-                return;
-            }
+        <i class="fa-solid fa-database fa-3x text-primary mb-3"></i>
+
+        <h3 class="fw-bold text-dark mb-2">
+            Pembersih Mainbill PRO
+        </h3>
+
+        <p class="text-muted small mb-4">
+            Repair otomatis agar file TXT langsung kompatibel dengan MS Access.
+        </p>
+
+        <div id="dropZone"
+             class="drop-zone"
+             onclick="document.getElementById('fileInput').click()">
+
+            <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
+
+            <h5 id="fileNameDisplay"
+                class="fw-bold text-dark mb-1">
+                Pilih File .TXT / .CSV
+            </h5>
+
+            <input
+                type="file"
+                id="fileInput"
+                accept=".txt,.csv"
+                style="display:none"
+            >
+        </div>
+
+        <button
+            onclick="processFile()"
+            class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm">
+
+            <i class="fa-solid fa-wand-magic-sparkles me-2"></i>
+            MULAI PERBAIKI
+        </button>
+
+        <div id="statusBox" class="status-box"></div>
+
+        <div class="info-box">
+            <b>Format Output:</b><br>
+            ✔ Delimiter otomatis ";"<br>
+            ✔ UTF-8 BOM Support<br>
+            ✔ Aman untuk MS Access<br>
+            ✔ Semua kolom tetap lurus<br>
+            ✔ Null/kosong aman<br>
+            ✔ Angka .00 dibersihkan
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<script>
+
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const statusBox = document.getElementById('statusBox');
+
+    fileInput.addEventListener('change', function () {
+
+        if (this.files.length > 0) {
+
+            fileNameDisplay.innerHTML = `
+                <i class="fa-solid fa-check text-success"></i>
+                ${this.files[0].name}
+            `;
+
+            statusBox.innerHTML = `
+                <div class="success-text">
+                    File siap diproses.
+                </div>
+            `;
+        }
+    });
+
+    async function processFile() {
+
+        const file = fileInput.files[0];
+
+        if (!file) {
 
             Swal.fire({
-                title: 'Sedang Memproses...',
-                text: 'Menata ulang sel dan menghapus .00 secara presisi...',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
+                icon: 'warning',
+                title: 'Oops!',
+                text: 'Pilih file terlebih dahulu.'
             });
 
-            // MESIN PAPAPARSE BEKERJA DI SINI
-            Papa.parse(fileInput.files[0], {
-                skipEmptyLines: true, // Otomatis buang baris kosong
-                complete: function(results) {
+            return;
+        }
+
+        Swal.fire({
+            title: 'Memproses File...',
+            html: 'Sedang membersihkan dan memperbaiki format...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        Papa.parse(file, {
+
+            header: false,
+
+            skipEmptyLines: true,
+
+            delimiter: "",
+
+            complete: function(results) {
+
+                try {
+
                     let data = results.data;
-                    
-                    // 1. Loop per Baris
+
                     for (let i = 0; i < data.length; i++) {
-                        
-                        // 2. Loop per Kolom dalam baris tersebut
+
                         for (let j = 0; j < data[i].length; j++) {
-                            if (typeof data[i][j] === 'string') {
-                                let val = data[i][j].trim(); // Bersihkan spasi sisa
-                                
-                                // Hapus nilai .00 atau ,00 yang ada di akhir angka saja
-                                val = val.replace(/\.00$/, "");
-                                val = val.replace(/,00$/, "");
-                                
-                                data[i][j] = val; // Masukkan kembali ke kotaknya
+
+                            let val = data[i][j];
+
+                            if (val === null || val === undefined) {
+                                val = "";
                             }
+
+                            val = String(val).trim();
+
+                            /*
+                             Hapus .00 atau ,00
+                            */
+                            val = val.replace(/\.00$/g, "");
+                            val = val.replace(/,00$/g, "");
+
+                            /*
+                             Bersihkan karakter aneh
+                            */
+                            val = val.replace(/\u0000/g, "");
+
+                            data[i][j] = val;
                         }
                     }
 
-                    // 3. Susun ulang semua kotak menjadi format KOMA (,) yang lurus murni
+                    /*
+                     Export aman untuk MS Access
+                    */
                     let finalCSV = Papa.unparse(data, {
-                        quotes: false, // Hilangkan semua tanda kutip agar telanjang seperti Book1
-                        delimiter: ",", // Gunakan Koma
+
+                        quotes: true,
+
+                        delimiter: ";",
+
                         newline: "\r\n"
+
                     });
 
-                    // 4. Download file teksnya
-                    const blob = new Blob([finalCSV], { type: 'text/plain;charset=utf-8' });
+                    /*
+                     Tambahkan UTF8 BOM
+                    */
+                    const blob = new Blob(
+                        ["\uFEFF" + finalCSV],
+                        {
+                            type: 'text/plain;charset=utf-8;'
+                        }
+                    );
+
                     const url = URL.createObjectURL(blob);
+
                     const a = document.createElement("a");
-                    
+
                     a.href = url;
-                    a.download = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_CLEAN.txt";
+
+                    a.download =
+                        file.name.replace(/\.[^/.]+$/, "") +
+                        "_REPAIRED.txt";
+
                     document.body.appendChild(a);
+
                     a.click();
+
                     document.body.removeChild(a);
+
+                    URL.revokeObjectURL(url);
 
                     Swal.fire({
                         icon: 'success',
-                        title: 'Sukses Besar!',
-                        text: 'Kolom dijamin lurus! Silakan Import ke MS Access, pilih Delimited, lalu centang Comma.',
-                        confirmButtonColor: '#0d6efd'
+                        title: 'Berhasil!',
+                        html: `
+                            File berhasil diperbaiki.<br><br>
+                            <b>Import ke MS Access:</b><br>
+                            ✔ Delimited<br>
+                            ✔ Semicolon (;)
+                        `,
+                        confirmButtonColor: '#2563eb'
                     });
-                },
-                error: function(err) {
-                    Swal.fire('Error', 'File gagal dibaca oleh sistem.', 'error');
+
+                    statusBox.innerHTML = `
+                        <div class="success-text">
+                            Export berhasil dibuat.
+                        </div>
+                    `;
+
+                } catch (err) {
+
+                    console.error(err);
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: 'Terjadi error saat memproses file.'
+                    });
+
+                    statusBox.innerHTML = `
+                        <div class="error-text">
+                            Error: ${err.message}
+                        </div>
+                    `;
                 }
-            });
-        }
-    </script>
+            },
+
+            error: function(err) {
+
+                console.error(err);
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Membaca File',
+                    text: err.message
+                });
+
+                statusBox.innerHTML = `
+                    <div class="error-text">
+                        Gagal membaca file.
+                    </div>
+                `;
+            }
+        });
+    }
+
+</script>
+
 </body>
 </html>
