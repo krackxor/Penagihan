@@ -15,6 +15,7 @@ Fixes Log:
 10. ✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
 11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
 12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
+13. ✅ TOOLS: OCR Gambar ke Teks terintegrasi (Membutuhkan Tesseract di Server).
 """
 
 import os
@@ -84,7 +85,8 @@ def create_app():
             'history.public_share_view', 
             'repair_mainbill', 
             'merger_ardebt',   
-            'converter_tool',  
+            'converter_tool',
+            'image_to_txt',    # DITAMBAHKAN: Akses publik untuk OCR Image to Text
             'api_convert'      
         ]
         
@@ -199,7 +201,11 @@ def create_app():
     def converter_tool():
         return render_template('converter_tool.html')
 
-    # ✅ API MESIN KONVERSI (DENGAN FALLBACK LIBREOFFICE)
+    @app.route('/image-to-text')
+    def image_to_txt():
+        return render_template('image_to_txt.html')
+
+    # ✅ API MESIN KONVERSI (DENGAN OCR GAMBAR KE TEKS)
     @app.route('/api/convert', methods=['POST'])
     def api_convert():
         try:
@@ -215,7 +221,7 @@ def create_app():
             # Folder sementara (otomatis terhapus isinya oleh sistem OS nanti)
             temp_dir = tempfile.mkdtemp()
             
-            # --- KONVERSI PDF KE WORD ---
+            # --- 1. KONVERSI PDF KE WORD ---
             if conv_type == 'pdf_to_word':
                 from pdf2docx import Converter
                 
@@ -231,7 +237,7 @@ def create_app():
                 
                 return send_file(output_path, as_attachment=True, download_name="Hasil_PDF_ke_Word.docx")
                 
-            # --- KONVERSI GAMBAR KE PDF ---
+            # --- 2. KONVERSI GAMBAR KE PDF ---
             elif conv_type == 'img_to_pdf':
                 from PIL import Image
                 
@@ -250,7 +256,7 @@ def create_app():
                     image_list[0].save(output_path, save_all=True, append_images=image_list[1:])
                     return send_file(output_path, as_attachment=True, download_name="Hasil_Gambar_ke_PDF.pdf")
 
-            # --- KONVERSI WORD KE PDF (SISTEM TAHAN BANTING) ---
+            # --- 3. KONVERSI WORD KE PDF (SISTEM TAHAN BANTING) ---
             elif conv_type == 'word_to_pdf':
                 import subprocess
                 
@@ -270,10 +276,8 @@ def create_app():
                 
                 # Skenario B: Gunakan LibreOffice (Solusi standar untuk Linux VPS / Windows Server)
                 try:
-                    # Menjalankan command terminal ke mesin LibreOffice
                     subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', docx_path, '--outdir', temp_dir], check=True)
                     
-                    # LibreOffice menamai output sesuai nama asli file docx
                     base_name = os.path.splitext(os.path.basename(docx_path))[0]
                     libre_output_path = os.path.join(temp_dir, f"{base_name}.pdf")
                     
@@ -287,6 +291,31 @@ def create_app():
                     return jsonify({
                         "status": "error", 
                         "message": "Server tidak memiliki MS Word atau LibreOffice. Minta tim IT untuk meng-install LibreOffice di server agar fitur ini berfungsi."
+                    }), 500
+
+            # --- 4. EKSTRAKSI GAMBAR KE TEKS (OCR) ---
+            elif conv_type == 'img_to_txt':
+                try:
+                    import pytesseract
+                    from PIL import Image
+                    
+                    file = files[0]
+                    img_path = os.path.join(temp_dir, secure_filename(file.filename))
+                    file.save(img_path)
+                    
+                    # Membaca gambar dengan bahasa Indonesia (ind) dan English (eng)
+                    extracted_text = pytesseract.image_to_string(Image.open(img_path), lang='ind+eng')
+                    
+                    # Simpan ke file .txt
+                    output_path = os.path.join(temp_dir, "Hasil_Ekstraksi.txt")
+                    with open(output_path, "w", encoding="utf-8") as f:
+                        f.write(extracted_text)
+                        
+                    return send_file(output_path, as_attachment=True, download_name="Hasil_Teks_OCR.txt")
+                except Exception as e:
+                    return jsonify({
+                        "status": "error", 
+                        "message": "Server memerlukan instalasi mesin Tesseract OCR. Minta tim IT untuk menginstalnya melalui terminal (apt install tesseract-ocr tesseract-ocr-ind)."
                     }), 500
 
             return jsonify({"status": "error", "message": "Tipe konversi tidak didukung."}), 400
