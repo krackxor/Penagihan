@@ -24,7 +24,6 @@
             min-height: 100vh;
         }
         
-        /* Navbar Style */
         .navbar {
             background: rgba(15, 23, 42, 0.95) !important;
             backdrop-filter: blur(10px);
@@ -35,14 +34,12 @@
         }
         .navbar-brand { font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; color: white !important;}
         
-        /* Main Container Adjustments */
         .tool-container {
             margin-top: 100px;
             flex-grow: 1;
             padding-bottom: 50px;
         }
 
-        /* Card Style */
         .upload-card {
             background: white;
             border-radius: 24px;
@@ -51,7 +48,6 @@
             padding: 40px;
         }
 
-        /* Drop Zone Style */
         .drop-zone {
             border: 2px dashed #cbd5e1;
             border-radius: 16px;
@@ -72,7 +68,6 @@
             color: var(--accent-blue);
         }
 
-        /* Footer */
         footer { 
             background: white; 
             border-top: 1px solid #e2e8f0; 
@@ -108,7 +103,7 @@
                     </div>
                     
                     <h3 class="fw-bold text-dark mb-2">Repair Mainbill File</h3>
-                    <p class="text-muted small mb-4">Bersihkan desimal <code>.00</code>, spasi kosong, dan format agar siap untuk di-import ke MS Access tanpa error bergeser.</p>
+                    <p class="text-muted small mb-4">Hapus nilai <code>.00</code> dan bersihkan tanda kutip agar sesuai format standar Access.</p>
                     
                     <div id="dropZone" class="drop-zone mb-4">
                         <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3"></i>
@@ -124,10 +119,9 @@
                     <div class="mt-4 pt-3 border-top text-start">
                         <p class="small fw-bold text-muted mb-2"><i class="fa-solid fa-circle-info me-1"></i> Apa yang dilakukan sistem?</p>
                         <ul class="text-muted small mb-0 ps-3">
-                            <li>Otomatis mendeteksi format ekspor lama (Koma) atau baru (Titik Koma).</li>
-                            <li>Otomatis hapus angka <code>.00</code> atau <code>,00</code> pada Nominal & Kubikasi.</li>
-                            <li>Hapus spasi hantu (<i>Trim Space</i>) pada kolom Nomen/Nama.</li>
-                            <li>Menyelaraskan seluruh sekat pembatas kolom agar tidak ada data yang lompat ke kolom sebelahnya.</li>
+                            <li>Otomatis hapus angka <code>.00</code> atau <code>,00</code> pada angka nominal.</li>
+                            <li>Hapus seluruh tanda kutip ganda (<code>"</code>) agar file bersih.</li>
+                            <li><strong>Mempertahankan koma asli</strong> agar kolom tidak bergeser atau kosong saat masuk ke Access.</li>
                         </ul>
                     </div>
 
@@ -151,10 +145,8 @@
         const dropZone = document.getElementById('dropZone');
         const fileNameDisplay = document.getElementById('fileNameDisplay');
 
-        // Klik area dropzone akan membuka window pilih file
         dropZone.onclick = () => fileInput.click();
 
-        // Saat file dipilih, tampilkan namanya di kotak
         fileInput.onchange = () => {
             if(fileInput.files.length > 0) {
                 const fName = fileInput.files[0].name;
@@ -163,7 +155,6 @@
             }
         };
 
-        // Fungsi Pembersihan Utama
         function processFile() {
             if (!fileInput.files[0]) {
                 Swal.fire({
@@ -175,10 +166,9 @@
                 return;
             }
 
-            // Tampilkan animasi loading
             Swal.fire({
                 title: 'Sedang Memproses...',
-                text: 'Mendeteksi format file dan merapikan kolom data...',
+                text: 'Merapikan format data persis seperti Book1, mohon tunggu...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
@@ -187,44 +177,25 @@
             reader.onload = function(e) {
                 try {
                     let text = e.target.result;
-                    let lines = text.split(/\r?\n/);
-                    let processedLines = [];
 
-                    // Auto-Detect Format: Cek baris pertama, jika ada ; berarti format baru
-                    let delimiter = lines[0].includes(';') ? ';' : ',';
+                    // 1. Hapus .00 (hanya yang menempel di belakang angka menuju koma/enter)
+                    text = text.replace(/\.00(?=,|\r|\n|$)/g, "");
 
-                    for (let i = 0; i < lines.length; i++) {
-                        let line = lines[i];
-                        if (line.trim() === "") continue;
+                    // 2. Hapus ,00 (jika ada format khusus yang pakai koma nol-nol)
+                    text = text.replace(/,00(?=;|\r|\n|$)/g, "");
 
-                        // 1. Trim spasi kosong di dalam tanda kutip ("Teks    " -> "Teks")
-                        line = line.replace(/"\s*(.*?)\s*"/g, '"$1"');
+                    // 3. Hapus SEMUA tanda kutip ganda (") agar persis seperti Book1 
+                    // Book1 tidak memiliki kutip, semua data telanjang ("Rumah Tangga" -> Rumah Tangga)
+                    text = text.replace(/"/g, "");
 
-                        // 2. Logic penghapusan desimal & penyesuaian pemisah (Delimiter)
-                        if (delimiter === ';') {
-                            // Jika format baru (titik koma), hilangkan ,00
-                            line = line.replace(/,00(?=;|\r|\n|$)/g, "");
-                        } else {
-                            // Jika format lama (koma), hilangkan .00
-                            line = line.replace(/\.00(?=,|\r|\n|$)/g, "");
-                            
-                            // Ubah koma (,) menjadi titik koma (;) tanpa memecah isi teks di dalam tanda kutip
-                            let columns = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                            line = columns.join(";");
-                        }
+                    // Tidak ada lagi kode aneh yang mengubah koma jadi titik koma. 
+                    // Struktur file akan TETAP UTUH seperti aslinya.
 
-                        processedLines.push(line);
-                    }
-
-                    // Gabungkan semua baris menjadi satu
-                    let finalContent = processedLines.join("\n");
-
-                    // Buat file CSV untuk diunduh (Tambah BOM \ufeff agar UTF-8 dibaca sempurna oleh Excel)
-                    const blob = new Blob(["\ufeff" + finalContent], { type: 'text/csv;charset=utf-8;' });
+                    // Buat file CSV (UTF-8)
+                    const blob = new Blob(["\ufeff" + text], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     
-                    // Format Nama File Output
                     const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_REPAIRED.csv";
                     
                     a.href = url;
@@ -233,11 +204,10 @@
                     a.click();
                     document.body.removeChild(a);
 
-                    // Tutup loading dan tampilkan notifikasi Sukses
                     Swal.fire({
                         icon: 'success',
                         title: 'Selesai!',
-                        text: 'File berhasil diperbaiki, kolom disejajarkan, dan sudah otomatis terunduh.',
+                        text: 'Data .00 telah dihilangkan dan format dikembalikan stabil seperti Book1!',
                         confirmButtonColor: '#2563eb'
                     });
                     
@@ -246,13 +216,12 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal Memproses',
-                        text: 'Terjadi kesalahan saat membaca file. Pastikan struktur format file benar.',
+                        text: 'Terjadi kesalahan saat membaca file.',
                         confirmButtonColor: '#d33'
                     });
                 }
             };
             
-            // Baca file sebagai text
             reader.readAsText(fileInput.files[0]);
         }
     </script>
