@@ -103,7 +103,7 @@
                     </div>
                     
                     <h3 class="fw-bold text-dark mb-2">Repair Mainbill File</h3>
-                    <p class="text-muted small mb-4">Hapus nilai <code>.00</code> dan bersihkan tanda kutip agar sesuai format standar Access.</p>
+                    <p class="text-muted small mb-4">Ubah format menjadi murni berbasis Koma (seperti Book1) dan hapus nilai <code>.00</code>.</p>
                     
                     <div id="dropZone" class="drop-zone mb-4">
                         <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3"></i>
@@ -119,9 +119,9 @@
                     <div class="mt-4 pt-3 border-top text-start">
                         <p class="small fw-bold text-muted mb-2"><i class="fa-solid fa-circle-info me-1"></i> Apa yang dilakukan sistem?</p>
                         <ul class="text-muted small mb-0 ps-3">
-                            <li>Otomatis hapus angka <code>.00</code> atau <code>,00</code> pada angka nominal.</li>
-                            <li>Hapus seluruh tanda kutip ganda (<code>"</code>) agar file bersih.</li>
-                            <li><strong>Menyimpan hasil ke format .TXT</strong> (Mempertahankan pemisah aslinya).</li>
+                            <li>Menghapus semua tanda kutip ganda (<code>"</code>).</li>
+                            <li>Menghapus nilai desimal <code>.00</code> dan <code>,00</code> pada angka.</li>
+                            <li><strong>Memaksa pemisah kolom menjadi KOMA (<code>,</code>)</strong> agar sejajar sempurna seperti Book1.</li>
                         </ul>
                     </div>
 
@@ -168,7 +168,7 @@
 
             Swal.fire({
                 title: 'Sedang Memproses...',
-                text: 'Merapikan format data persis seperti Book1, mohon tunggu...',
+                text: 'Merapikan format data agar 100% seperti Book1...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
@@ -178,21 +178,28 @@
                 try {
                     let text = e.target.result;
 
-                    // 1. Hapus .00 (hanya yang menempel di belakang angka menuju koma/enter)
-                    text = text.replace(/\.00(?=,|\r|\n|$)/g, "");
+                    // 1. Cek apakah file ini aslinya menggunakan titik koma (;)
+                    let isSemicolon = text.split('\n')[0].includes(';');
 
-                    // 2. Hapus ,00 (jika ada format khusus yang pakai koma nol-nol)
-                    text = text.replace(/,00(?=;|\r|\n|$)/g, "");
-
-                    // 3. Hapus SEMUA tanda kutip ganda (") agar persis seperti Book1 
+                    // 2. Hapus SEMUA tanda kutip ganda (") karena Book1 tidak memakainya
                     text = text.replace(/"/g, "");
 
-                    // Buat file TXT (Format Plain Text dengan UTF-8)
+                    // 3. Hapus desimal bernilai nol (.00 atau ,00)
+                    // Pengecekan posisi (hanya menghapus jika setelahnya adalah pemisah atau akhir baris)
+                    text = text.replace(/\.00(?=[,;\r\n]|$)/g, "");
+                    text = text.replace(/,00(?=[,;\r\n]|$)/g, "");
+
+                    // 4. Jika aslinya pakai Titik Koma (;), kita PAKSA ubah jadi Koma (,)
+                    // Karena MS Access Anda membaca KOMA sebagai pemisah kolom (seperti di Book1)
+                    if (isSemicolon) {
+                        text = text.replace(/;/g, ",");
+                    }
+
+                    // 5. Download hasilnya sebagai file .txt yang siap di-import
                     const blob = new Blob(["\ufeff" + text], { type: 'text/plain;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     
-                    // Ekstensi dikembalikan ke .txt
                     const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_REPAIRED.txt";
                     
                     a.href = url;
@@ -204,7 +211,7 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'Selesai!',
-                        text: 'Data .00 telah dihilangkan dan file .TXT sudah berhasil diunduh!',
+                        text: 'Kolom sudah dikembalikan menggunakan pemisah koma seperti Book1, dan .00 sudah bersih!',
                         confirmButtonColor: '#2563eb'
                     });
                     
