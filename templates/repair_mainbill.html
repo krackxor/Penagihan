@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Repair Mainbill - AREA SERVICE</title>
+    <title>Pembersih Mainbill - AREA SERVICE</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -34,7 +34,7 @@
             box-shadow: 0 15px 35px rgba(0,0,0,0.05);
             padding: 40px;
             margin: 60px auto;
-            max-width: 550px;
+            max-width: 600px;
             text-align: center;
         }
 
@@ -62,6 +62,7 @@
             font-size: 14px;
             text-align: left;
             margin-top: 20px;
+            line-height: 1.6;
         }
 
         .status-box {
@@ -70,15 +71,8 @@
             text-align: left;
         }
 
-        .success-text {
-            color: #16a34a;
-            font-weight: bold;
-        }
-
-        .error-text {
-            color: #dc2626;
-            font-weight: bold;
-        }
+        .success-text { color: #16a34a; font-weight: bold; }
+        .error-text { color: #dc2626; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -91,7 +85,7 @@
         </a>
         <div class="ms-auto d-flex align-items-center gap-2">
             <a href="{{ url_for('index') }}" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
-                <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI KE BERANDA
+                <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI
             </a>
         </div>
     </div>
@@ -100,53 +94,36 @@
 <div class="container">
     <div class="upload-card">
 
-        <i class="fa-solid fa-database fa-3x text-primary mb-3"></i>
+        <i class="fa-solid fa-broom fa-3x text-primary mb-3"></i>
 
         <h3 class="fw-bold text-dark mb-2">
-            Pembersih Format Mainbill
+            Pembersih Mainbill
         </h3>
 
         <p class="text-muted small mb-4">
-            Memperbaiki dan menstandarkan format file TXT untuk integrasi langsung dengan MS Access.
+            Rapikan format file TXT kamu di sini biar langsung pas dan tidak error waktu dimasukkan ke MS Access.
         </p>
 
-        <div id="dropZone"
-             class="drop-zone"
-             onclick="document.getElementById('fileInput').click()">
-
-            <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
-
-            <h5 id="fileNameDisplay"
-                class="fw-bold text-dark mb-1">
-                Pilih atau Lepas File TXT/CSV
+        <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+            <i class="fa-solid fa-file-arrow-up fa-3x mb-3 text-secondary"></i>
+            <h5 id="fileNameDisplay" class="fw-bold text-dark mb-1">
+                Pilih File TXT/CSV
             </h5>
-
-            <input
-                type="file"
-                id="fileInput"
-                accept=".txt,.csv"
-                style="display:none"
-            >
+            <input type="file" id="fileInput" accept=".txt,.csv" style="display:none">
         </div>
 
-        <button
-            onclick="processFile()"
-            class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm">
-
-            <i class="fa-solid fa-play me-2"></i>
-            MULAI PROSES PERBAIKAN
+        <button onclick="processFile()" class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm" style="padding: 15px;">
+            <i class="fa-solid fa-play me-2"></i> BERSIHKAN FILE SEKARANG
         </button>
 
         <div id="statusBox" class="status-box"></div>
 
         <div class="info-box">
-            <b>Spesifikasi Output:</b><br>
-            ✔ Pemisah kolom otomatis (Semicolon ";")<br>
-            ✔ Dukungan format UTF-8 (BOM)<br>
-            ✔ Kompatibilitas penuh dengan MS Access<br>
-            ✔ Presisi penempatan kolom terjamin<br>
-            ✔ Penanganan nilai Null terstruktur<br>
-            ✔ Pembersihan nilai desimal (.00 dan ,00)
+            <b>Info Hasil Perbaikan:</b><br>
+            ✔ Pemisah otomatis diganti Titik Koma ( ; )<br>
+            ✔ Format dijamin aman untuk MS Access<br>
+            ✔ Baris dan kolom dijamin lurus<br>
+            ✔ Angka koma nol-nol (.00) sudah dibersihkan
         </div>
 
     </div>
@@ -156,189 +133,114 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <script>
-
     const fileInput = document.getElementById('fileInput');
     const fileNameDisplay = document.getElementById('fileNameDisplay');
     const statusBox = document.getElementById('statusBox');
 
     fileInput.addEventListener('change', function () {
-
         if (this.files.length > 0) {
-
             fileNameDisplay.innerHTML = `
                 <i class="fa-solid fa-check text-success"></i>
                 ${this.files[0].name}
             `;
-
-            statusBox.innerHTML = `
-                <div class="success-text">
-                    File siap diproses.
-                </div>
-            `;
+            statusBox.innerHTML = `<div class="success-text text-center mt-2">Oke, file siap dibersihkan.</div>`;
         }
     });
 
     async function processFile() {
-
         const file = fileInput.files[0];
 
         if (!file) {
-
             Swal.fire({
                 icon: 'warning',
-                title: 'Perhatian',
-                text: 'Silakan pilih file terlebih dahulu.'
+                title: 'Info',
+                text: 'Pilih file-nya dulu ya.'
             });
-
             return;
         }
 
         Swal.fire({
-            title: 'Memproses Dokumen...',
-            html: 'Menerapkan perbaikan format dan pembersihan data...',
+            title: 'Merapikan File...',
+            text: 'Tunggu sebentar, data sedang dibersihkan...',
             allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+            didOpen: () => { Swal.showLoading(); }
         });
 
         Papa.parse(file, {
-
             header: false,
-
             skipEmptyLines: true,
-
             delimiter: "",
-
             complete: function(results) {
-
                 try {
-
                     let data = results.data;
 
                     for (let i = 0; i < data.length; i++) {
-
                         for (let j = 0; j < data[i].length; j++) {
-
                             let val = data[i][j];
 
-                            if (val === null || val === undefined) {
-                                val = "";
-                            }
-
+                            if (val === null || val === undefined) val = "";
                             val = String(val).trim();
 
-                            /*
-                             Hapus .00 atau ,00
-                            */
+                            // Bersihkan desimal .00 atau ,00
                             val = val.replace(/\.00$/g, "");
                             val = val.replace(/,00$/g, "");
 
-                            /*
-                             Bersihkan karakter aneh
-                            */
+                            // Hapus karakter aneh
                             val = val.replace(/\u0000/g, "");
 
                             data[i][j] = val;
                         }
                     }
 
-                    /*
-                     Export aman untuk MS Access
-                    */
+                    // Gunakan Semicolon (Titik Koma) agar lurus di Access
                     let finalCSV = Papa.unparse(data, {
-
                         quotes: true,
-
                         delimiter: ";",
-
                         newline: "\r\n"
-
                     });
 
-                    /*
-                     Tambahkan UTF8 BOM
-                    */
-                    const blob = new Blob(
-                        ["\uFEFF" + finalCSV],
-                        {
-                            type: 'text/plain;charset=utf-8;'
-                        }
-                    );
-
+                    // Download hasil
+                    const blob = new Blob(["\uFEFF" + finalCSV], { type: 'text/plain;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
-
                     const a = document.createElement("a");
 
                     a.href = url;
-
-                    a.download =
-                        file.name.replace(/\.[^/.]+$/, "") +
-                        "_REPAIRED.txt";
-
+                    a.download = file.name.replace(/\.[^/.]+$/, "") + "_BERSIH.txt";
                     document.body.appendChild(a);
-
                     a.click();
-
                     document.body.removeChild(a);
-
                     URL.revokeObjectURL(url);
 
                     Swal.fire({
                         icon: 'success',
-                        title: 'Proses Selesai',
+                        title: 'Selesai!',
                         html: `
-                            Dokumen telah berhasil distandardisasi.<br><br>
-                            <b>Panduan Impor MS Access:</b><br>
-                            ✔ Pilih format <i>Delimited</i><br>
-                            ✔ Gunakan Semicolon (;) sebagai pemisah
+                            File sudah rapi dan didownload.<br><br>
+                            <b>Ingat saat Import ke MS Access:</b><br>
+                            Pilih format <i>Delimited</i>, lalu gunakan <b>Semicolon (;)</b>.
                         `,
                         confirmButtonColor: '#2563eb'
                     });
 
-                    statusBox.innerHTML = `
-                        <div class="success-text">
-                            Dokumen berhasil diekspor.
-                        </div>
-                    `;
-
+                    statusBox.innerHTML = '';
                 } catch (err) {
-
-                    console.error(err);
-
                     Swal.fire({
                         icon: 'error',
-                        title: 'Kesalahan Sistem',
-                        text: 'Terjadi kesalahan saat memproses dokumen.'
+                        title: 'Oops',
+                        text: 'Ada masalah waktu memproses file ini.'
                     });
-
-                    statusBox.innerHTML = `
-                        <div class="error-text">
-                            Error: ${err.message}
-                        </div>
-                    `;
+                    statusBox.innerHTML = `<div class="error-text">Error: ${err.message}</div>`;
                 }
             },
-
             error: function(err) {
-
-                console.error(err);
-
                 Swal.fire({
                     icon: 'error',
-                    title: 'Gagal Membaca File',
-                    text: err.message
+                    title: 'Gagal',
+                    text: 'Sistem gagal membaca file-nya.'
                 });
-
-                statusBox.innerHTML = `
-                    <div class="error-text">
-                        Gagal membaca dokumen.
-                    </div>
-                `;
             }
         });
     }
-
 </script>
 
 </body>
