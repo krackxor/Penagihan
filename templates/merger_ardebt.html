@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Merge TXT Ardebt PRO - AREA SERVICE</title>
+    <title>Penggabung File Ardebt - AREA SERVICE</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -62,14 +62,14 @@
     <div class="card-box">
         <div class="text-center mb-4">
             <i class="fa-solid fa-object-group fa-3x text-primary mb-3"></i>
-            <h2 class="fw-bold">Merge TXT Ardebt PRO</h2>
-            <p class="text-muted">Menggabungkan banyak file dengan <b>Header Pasti</b> agar MS Access tidak error.</p>
+            <h2 class="fw-bold">Penggabung File Ardebt</h2>
+            <p class="text-muted">Fasilitas untuk menggabungkan beberapa file TXT menjadi satu dokumen terpadu, lengkap dengan standardisasi format header MS Access.</p>
         </div>
 
         <div class="drop-zone" onclick="document.getElementById('files').click()">
-            <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
-            <h4 class="fw-bold">Upload Banyak File TXT</h4>
-            <p class="text-muted mb-0">Support file besar 1GB+ (Diproses langsung di memori komputer Anda)</p>
+            <i class="fa-solid fa-file-arrow-up fa-3x mb-3 text-secondary"></i>
+            <h5 class="fw-bold">Pilih atau Lepas File TXT di Sini</h5>
+            <p class="text-muted mb-0">Mendukung pemrosesan data bervolume besar secara lokal.</p>
             <input type="file" id="files" accept=".txt,.csv" multiple hidden>
         </div>
 
@@ -82,7 +82,7 @@
             </div>
             <div class="col-md-3">
                 <div class="summary-card">
-                    <small class="text-muted fw-bold">Total Size</small>
+                    <small class="text-muted fw-bold">Total Ukuran</small>
                     <h3 id="totalSize">0 MB</h3>
                 </div>
             </div>
@@ -94,7 +94,7 @@
             </div>
             <div class="col-md-3">
                 <div class="summary-card">
-                    <small class="text-muted fw-bold">Header Dibuang</small>
+                    <small class="text-muted fw-bold">Header Disaring</small>
                     <h3 id="headerRemovedTxt">0</h3>
                 </div>
             </div>
@@ -102,7 +102,7 @@
 
         <div class="mt-4">
             <div class="d-flex justify-content-between mb-2">
-                <span class="fw-bold text-dark">Progress Merge</span>
+                <span class="fw-bold text-dark">Status Pemrosesan</span>
                 <span id="progressText" class="fw-bold text-primary">0%</span>
             </div>
             <div class="progress">
@@ -111,14 +111,14 @@
         </div>
 
         <button id="mergeBtn" class="btn btn-primary btn-lg w-100 mt-4 fw-bold shadow-sm" style="border-radius: 12px; padding: 15px;">
-            <i class="fa-solid fa-wand-magic-sparkles me-2"></i> GABUNGKAN FILE SEKARANG
+            <i class="fa-solid fa-play me-2"></i> MULAI PROSES PENGGABUNGAN
         </button>
 
         <button id="downloadBtn" class="btn btn-success btn-lg w-100 mt-3 fw-bold shadow-sm" style="display:none; border-radius: 12px; padding: 15px;">
-            <i class="fa-solid fa-download me-2"></i> SIMPAN HASIL GABUNGAN
+            <i class="fa-solid fa-download me-2"></i> UNDUH HASIL PENGGABUNGAN
         </button>
 
-        <div id="logs" class="log-box">SYSTEM READY...</div>
+        <div id="logs" class="log-box">Sistem siap digunakan.</div>
 
         <div class="table-responsive mt-4">
             <table class="table table-bordered table-hover">
@@ -146,11 +146,11 @@
     const progressText = document.getElementById('progressText');
     const previewTable = document.getElementById('previewTable');
     
-    // Potong file per 20MB biar nggak ngelag walau filenya 1GB
+    // Pembatasan memori proses per 20MB
     const CHUNK_SIZE = 20 * 1024 * 1024; 
     let finalBlobUrl = null;
 
-    // === INI KUNCI RAHASIANYA: HEADER MUTLAK ===
+    // Header standar untuk Ardebt
     const HEADER_MUTLAK = `"LOADRDP";"PROCESS_PERIODE";"BILL_ID";"THN_BILL";"NOMEN";"BILL_PERIODE";"BILL_AMT";"WATER";"BEB";"SEW";"MATERAI";"TAX";"DENDA"`;
 
     function log(message) {
@@ -176,7 +176,7 @@
                 <tr>
                     <td>${file.name}</td>
                     <td>${(file.size / 1024 / 1024).toFixed(2)} MB</td>
-                    <td><span class="badge bg-secondary">MENUNGGU</span></td>
+                    <td><span class="badge bg-secondary">Menunggu</span></td>
                 </tr>
             `;
         });
@@ -188,7 +188,11 @@
     mergeBtn.onclick = async () => {
         const files = filesInput.files;
         if (files.length === 0) {
-            Swal.fire('Oops', 'Pilih file TXT yang mau digabungkan dulu!', 'warning');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Perhatian',
+                text: 'Silakan pilih file TXT yang akan digabungkan terlebih dahulu.'
+            });
             return;
         }
 
@@ -197,11 +201,11 @@
         updateProgress(0);
 
         log('=================================');
-        log('MEMULAI MESIN PENGGABUNGAN PRO');
-        log('Menyuntikkan Header Mutlak ke Baris Pertama...');
+        log('Memulai proses penggabungan data...');
+        log('Menerapkan format header standar...');
         log('=================================');
 
-        // 1. KITA MASUKKAN HEADER MUTLAK DI PALING ATAS
+        // Memasukkan header standar di baris pertama
         let outputBlobs = [new Blob([HEADER_MUTLAK + "\r\n"])]; 
         
         let totalRows = 0;
@@ -213,8 +217,8 @@
 
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
-            log(`\n[+] MEMBACA FILE: ${file.name}`);
-            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-warning text-dark">MEMPROSES</span>';
+            log(`\nMemproses file: ${file.name}`);
+            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-warning text-dark">Memproses</span>';
 
             let offset = 0;
             let leftover = ""; 
@@ -232,8 +236,7 @@
                     let line = lines[j].trim();
                     if (line === "") continue;
 
-                    // 2. KITA HANCURKAN SEMUA JUDUL BAWAAN DARI FILE
-                    // Jika baris mengandung kata LOADRDP atau PROCESS_PERIODE, pasti itu judul! HAPUS!
+                    // Menyaring header bawaan dari file asli
                     if (line.toUpperCase().includes("LOADRDP") || line.toUpperCase().includes("PROCESS_PERIODE")) {
                         headerRemoved++;
                         continue;
@@ -252,7 +255,7 @@
                 updateProgress((processedSize / totalSizeAllFiles) * 100);
             }
 
-            // Proses sisa potongan akhir file
+            // Memproses sisa baris di akhir file
             if (leftover.trim() !== "") {
                 if (leftover.toUpperCase().includes("LOADRDP") || leftover.toUpperCase().includes("PROCESS_PERIODE")) {
                     headerRemoved++;
@@ -262,14 +265,13 @@
                 }
             }
 
-            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-success">SELESAI</span>';
-            log(`-> Selesai membaca ${file.name}`);
+            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-success">Selesai</span>';
+            log(`Selesai memproses: ${file.name}`);
         }
 
         log('\n=================================');
-        log('MENYUSUN FILE RAKSASA...');
+        log('Menyusun dan mengompilasi hasil akhir...');
         
-        // 3. GABUNGKAN SEMUA
         let finalBlob = new Blob(outputBlobs, { type: "text/plain;charset=utf-8" });
         if (finalBlobUrl) URL.revokeObjectURL(finalBlobUrl);
         finalBlobUrl = URL.createObjectURL(finalBlob);
@@ -277,7 +279,7 @@
         downloadBtn.onclick = () => {
             const a = document.createElement("a");
             a.href = finalBlobUrl;
-            a.download = `MERGED_ARDEBT_(${files.length}_Files).txt`;
+            a.download = `Data_Gabungan_Ardebt_(${files.length}_File).txt`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -288,9 +290,15 @@
         downloadBtn.style.display = 'block';
         mergeBtn.disabled = false;
         
-        log(`PENGGABUNGAN SELESAI TOTAL.`);
-        log(`Total Judul yang berhasil dibuang: ${headerRemoved.toLocaleString()} baris.`);
-        Swal.fire('Berhasil!', `File berhasil digabung. Header sudah disuntikkan secara mutlak di baris pertama!`, 'success');
+        log(`Proses penggabungan selesai.`);
+        log(`Total baris data: ${totalRows.toLocaleString()}`);
+        log(`Total header yang disaring: ${headerRemoved.toLocaleString()}`);
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Proses Selesai',
+            text: 'File berhasil digabungkan dengan format header standar. Silakan unduh hasilnya.'
+        });
     };
 </script>
 
