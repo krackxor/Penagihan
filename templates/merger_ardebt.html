@@ -1,700 +1,306 @@
-// ========================================
-// MERGE TXT MAINBILL PRO
-// server.js
-// ========================================
-
-const express = require('express');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
-
-const app = express();
-
-const PORT = 3000;
-
-/*
-========================================
-FOLDER SETUP
-========================================
-*/
-
-if (!fs.existsSync('uploads')) {
-    fs.mkdirSync('uploads');
-}
-
-if (!fs.existsSync('output')) {
-    fs.mkdirSync('output');
-}
-
-/*
-========================================
-UPLOAD CONFIG
-========================================
-*/
-
-const upload = multer({
-    dest: 'uploads/'
-});
-
-/*
-========================================
-HEADER
-========================================
-*/
-
-const HEADER =
-`"LOADRDP";"PROCESS_PERIODE";"BILL_ID";"THN_BILL";"NOMEN";"BILL_PERIODE";"BILL_AMT";"WATER";"BEB";"SEW";"MATERAI";"TAX";"DENDA"`;
-
-/*
-========================================
-FRONTEND PAGE
-========================================
-*/
-
-app.get('/', (req, res) => {
-
-res.send(`
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merge TXT Mainbill PRO</title>
 
-<meta charset="UTF-8">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; color: #334155; }
+        
+        /* Navbar */
+        .navbar { background: rgba(15, 23, 42, 0.95); padding: 15px 0; }
+        .navbar-brand { font-weight: 800; font-size: 1.4rem; color: white !important; text-decoration: none;}
 
-<title>Merge TXT Mainbill PRO</title>
+        .card-box {
+            background: white; border-radius: 20px; padding: 40px;
+            margin-top: 40px; margin-bottom: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
 
-<link
-href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-rel="stylesheet">
+        .drop-zone {
+            border: 2px dashed #cbd5e1; border-radius: 16px; background: #f8fafc;
+            padding: 60px; text-align: center; cursor: pointer; transition: 0.3s;
+        }
+        .drop-zone:hover { background: #eff6ff; border-color: #2563eb; }
 
-<link
-rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        .log-box {
+            background: #0f172a; color: #22c55e; padding: 15px; border-radius: 12px;
+            height: 300px; overflow: auto; margin-top: 20px; white-space: pre-wrap;
+            font-size: 13px; font-family: monospace;
+        }
 
-<style>
+        .progress { height: 30px; border-radius: 50px; overflow: hidden; background-color: #e2e8f0; }
+        .progress-bar { font-weight: bold; background-color: #2563eb; transition: width 0.2s ease; }
 
-body{
-    background:#f1f5f9;
-    font-family:Arial,sans-serif;
-}
-
-.card-box{
-    background:white;
-    border-radius:20px;
-    padding:40px;
-    margin-top:40px;
-    margin-bottom:40px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.05);
-}
-
-.drop-zone{
-    border:2px dashed #cbd5e1;
-    border-radius:16px;
-    background:#f8fafc;
-    padding:60px;
-    text-align:center;
-    cursor:pointer;
-    transition:0.3s;
-}
-
-.drop-zone:hover{
-    background:#eff6ff;
-    border-color:#2563eb;
-}
-
-.log-box{
-    background:#0f172a;
-    color:#22c55e;
-    padding:15px;
-    border-radius:12px;
-    height:300px;
-    overflow:auto;
-    margin-top:20px;
-    white-space:pre-wrap;
-    font-size:13px;
-}
-
-.progress{
-    height:30px;
-    border-radius:50px;
-    overflow:hidden;
-}
-
-.progress-bar{
-    font-weight:bold;
-}
-
-.summary-card{
-    border-radius:16px;
-    padding:20px;
-    background:white;
-    box-shadow:0 5px 15px rgba(0,0,0,0.05);
-    height:100%;
-}
-
-table{
-    font-size:13px;
-}
-
-</style>
-
+        .summary-card {
+            border-radius: 16px; padding: 20px; background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); height: 100%; border: 1px solid #f1f5f9;
+        }
+        .summary-card h3 { font-weight: 800; color: #0f172a; margin-top: 5px; }
+        table { font-size: 13px; }
+    </style>
 </head>
 <body>
 
+<nav class="navbar shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+            <i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE
+        </a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
+                <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI KE BERANDA
+            </a>
+        </div>
+    </div>
+</nav>
+
 <div class="container">
+    <div class="card-box">
+        <div class="text-center mb-4">
+            <i class="fa-solid fa-database fa-3x text-primary mb-3"></i>
+            <h2 class="fw-bold">Merge TXT Mainbill PRO</h2>
+            <p class="text-muted">Menggabungkan banyak file dengan jaminan <b>Hanya 1 Header</b> di hasil akhir.</p>
+        </div>
 
-<div class="card-box">
+        <div class="drop-zone" onclick="document.getElementById('files').click()">
+            <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
+            <h4 class="fw-bold">Upload Banyak File TXT</h4>
+            <p class="text-muted mb-0">Support file besar 1GB+ (Diproses langsung di memori komputer Anda)</p>
+            <input type="file" id="files" accept=".txt,.csv" multiple hidden>
+        </div>
 
-<div class="text-center mb-4">
+        <div class="row mt-4 g-3">
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <small class="text-muted fw-bold">Total File</small>
+                    <h3 id="totalFiles">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <small class="text-muted fw-bold">Total Size</small>
+                    <h3 id="totalSize">0 MB</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <small class="text-muted fw-bold">Total Baris</small>
+                    <h3 id="totalRowsTxt">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <small class="text-muted fw-bold">Header Dibuang</small>
+                    <h3 id="headerRemovedTxt">0</h3>
+                </div>
+            </div>
+        </div>
 
-<i class="fa-solid fa-database fa-3x text-primary mb-3"></i>
+        <div class="mt-4">
+            <div class="d-flex justify-content-between mb-2">
+                <span class="fw-bold text-dark">Progress Merge</span>
+                <span id="progressText" class="fw-bold text-primary">0%</span>
+            </div>
+            <div class="progress">
+                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div>
+            </div>
+        </div>
 
-<h2 class="fw-bold">
-Merge TXT Mainbill PRO
-</h2>
+        <button id="mergeBtn" class="btn btn-primary btn-lg w-100 mt-4 fw-bold shadow-sm" style="border-radius: 12px; padding: 15px;">
+            <i class="fa-solid fa-wand-magic-sparkles me-2"></i> GABUNGKAN FILE SEKARANG
+        </button>
 
-<p class="text-muted">
-Gabungkan file TXT besar tanpa duplicate header
-</p>
+        <button id="downloadBtn" class="btn btn-success btn-lg w-100 mt-3 fw-bold shadow-sm" style="display:none; border-radius: 12px; padding: 15px;">
+            <i class="fa-solid fa-download me-2"></i> SIMPAN HASIL GABUNGAN
+        </button>
 
+        <div id="logs" class="log-box">SYSTEM READY...</div>
+
+        <div class="table-responsive mt-4">
+            <table class="table table-bordered table-hover">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Nama File</th>
+                        <th>Ukuran</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="previewTable"></tbody>
+            </table>
+        </div>
+
+    </div>
 </div>
 
-<div
-class="drop-zone"
-onclick="document.getElementById('files').click()">
-
-<i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
-
-<h4 class="fw-bold">
-Upload Banyak File TXT
-</h4>
-
-<p class="text-muted mb-0">
-Support file besar GB+
-</p>
-
-<input
-type="file"
-id="files"
-multiple
-hidden>
-
-</div>
-
-<div class="row mt-4 g-3">
-
-<div class="col-md-3">
-
-<div class="summary-card">
-
-<small class="text-muted">
-Total File
-</small>
-
-<h3 id="totalFiles">
-0
-</h3>
-
-</div>
-
-</div>
-
-<div class="col-md-3">
-
-<div class="summary-card">
-
-<small class="text-muted">
-Total Size
-</small>
-
-<h3 id="totalSize">
-0 MB
-</h3>
-
-</div>
-
-</div>
-
-<div class="col-md-3">
-
-<div class="summary-card">
-
-<small class="text-muted">
-Status
-</small>
-
-<h3 id="statusText">
-READY
-</h3>
-
-</div>
-
-</div>
-
-<div class="col-md-3">
-
-<div class="summary-card">
-
-<small class="text-muted">
-Progress
-</small>
-
-<h3 id="progressText2">
-0%
-</h3>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="mt-4">
-
-<div class="d-flex justify-content-between mb-2">
-
-<span class="fw-bold">
-Progress Merge
-</span>
-
-<span id="progressText">
-0%
-</span>
-
-</div>
-
-<div class="progress">
-
-<div
-id="progressBar"
-class="progress-bar progress-bar-striped progress-bar-animated"
-style="width:0%">
-
-0%
-
-</div>
-
-</div>
-
-</div>
-
-<button
-id="mergeBtn"
-class="btn btn-primary btn-lg w-100 mt-4 fw-bold">
-
-<i class="fa-solid fa-wand-magic-sparkles me-2"></i>
-
-GABUNGKAN FILE
-
-</button>
-
-<a
-id="downloadBtn"
-class="btn btn-success btn-lg w-100 mt-3 fw-bold"
-style="display:none;">
-
-<i class="fa-solid fa-download me-2"></i>
-
-DOWNLOAD FILE
-
-</a>
-
-<div
-id="logs"
-class="log-box">
-
-SYSTEM READY...
-
-</div>
-
-<div class="table-responsive mt-4">
-
-<table class="table table-bordered table-hover">
-
-<thead class="table-primary">
-
-<tr>
-<th>File</th>
-<th>Ukuran</th>
-<th>Status</th>
-</tr>
-
-</thead>
-
-<tbody id="previewTable"></tbody>
-
-</table>
-
-</div>
-
-</div>
-
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-
-const filesInput =
-document.getElementById('files');
-
-const mergeBtn =
-document.getElementById('mergeBtn');
-
-const logs =
-document.getElementById('logs');
-
-const progressBar =
-document.getElementById('progressBar');
-
-const progressText =
-document.getElementById('progressText');
-
-const progressText2 =
-document.getElementById('progressText2');
-
-const totalFiles =
-document.getElementById('totalFiles');
-
-const totalSize =
-document.getElementById('totalSize');
-
-const statusText =
-document.getElementById('statusText');
-
-const previewTable =
-document.getElementById('previewTable');
-
-const downloadBtn =
-document.getElementById('downloadBtn');
-
-function log(message){
-
-logs.innerHTML += '\\n> ' + message;
-
-logs.scrollTop =
-logs.scrollHeight;
-
-}
-
-function updateProgress(percent){
-
-percent = Math.floor(percent);
-
-progressBar.style.width =
-percent + '%';
-
-progressBar.innerText =
-percent + '%';
-
-progressText.innerText =
-percent + '%';
-
-progressText2.innerText =
-percent + '%';
-
-}
-
-filesInput.addEventListener(
-'change',
-()=>{
-
-previewTable.innerHTML = '';
-
-let total = 0;
-
-Array.from(filesInput.files)
-.forEach(file=>{
-
-total += file.size;
-
-previewTable.innerHTML += \`
-
-<tr>
-
-<td>\${file.name}</td>
-
-<td>
-\${(file.size / 1024 / 1024).toFixed(2)} MB
-</td>
-
-<td>
-
-<span class="badge bg-success">
-READY
-</span>
-
-</td>
-
-</tr>
-
-\`;
-
-});
-
-totalFiles.innerText =
-filesInput.files.length;
-
-totalSize.innerText =
-(total / 1024 / 1024).toFixed(2) + ' MB';
-
-});
+    const filesInput = document.getElementById('files');
+    const mergeBtn = document.getElementById('mergeBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const logs = document.getElementById('logs');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const previewTable = document.getElementById('previewTable');
     
-mergeBtn.onclick = async()=>{
+    // Potong file per 20MB biar nggak ngelag walau filenya 1GB
+    const CHUNK_SIZE = 20 * 1024 * 1024; 
+    let finalBlobUrl = null;
 
-if(filesInput.files.length === 0){
+    function log(message) {
+        logs.innerHTML += '\n> ' + message;
+        logs.scrollTop = logs.scrollHeight;
+    }
 
-alert('Pilih file dulu');
+    function updateProgress(percent) {
+        percent = Math.floor(percent);
+        if (percent > 100) percent = 100;
+        progressBar.style.width = percent + '%';
+        progressBar.innerText = percent + '%';
+        progressText.innerText = percent + '%';
+    }
 
-return;
+    filesInput.addEventListener('change', () => {
+        previewTable.innerHTML = '';
+        let total = 0;
 
-}
+        Array.from(filesInput.files).forEach(file => {
+            total += file.size;
+            previewTable.innerHTML += `
+                <tr>
+                    <td>${file.name}</td>
+                    <td>${(file.size / 1024 / 1024).toFixed(2)} MB</td>
+                    <td><span class="badge bg-secondary">MENUNGGU</span></td>
+                </tr>
+            `;
+        });
 
-downloadBtn.style.display =
-'none';
+        document.getElementById('totalFiles').innerText = filesInput.files.length;
+        document.getElementById('totalSize').innerText = (total / 1024 / 1024).toFixed(2) + ' MB';
+    });
 
-statusText.innerText =
-'UPLOADING';
+    mergeBtn.onclick = async () => {
+        const files = filesInput.files;
+        if (files.length === 0) {
+            Swal.fire('Oops', 'Pilih file TXT yang mau digabungkan dulu!', 'warning');
+            return;
+        }
 
-log('=================================');
-log('START UPLOAD');
-log('=================================');
+        downloadBtn.style.display = 'none';
+        mergeBtn.disabled = true;
+        updateProgress(0);
 
-updateProgress(5);
+        log('=================================');
+        log('MEMULAI MESIN PENGGABUNGAN PRO');
+        log('Sistem Hapus Paksa Baris Pertama Diaktifkan...');
+        log('=================================');
 
-const formData =
-new FormData();
+        let outputBlobs = []; 
+        let mainHeader = "";
+        let totalRows = 0;
+        let headerRemoved = 0;
 
-for(let file of filesInput.files){
+        let totalSizeAllFiles = 0;
+        for (let f of files) totalSizeAllFiles += f.size;
+        let processedSize = 0;
 
-formData.append(
-'files',
-file
-);
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            log(`\n[+] MEMBACA FILE: ${file.name}`);
+            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-warning text-dark">MEMPROSES</span>';
 
-log('ADD FILE: ' + file.name);
+            let offset = 0;
+            let leftover = ""; 
 
-}
+            while (offset < file.size) {
+                let slice = file.slice(offset, offset + CHUNK_SIZE);
+                let text = await slice.text();
+                
+                let lines = (leftover + text).split(/\r?\n/);
+                leftover = lines.pop(); 
 
-updateProgress(15);
+                // LOGIKA MUTLAK: Hapus baris pertama (judul) untuk file ke-2, ke-3, dst.
+                if (offset === 0) {
+                    if (i === 0) {
+                        // File PERTAMA: Ambil dan Simpan Baris Pertamanya
+                        mainHeader = lines[0].trim();
+                        log(`-> Header Utama Didapat: ${mainHeader.substring(0, 30)}...`);
+                    } else {
+                        // File KEDUA dan Seterusnya: Hapus Paksa Baris Pertamanya!
+                        lines.shift();
+                        headerRemoved++;
+                        log(`-> Menghapus judul dari file ${file.name}`);
+                    }
+                }
 
-const response =
-await fetch('/merge',{
+                let validLines = [];
 
-method:'POST',
+                for (let j = 0; j < lines.length; j++) {
+                    let line = lines[j].trim();
+                    if (line === "") continue;
 
-body:formData
+                    // Proteksi ekstra: Jaga-jaga kalau di tengah data ada judul lagi yang nyasar
+                    if (mainHeader && line === mainHeader) {
+                        headerRemoved++;
+                        continue;
+                    }
 
-});
+                    validLines.push(line);
+                    totalRows++;
+                }
 
-updateProgress(90);
+                if (validLines.length > 0) {
+                    outputBlobs.push(new Blob([validLines.join("\r\n") + "\r\n"]));
+                }
 
-if(!response.ok){
+                offset += CHUNK_SIZE;
+                processedSize += slice.size;
+                updateProgress((processedSize / totalSizeAllFiles) * 100);
+            }
 
-alert('MERGE GAGAL');
+            if (leftover.trim() !== "") {
+                if (mainHeader && leftover.trim() === mainHeader) {
+                    headerRemoved++;
+                } else {
+                    outputBlobs.push(new Blob([leftover.trim() + "\r\n"]));
+                    totalRows++;
+                }
+            }
 
-statusText.innerText =
-'ERROR';
+            previewTable.rows[i].cells[2].innerHTML = '<span class="badge bg-success">SELESAI</span>';
+            log(`-> Selesai membaca ${file.name}`);
+        }
 
-return;
+        log('\n=================================');
+        log('MENYUSUN FILE RAKSASA...');
+        
+        let finalBlob = new Blob(outputBlobs, { type: "text/plain;charset=utf-8" });
+        if (finalBlobUrl) URL.revokeObjectURL(finalBlobUrl);
+        finalBlobUrl = URL.createObjectURL(finalBlob);
+        
+        downloadBtn.onclick = () => {
+            const a = document.createElement("a");
+            a.href = finalBlobUrl;
+            a.download = `MERGED_MAINBILL_RAYON_(${files.length}_Files).txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
 
-}
-
-statusText.innerText =
-'DOWNLOAD';
-
-log('MERGE SUCCESS');
-
-const blob =
-await response.blob();
-
-const url =
-URL.createObjectURL(blob);
-
-downloadBtn.href =
-url;
-
-downloadBtn.download =
-'MERGED_MAINBILL.txt';
-
-downloadBtn.style.display =
-'block';
-
-updateProgress(100);
-
-log('DOWNLOAD READY');
-
-downloadBtn.click();
-
-};
-
+        document.getElementById('totalRowsTxt').innerText = totalRows.toLocaleString();
+        document.getElementById('headerRemovedTxt').innerText = headerRemoved.toLocaleString();
+        downloadBtn.style.display = 'block';
+        mergeBtn.disabled = false;
+        
+        log(`PENGGABUNGAN SELESAI TOTAL.`);
+        log(`Total Judul yang dibuang: ${headerRemoved.toLocaleString()} baris.`);
+        Swal.fire('Berhasil!', `Total ${files.length} File sukses digabung jadi 1, Judul dipastikan tidak ada yang dobel.`, 'success');
+    };
 </script>
 
 </body>
 </html>
-
-`);
-
-});
-
-/*
-========================================
-MERGE API
-========================================
-*/
-
-app.post(
-'/merge',
-upload.array('files'),
-async(req,res)=>{
-
-try{
-
-    const outputFile =
-        path.join(
-            __dirname,
-            'output',
-            'MERGED_MAINBILL.txt'
-        );
-
-    /*
-    DELETE FILE LAMA
-    */
-    if(fs.existsSync(outputFile)){
-
-        fs.unlinkSync(outputFile);
-
-    }
-
-    /*
-    WRITE STREAM
-    */
-    const writer =
-        fs.createWriteStream(
-            outputFile,
-            {
-                encoding:'utf8'
-            }
-        );
-
-    /*
-    HEADER 1X
-    */
-    writer.write(
-        HEADER + '\\r\\n'
-    );
-
-    /*
-    LOOP FILE
-    */
-    for(const file of req.files){
-
-        console.log(
-            'PROCESS:',
-            file.originalname
-        );
-
-        /*
-        STREAM READ FILE
-        */
-        const rl =
-            readline.createInterface({
-
-                input:
-                    fs.createReadStream(
-                        file.path
-                    ),
-
-                crlfDelay:Infinity
-
-            });
-
-        /*
-        LOOP LINE
-        */
-        for await (let line of rl){
-
-            line = line.trim();
-
-            if(!line){
-
-                continue;
-
-            }
-
-            /*
-            REMOVE HEADER
-            */
-            if(
-                line
-                .replace(/\\s/g,'')
-                .toUpperCase()
-                ===
-                HEADER
-                .replace(/\\s/g,'')
-                .toUpperCase()
-            ){
-
-                continue;
-
-            }
-
-            writer.write(
-                line + '\\r\\n'
-            );
-
-        }
-
-        /*
-        DELETE TEMP
-        */
-        fs.unlinkSync(
-            file.path
-        );
-
-    }
-
-    /*
-    FINISH
-    */
-    writer.end();
-
-    writer.on('finish', ()=>{
-
-        console.log(
-            'MERGE SUCCESS'
-        );
-
-        res.download(
-            outputFile
-        );
-
-    });
-
-}
-catch(err){
-
-    console.log(err);
-
-    res.status(500)
-    .send('ERROR');
-
-}
-
-});
-
-/*
-========================================
-START SERVER
-========================================
-*/
-
-app.listen(PORT, ()=>{
-
-console.log(
-'SERVER RUNNING: http://localhost:' + PORT
-);
-
-});
