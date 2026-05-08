@@ -7,7 +7,6 @@
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
@@ -24,151 +23,82 @@
             min-height: 100vh;
         }
         
-        .navbar {
-            background: rgba(15, 23, 42, 0.95) !important;
-            backdrop-filter: blur(10px);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-        }
-        .navbar-brand { font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; color: white !important;}
+        .navbar { background: rgba(15, 23, 42, 0.95) !important; padding: 15px 0; }
+        .navbar-brand { font-weight: 800; font-size: 1.4rem; color: white !important; text-decoration: none;}
         
-        .tool-container {
-            margin-top: 100px;
-            flex-grow: 1;
-            padding-bottom: 50px;
-        }
-
         .upload-card {
             background: white;
-            border-radius: 24px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05);
             border: 1px solid rgba(0,0,0,0.05);
             padding: 40px;
+            margin-top: 50px;
+            text-align: center;
         }
 
         .drop-zone {
             border: 2px dashed #cbd5e1;
-            border-radius: 16px;
+            border-radius: 12px;
             background: #f1f5f9;
             cursor: pointer;
             transition: all 0.3s ease;
             padding: 40px 20px;
+            margin-bottom: 25px;
         }
-        .drop-zone:hover {
-            border-color: var(--accent-blue);
-            background: #eff6ff;
-        }
-        .drop-zone i {
-            color: #94a3b8;
-            transition: 0.3s;
-        }
-        .drop-zone:hover i {
-            color: var(--accent-blue);
-        }
-
-        footer { 
-            background: white; 
-            border-top: 1px solid #e2e8f0; 
-            padding: 30px 0; 
-            margin-top: auto;
-        }
+        .drop-zone:hover { border-color: var(--accent-blue); background: #eff6ff; }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+    <nav class="navbar shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
+            <a class="navbar-brand" href="#">
                 <i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE
             </a>
-            <div class="ms-auto d-flex align-items-center gap-2">
-                <a href="{{ url_for('index') }}" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
-                    <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI KE BERANDA
-                </a>
-            </div>
         </div>
     </nav>
 
-    <div class="container tool-container d-flex align-items-center justify-content-center animate__animated animate__fadeIn">
-        <div class="row justify-content-center w-100">
-            <div class="col-md-8 col-lg-6">
+    <div class="container d-flex justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            
+            <div class="upload-card">
+                <i class="fa-solid fa-file-csv fa-3x text-primary mb-3"></i>
+                <h3 class="fw-bold text-dark mb-2">Repair Mainbill File</h3>
+                <p class="text-muted small mb-4">Hapus nilai desimal nol dan format file agar 100% cocok dengan pilihan <b>"Comma"</b> di MS Access.</p>
                 
-                <div class="upload-card text-center">
-                    <div class="mb-4">
-                        <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 rounded-circle" style="width: 80px; height: 80px;">
-                            <i class="fa-solid fa-file-medical fa-2x text-primary"></i>
-                        </div>
-                    </div>
-                    
-                    <h3 class="fw-bold text-dark mb-2">Repair Mainbill File</h3>
-                    <p class="text-muted small mb-4">Ubah format menjadi murni berbasis Koma (seperti Book1) dan hapus nilai <code>.00</code>.</p>
-                    
-                    <div id="dropZone" class="drop-zone mb-4">
-                        <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3"></i>
-                        <h5 id="fileNameDisplay" class="fw-bold text-dark mb-1">Klik atau Pilih File .TXT</h5>
-                        <p class="text-muted small mb-0">Hanya menerima format teks (.txt)</p>
-                        <input type="file" id="fileInput" accept=".txt" style="display:none">
-                    </div>
-
-                    <button onclick="processFile()" class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm" style="background-color: var(--accent-blue);">
-                        <i class="fa-solid fa-wand-magic-sparkles me-2"></i>MULAI PERBAIKI DATA
-                    </button>
-                    
-                    <div class="mt-4 pt-3 border-top text-start">
-                        <p class="small fw-bold text-muted mb-2"><i class="fa-solid fa-circle-info me-1"></i> Apa yang dilakukan sistem?</p>
-                        <ul class="text-muted small mb-0 ps-3">
-                            <li>Menghapus semua tanda kutip ganda (<code>"</code>).</li>
-                            <li>Menghapus nilai desimal <code>.00</code> dan <code>,00</code> pada angka.</li>
-                            <li><strong>Memaksa pemisah kolom menjadi KOMA (<code>,</code>)</strong> agar sejajar sempurna seperti Book1.</li>
-                        </ul>
-                    </div>
-
+                <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                    <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
+                    <h5 id="fileNameDisplay" class="fw-bold text-dark mb-1">Pilih File .TXT Mainbill</h5>
+                    <input type="file" id="fileInput" accept=".txt" style="display:none">
                 </div>
 
+                <button onclick="processFile()" class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm" style="background-color: var(--accent-blue);">
+                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>MULAI PERBAIKI DATA
+                </button>
             </div>
+
         </div>
     </div>
 
-    <footer>
-        <div class="container text-center">
-            <p class="small text-muted mb-0">
-                © 2026 AREA SERVICE. All Rights Reserved. | Mainbill Tool Engine
-            </p>
-        </div>
-    </footer>
-
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        const fileInput = document.getElementById('fileInput');
-        const dropZone = document.getElementById('dropZone');
-        const fileNameDisplay = document.getElementById('fileNameDisplay');
-
-        dropZone.onclick = () => fileInput.click();
-
-        fileInput.onchange = () => {
-            if(fileInput.files.length > 0) {
-                const fName = fileInput.files[0].name;
-                fileNameDisplay.innerHTML = `<i class="fa-solid fa-file-check text-success me-2"></i> ${fName}`;
-                fileNameDisplay.classList.add("text-primary");
+        document.getElementById('fileInput').onchange = function() {
+            if(this.files.length > 0) {
+                document.getElementById('fileNameDisplay').innerHTML = `<i class="fa-solid fa-check text-success"></i> ${this.files[0].name}`;
+                document.getElementById('fileNameDisplay').classList.add('text-primary');
             }
         };
 
         function processFile() {
+            const fileInput = document.getElementById('fileInput');
             if (!fileInput.files[0]) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Pilih File Dulu',
-                    text: 'Anda belum memilih file Mainbill (.txt) yang akan diperbaiki.',
-                    confirmButtonColor: '#2563eb'
-                });
+                Swal.fire('Oops!', 'Pilih file terlebih dahulu.', 'warning');
                 return;
             }
 
             Swal.fire({
                 title: 'Sedang Memproses...',
-                text: 'Merapikan format data agar 100% seperti Book1...',
+                text: 'Merapikan data untuk mode Comma (Koma)...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
@@ -177,30 +107,66 @@
             reader.onload = function(e) {
                 try {
                     let text = e.target.result;
-
-                    // 1. Cek apakah file ini aslinya menggunakan titik koma (;)
-                    let isSemicolon = text.split('\n')[0].includes(';');
-
-                    // 2. Hapus SEMUA tanda kutip ganda (") karena Book1 tidak memakainya
-                    text = text.replace(/"/g, "");
-
-                    // 3. Hapus desimal bernilai nol (.00 atau ,00)
-                    // Pengecekan posisi (hanya menghapus jika setelahnya adalah pemisah atau akhir baris)
-                    text = text.replace(/\.00(?=[,;\r\n]|$)/g, "");
-                    text = text.replace(/,00(?=[,;\r\n]|$)/g, "");
-
-                    // 4. Jika aslinya pakai Titik Koma (;), kita PAKSA ubah jadi Koma (,)
-                    // Karena MS Access Anda membaca KOMA sebagai pemisah kolom (seperti di Book1)
-                    if (isSemicolon) {
-                        text = text.replace(/;/g, ",");
+                    let lines = text.split(/\r?\n/);
+                    
+                    // Deteksi delimiter asli dari sistem (Apakah dia pakai titik koma atau koma)
+                    let delimiter = lines[0].indexOf(';') !== -1 ? ';' : ',';
+                    let processedLines = [];
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        let line = lines[i];
+                        if (line.trim() === "") continue;
+                        
+                        // PARSER CERDAS: Membaca data dan membuang tanda kutip
+                        let cols = [];
+                        let cur = "";
+                        let inQuotes = false;
+                        
+                        for (let j = 0; j < line.length; j++) {
+                            let char = line[j];
+                            if (char === '"') {
+                                inQuotes = !inQuotes; // Abaikan tanda kutip
+                            } else if (char === delimiter && !inQuotes) {
+                                cols.push(cur);
+                                cur = "";
+                            } else {
+                                cur += char;
+                            }
+                        }
+                        cols.push(cur);
+                        
+                        // Membersihkan nilai .00 atau ,00 di tiap kolom
+                        let cleanCols = cols.map(col => {
+                            let val = col.trim(); 
+                            
+                            // Hapus .00 dan ,00 yang ada di akhir angka
+                            if (val.endsWith('.00')) {
+                                val = val.substring(0, val.length - 3);
+                            } else if (val.endsWith(',00')) {
+                                val = val.substring(0, val.length - 3);
+                            }
+                            
+                            // Pengaman: Jika ternyata datanya mengandung kata yang ada komanya,
+                            // maka kata itu kita kasih kutip, supaya saat kita pilih "Comma", Access tidak error.
+                            if (val.includes(',')) {
+                                val = '"' + val + '"';
+                            }
+                            
+                            return val;
+                        });
+                        
+                        // KUNCI UTAMA: Gabungkan semua kolom secara mutlak menggunakan KOMA (,)
+                        processedLines.push(cleanCols.join(','));
                     }
+                    
+                    let finalContent = processedLines.join('\n');
 
-                    // 5. Download hasilnya sebagai file .txt yang siap di-import
-                    const blob = new Blob(["\ufeff" + text], { type: 'text/plain;charset=utf-8;' });
+                    // Simpan sebagai text murni (Tanpa BOM, agar MS Access membaca bersih dari huruf pertama)
+                    const blob = new Blob([finalContent], { type: 'text/plain;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     
-                    const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_REPAIRED.txt";
+                    const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_CLEAN.txt";
                     
                     a.href = url;
                     a.download = newName;
@@ -210,19 +176,13 @@
 
                     Swal.fire({
                         icon: 'success',
-                        title: 'Selesai!',
-                        text: 'Kolom sudah dikembalikan menggunakan pemisah koma seperti Book1, dan .00 sudah bersih!',
+                        title: 'Sukses!',
+                        text: 'Silakan Import ke MS Access dan pilih "Comma". Data dijamin lurus!',
                         confirmButtonColor: '#2563eb'
                     });
                     
                 } catch (err) {
-                    console.error(err);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Gagal Memproses',
-                        text: 'Terjadi kesalahan saat membaca file.',
-                        confirmButtonColor: '#d33'
-                    });
+                    Swal.fire('Error', 'Terjadi kesalahan saat memproses data.', 'error');
                 }
             };
             
