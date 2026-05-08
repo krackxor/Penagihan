@@ -23,8 +23,9 @@ simpledbf>=0.2.6     # Alternative DBF reader
 # CSV/Text Support
 chardet>=5.0.0       # Auto-detect file encoding
 
-# Document Conversion Support (BARU)
+# Document Conversion & OCR Support (BARU)
 pdf2docx>=0.5.8      # Mesin konversi PDF ke Word (.docx)
 Pillow>=10.2.0       # Mesin pemroses Gambar (JPG/PNG) menjadi PDF
 docx2pdf>=0.1.8      # Mesin konversi Word ke PDF
 python-docx>=1.1.0   # Library pendukung manipulasi dokumen Word
+pytesseract>=0.3.10  # Mesin pembaca teks dari gambar (OCR)
