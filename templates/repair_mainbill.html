@@ -10,29 +10,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        :root {
-            --primary-bg: #0f172a;
-            --accent-blue: #2563eb;
-        }
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background-color: #f8fafc; 
-            color: #334155; 
-            display: flex; 
-            flex-direction: column; 
-            min-height: 100vh;
         }
-        
-        .navbar { background: rgba(15, 23, 42, 0.95) !important; padding: 15px 0; }
+        .navbar { background: rgba(15, 23, 42, 0.95); padding: 15px 0; }
         .navbar-brand { font-weight: 800; font-size: 1.4rem; color: white !important; text-decoration: none;}
         
         .upload-card {
             background: white;
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.05);
-            border: 1px solid rgba(0,0,0,0.05);
             padding: 40px;
-            margin-top: 50px;
+            margin: 60px auto;
+            max-width: 500px;
             text-align: center;
         }
 
@@ -41,11 +32,10 @@
             border-radius: 12px;
             background: #f1f5f9;
             cursor: pointer;
-            transition: all 0.3s ease;
             padding: 40px 20px;
             margin-bottom: 25px;
         }
-        .drop-zone:hover { border-color: var(--accent-blue); background: #eff6ff; }
+        .drop-zone:hover { border-color: #2563eb; background: #eff6ff; }
     </style>
 </head>
 <body>
@@ -58,25 +48,21 @@
         </div>
     </nav>
 
-    <div class="container d-flex justify-content-center">
-        <div class="col-md-8 col-lg-6">
+    <div class="container">
+        <div class="upload-card">
+            <i class="fa-solid fa-file-csv fa-3x text-primary mb-3"></i>
+            <h3 class="fw-bold text-dark mb-2">Pembersih Mainbill</h3>
+            <p class="text-muted small mb-4">Format akan diubah menjadi mode Koma (Comma) murni persis seperti Book1.</p>
             
-            <div class="upload-card">
-                <i class="fa-solid fa-file-csv fa-3x text-primary mb-3"></i>
-                <h3 class="fw-bold text-dark mb-2">Repair Mainbill File</h3>
-                <p class="text-muted small mb-4">Hapus nilai desimal nol dan format file agar 100% cocok dengan pilihan <b>"Comma"</b> di MS Access.</p>
-                
-                <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
-                    <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
-                    <h5 id="fileNameDisplay" class="fw-bold text-dark mb-1">Pilih File .TXT Mainbill</h5>
-                    <input type="file" id="fileInput" accept=".txt" style="display:none">
-                </div>
-
-                <button onclick="processFile()" class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm" style="background-color: var(--accent-blue);">
-                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>MULAI PERBAIKI DATA
-                </button>
+            <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                <i class="fa-solid fa-cloud-arrow-up fa-3x mb-3 text-secondary"></i>
+                <h5 id="fileNameDisplay" class="fw-bold text-dark mb-1">Pilih File .TXT</h5>
+                <input type="file" id="fileInput" accept=".txt" style="display:none">
             </div>
 
+            <button onclick="processFile()" class="btn btn-primary rounded-pill btn-lg w-100 fw-bold shadow-sm">
+                MULAI PERBAIKI
+            </button>
         </div>
     </div>
 
@@ -85,7 +71,6 @@
         document.getElementById('fileInput').onchange = function() {
             if(this.files.length > 0) {
                 document.getElementById('fileNameDisplay').innerHTML = `<i class="fa-solid fa-check text-success"></i> ${this.files[0].name}`;
-                document.getElementById('fileNameDisplay').classList.add('text-primary');
             }
         };
 
@@ -98,92 +83,38 @@
 
             Swal.fire({
                 title: 'Sedang Memproses...',
-                text: 'Merapikan data untuk mode Comma (Koma)...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                try {
-                    let text = e.target.result;
-                    let lines = text.split(/\r?\n/);
-                    
-                    // Deteksi delimiter asli dari sistem (Apakah dia pakai titik koma atau koma)
-                    let delimiter = lines[0].indexOf(';') !== -1 ? ';' : ',';
-                    let processedLines = [];
-                    
-                    for (let i = 0; i < lines.length; i++) {
-                        let line = lines[i];
-                        if (line.trim() === "") continue;
-                        
-                        // PARSER CERDAS: Membaca data dan membuang tanda kutip
-                        let cols = [];
-                        let cur = "";
-                        let inQuotes = false;
-                        
-                        for (let j = 0; j < line.length; j++) {
-                            let char = line[j];
-                            if (char === '"') {
-                                inQuotes = !inQuotes; // Abaikan tanda kutip
-                            } else if (char === delimiter && !inQuotes) {
-                                cols.push(cur);
-                                cur = "";
-                            } else {
-                                cur += char;
-                            }
-                        }
-                        cols.push(cur);
-                        
-                        // Membersihkan nilai .00 atau ,00 di tiap kolom
-                        let cleanCols = cols.map(col => {
-                            let val = col.trim(); 
-                            
-                            // Hapus .00 dan ,00 yang ada di akhir angka
-                            if (val.endsWith('.00')) {
-                                val = val.substring(0, val.length - 3);
-                            } else if (val.endsWith(',00')) {
-                                val = val.substring(0, val.length - 3);
-                            }
-                            
-                            // Pengaman: Jika ternyata datanya mengandung kata yang ada komanya,
-                            // maka kata itu kita kasih kutip, supaya saat kita pilih "Comma", Access tidak error.
-                            if (val.includes(',')) {
-                                val = '"' + val + '"';
-                            }
-                            
-                            return val;
-                        });
-                        
-                        // KUNCI UTAMA: Gabungkan semua kolom secara mutlak menggunakan KOMA (,)
-                        processedLines.push(cleanCols.join(','));
-                    }
-                    
-                    let finalContent = processedLines.join('\n');
+                let text = e.target.result;
+                
+                // JURUS SEDERHANA & AMPUH:
+                
+                // 1. Hancurkan semua tanda kutip (")
+                text = text.replace(/"/g, "");
 
-                    // Simpan sebagai text murni (Tanpa BOM, agar MS Access membaca bersih dari huruf pertama)
-                    const blob = new Blob([finalContent], { type: 'text/plain;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    
-                    const newName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + "_CLEAN.txt";
-                    
-                    a.href = url;
-                    a.download = newName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                // 2. Hapus .00 dan ,00
+                text = text.replace(/\.00(?=[,;\r\n]|$)/g, "");
+                text = text.replace(/,00(?=[,;\r\n]|$)/g, "");
 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sukses!',
-                        text: 'Silakan Import ke MS Access dan pilih "Comma". Data dijamin lurus!',
-                        confirmButtonColor: '#2563eb'
-                    });
-                    
-                } catch (err) {
-                    Swal.fire('Error', 'Terjadi kesalahan saat memproses data.', 'error');
-                }
+                // 3. Paksa semua titik koma (;) menjadi koma (,)
+                text = text.replace(/;/g, ",");
+
+                // Download hasil akhirnya
+                const blob = new Blob([text], { type: 'text/plain;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                
+                a.href = url;
+                a.download = fileInput.files[0].name.replace('.txt', '') + "_FINAL.txt";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                Swal.fire('Sukses!', 'Data sudah bersih dan menggunakan format Koma.', 'success');
             };
             
             reader.readAsText(fileInput.files[0]);
