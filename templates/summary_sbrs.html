@@ -58,7 +58,7 @@
     <hr class="opacity-10">
     <div class="nav flex-column nav-pills">
         <a class="nav-link text-white active mb-2" href="#"><i class="fa-solid fa-chart-line me-2"></i> Ringkasan Lengkap</a>
-        <a class="nav-link text-white mb-2" href="/upload-asis"><i class="fa-solid fa-file-import me-2"></i> Upload File</a>
+        <a class="nav-link text-white mb-2" href="/upload-sbrs"><i class="fa-solid fa-file-import me-2"></i> Upload File</a>
         <a class="nav-link text-white mb-2" href="#"><i class="fa-solid fa-database me-2"></i> Data Master SBRS</a>
     </div>
 </div>
@@ -70,11 +70,13 @@
             <p class="text-muted small mb-0">Gabungan Data Customer & Spot Bill</p>
         </div>
         <div class="d-flex gap-3">
-            <select class="form-select border-light shadow-sm" style="width: 220px; border-radius: 12px;">
-                <option value="all">Total Cycle (1-15)</option>
-                <option value="15" selected>Cycle 15</option>
+            <select id="filterCycle" class="form-select border-light shadow-sm fw-bold" style="width: 220px; border-radius: 12px;">
+                <option value="all" selected>Total Seluruh Cycle</option>
+                <option value="01">Cycle 01</option>
+                <option value="02">Cycle 02</option>
+                <option value="15">Cycle 15</option>
             </select>
-            <button class="btn btn-dark fw-bold px-4" style="border-radius: 12px;">
+            <button class="btn btn-dark fw-bold px-4" style="border-radius: 12px;" onclick="downloadExcel()">
                 <i class="fa-solid fa-download me-2"></i> SIMPAN KE EXCEL
             </button>
         </div>
@@ -84,25 +86,25 @@
         <div class="col-md-3">
             <div class="card card-lnp bg-primary text-white p-4">
                 <small class="opacity-75 fw-bold text-uppercase" style="font-size: 0.65rem;">Total Objek Baca</small>
-                <h2 class="fw-800 mb-0">9.450</h2>
+                <h2 class="fw-800 mb-0" id="totObjek">0</h2>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card card-lnp bg-white p-4 border-start border-info border-4">
                 <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Total Vol_Riil</small>
-                <h2 class="fw-800 mb-0 text-dark">150.420 <span class="fs-6 fw-normal">m³</span></h2>
+                <h2 class="fw-800 mb-0 text-dark"><span id="totVolRiil">0</span> <span class="fs-6 fw-normal">m³</span></h2>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card card-lnp bg-white p-4 border-start border-warning border-4">
                 <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Total Selisih_HB</small>
-                <h2 class="fw-800 mb-0 text-dark">283.500 <span class="fs-6 fw-normal">Hari</span></h2>
+                <h2 class="fw-800 mb-0 text-dark"><span id="totHb">0</span> <span class="fs-6 fw-normal">Hari</span></h2>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card card-lnp bg-white p-4 border-start border-danger border-4">
                 <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Total Skip & Trouble</small>
-                <h2 class="fw-800 mb-0 text-danger">125</h2>
+                <h2 class="fw-800 mb-0 text-danger" id="totKendala">0</h2>
             </div>
         </div>
     </div>
@@ -111,16 +113,17 @@
         <div class="col-md-6">
             <div class="card card-lnp border-0 shadow-sm overflow-hidden">
                 <div class="card-header bg-white fw-800 py-3 border-0">Data Angka Skip (Kodal)</div>
-                <div class="p-0">
+                <div class="p-0 table-responsive">
                     <table class="table table-hover mb-0 align-middle">
                         <thead class="table-light">
                             <tr><th class="ps-4">Kode</th><th>Alasan</th><th class="text-center pe-4">Jumlah</th></tr>
                         </thead>
-                        <tbody>
-                            <tr><td class="ps-4"><span class="status-code">1A</span></td><td>Pagar Terkunci / Kosong</td><td class="text-center pe-4">20</td></tr>
-                            <tr><td class="ps-4"><span class="status-code">1B</span></td><td>Meter Tertimbun / Terhalang</td><td class="text-center pe-4">20</td></tr>
-                            <tr class="table-primary fw-800"><td colspan="2" class="ps-4">TOTAL SKIP LENGKAP</td><td class="text-center pe-4">40</td></tr>
+                        <tbody id="bodySkip">
+                            <tr><td colspan="3" class="text-center text-muted py-3">Memuat data...</td></tr>
                         </tbody>
+                        <tfoot>
+                            <tr class="table-primary fw-800"><td colspan="2" class="ps-4">TOTAL SKIP LENGKAP</td><td class="text-center pe-4" id="totSkipBawah">0</td></tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -129,30 +132,31 @@
         <div class="col-md-6">
             <div class="card card-lnp border-0 shadow-sm overflow-hidden">
                 <div class="card-header bg-white fw-800 py-3 border-0">Data Masalah Teknis (Trouble)</div>
-                <div class="p-0">
+                <div class="p-0 table-responsive">
                     <table class="table table-hover mb-0 align-middle">
                         <thead class="table-light">
                             <tr><th class="ps-4">Kode</th><th>Keterangan</th><th class="text-center pe-4">Jumlah</th></tr>
                         </thead>
-                        <tbody>
-                            <tr><td class="ps-4"><span class="status-code">1C</span></td><td>Meter Di Dalam Rumah</td><td class="text-center pe-4">15</td></tr>
-                            <tr><td class="ps-4"><span class="status-code">02</span></td><td>Kaca Meter Buram / Rusak</td><td class="text-center pe-4">10</td></tr>
-                            <tr class="table-info fw-800"><td colspan="2" class="ps-4">TOTAL TROUBLE LENGKAP</td><td class="text-center pe-4">25</td></tr>
+                        <tbody id="bodyTrouble">
+                            <tr><td colspan="3" class="text-center text-muted py-3">Memuat data...</td></tr>
                         </tbody>
+                        <tfoot>
+                            <tr class="table-info fw-800"><td colspan="2" class="ps-4">TOTAL TROUBLE LENGKAP</td><td class="text-center pe-4" id="totTroubleBawah">0</td></tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="card card-lnp border-0 shadow-sm overflow-hidden">
+    <div class="card card-lnp border-0 shadow-sm overflow-hidden mb-5">
         <div class="card-header bg-white fw-800 py-3 d-flex justify-content-between align-items-center border-0">
             Detail Data SBRS Lengkap
-            <span class="badge bg-secondary rounded-pill fw-normal" style="font-size: 0.6rem;">Gabungan 100+ Header</span>
+            <span class="badge bg-secondary rounded-pill fw-normal" style="font-size: 0.6rem;">Pratinjau 100 Data Terakhir</span>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
             <table class="table table-hover mb-0 align-middle">
-                <thead class="table-dark" style="font-size: 0.75rem;">
+                <thead class="table-dark" style="font-size: 0.75rem; position: sticky; top: 0; z-index: 1;">
                     <tr>
                         <th class="ps-3">Nomen</th>
                         <th>Nama</th>
@@ -165,23 +169,116 @@
                         <th class="text-center pe-3">Trouble</th>
                     </tr>
                 </thead>
-                <tbody style="font-size: 0.8rem;">
-                    <tr>
-                        <td class="ps-3 fw-bold">30013845</td>
-                        <td>KA RAYON TG PRIOK I</td>
-                        <td class="text-center">43</td> 
-                        <td class="text-center">43</td> 
-                        <td class="text-center vol-highlight">38</td> 
-                        <td class="text-center">43</td> 
-                        <td class="text-center fw-bold text-primary">31 Hari</td>
-                        <td class="text-center">-</td>
-                        <td class="text-center pe-3"><span class="badge bg-warning text-dark">1C</span></td>
-                    </tr>
+                <tbody id="bodyMaster" style="font-size: 0.8rem;">
+                    <tr><td colspan="9" class="text-center text-muted py-4">Memuat data LNP...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // Fungsi untuk format angka ribuan (biar rapi)
+    const formatRibuan = (angka) => new Intl.NumberFormat('id-ID').format(angka || 0);
+
+    // Fungsi Utama: Mengambil data dari server
+    async function loadDataSBRS(cycle) {
+        try {
+            // Tembak ke endpoint API yang nanti kita buat di app.py
+            const response = await fetch(`/api/get-summary-sbrs?cycle=${cycle}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // 1. Update Kartu Summary Atas
+                document.getElementById('totObjek').innerText = formatRibuan(data.summary.total_objek);
+                document.getElementById('totVolRiil').innerText = formatRibuan(data.summary.total_vol_riil);
+                document.getElementById('totHb').innerText = formatRibuan(data.summary.total_hb);
+                document.getElementById('totKendala').innerText = formatRibuan(data.summary.total_kendala);
+
+                // 2. Update Tabel Skip
+                let htmlSkip = '';
+                let totalSkip = 0;
+                if(data.skip.length > 0) {
+                    data.skip.forEach(item => {
+                        htmlSkip += `<tr><td class="ps-4"><span class="status-code">${item.kode}</span></td><td>${item.alasan}</td><td class="text-center pe-4 fw-bold">${item.jumlah}</td></tr>`;
+                        totalSkip += item.jumlah;
+                    });
+                } else {
+                    htmlSkip = '<tr><td colspan="3" class="text-center text-muted py-2">Tidak ada data Skip</td></tr>';
+                }
+                document.getElementById('bodySkip').innerHTML = htmlSkip;
+                document.getElementById('totSkipBawah').innerText = totalSkip;
+
+                // 3. Update Tabel Trouble
+                let htmlTrouble = '';
+                let totalTrouble = 0;
+                if(data.trouble.length > 0) {
+                    data.trouble.forEach(item => {
+                        htmlTrouble += `<tr><td class="ps-4"><span class="status-code">${item.kode}</span></td><td>${item.alasan}</td><td class="text-center pe-4 fw-bold">${item.jumlah}</td></tr>`;
+                        totalTrouble += item.jumlah;
+                    });
+                } else {
+                    htmlTrouble = '<tr><td colspan="3" class="text-center text-muted py-2">Tidak ada data Trouble</td></tr>';
+                }
+                document.getElementById('bodyTrouble').innerHTML = htmlTrouble;
+                document.getElementById('totTroubleBawah').innerText = totalTrouble;
+
+                // 4. Update Tabel Master (Pratinjau)
+                let htmlMaster = '';
+                if(data.master.length > 0) {
+                    data.master.forEach(row => {
+                        let skipBadge = row.skip && row.skip !== '0' ? `<span class="badge bg-danger">${row.skip}</span>` : '-';
+                        let trblBadge = row.trouble && row.trouble !== '0' ? `<span class="badge bg-warning text-dark">${row.trouble}</span>` : '-';
+                        
+                        htmlMaster += `
+                        <tr>
+                            <td class="ps-3 fw-bold text-primary">${row.nomen}</td>
+                            <td>${row.nama}</td>
+                            <td class="text-center">${row.vol_lap}</td>
+                            <td class="text-center">${row.vol_bill}</td>
+                            <td class="text-center vol-highlight">${row.vol_riil}</td>
+                            <td class="text-center">${row.vol_sb}</td>
+                            <td class="text-center fw-bold text-info">${row.hb} Hari</td>
+                            <td class="text-center">${skipBadge}</td>
+                            <td class="text-center pe-3">${trblBadge}</td>
+                        </tr>`;
+                    });
+                } else {
+                    htmlMaster = '<tr><td colspan="9" class="text-center text-muted py-4">Data belum tersedia untuk Cycle ini.</td></tr>';
+                }
+                document.getElementById('bodyMaster').innerHTML = htmlMaster;
+            }
+        } catch (error) {
+            console.error("Gagal menarik data:", error);
+            Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Gagal memuat data LNP', showConfirmButton: false, timer: 3000 });
+        }
+    }
+
+    // Event Listener ketika Dropdown Cycle diganti
+    document.getElementById('filterCycle').addEventListener('change', function() {
+        loadDataSBRS(this.value);
+    });
+
+    // Load data pertama kali halaman dibuka (Otomatis panggil data 'all')
+    document.addEventListener("DOMContentLoaded", () => {
+        loadDataSBRS('all');
+    });
+
+    // Fungsi Tombol Excel
+    function downloadExcel() {
+        let cycle = document.getElementById('filterCycle').value;
+        Swal.fire({
+            icon: 'info',
+            title: 'Mengekspor Data...',
+            text: `Sedang menyiapkan file Excel SBRS untuk Cycle: ${cycle.toUpperCase()}`,
+            timer: 2000,
+            showConfirmButton: false
+        }).then(() => {
+            window.location.href = `/api/download-sbrs-excel?cycle=${cycle}`;
+        });
+    }
+</script>
 
 </body>
 </html>
