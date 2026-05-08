@@ -16,12 +16,12 @@ Fixes Log:
 11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
 12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
 13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
-14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP (Vol_Lap, Vol_Bill, Vol_Riil, Vol_SB, Selisih_HB).
+14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP (Vol_Lap, Vol_Bill, Vol_Riil, Vol_SB, Selisih_HB) pakai SQLite Append.
 """
 
 import os
 import tempfile
-import pandas as pd # Tambahan untuk Mega-Merge SBRS
+import pandas as pd
 from datetime import timedelta
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify, send_file
@@ -209,7 +209,6 @@ def create_app():
     def image_to_txt():
         return render_template('image_to_txt.html')
 
-    # ✅ API MESIN KONVERSI (DENGAN OCR MULTI-BAHASA)
     @app.route('/api/convert', methods=['POST'])
     def api_convert():
         try:
@@ -387,6 +386,7 @@ def create_app():
 
             file_cust = request.files['fileCust']
             file_spot = request.files['fileSpot']
+            cycle_input = request.form.get('cycle', '15') # Ambil info cycle dari form upload
 
             # 1. BACA FILE & BERSIHKAN HEADER (Asumsi delimiter titik koma / ;)
             df_cust = pd.read_csv(file_cust, sep=';', dtype=str, on_bad_lines='skip')
@@ -415,16 +415,34 @@ def create_app():
             if 'SB_Stand' in df_final.columns and 'Prev_Read_1' in df_final.columns:
                 df_final['Vol_SB'] = df_final['SB_Stand'] - df_final['Prev_Read_1']
 
-            # CONTOH LOGIKA VOL RIIL & HB (Jika ambil dari Database Historis V2)
-            # df_final['Vol_Riil'] = (Fungsi tarik Stand Bulan Lalu dari database)
-            # df_final['Selisih_HB'] = (Fungsi hitung selisih tanggal_baca_sekarang - tanggal_baca_lalu)
+            # Setting Default Sementara
+            if 'Vol_Lap' in df_final.columns:
+                df_final['Vol_Riil'] = df_final['Vol_Lap'] 
+            df_final['Selisih_HB'] = 31 
+            df_final['cmr_cycle'] = cycle_input
+            df_final['periode_sbrs'] = '2026-05'
 
-            # 5. SIMPAN HASIL KE DATABASE ATAU FOLDER TEMPORARY UNTUK DIBACA SUMMARY
-            # ... (Logika simpan ke DB master_sbrs) ...
+            # 5. SIMPAN HASIL KE DATABASE SQLITE (APPEND & ANTI-DOUBLE)
+            from sqlalchemy import create_engine, text
+            
+            # Buat koneksi ke database SQLite lokal Mas Khoirul
+            os.makedirs(os.path.join(app.root_path, 'instance'), exist_ok=True)
+            db_path = os.path.join(app.root_path, 'instance', 'database.db')
+            engine = create_engine(f'sqlite:///{db_path}')
+
+            # Bersihkan dulu data Cycle yang sama di database biar tidak dobel
+            with engine.begin() as conn:
+                try:
+                    conn.execute(text(f"DELETE FROM history_lnp WHERE cmr_cycle = '{cycle_input}' AND periode_sbrs = '2026-05'"))
+                except Exception:
+                    pass # Abaikan kalau tabel history_lnp belum terbuat di upload pertama
+
+            # Proses Append / Suntik data ke tabel
+            df_final.to_sql('history_lnp', con=engine, if_exists='append', index=False)
 
             return jsonify({
                 "status": "success", 
-                "message": "Proses Mega-Merge LNP Selesai!",
+                "message": f"Data Cycle {cycle_input} berhasil digabung & masuk database!",
                 "total_rows": len(df_final)
             })
 
