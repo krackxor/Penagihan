@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekstrak Teks Gambar - AREA SERVICE</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body { background: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; color: #334155; }
+        
+        .navbar { background: rgba(15, 23, 42, 0.95); padding: 15px 0; }
+        .navbar-brand { font-weight: 800; font-size: 1.4rem; color: white !important; text-decoration: none;}
+
+        .card-box {
+            background: white; border-radius: 24px; padding: 40px;
+            margin: 60px auto; box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+            max-width: 650px; text-align: center;
+        }
+
+        .drop-zone {
+            border: 2px dashed #cbd5e1; border-radius: 16px; background: #f8fafc;
+            padding: 50px 20px; text-align: center; cursor: pointer; transition: 0.3s; margin-top: 25px;
+        }
+        .drop-zone:hover { background: #fffbeb; border-color: #f59e0b; }
+
+        .file-info-box {
+            background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px;
+            padding: 15px; margin-top: 20px; display: none; align-items: center; justify-content: space-between;
+        }
+
+        .btn-action { border-radius: 12px; padding: 15px; font-weight: 700; transition: 0.3s; }
+        
+        .info-list {
+            background: #f1f5f9; border-radius: 12px; padding: 15px;
+            text-align: left; font-size: 0.9rem; margin-top: 25px; color: #475569;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+            <i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE
+        </a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
+                <i class="fa-solid fa-arrow-left me-2"></i>KEMBALI
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="card-box">
+        <i class="fa-solid fa-file-signature fa-3x text-warning mb-3"></i>
+        <h3 class="fw-bold text-dark mb-2">Pemindai Teks dari Gambar</h3>
+        <p class="text-muted small mb-4">Unggah foto KTP, struk, atau dokumen fisik. Sistem akan menyalin tulisan di dalamnya secara otomatis.</p>
+
+        <div class="drop-zone" onclick="document.getElementById('fileImgToTxt').click()">
+            <i class="fa-solid fa-image fa-3x mb-3 text-secondary"></i>
+            <h5 class="fw-bold text-dark">Pilih File Gambar</h5>
+            <p class="text-muted small mb-0">Format: .jpg, .jpeg, .png</p>
+            <input type="file" id="fileImgToTxt" accept=".jpg,.jpeg,.png" hidden onchange="handleFileSelect(this, 'infoImgToTxt')">
+        </div>
+
+        <div class="file-info-box" id="infoImgToTxt">
+            <div class="d-flex align-items-center">
+                <i class="fa-solid fa-file-image fa-2x text-warning me-3"></i>
+                <div class="text-start">
+                    <strong id="nameImgToTxt" class="d-block text-dark">namafile.jpg</strong>
+                    <small id="sizeImgToTxt" class="text-muted">0 MB</small>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="processOCR()" class="btn btn-warning btn-action w-100 mt-4 shadow-sm text-dark">
+            EKSTRAK JADI TEKS SEKARANG <i class="fa-solid fa-arrow-right ms-2"></i>
+        </button>
+
+        <div class="info-list">
+            <b>Catatan Penggunaan:</b><br>
+            ✔ Pastikan foto terang dan tulisan terbaca jelas.<br>
+            ✔ Sistem mendukung deteksi Bahasa Indonesia dan Inggris.<br>
+            ✔ Hasil akan diunduh otomatis dalam bentuk file TXT.
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    function handleFileSelect(inputElement, infoBoxId) {
+        const infoBox = document.getElementById(infoBoxId);
+        const nameLabel = document.getElementById(infoBoxId.replace('info', 'name'));
+        const sizeLabel = document.getElementById(infoBoxId.replace('info', 'size'));
+
+        if (inputElement.files.length > 0) {
+            const file = inputElement.files[0];
+            nameLabel.innerText = file.name;
+            sizeLabel.innerText = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+            infoBox.style.display = 'flex';
+        } else {
+            infoBox.style.display = 'none';
+        }
+    }
+
+    async function processOCR() {
+        const inputElement = document.getElementById('fileImgToTxt');
+        
+        if (inputElement.files.length === 0) {
+            Swal.fire({ icon: 'warning', title: 'Perhatian', text: 'Silakan pilih gambar terlebih dahulu.' });
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('files', inputElement.files[0]);
+        formData.append('type', 'img_to_txt');
+
+        Swal.fire({
+            title: 'Membaca Gambar...',
+            text: 'Sistem sedang memindai dan menyalin teks dari gambar Anda.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            const response = await fetch('/api/convert', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                
+                a.href = url;
+                a.download = `Hasil_Teks_${new Date().getTime()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                Swal.fire({ icon: 'success', title: 'Selesai', text: 'Teks berhasil disalin dan diunduh.' });
+            } else {
+                const errorData = await response.json();
+                Swal.fire({ icon: 'error', title: 'Gagal', text: errorData.message || 'Terjadi kesalahan sistem.' });
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'Error Jaringan', text: 'Gagal menghubungi server.' });
+        }
+    }
+</script>
+
+</body>
+</html>
