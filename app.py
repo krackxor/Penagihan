@@ -1,6 +1,6 @@
 """
-Flask Application - Area Service Integrated System (V13.5 Landing Page Update)
-Updated: 2026-02-07
+Flask Application - Area Service Integrated System (V13.6 Landing Page Update)
+Updated: 2026-05-08
 ---------------------------------------------------------------------------
 Fixes Log:
 1. ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
@@ -13,6 +13,7 @@ Fixes Log:
 8. ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
 9. ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
 10.✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
+11.✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
 """
 
 import os
@@ -83,7 +84,8 @@ def create_app():
             'index',           # Beranda/Landing Page
             'public_cek_tagihan', # API Cek Tagihan Publik
             'history.public_share_view', # WA Share Link
-            'repair_mainbill'  # ✅ DITAMBAHKAN: Akses publik untuk tool Mainbill
+            'repair_mainbill', # Akses publik untuk tool Repair Mainbill
+            'merger_ardebt'    # ✅ DITAMBAHKAN: Akses publik untuk tool Merger Ardebt
         ]
         
         endpoint = request.endpoint
@@ -194,10 +196,15 @@ def create_app():
         files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
         return render_template('materi.html', files=files)
 
-    # ✅ RUTING BARU: REPAIR MAINBILL TOOL
+    # TOOLS: REPAIR MAINBILL
     @app.route('/repair-mainbill')
     def repair_mainbill():
         return render_template('repair_mainbill.html')
+
+    # ✅ TOOLS BARU: MERGER ARDEBT
+    @app.route('/merger-ardebt')
+    def merger_ardebt():
+        return render_template('merger_ardebt.html')
 
     # --- RUTE TERPROTEKSI (MEMERLUKAN LOGIN) ---
     @app.route('/performa')
