@@ -121,20 +121,27 @@
                 <i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE
             </a>
             <div class="ms-auto animate__animated animate__fadeInRight d-flex align-items-center gap-2">
+                
                 <div class="dropdown">
                     <button class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fa-solid fa-tools me-2"></i>TOOL
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 12px;">
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 12px; min-width: 220px;">
                         <li>
                             <a class="dropdown-item py-2 fw-bold text-secondary" href="{{ url_for('repair_mainbill') }}">
-                                <i class="fa-solid fa-file-medical text-primary me-2"></i>Repair Mainbill
+                                <i class="fa-solid fa-broom text-primary me-2"></i>Pembersih Mainbill
                             </a>
                         </li>
                         <li><hr class="dropdown-divider opacity-50"></li>
                         <li>
                             <a class="dropdown-item py-2 fw-bold text-secondary" href="{{ url_for('merger_ardebt') }}">
-                                <i class="fa-solid fa-object-group text-success me-2"></i>Merge Ardebt
+                                <i class="fa-solid fa-object-group text-success me-2"></i>Gabung File Ardebt
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider opacity-50"></li>
+                        <li>
+                            <a class="dropdown-item py-2 fw-bold text-secondary" href="{{ url_for('converter_tool') }}">
+                                <i class="fa-solid fa-file-rotate-right text-info me-2"></i>Konversi Dokumen
                             </a>
                         </li>
                     </ul>
