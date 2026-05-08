@@ -16,13 +16,13 @@ Fixes Log:
 11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
 12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
 13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
-14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP (Vol_Lap, Vol_Bill, Vol_Riil, Vol_SB, Selisih_HB) pakai SQLite Append.
+14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP dengan Auto-Detect Cycle & Periode.
 """
 
 import os
 import tempfile
-import pandas as pd
-from datetime import timedelta
+import pandas as pd 
+from datetime import timedelta, datetime
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify, send_file
 
@@ -386,7 +386,6 @@ def create_app():
 
             file_cust = request.files['fileCust']
             file_spot = request.files['fileSpot']
-            cycle_input = request.form.get('cycle', '15') # Ambil info cycle dari form upload
 
             # 1. BACA FILE & BERSIHKAN HEADER (Asumsi delimiter titik koma / ;)
             df_cust = pd.read_csv(file_cust, sep=';', dtype=str, on_bad_lines='skip')
@@ -398,6 +397,33 @@ def create_app():
 
             # 2. MEGA-MERGE BERDASARKAN ID
             df_final = pd.merge(df_cust, df_spot, left_on='cmr_account', right_on='Nomen', how='inner')
+
+            # ---------------------------------------------------------
+            # 🌟 FITUR BARU: AUTO-DETECT CYCLE & PERIODE DARI FILE
+            # ---------------------------------------------------------
+            # Deteksi Cycle (Ambil yang paling banyak muncul/modus)
+            if 'cmr_cycle' in df_final.columns:
+                cycle_terdeteksi = str(df_final['cmr_cycle'].mode()[0]).strip()
+                cycle_input = cycle_terdeteksi.zfill(2) # Ubah '1' jadi '01'
+            else:
+                cycle_input = "Unknown"
+
+            # Deteksi Periode dari 'cmr_rd_date' (Format: DDMMYYYY -> 22042026)
+            if 'cmr_rd_date' in df_final.columns:
+                tanggal_terdeteksi = str(df_final['cmr_rd_date'].mode()[0]).strip()
+                if len(tanggal_terdeteksi) == 8:
+                    bulan = tanggal_terdeteksi[2:4] # Ambil karakter index 2-3 (Misal '04')
+                    tahun = tanggal_terdeteksi[4:8] # Ambil karakter index 4-7 (Misal '2026')
+                    periode_otomatis = f"{tahun}-{bulan}" # Hasil: '2026-04'
+                else:
+                    periode_otomatis = datetime.now().strftime('%Y-%m')
+            else:
+                periode_otomatis = datetime.now().strftime('%Y-%m')
+            
+            # Terapkan ke dalam tabel akhir
+            df_final['cmr_cycle'] = cycle_input
+            df_final['periode_sbrs'] = periode_otomatis
+            # ---------------------------------------------------------
 
             # 3. KONVERSI TIPE DATA UNTUK KALKULASI LNP (Ubah string jadi angka)
             kolom_numerik = ['cmr_reading', 'cmr_prev_read', 'Curr_Read_1', 'Prev_Read_1', 'SB_Stand']
@@ -419,21 +445,19 @@ def create_app():
             if 'Vol_Lap' in df_final.columns:
                 df_final['Vol_Riil'] = df_final['Vol_Lap'] 
             df_final['Selisih_HB'] = 31 
-            df_final['cmr_cycle'] = cycle_input
-            df_final['periode_sbrs'] = '2026-05'
 
             # 5. SIMPAN HASIL KE DATABASE SQLITE (APPEND & ANTI-DOUBLE)
             from sqlalchemy import create_engine, text
             
-            # Buat koneksi ke database SQLite lokal Mas Khoirul
+            # Buat koneksi ke database SQLite lokal
             os.makedirs(os.path.join(app.root_path, 'instance'), exist_ok=True)
             db_path = os.path.join(app.root_path, 'instance', 'database.db')
             engine = create_engine(f'sqlite:///{db_path}')
 
-            # Bersihkan dulu data Cycle yang sama di database biar tidak dobel
+            # Bersihkan dulu data Cycle yang sama di Periode yang sama biar tidak dobel
             with engine.begin() as conn:
                 try:
-                    conn.execute(text(f"DELETE FROM history_lnp WHERE cmr_cycle = '{cycle_input}' AND periode_sbrs = '2026-05'"))
+                    conn.execute(text(f"DELETE FROM history_lnp WHERE cmr_cycle = '{cycle_input}' AND periode_sbrs = '{periode_otomatis}'"))
                 except Exception:
                     pass # Abaikan kalau tabel history_lnp belum terbuat di upload pertama
 
@@ -442,7 +466,7 @@ def create_app():
 
             return jsonify({
                 "status": "success", 
-                "message": f"Data Cycle {cycle_input} berhasil digabung & masuk database!",
+                "message": f"Data Periode {periode_otomatis} Cycle {cycle_input} berhasil digabung & masuk database!",
                 "total_rows": len(df_final)
             })
 
