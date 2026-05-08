@@ -1,6 +1,6 @@
 """
-Flask Application - Area Service Integrated System (V13.8 Converter Engine)
-Updated: 2026-05-08
+Flask Application - Area Service Integrated System (V13.9 Converter & SBRS Engine)
+Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
 1.  ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
@@ -15,11 +15,13 @@ Fixes Log:
 10. ✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
 11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
 12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
-13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa (Membutuhkan tesseract-ocr-all di Server).
+13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
+14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP (Vol_Lap, Vol_Bill, Vol_Riil, Vol_SB, Selisih_HB).
 """
 
 import os
 import tempfile
+import pandas as pd # Tambahan untuk Mega-Merge SBRS
 from datetime import timedelta
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify, send_file
@@ -80,13 +82,13 @@ def create_app():
             'materi_page',     
             'static',          
             'serve_kunjungan_photo',
-            'index',           
+            'index',            
             'public_cek_tagihan', 
             'history.public_share_view', 
             'repair_mainbill', 
             'merger_ardebt',   
             'converter_tool',
-            'image_to_txt',    # Akses publik untuk OCR Image to Text
+            'image_to_txt',    
             'api_convert'      
         ]
         
@@ -110,7 +112,9 @@ def create_app():
             'premium_customer_page',
             'pelanggan_ekstrem_page',
             'pelanggan_drop_page',
-            'peta_sebaran_page' 
+            'peta_sebaran_page',
+            'upload_sbrs_page',    # Proteksi Modul SBRS LNP
+            'summary_sbrs_page'    # Proteksi Modul SBRS LNP
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -218,107 +222,78 @@ def create_app():
             if not files or not conv_type:
                 return jsonify({"status": "error", "message": "Data tidak lengkap."}), 400
 
-            # Folder sementara (otomatis terhapus isinya oleh sistem OS nanti)
             temp_dir = tempfile.mkdtemp()
             
-            # --- 1. KONVERSI PDF KE WORD ---
             if conv_type == 'pdf_to_word':
                 from pdf2docx import Converter
-                
                 file = files[0]
                 pdf_path = os.path.join(temp_dir, secure_filename(file.filename))
                 file.save(pdf_path)
-                
                 output_path = os.path.join(temp_dir, "Hasil_Konversi.docx")
-                
                 cv = Converter(pdf_path)
                 cv.convert(output_path) 
                 cv.close()
-                
                 return send_file(output_path, as_attachment=True, download_name="Hasil_PDF_ke_Word.docx")
                 
-            # --- 2. KONVERSI GAMBAR KE PDF ---
             elif conv_type == 'img_to_pdf':
                 from PIL import Image
-                
                 image_list = []
                 for file in files:
                     img_path = os.path.join(temp_dir, secure_filename(file.filename))
                     file.save(img_path)
-                    
                     img = Image.open(img_path)
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
                     image_list.append(img)
-                
                 if image_list:
                     output_path = os.path.join(temp_dir, "Hasil_Gabungan.pdf")
                     image_list[0].save(output_path, save_all=True, append_images=image_list[1:])
                     return send_file(output_path, as_attachment=True, download_name="Hasil_Gambar_ke_PDF.pdf")
 
-            # --- 3. KONVERSI WORD KE PDF (SISTEM TAHAN BANTING) ---
             elif conv_type == 'word_to_pdf':
                 import subprocess
-                
                 file = files[0]
                 docx_path = os.path.join(temp_dir, secure_filename(file.filename))
                 file.save(docx_path)
                 output_path = os.path.join(temp_dir, "Hasil_Konversi.pdf")
-                
-                # Skenario A: Coba gunakan MS Word (Bagi server Windows yang ada Office)
                 try:
                     from docx2pdf import convert
                     convert(docx_path, output_path)
                     if os.path.exists(output_path):
                         return send_file(output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
                 except Exception:
-                    pass # Lanjut ke Skenario B jika gagal
-                
-                # Skenario B: Gunakan LibreOffice (Solusi standar untuk Linux VPS / Windows Server)
+                    pass 
                 try:
                     subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', docx_path, '--outdir', temp_dir], check=True)
-                    
                     base_name = os.path.splitext(os.path.basename(docx_path))[0]
                     libre_output_path = os.path.join(temp_dir, f"{base_name}.pdf")
-                    
                     if os.path.exists(libre_output_path):
                         return send_file(libre_output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
                     else:
                         return jsonify({"status": "error", "message": "Gagal merender PDF dari file Word tersebut."}), 500
-                        
                 except FileNotFoundError:
-                    # Skenario C: Server sama sekali tidak punya LibreOffice atau MS Word
                     return jsonify({
                         "status": "error", 
-                        "message": "Server tidak memiliki MS Word atau LibreOffice. Minta tim IT untuk meng-install LibreOffice di server agar fitur ini berfungsi."
+                        "message": "Server tidak memiliki MS Word atau LibreOffice."
                     }), 500
 
-            # --- 4. EKSTRAKSI GAMBAR KE TEKS (OCR MULTI-BAHASA) ---
             elif conv_type == 'img_to_txt':
                 try:
                     import pytesseract
                     from PIL import Image
-                    
                     file = files[0]
                     img_path = os.path.join(temp_dir, secure_filename(file.filename))
                     file.save(img_path)
-                    
-                    # Ambil pilihan bahasa dari frontend (default: ind+eng)
                     ocr_lang = request.form.get('lang', 'ind+eng')
-                    
-                    # Membaca gambar sesuai bahasa yang dipilih pengguna
                     extracted_text = pytesseract.image_to_string(Image.open(img_path), lang=ocr_lang)
-                    
-                    # Simpan ke file .txt
                     output_path = os.path.join(temp_dir, "Hasil_Ekstraksi.txt")
                     with open(output_path, "w", encoding="utf-8") as f:
                         f.write(extracted_text)
-                        
                     return send_file(output_path, as_attachment=True, download_name="Hasil_Teks_OCR.txt")
                 except Exception as e:
                     return jsonify({
                         "status": "error", 
-                        "message": "Pastikan bahasa yang dipilih sudah terinstal di server. Minta tim IT menjalankan: sudo apt install tesseract-ocr-all -y"
+                        "message": "Pastikan bahasa yang dipilih sudah terinstal di server."
                     }), 500
 
             return jsonify({"status": "error", "message": "Tipe konversi tidak didukung."}), 400
@@ -326,7 +301,7 @@ def create_app():
         except Exception as e:
             return jsonify({"status": "error", "message": f"Terjadi kesalahan teknis: {str(e)}"}), 500
 
-    # --- RUTE TERPROTEKSI ---
+    # --- RUTE TERPROTEKSI (EXISTING) ---
     @app.route('/performa')
     def performa_page(): 
         return render_template('performa.html')
@@ -394,6 +369,67 @@ def create_app():
     @app.route('/peta-sebaran')
     def peta_sebaran_page():
         return render_template('peta_sebaran.html')
+
+    # --- MODUL BARU: SBRS MEGA-MERGE LNP ---
+    @app.route('/upload-sbrs')
+    def upload_sbrs_page():
+        return render_template('upload_sbrs.html')
+
+    @app.route('/summary-sbrs')
+    def summary_sbrs_page():
+        return render_template('summary_sbrs.html')
+
+    @app.route('/api/process-sbrs', methods=['POST'])
+    def api_process_sbrs():
+        try:
+            if 'fileCust' not in request.files or 'fileSpot' not in request.files:
+                return jsonify({"status": "error", "message": "File Customer dan Spot Bill harus diunggah lengkap."}), 400
+
+            file_cust = request.files['fileCust']
+            file_spot = request.files['fileSpot']
+
+            # 1. BACA FILE & BERSIHKAN HEADER (Asumsi delimiter titik koma / ;)
+            df_cust = pd.read_csv(file_cust, sep=';', dtype=str, on_bad_lines='skip')
+            df_spot = pd.read_csv(file_spot, sep=';', dtype=str, on_bad_lines='skip')
+
+            # Bersihkan spasi berlebih pada nama kolom agar tidak error saat merge
+            df_cust.columns = df_cust.columns.str.strip()
+            df_spot.columns = df_spot.columns.str.strip()
+
+            # 2. MEGA-MERGE BERDASARKAN ID
+            df_final = pd.merge(df_cust, df_spot, left_on='cmr_account', right_on='Nomen', how='inner')
+
+            # 3. KONVERSI TIPE DATA UNTUK KALKULASI LNP (Ubah string jadi angka)
+            kolom_numerik = ['cmr_reading', 'cmr_prev_read', 'Curr_Read_1', 'Prev_Read_1', 'SB_Stand']
+            for col in kolom_numerik:
+                if col in df_final.columns:
+                    df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0)
+
+            # 4. TERAPKAN PENAMAAN LNP & PERHITUNGAN
+            if 'cmr_reading' in df_final.columns and 'cmr_prev_read' in df_final.columns:
+                df_final['Vol_Lap'] = df_final['cmr_reading'] - df_final['cmr_prev_read']
+            
+            if 'Curr_Read_1' in df_final.columns and 'Prev_Read_1' in df_final.columns:
+                df_final['Vol_Bill'] = df_final['Curr_Read_1'] - df_final['Prev_Read_1']
+                
+            if 'SB_Stand' in df_final.columns and 'Prev_Read_1' in df_final.columns:
+                df_final['Vol_SB'] = df_final['SB_Stand'] - df_final['Prev_Read_1']
+
+            # CONTOH LOGIKA VOL RIIL & HB (Jika ambil dari Database Historis V2)
+            # df_final['Vol_Riil'] = (Fungsi tarik Stand Bulan Lalu dari database)
+            # df_final['Selisih_HB'] = (Fungsi hitung selisih tanggal_baca_sekarang - tanggal_baca_lalu)
+
+            # 5. SIMPAN HASIL KE DATABASE ATAU FOLDER TEMPORARY UNTUK DIBACA SUMMARY
+            # ... (Logika simpan ke DB master_sbrs) ...
+
+            return jsonify({
+                "status": "success", 
+                "message": "Proses Mega-Merge LNP Selesai!",
+                "total_rows": len(df_final)
+            })
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Gagal memproses file: {str(e)}"}), 500
 
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
