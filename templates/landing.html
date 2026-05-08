@@ -120,8 +120,21 @@
             <a class="navbar-brand animate__animated animate__fadeInLeft" href="#">
                 <i class="fa-solid fa-droplet text-info me-2"></i>AREA SERVICE
             </a>
-            <div class="ms-auto animate__animated animate__fadeInRight">
-                <a href="/login" class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm">
+            <div class="ms-auto animate__animated animate__fadeInRight d-flex align-items-center gap-2">
+                <div class="dropdown">
+                    <button class="btn btn-outline-light rounded-pill px-4 fw-bold btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa-solid fa-tools me-2"></i>TOOL
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 12px;">
+                        <li>
+                            <a class="dropdown-item py-2 fw-bold text-secondary" href="{{ url_for('repair_mainbill') }}">
+                                <i class="fa-solid fa-file-medical text-primary me-2"></i>Repair Mainbill
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <a href="/login" class="btn btn-primary rounded-pill px-4 fw-bold btn-sm border-0" style="background-color: var(--accent-blue);">
                     <i class="fa-solid fa-lock me-2"></i>LOGIN PETUGAS
                 </a>
             </div>
@@ -156,7 +169,7 @@
                         <div class="input-group input-group-lg shadow-sm rounded-pill overflow-hidden border">
                             <span class="input-group-text bg-white border-0 ps-4"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
                             <input type="number" id="idpel" class="form-control border-0 bg-transparent fw-bold text-dark" placeholder="Contoh: 10203040" required>
-                            <button type="submit" class="btn btn-primary fw-bold px-4 rounded-pill m-1">CEK SEKARANG</button>
+                            <button type="submit" class="btn btn-primary fw-bold px-4 rounded-pill m-1" style="background-color: var(--accent-blue);">CEK SEKARANG</button>
                         </div>
                     </form>
 
@@ -199,7 +212,7 @@
                         <h5 class="fw-bold text-dark">Pendaftaran Online</h5>
                         <p class="text-muted small mb-4">Daftar pasang baru kapan saja dan di mana saja melalui website resmi.</p>
                         
-                        <a href="https://pelanggan.pamjaya.co.id//sambungan-baru" target="_blank" class="btn btn-primary rounded-pill fw-bold w-100 py-2 shadow-sm">
+                        <a href="https://pelanggan.pamjaya.co.id//sambungan-baru" target="_blank" class="btn btn-primary rounded-pill fw-bold w-100 py-2 shadow-sm" style="background-color: var(--accent-blue);">
                             <i class="fa-solid fa-arrow-up-right-from-square me-2"></i> BUKA FORMULIR ONLINE
                         </a>
                         <small class="d-block text-center mt-3 text-muted" style="font-size: 0.7rem;">*Persiapkan KTP & KK Digital</small>
@@ -312,7 +325,7 @@
             </div>
             
             <p class="small text-muted mb-1">
-                &copy; 2026 AREA SERVICE. All Rights Reserved.
+                © 2026 AREA SERVICE. All Rights Reserved.
             </p>
             <p class="small text-muted opacity-75" style="font-size: 0.7rem;">
                 Integrated Service System V13.7
@@ -320,6 +333,7 @@
         </div>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // Fungsi Cek Tagihan Publik
