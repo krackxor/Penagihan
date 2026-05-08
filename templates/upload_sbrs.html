@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Data SBRS - AREA SERVICE</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --sbrs-dark: #0f172a;
+            --sbrs-blue: #2563eb;
+            --sbrs-bg: #f8fafc;
+        }
+
+        body { background: var(--sbrs-bg); font-family: 'Plus Jakarta Sans', sans-serif; color: #1e293b; }
+        
+        .sidebar-sbrs { 
+            background: var(--sbrs-dark); color: white; padding: 25px; 
+            height: 100vh; position: fixed; width: 260px; 
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1); 
+        }
+        
+        .main-content { margin-left: 260px; padding: 60px 40px; }
+        
+        .upload-card { 
+            background: white; border: none; border-radius: 24px; 
+            padding: 40px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); 
+            max-width: 700px; margin: 0 auto;
+        }
+
+        .drop-zone {
+            border: 2px dashed #cbd5e1; border-radius: 16px;
+            padding: 30px; text-align: center; transition: 0.3s;
+            cursor: pointer; margin-bottom: 20px; background: #fdfdfd;
+        }
+
+        .drop-zone:hover { border-color: var(--sbrs-blue); background: #f0f7ff; }
+        
+        .btn-sbrs {
+            background: var(--sbrs-dark); color: white; border: none;
+            padding: 14px; border-radius: 12px; font-weight: 700;
+            width: 100%; transition: 0.3s;
+        }
+
+        .btn-sbrs:hover { background: #1e293b; transform: translateY(-2px); }
+
+        .file-info { font-size: 0.8rem; color: #64748b; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar-sbrs">
+    <div class="mb-4 text-center">
+        <i class="fa-solid fa-droplet text-info fa-2xl mb-3"></i>
+        <h5 class="fw-800 mb-0">SBRS SYSTEM</h5>
+        <small class="opacity-50">Area Service Integrated</small>
+    </div>
+    <hr class="opacity-10">
+    <div class="nav flex-column nav-pills">
+        <a class="nav-link text-white mb-2" href="/summary-sbrs"><i class="fa-solid fa-chart-line me-2"></i> Ringkasan Lengkap</a>
+        <a class="nav-link text-white active mb-2" href="#"><i class="fa-solid fa-file-import me-2"></i> Upload File</a>
+        <a class="nav-link text-white mb-2" href="#"><i class="fa-solid fa-database me-2"></i> Data Master SBRS</a>
+    </div>
+</div>
+
+<div class="main-content">
+    <div class="text-center mb-5">
+        <h3 class="fw-800">Proses Data SBRS</h3>
+        <p class="text-muted">Upload file Customer dan Spot Bill untuk penggabungan LNP</p>
+    </div>
+
+    <div class="upload-card">
+        <form id="uploadForm">
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-uppercase">1. Data Customer (.txt)</label>
+                <div class="drop-zone" onclick="document.getElementById('fileCust').click()">
+                    <i class="fa-solid fa-users-gear fa-2x text-primary mb-2"></i>
+                    <p class="mb-0 small text-muted">Klik atau seret file <b>customer.txt</b></p>
+                    <input type="file" id="fileCust" hidden accept=".txt">
+                    <div id="nameCust" class="file-info fw-bold">Belum ada file</div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-uppercase">2. Data Spot Bill (.txt)</label>
+                <div class="drop-zone" onclick="document.getElementById('fileSpot').click()">
+                    <i class="fa-solid fa-file-invoice-dollar fa-2x text-success mb-2"></i>
+                    <p class="mb-0 small text-muted">Klik atau seret file <b>spot_bill.txt</b></p>
+                    <input type="file" id="fileSpot" hidden accept=".txt">
+                    <div id="nameSpot" class="file-info fw-bold">Belum ada file</div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-sbrs shadow">
+                PROSES GABUNG DATA (MEGA-MERGE) <i class="fa-solid fa-bolt ms-2"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // Update nama file saat dipilih
+    document.getElementById('fileCust').onchange = e => {
+        if(e.target.files.length > 0) document.getElementById('nameCust').innerText = e.target.files[0].name;
+    };
+    document.getElementById('fileSpot').onchange = e => {
+        if(e.target.files.length > 0) document.getElementById('nameSpot').innerText = e.target.files[0].name;
+    };
+
+    // Simulasi proses upload
+    document.getElementById('uploadForm').onsubmit = (e) => {
+        e.preventDefault();
+        
+        let f1 = document.getElementById('fileCust').files.length;
+        let f2 = document.getElementById('fileSpot').files.length;
+
+        if(f1 === 0 || f2 === 0) {
+            Swal.fire({ icon: 'error', title: 'File Kurang', text: 'Pastikan kedua file sudah dipilih ya Mas.', background: '#fff' });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Sedang Menggabungkan...',
+            text: 'Menghitung Vol_Riil dan Selisih_HB',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        // Di sini nanti ditaruh fungsi upload ke server (app.py)
+        setTimeout(() => {
+            window.location.href = '/summary-sbrs';
+        }, 2000);
+    };
+</script>
+
+</body>
+</html>
