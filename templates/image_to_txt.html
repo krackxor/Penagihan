@@ -58,13 +58,13 @@
 <div class="container">
     <div class="card-box">
         <i class="fa-solid fa-file-signature fa-3x text-warning mb-3"></i>
-        <h3 class="fw-bold text-dark mb-2">Pemindai Teks dari Gambar</h3>
-        <p class="text-muted small mb-4">Unggah foto KTP, struk, atau dokumen fisik. Sistem akan menyalin tulisan di dalamnya secara otomatis.</p>
+        <h3 class="fw-bold text-dark mb-2">Pemindai Teks Multi-Bahasa</h3>
+        <p class="text-muted small mb-4">Unggah dokumen atau struk. Sistem akan menyalin tulisan ke format TXT.</p>
 
         <div class="drop-zone" onclick="document.getElementById('fileImgToTxt').click()">
             <i class="fa-solid fa-image fa-3x mb-3 text-secondary"></i>
             <h5 class="fw-bold text-dark">Pilih File Gambar</h5>
-            <p class="text-muted small mb-0">Format: .jpg, .jpeg, .png</p>
+            <p class="text-muted small mb-0">Format: .jpg, .png</p>
             <input type="file" id="fileImgToTxt" accept=".jpg,.jpeg,.png" hidden onchange="handleFileSelect(this, 'infoImgToTxt')">
         </div>
 
@@ -78,15 +78,28 @@
             </div>
         </div>
 
+        <div class="mt-4 text-start">
+            <label class="fw-bold text-dark small mb-2"><i class="fa-solid fa-earth-americas me-1 text-primary"></i> Pilih Bahasa di Dalam Gambar:</label>
+            <select id="ocrLang" class="form-select border-warning shadow-sm" style="border-radius: 12px; padding: 12px;">
+                <option value="ind+eng" selected>🇮🇩 🇬🇧 Indonesia & Inggris (Standar)</option>
+                <option value="ara">🇸🇦 Arab (Arabic)</option>
+                <option value="chi_sim">🇨🇳 Mandarin Simplified (Chinese)</option>
+                <option value="chi_tra">🇹🇼 Mandarin Traditional</option>
+                <option value="jpn">🇯🇵 Jepang (Japanese)</option>
+                <option value="kor">🇰🇷 Korea (Korean)</option>
+                <option value="rus">🇷🇺 Rusia (Russian)</option>
+                <option value="fra+spa+deu">🇪🇺 Eropa (Prancis, Spanyol, Jerman)</option>
+            </select>
+        </div>
+
         <button onclick="processOCR()" class="btn btn-warning btn-action w-100 mt-4 shadow-sm text-dark">
             EKSTRAK JADI TEKS SEKARANG <i class="fa-solid fa-arrow-right ms-2"></i>
         </button>
 
         <div class="info-list">
-            <b>Catatan Penggunaan:</b><br>
-            ✔ Pastikan foto terang dan tulisan terbaca jelas.<br>
-            ✔ Sistem mendukung deteksi Bahasa Indonesia dan Inggris.<br>
-            ✔ Hasil akan diunduh otomatis dalam bentuk file TXT.
+            <b>Tips Memindai Teks:</b><br>
+            ✔ Pilih bahasa yang paling dominan di dalam foto agar hasilnya akurat.<br>
+            ✔ Pastikan foto terang, tidak blur, dan tidak terlalu miring.
         </div>
     </div>
 </div>
@@ -112,6 +125,7 @@
 
     async function processOCR() {
         const inputElement = document.getElementById('fileImgToTxt');
+        const langSelected = document.getElementById('ocrLang').value;
         
         if (inputElement.files.length === 0) {
             Swal.fire({ icon: 'warning', title: 'Perhatian', text: 'Silakan pilih gambar terlebih dahulu.' });
@@ -121,6 +135,7 @@
         const formData = new FormData();
         formData.append('files', inputElement.files[0]);
         formData.append('type', 'img_to_txt');
+        formData.append('lang', langSelected); // Mengirim data bahasa ke server
 
         Swal.fire({
             title: 'Membaca Gambar...',
