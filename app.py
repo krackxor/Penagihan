@@ -14,7 +14,7 @@ Fixes Log:
 9.  ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
 10. ✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
 11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
-12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx & Pillow terintegrasi.
+12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
 """
 
 import os
@@ -199,7 +199,7 @@ def create_app():
     def converter_tool():
         return render_template('converter_tool.html')
 
-    # ✅ API MESIN KONVERSI (SUDAH AKTIF)
+    # ✅ API MESIN KONVERSI (DENGAN FALLBACK LIBREOFFICE)
     @app.route('/api/convert', methods=['POST'])
     def api_convert():
         try:
@@ -215,6 +215,7 @@ def create_app():
             # Folder sementara (otomatis terhapus isinya oleh sistem OS nanti)
             temp_dir = tempfile.mkdtemp()
             
+            # --- KONVERSI PDF KE WORD ---
             if conv_type == 'pdf_to_word':
                 from pdf2docx import Converter
                 
@@ -224,13 +225,13 @@ def create_app():
                 
                 output_path = os.path.join(temp_dir, "Hasil_Konversi.docx")
                 
-                # Proses Konversi PDF ke Word
                 cv = Converter(pdf_path)
                 cv.convert(output_path) 
                 cv.close()
                 
                 return send_file(output_path, as_attachment=True, download_name="Hasil_PDF_ke_Word.docx")
                 
+            # --- KONVERSI GAMBAR KE PDF ---
             elif conv_type == 'img_to_pdf':
                 from PIL import Image
                 
@@ -239,7 +240,6 @@ def create_app():
                     img_path = os.path.join(temp_dir, secure_filename(file.filename))
                     file.save(img_path)
                     
-                    # Konversi mode warna agar kompatibel dengan PDF
                     img = Image.open(img_path)
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
@@ -247,24 +247,47 @@ def create_app():
                 
                 if image_list:
                     output_path = os.path.join(temp_dir, "Hasil_Gabungan.pdf")
-                    # Menyimpan gambar pertama dan menyisipkan sisa gambar di halaman berikutnya
                     image_list[0].save(output_path, save_all=True, append_images=image_list[1:])
-                    
                     return send_file(output_path, as_attachment=True, download_name="Hasil_Gambar_ke_PDF.pdf")
 
+            # --- KONVERSI WORD KE PDF (SISTEM TAHAN BANTING) ---
             elif conv_type == 'word_to_pdf':
+                import subprocess
+                
+                file = files[0]
+                docx_path = os.path.join(temp_dir, secure_filename(file.filename))
+                file.save(docx_path)
+                output_path = os.path.join(temp_dir, "Hasil_Konversi.pdf")
+                
+                # Skenario A: Coba gunakan MS Word (Bagi server Windows yang ada Office)
                 try:
                     from docx2pdf import convert
-                    file = files[0]
-                    docx_path = os.path.join(temp_dir, secure_filename(file.filename))
-                    file.save(docx_path)
-                    
-                    output_path = os.path.join(temp_dir, "Hasil_Konversi.pdf")
                     convert(docx_path, output_path)
+                    if os.path.exists(output_path):
+                        return send_file(output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
+                except Exception:
+                    pass # Lanjut ke Skenario B jika gagal
+                
+                # Skenario B: Gunakan LibreOffice (Solusi standar untuk Linux VPS / Windows Server)
+                try:
+                    # Menjalankan command terminal ke mesin LibreOffice
+                    subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', docx_path, '--outdir', temp_dir], check=True)
                     
-                    return send_file(output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
-                except Exception as ex:
-                    return jsonify({"status": "error", "message": "Fitur Word ke PDF memerlukan Microsoft Word yang terinstal di Server/Windows."}), 500
+                    # LibreOffice menamai output sesuai nama asli file docx
+                    base_name = os.path.splitext(os.path.basename(docx_path))[0]
+                    libre_output_path = os.path.join(temp_dir, f"{base_name}.pdf")
+                    
+                    if os.path.exists(libre_output_path):
+                        return send_file(libre_output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
+                    else:
+                        return jsonify({"status": "error", "message": "Gagal merender PDF dari file Word tersebut."}), 500
+                        
+                except FileNotFoundError:
+                    # Skenario C: Server sama sekali tidak punya LibreOffice atau MS Word
+                    return jsonify({
+                        "status": "error", 
+                        "message": "Server tidak memiliki MS Word atau LibreOffice. Minta tim IT untuk meng-install LibreOffice di server agar fitur ini berfungsi."
+                    }), 500
 
             return jsonify({"status": "error", "message": "Tipe konversi tidak didukung."}), 400
 
