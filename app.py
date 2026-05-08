@@ -1,19 +1,20 @@
 """
-Flask Application - Area Service Integrated System (V13.6 Landing Page Update)
+Flask Application - Area Service Integrated System (V13.7 Landing Page Update)
 Updated: 2026-05-08
 ---------------------------------------------------------------------------
 Fixes Log:
-1. ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
-2. ✅ FIX 413: Max upload size 64MB.
-3. ✅ WA SHARE LINK: Public access allowed.
-4. ✅ ANALISA PARETO: Modul Top 500 Admin.
-5. ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
-6. ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
-7. ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
-8. ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
-9. ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
-10.✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
-11.✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
+1.  ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
+2.  ✅ FIX 413: Max upload size 64MB.
+3.  ✅ WA SHARE LINK: Public access allowed.
+4.  ✅ ANALISA PARETO: Modul Top 500 Admin.
+5.  ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
+6.  ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
+7.  ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
+8.  ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
+9.  ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
+10. ✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
+11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
+12. ✅ TOOLS: Konversi Dokumen Tool (PDF/Word/Image) ditambahkan.
 """
 
 import os
@@ -85,7 +86,9 @@ def create_app():
             'public_cek_tagihan', # API Cek Tagihan Publik
             'history.public_share_view', # WA Share Link
             'repair_mainbill', # Akses publik untuk tool Repair Mainbill
-            'merger_ardebt'    # ✅ DITAMBAHKAN: Akses publik untuk tool Merger Ardebt
+            'merger_ardebt',   # Akses publik untuk tool Merger Ardebt
+            'converter_tool',  # ✅ DITAMBAHKAN: Akses publik untuk tool Konversi Dokumen
+            'api_convert'      # ✅ DITAMBAHKAN: Akses publik API Konversi
         ]
         
         endpoint = request.endpoint
@@ -148,7 +151,7 @@ def create_app():
         # Jika belum login (Publik), tampilkan Landing Page
         return render_template('landing.html')
 
-    # API CHECK TAGIHAN PUBLIK (Baru)
+    # API CHECK TAGIHAN PUBLIK
     @app.route('/api/public/cek-tagihan/<nomen>')
     def public_cek_tagihan(nomen):
         conn = get_db_connection()
@@ -196,15 +199,30 @@ def create_app():
         files = os.listdir(materi_dir) if os.path.exists(materi_dir) else []
         return render_template('materi.html', files=files)
 
-    # TOOLS: REPAIR MAINBILL
+    # --- TOOLS PUBLIK ---
+    
     @app.route('/repair-mainbill')
     def repair_mainbill():
         return render_template('repair_mainbill.html')
 
-    # ✅ TOOLS BARU: MERGER ARDEBT
     @app.route('/merger-ardebt')
     def merger_ardebt():
         return render_template('merger_ardebt.html')
+
+    # ✅ ROUTE BARU: KONVERSI DOKUMEN
+    @app.route('/converter-tool')
+    def converter_tool():
+        return render_template('converter_tool.html')
+
+    # ✅ API BARU: FONDASI MESIN KONVERSI
+    @app.route('/api/convert', methods=['POST'])
+    def api_convert():
+        # Saat ini API merespons dengan pesan instalasi library.
+        # Nanti kita akan isi dengan logika konversi (pdf2docx, Pillow, dll).
+        return jsonify({
+            "status": "error", 
+            "message": "Fasilitas konversi sedang disiapkan. Server membutuhkan instalasi library (pdf2docx & Pillow) untuk memproses permintaan ini."
+        }), 501
 
     # --- RUTE TERPROTEKSI (MEMERLUKAN LOGIN) ---
     @app.route('/performa')
