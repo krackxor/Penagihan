@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V13.7 Landing Page Update)
+Flask Application - Area Service Integrated System (V13.8 Converter Engine)
 Updated: 2026-05-08
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -14,12 +14,14 @@ Fixes Log:
 9.  ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
 10. ✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
 11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
-12. ✅ TOOLS: Konversi Dokumen Tool (PDF/Word/Image) ditambahkan.
+12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx & Pillow terintegrasi.
 """
 
 import os
+import tempfile
 from datetime import timedelta
-from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify
+from werkzeug.utils import secure_filename
+from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify, send_file
 
 # [IMPORT CORE]
 from config import Config
@@ -70,44 +72,35 @@ def create_app():
     # --- 2. MIDDLEWARE: SECURITY LAYER ---
     @app.before_request
     def security_layer():
-        """
-        [GATEKEEPER]: Mengontrol hak akses publik vs privat.
-        Pengecekan menggunakan endpoint Flask (nama fungsi) untuk akurasi tinggi.
-        """
-        # Daftar nama fungsi yang boleh diakses publik tanpa login
         public_endpoints = [
             'login_page',
             'auth.login',
-            'youtube_page',    # Fungsi halaman video sosialisasi
-            'materi_page',     # Fungsi halaman literatur materi
-            'static',          # Folder CSS, JS, Images
+            'youtube_page',    
+            'materi_page',     
+            'static',          
             'serve_kunjungan_photo',
-            'index',           # Beranda/Landing Page
-            'public_cek_tagihan', # API Cek Tagihan Publik
-            'history.public_share_view', # WA Share Link
-            'repair_mainbill', # Akses publik untuk tool Repair Mainbill
-            'merger_ardebt',   # Akses publik untuk tool Merger Ardebt
-            'converter_tool',  # ✅ DITAMBAHKAN: Akses publik untuk tool Konversi Dokumen
-            'api_convert'      # ✅ DITAMBAHKAN: Akses publik API Konversi
+            'index',           
+            'public_cek_tagihan', 
+            'history.public_share_view', 
+            'repair_mainbill', 
+            'merger_ardebt',   
+            'converter_tool',  
+            'api_convert'      
         ]
         
         endpoint = request.endpoint
         
-        # ✅ BYPASS LINK SHARE WA & STATIC FILE
         if request.path.startswith('/api/history/share/view/') or request.path.startswith('/static/'):
             return None
 
-        # JIKA AKSES PUBLIK: Langsung izinkan akses
         if not endpoint or endpoint in public_endpoints:
             return
 
-        # JIKA AKSES PRIVAT: Cek ketersediaan sesi login
         if 'role' not in session:
             if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"status": "error", "message": "Otoritas Diperlukan"}), 401
             return redirect(url_for('login_page'))
         
-        # PROTEKSI ROLE KHUSUS ADMINISTRATOR
         admin_only_endpoints = [
             'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
             'upload.handle_smart_upload', 'history_page',
@@ -141,23 +134,17 @@ def create_app():
     register_pcez_routes(app, get_db_connection)
 
     # --- 4. NAVIGASI FRONTEND (UI ROUTES) ---
-    
     @app.route('/')
     def index():
-        # LOGIKA BARU: Redirect Petugas ke Dashboard, Publik ke Landing Page
         if 'role' in session:
             return render_template('index.html') 
-        
-        # Jika belum login (Publik), tampilkan Landing Page
         return render_template('landing.html')
 
-    # API CHECK TAGIHAN PUBLIK
     @app.route('/api/public/cek-tagihan/<nomen>')
     def public_cek_tagihan(nomen):
         conn = get_db_connection()
         try:
             cursor = conn.cursor()
-            # Ambil data terbaru saja (LIMIT 1)
             cursor.execute("""
                 SELECT nomen, nama, periode, kubik, nominal, status_lunas 
                 FROM master_pelanggan 
@@ -170,7 +157,7 @@ def create_app():
                     "status": "success",
                     "data": {
                         "nomen": row['nomen'],
-                        "nama": row['nama'][:3] + "***", # Samarkan nama demi privasi
+                        "nama": row['nama'][:3] + "***", 
                         "periode": row['periode'],
                         "kubik": row['kubik'],
                         "nominal": row['nominal'],
@@ -200,7 +187,6 @@ def create_app():
         return render_template('materi.html', files=files)
 
     # --- TOOLS PUBLIK ---
-    
     @app.route('/repair-mainbill')
     def repair_mainbill():
         return render_template('repair_mainbill.html')
@@ -209,22 +195,83 @@ def create_app():
     def merger_ardebt():
         return render_template('merger_ardebt.html')
 
-    # ✅ ROUTE BARU: KONVERSI DOKUMEN
     @app.route('/converter-tool')
     def converter_tool():
         return render_template('converter_tool.html')
 
-    # ✅ API BARU: FONDASI MESIN KONVERSI
+    # ✅ API MESIN KONVERSI (SUDAH AKTIF)
     @app.route('/api/convert', methods=['POST'])
     def api_convert():
-        # Saat ini API merespons dengan pesan instalasi library.
-        # Nanti kita akan isi dengan logika konversi (pdf2docx, Pillow, dll).
-        return jsonify({
-            "status": "error", 
-            "message": "Fasilitas konversi sedang disiapkan. Server membutuhkan instalasi library (pdf2docx & Pillow) untuk memproses permintaan ini."
-        }), 501
+        try:
+            if 'files' not in request.files:
+                return jsonify({"status": "error", "message": "Tidak ada dokumen yang dipilih."}), 400
+                
+            files = request.files.getlist('files')
+            conv_type = request.form.get('type')
+            
+            if not files or not conv_type:
+                return jsonify({"status": "error", "message": "Data tidak lengkap."}), 400
 
-    # --- RUTE TERPROTEKSI (MEMERLUKAN LOGIN) ---
+            # Folder sementara (otomatis terhapus isinya oleh sistem OS nanti)
+            temp_dir = tempfile.mkdtemp()
+            
+            if conv_type == 'pdf_to_word':
+                from pdf2docx import Converter
+                
+                file = files[0]
+                pdf_path = os.path.join(temp_dir, secure_filename(file.filename))
+                file.save(pdf_path)
+                
+                output_path = os.path.join(temp_dir, "Hasil_Konversi.docx")
+                
+                # Proses Konversi PDF ke Word
+                cv = Converter(pdf_path)
+                cv.convert(output_path) 
+                cv.close()
+                
+                return send_file(output_path, as_attachment=True, download_name="Hasil_PDF_ke_Word.docx")
+                
+            elif conv_type == 'img_to_pdf':
+                from PIL import Image
+                
+                image_list = []
+                for file in files:
+                    img_path = os.path.join(temp_dir, secure_filename(file.filename))
+                    file.save(img_path)
+                    
+                    # Konversi mode warna agar kompatibel dengan PDF
+                    img = Image.open(img_path)
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    image_list.append(img)
+                
+                if image_list:
+                    output_path = os.path.join(temp_dir, "Hasil_Gabungan.pdf")
+                    # Menyimpan gambar pertama dan menyisipkan sisa gambar di halaman berikutnya
+                    image_list[0].save(output_path, save_all=True, append_images=image_list[1:])
+                    
+                    return send_file(output_path, as_attachment=True, download_name="Hasil_Gambar_ke_PDF.pdf")
+
+            elif conv_type == 'word_to_pdf':
+                try:
+                    from docx2pdf import convert
+                    file = files[0]
+                    docx_path = os.path.join(temp_dir, secure_filename(file.filename))
+                    file.save(docx_path)
+                    
+                    output_path = os.path.join(temp_dir, "Hasil_Konversi.pdf")
+                    convert(docx_path, output_path)
+                    
+                    return send_file(output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
+                except Exception as ex:
+                    return jsonify({"status": "error", "message": "Fitur Word ke PDF memerlukan Microsoft Word yang terinstal di Server/Windows."}), 500
+
+            return jsonify({"status": "error", "message": "Tipe konversi tidak didukung."}), 400
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Terjadi kesalahan teknis: {str(e)}"}), 500
+
+    # --- RUTE TERPROTEKSI ---
     @app.route('/performa')
     def performa_page(): 
         return render_template('performa.html')
@@ -293,7 +340,6 @@ def create_app():
     def peta_sebaran_page():
         return render_template('peta_sebaran.html')
 
-    # --- 5. SECURE FILE SERVING ---
     @app.route('/static/uploads/kunjungan/<filename>')
     def serve_kunjungan_photo(filename):
         folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
