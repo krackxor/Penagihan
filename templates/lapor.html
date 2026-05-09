@@ -9,23 +9,22 @@
         border: none;
         box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     }
-    .video-preview {
-        width: 100%;
-        border-radius: 15px;
-        background: #000;
-        margin-bottom: 15px;
-        display: none;
-    }
     #photoPreview {
         width: 100%;
         border-radius: 15px;
         display: none;
         margin-bottom: 15px;
+        border: 3px solid #dee2e6;
     }
     .gps-badge {
-        font-size: 0.75rem;
-        padding: 8px 12px;
-        border-radius: 10px;
+        font-size: 0.8rem;
+        padding: 10px 15px;
+        border-radius: 12px;
+        transition: 0.3s;
+    }
+    .input-nomen-focus {
+        border: 2px solid #0d6efd !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
     }
 </style>
 {% endblock %}
@@ -33,69 +32,80 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-6 col-md-8">
-        <div class="card lapor-card">
+        <div class="card lapor-card mb-5">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    <h3 class="fw-bold">Input Laporan Kunjungan</h3>
-                    <p class="text-muted">Pastikan GPS aktif sebelum mengirim laporan</p>
+                    <div class="bg-primary text-white rounded-circle d-inline-flex p-3 mb-3">
+                        <i class="fas fa-camera-retro fa-2x"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1">Input Laporan Kunjungan</h3>
+                    <p class="text-muted small">Pastikan GPS aktif untuk verifikasi lokasi</p>
                 </div>
 
                 <form id="formLapor" enctype="multipart/form-data">
                     <div class="mb-4">
-                        <label class="form-label fw-bold small">NOMOR PELANGGAN (NOMEN)</label>
+                        <label class="form-label fw-bold small text-primary">NOMOR PELANGGAN (NOMEN)</label>
                         <div class="input-group">
-                            <input type="number" name="nomen" id="inputNomen" class="form-control form-control-lg" placeholder="Contoh: 12345678" required>
-                            <button class="btn btn-primary" type="button" onclick="cekDataPelanggan()">
+                            <input type="number" name="nomen" id="inputNomen" 
+                                   class="form-control form-control-lg" 
+                                   placeholder="Input 8 Digit Nomen" 
+                                   value="{{ request.args.get('nomen', '') }}" required>
+                            <button class="btn btn-primary px-3" type="button" id="btnCek" onclick="cekDataPelanggan()">
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
-                        <div id="infoPelanggan" class="mt-3 p-3 bg-light rounded-3 d-none">
-                            <div class="d-flex justify-content-between">
-                                <span class="fw-bold text-primary" id="dispNama">Nama Pelanggan</span>
-                                <span class="badge bg-secondary" id="dispPcez">PCEZ</span>
+                        
+                        <div id="infoPelanggan" class="mt-3 p-3 bg-light rounded-3 d-none border">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-0" id="dispNama">Nama Pelanggan</h6>
+                                    <div class="small text-muted" id="dispKel">Kelurahan</div>
+                                </div>
+                                <span class="badge bg-primary px-2 py-2" id="dispPcez" style="border-radius: 8px;">PCEZ</span>
                             </div>
-                            <div class="small text-muted mt-1" id="dispKel">Kelurahan</div>
-                            <div class="mt-2 small">
-                                <i class="fas fa-user-tie me-1"></i> Petugas: <strong id="dispPetugas">Wahyu</strong>
+                            <hr class="my-2 opacity-10">
+                            <div class="small">
+                                <i class="fas fa-user-tie text-primary me-1"></i> Petugas Tagihan: <strong id="dispPetugas">-</strong>
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold small">HASIL KUNJUNGAN</label>
+                        <label class="form-label fw-bold small text-primary">HASIL KUNJUNGAN LAPANGAN</label>
                         <select name="hasil_kunjungan" id="hasilKunjungan" class="form-select form-select-lg" onchange="toggleJanjiBayar()" required>
-                            <option value="">-- Pilih Hasil --</option>
-                            <option value="JANJI BAYAR">Janji Bayar</option>
-                            <option value="RUMAH KOSONG">Rumah Kosong / Tutup</option>
-                            <option value="METER TERTIMBUN">Meter Tertimbun</option>
-                            <option value="PENGGUNAAN NORMAL">Penggunaan Normal</option>
-                            <option value="SUDAH BAYAR">Sudah Bayar (Tunjukkan Bukti)</option>
+                            <option value="">-- Pilih Hasil Kunjungan --</option>
+                            <option value="JANJI BAYAR">📝 Janji Bayar</option>
+                            <option value="RUMAH KOSONG">🏠 Rumah Kosong / Tutup</option>
+                            <option value="METER TERTIMBUN">🚧 Meter Tertimbun / Rusak</option>
+                            <option value="PENGGUNAAN NORMAL">✅ Penggunaan Normal (SBRS)</option>
+                            <option value="SUDAH BAYAR">💰 Sudah Bayar (Ada Bukti)</option>
                         </select>
                     </div>
 
                     <div class="mb-4 d-none" id="groupJanji">
-                        <label class="form-label fw-bold small">TANGGAL JANJI BAYAR</label>
-                        <input type="date" name="tgl_janji_bayar" class="form-control">
+                        <label class="form-label fw-bold small text-danger">TANGGAL JANJI BAYAR</label>
+                        <input type="date" name="tgl_janji_bayar" class="form-control form-control-lg border-danger">
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold small">FOTO BUKTI LAPANGAN</label>
-                        <input type="file" name="foto" id="inputFoto" class="form-control" accept="image/*" capture="environment" onchange="previewImage(this)" required>
-                        <div class="form-text">Ambil foto rumah, meteran, atau bukti bayar.</div>
-                        <img id="photoPreview" src="" alt="Preview">
+                        <label class="form-label fw-bold small text-primary">FOTO BUKTI (OPEN CAMERA)</label>
+                        <input type="file" name="foto" id="inputFoto" class="form-control" 
+                               accept="image/*" capture="environment" onchange="previewImage(this)" required>
+                        <div class="form-text extra-small mt-2">Ambil foto rumah/meteran dengan jelas.</div>
+                        <img id="photoPreview" src="" alt="Preview" class="mt-3 shadow-sm">
                     </div>
 
                     <div class="mb-4">
-                        <div id="gpsStatus" class="alert alert-warning gps-badge d-flex align-items-center">
-                            <i class="fas fa-location-dot me-2"></i>
-                            <span id="gpsText">Mencari Koordinat...</span>
+                        <div id="gpsStatus" class="alert alert-warning gps-badge d-flex align-items-center mb-0">
+                            <i class="fas fa-spinner fa-spin me-2" id="gpsIcon"></i>
+                            <span id="gpsText">Menunggu GPS Terkunci...</span>
                         </div>
                         <input type="hidden" name="lat" id="lat">
                         <input type="hidden" name="lng" id="lng">
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-lg w-100 py-3 fw-bold">
-                        <i class="fas fa-paper-plane me-2"></i>Kirim Laporan
+                    <button type="submit" id="btnSubmit" class="btn btn-primary btn-lg w-100 py-3 fw-bold shadow" disabled>
+                        <i class="fas fa-paper-plane me-2"></i>Kirim Laporan Sinergi
                     </button>
                 </form>
             </div>
@@ -106,25 +116,38 @@
 
 {% block extra_js %}
 <script>
-    // Ambil Lokasi GPS saat halaman dibuka
+    // 1. Ambil Lokasi GPS (Verifikasi Lapangan)
     function getGPS() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function(position) {
-                document.getElementById('lat').value = position.coords.latitude;
-                document.getElementById('lng').value = position.coords.longitude;
-                document.getElementById('gpsStatus').classList.replace('alert-warning', 'alert-success');
-                document.getElementById('gpsText').innerText = "Lokasi Terkunci: " + position.coords.latitude.toFixed(5) + ", " + position.coords.longitude.toFixed(5);
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                document.getElementById('lat').value = lat;
+                document.getElementById('lng').value = lng;
+                
+                const statusBox = document.getElementById('gpsStatus');
+                statusBox.classList.replace('alert-warning', 'alert-success');
+                document.getElementById('gpsIcon').classList.replace('fa-spinner', 'fa-location-dot');
+                document.getElementById('gpsIcon').classList.remove('fa-spin');
+                document.getElementById('gpsText').innerText = `Lokasi Terkunci: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                
+                // Aktifkan tombol submit hanya jika GPS sudah terkunci
+                document.getElementById('btnSubmit').disabled = false;
             }, function(error) {
-                document.getElementById('gpsText').innerText = "Gagal ambil GPS: " + error.message;
-            });
+                document.getElementById('gpsText').innerText = "GPS Error: Aktifkan Lokasi di HP Bos!";
+                Swal.fire('GPS Mati', 'Laporan tidak bisa dikirim tanpa koordinat GPS.', 'warning');
+            }, { enableHighAccuracy: true });
         }
     }
 
-    // Auto-Lookup Data Nomen & Petugas
+    // 2. Auto-Lookup Nomen (Sinkronisasi Petugas)
     async function cekDataPelanggan() {
         const nomen = document.getElementById('inputNomen').value;
-        if (!nomen) return;
+        if (!nomen || nomen.length < 5) return;
 
+        const btn = document.getElementById('btnCek');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        
         try {
             const res = await fetch(`/api/kunjungan/cek-pcez/${nomen}`);
             const data = await res.json();
@@ -135,20 +158,24 @@
                 document.getElementById('dispPcez').innerText = data.pcez;
                 document.getElementById('dispKel').innerText = data.kelurahan;
                 document.getElementById('dispPetugas').innerText = data.petugas;
+                document.getElementById('inputNomen').classList.add('is-valid');
             } else {
-                Swal.fire('Error', data.message, 'error');
+                Swal.fire('Nomen Tidak Ada', 'Pastikan data CID sudah di-upload.', 'info');
+                document.getElementById('infoPelanggan').classList.add('d-none');
             }
         } catch (e) {
-            console.error(e);
+            console.error("Gagal Lookup Nomen");
+        } finally {
+            btn.innerHTML = '<i class="fas fa-search"></i>';
         }
     }
 
-    // Preview Foto sebelum dikirim
+    // 3. Preview Gambar
     function previewImage(input) {
         const preview = document.getElementById('photoPreview');
         if (input.files && input.files[0]) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = (e) => {
                 preview.src = e.target.result;
                 preview.style.display = 'block';
             }
@@ -158,44 +185,51 @@
 
     function toggleJanjiBayar() {
         const hasil = document.getElementById('hasilKunjungan').value;
-        const group = document.getElementById('groupJanji');
-        if (hasil === 'JANJI BAYAR') {
-            group.classList.remove('d-none');
-        } else {
-            group.classList.add('d-none');
-        }
+        document.getElementById('groupJanji').classList.toggle('d-none', hasil !== 'JANJI BAYAR');
     }
 
-    // Submit Laporan AJAX
+    // 4. Submit Sinergi AJAX
     document.getElementById('formLapor').onsubmit = async function(e) {
         e.preventDefault();
-        const formData = new FormData(this);
         
+        // Cek ulang koordinat
+        if (!document.getElementById('lat').value) {
+            return Swal.fire('GPS Belum Siap', 'Tunggu sampai lokasi terkunci (Warna Hijau).', 'error');
+        }
+
+        const formData = new FormData(this);
         Swal.fire({
-            title: 'Mengirim Laporan...',
+            title: 'Sinkronisasi Laporan...',
+            html: 'Sedang mengirim data ke server PAM JAYA',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
 
         try {
-            const res = await fetch('/api/kunjungan/submit', {
-                method: 'POST',
-                body: formData
-            });
+            const res = await fetch('/api/kunjungan/submit', { method: 'POST', body: formData });
             const result = await res.json();
 
             if (result.status === 'success') {
-                Swal.fire('Berhasil!', result.message, 'success').then(() => {
-                    location.reload();
-                });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sinergi Berhasil!',
+                    text: result.message,
+                    confirmButtonText: 'Mantap!'
+                }).then(() => { window.location.href = '/monitoring/'; });
             } else {
-                Swal.fire('Gagal', result.message, 'error');
+                Swal.fire('Gagal Simpan', result.message, 'error');
             }
         } catch (err) {
-            Swal.fire('Error', 'Masalah koneksi internet', 'error');
+            Swal.fire('Koneksi Error', 'Cek sinyal internet di lokasi kunjungan, Bos!', 'error');
         }
     };
 
-    window.onload = getGPS;
+    // Jalankan Lookup otomatis jika Nomen dikirim via URL
+    window.onload = function() {
+        getGPS();
+        if (document.getElementById('inputNomen').value) {
+            cekDataPelanggan();
+        }
+    };
 </script>
 {% endblock %}
