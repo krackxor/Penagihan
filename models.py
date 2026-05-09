@@ -48,15 +48,19 @@ class DataSBRS(db.Model):
     """
     __tablename__ = 'data_sbrs'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(8), index=True)
+    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
     periode = db.Column(db.String(10), nullable=False, index=True) # YYYYMM
     
-    # Data dari Customer.txt
+    # Data dari Customer.txt (Denormalisasi untuk kecepatan query)
     nama = db.Column(db.String(150))
     alamat = db.Column(db.Text)
     pcez = db.Column(db.String(20), index=True)
     rayon = db.Column(db.String(10))
     tarif = db.Column(db.String(10))
+    
+    # PERBAIKAN: Kolom wilayah agar Dashboard Summary tidak Error
+    ab = db.Column(db.String(50), default='AB Sunter', index=True)
+    kelurahan = db.Column(db.String(100), index=True)
     
     # Data Konsumsi dari Spotbill.txt
     stand_meter = db.Column(db.Float, default=0)
