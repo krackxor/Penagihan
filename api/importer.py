@@ -1,13 +1,13 @@
-import pandas as pd
+import pd
 import os
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-from models import db, MasterPelanggan, MasterPetugas, TransaksiTagihan, DataSBRS
+from sqlalchemy.dialects.postgresql import insert
+from models import db, MasterPelanggan, TransaksiTagihan, DataSBRS
 
 importer_bp = Blueprint('importer', __name__)
 
 def extract_periode(val):
-    """Konversi format tanggal sistem ke YYYYMM."""
     try:
         if not val or pd.isna(val): return "202601"
         return pd.to_datetime(val).strftime('%Y%m')
@@ -15,22 +15,17 @@ def extract_periode(val):
         return str(val)[:6]
 
 def process_mega_file(file, logic_func):
-    """
-    Mesin utama untuk memproses file raksasa tanpa membuat RAM VPS meledak.
-    """
-    # 1. Simpan file fisik ke disk (Streaming) agar RAM tidak penuh
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     file.save(temp_path)
 
     try:
-        # 2. Baca file per 10.000 baris (Chunking)
-        # memory_map=True mempercepat akses file besar langsung dari disk
+        # 1. Chunksize ditingkatkan ke 50.000 agar lebih cepat (sesuaikan RAM VPS)
         reader = pd.read_csv(
             temp_path, 
             sep=';', 
             dtype=str, 
-            chunksize=10000, 
+            chunksize=50000, 
             low_memory=False, 
             memory_map=True
         )
@@ -41,13 +36,12 @@ def process_mega_file(file, logic_func):
             processed_count = logic_func(chunk)
             total_processed += processed_count
             
-            # 3. Kosongkan session SQLAlchemy setiap kloter agar RAM tetap enteng
+            # Commit per kloter besar
             db.session.commit()
             db.session.expunge_all() 
 
         return total_processed
     finally:
-        # Hapus file sementara setelah selesai
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
@@ -58,25 +52,39 @@ def import_cid():
     
     try:
         def cid_logic(df):
-            count = 0
+            # 2. Teknik Bulk: Ubah ke list of dicts
+            data_list = []
             for _, row in df.iterrows():
                 nomen = row.get('NOMEN')
                 if not nomen: continue
-                
-                p = MasterPelanggan(
-                    nomen=str(nomen).strip()[:8],
-                    nama=row.get('JENIS_PELANGGAN', 'Pelanggan'),
-                    pcez=row.get('PCEZBK'),
-                    ab=row.get('CC', 'AB Sunter'),
-                    tarif=row.get('TARIF'),
-                    kelurahan=row.get('KELURAHAN') or row.get('KEL')
+                data_list.append({
+                    "nomen": str(nomen).strip()[:8],
+                    "nama": row.get('JENIS_PELANGGAN', 'Pelanggan'),
+                    "pcez": row.get('PCEZBK'),
+                    "ab": row.get('CC', 'AB Sunter'),
+                    "tarif": row.get('TARIF'),
+                    "kelurahan": row.get('KELURAHAN') or row.get('KEL')
+                })
+
+            if data_list:
+                # 3. PostgreSQL UPSERT: Update otomatis jika Nomen sudah ada
+                stmt = insert(MasterPelanggan).values(data_list)
+                upsert_stmt = stmt.on_conflict_do_update(
+                    index_elements=['nomen'],
+                    set_={
+                        "nama": stmt.excluded.nama,
+                        "pcez": stmt.excluded.pcez,
+                        "ab": stmt.excluded.ab,
+                        "tarif": stmt.excluded.tarif,
+                        "kelurahan": stmt.excluded.kelurahan
+                    }
                 )
-                db.session.merge(p) # Merge: Update jika ada, Insert jika baru
-                count += 1
-            return count
+                db.session.execute(upsert_stmt)
+                return len(data_list)
+            return 0
 
         total = process_mega_file(file, cid_logic)
-        return jsonify({"status": "success", "message": f"{total} Pelanggan Berhasil Disinkronkan"})
+        return jsonify({"status": "success", "message": f"{total} Pelanggan Masuk (Turbo Mode)"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -88,23 +96,25 @@ def import_tagihan():
     
     try:
         def tagihan_logic(df):
-            count = 0
+            data_list = []
             for _, row in df.iterrows():
                 nomen = row.get('NOMEN')
                 if not nomen: continue
-                
-                t = TransaksiTagihan(
-                    nomen=str(nomen).strip()[:8],
-                    nominal=float(row.get('TOTAL_TAGIHAN', 0)),
-                    periode=extract_periode(row.get('PERIODE_DTTM')),
-                    sumber=sumber
-                )
-                db.session.add(t)
-                count += 1
-            return count
+                data_list.append({
+                    "nomen": str(nomen).strip()[:8],
+                    "nominal": float(row.get('TOTAL_TAGIHAN', 0)),
+                    "periode": extract_periode(row.get('PERIODE_DTTM')),
+                    "sumber": sumber
+                })
+            
+            if data_list:
+                # 4. Bulk Insert Tanpa Cek (Sangat Cepat)
+                db.session.bulk_insert_mappings(TransaksiTagihan, data_list)
+                return len(data_list)
+            return 0
 
         total = process_mega_file(file, tagihan_logic)
-        return jsonify({"status": "success", "message": f"{total} Tagihan {sumber} Masuk Database"})
+        return jsonify({"status": "success", "message": f"{total} Tagihan {sumber} Berhasil Diimport"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -114,27 +124,29 @@ def import_sbrs():
     file = request.files.get('file')
     try:
         def sbrs_logic(df):
-            count = 0
+            data_list = []
             for _, row in df.iterrows():
                 nomen = row.get('NOMEN')
                 if not nomen: continue
                 
                 m3 = int(row.get('KONSUMSI', 0))
-                rata = 15 # Bisa disesuaikan logikanya
+                rata = 15
                 kat = "NORMAL"
                 if m3 == 0: kat = "ZERO"
                 elif m3 > (rata * 2): kat = "EKSTREM"
                 
-                s = DataSBRS(
-                    nomen=str(nomen).strip()[:8],
-                    bulan_ini=m3,
-                    rata_rata=rata,
-                    stand_meter=int(row.get('END_READ_STAN', 0)),
-                    kategori_anomali=kat
-                )
-                db.session.add(s)
-                count += 1
-            return count
+                data_list.append({
+                    "nomen": str(nomen).strip()[:8],
+                    "bulan_ini": m3,
+                    "rata_rata": rata,
+                    "stand_meter": int(row.get('END_READ_STAN', 0)),
+                    "kategori_anomali": kat
+                })
+            
+            if data_list:
+                db.session.bulk_insert_mappings(DataSBRS, data_list)
+                return len(data_list)
+            return 0
 
         total = process_mega_file(file, sbrs_logic)
         return jsonify({"status": "success", "message": f"{total} Data SBRS Berhasil Dianalisa"})
