@@ -1,15 +1,16 @@
 """
-Flask Application - Area Service Integrated System (V16.5 Sinergi Edition)
+Flask Application - Area Service Integrated System (V16.6 Sinergi Edition)
 Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
 1.  PUBLIC ACCESS: Middleware fix for youtube/materi.
-2.  FIX STORAGE LEAK: Otomatis hapus folder temp pada fitur Konversi & Ekspor Excel (Menggunakan io.BytesIO).
-3.  FIX DATABASE LOCK: Standarisasi penuh menggunakan SQLAlchemy Connection Pooling untuk modul SBRS.
+2.  FIX STORAGE LEAK: Otomatis hapus folder temp pada fitur Konversi & Ekspor Excel.
+3.  FIX DATABASE LOCK: Standarisasi penuh menggunakan SQLAlchemy Connection Pooling.
 4.  FIX CONFIG CONFLICT: Sinkronisasi Max Upload Size dengan config.py (100MB).
 5.  V16.4 ANTI-DOUBLE & INTELLIGENCE AUDIT.
 6.  DYNAMIC FILTERS: Tambahan API get-sbrs-filters untuk filter Dropdown dinamis.
-7.  [NEW] V16.5 INTEGRASI 1 SINERGI: Modul Master Analisa (MC, CID, MB, Daily, Ardebt, Mainbill) + Smart Importer.
+7.  V16.5 INTEGRASI 1 SINERGI: Modul Master Analisa (MC, CID, MB, Daily, Ardebt, Mainbill).
+8.  [NEW] V16.6 Geo-Location & Contact: Menu Belum Bayar dengan integrasi Maps dan WA.
 """
 
 import os
@@ -27,8 +28,8 @@ from sqlalchemy import create_engine, text
 from config import Config
 from core.database import init_db, get_db_connection
 from core.helpers import get_role_redirect
-from models import db  # Pastikan file models.py ada
-from api.smart_importer import SmartImporter # Pastikan file api/smart_importer.py ada
+from models import db
+from api.smart_importer import SmartImporter 
 
 # [IMPORT BLUEPRINTS]
 from api.auth import auth_bp
@@ -87,7 +88,7 @@ def create_app():
 
     with app.app_context():
         init_db(app) 
-        db.create_all() # Otomatis membuat tabel Sinergi dari models.py jika belum ada
+        db.create_all() # Otomatis membuat tabel Sinergi dari models.py
         folders = [
             os.path.join(app.root_path, 'static', 'uploads', 'kunjungan'),
             os.path.join(app.root_path, 'static', 'uploads', 'materi')
@@ -105,24 +106,13 @@ def create_app():
     @app.before_request
     def security_layer():
         public_endpoints = [
-            'login_page',
-            'auth.login',
-            'youtube_page',    
-            'materi_page',     
-            'static',          
-            'serve_kunjungan_photo',
-            'index',            
-            'public_cek_tagihan', 
-            'history.public_share_view', 
-            'repair_mainbill', 
-            'merger_ardebt',   
-            'converter_tool',
-            'image_to_txt',    
-            'api_convert'      
+            'login_page', 'auth.login', 'youtube_page', 'materi_page', 
+            'static', 'serve_kunjungan_photo', 'index', 'public_cek_tagihan', 
+            'history.public_share_view', 'repair_mainbill', 'merger_ardebt', 
+            'converter_tool', 'image_to_txt', 'api_convert'
         ]
         
         endpoint = request.endpoint
-        
         if request.path.startswith('/api/history/share/view/') or request.path.startswith('/static/'):
             return None
 
@@ -137,15 +127,9 @@ def create_app():
         admin_only_endpoints = [
             'admin_dashboard', 'monitoring_lokasi_page', 'wa_blast_page',
             'upload.handle_smart_upload', 'history_page',
-            'analisa_top500_page', 
-            'premium_customer_page',
-            'pelanggan_ekstrem_page',
-            'pelanggan_drop_page',
-            'peta_sebaran_page',
-            'upload_sbrs_page',    
-            'summary_sbrs_page',
-            'analisa_sbrs_page',
-            'master_analisa_page' # Tambahan route admin untuk upload sinergi
+            'analisa_top500_page', 'premium_customer_page', 'pelanggan_ekstrem_page',
+            'pelanggan_drop_page', 'peta_sebaran_page', 'upload_sbrs_page',    
+            'summary_sbrs_page', 'analisa_sbrs_page', 'master_analisa_page' 
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -209,8 +193,7 @@ def create_app():
 
     @app.route('/login')
     def login_page(): 
-        if 'role' in session: 
-            return redirect(get_role_redirect(session['role']))
+        if 'role' in session: return redirect(get_role_redirect(session['role']))
         return render_template('login.html')
 
     @app.route('/youtube')
@@ -237,7 +220,6 @@ def create_app():
 
     @app.route('/api/convert', methods=['POST'])
     def api_convert():
-        # [Logika Konverter Tidak Diubah]
         try:
             if 'files' not in request.files:
                 return jsonify({"status": "error", "message": "Tidak ada dokumen yang dipilih."}), 400
@@ -267,14 +249,72 @@ def create_app():
                 cv.close()
                 return send_and_clean(output_path, "Hasil_PDF_ke_Word.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 
-            # [LOGIKA GAMBAR DAN WORD TO PDF DIHILANGKAN SEMENTARA DI SNIPPET INI AGAR RINGKAS, TETAP ADA DI FILE ASLI]
+            elif conv_type == 'img_to_pdf':
+                from PIL import Image
+                image_list = []
+                for file in files:
+                    img_path = os.path.join(temp_dir, secure_filename(file.filename))
+                    file.save(img_path)
+                    img = Image.open(img_path)
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    image_list.append(img)
+                if image_list:
+                    output_path = os.path.join(temp_dir, "Hasil_Gabungan.pdf")
+                    image_list[0].save(output_path, save_all=True, append_images=image_list[1:])
+                    return send_and_clean(output_path, "Hasil_Gambar_ke_PDF.pdf", "application/pdf")
+
+            elif conv_type == 'word_to_pdf':
+                import subprocess
+                file = files[0]
+                docx_path = os.path.join(temp_dir, secure_filename(file.filename))
+                file.save(docx_path)
+                output_path = os.path.join(temp_dir, "Hasil_Konversi.pdf")
+                try:
+                    from docx2pdf import convert
+                    convert(docx_path, output_path)
+                    if os.path.exists(output_path):
+                        return send_and_clean(output_path, "Hasil_Word_ke_PDF.pdf", "application/pdf")
+                except Exception:
+                    pass 
+                try:
+                    subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', docx_path, '--outdir', temp_dir], check=True)
+                    base_name = os.path.splitext(os.path.basename(docx_path))[0]
+                    libre_output_path = os.path.join(temp_dir, f"{base_name}.pdf")
+                    if os.path.exists(libre_output_path):
+                        return send_and_clean(libre_output_path, "Hasil_Word_ke_PDF.pdf", "application/pdf")
+                    else:
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                        return jsonify({"status": "error", "message": "Gagal merender PDF dari file Word tersebut."}), 500
+                except FileNotFoundError:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    return jsonify({"status": "error", "message": "Server tidak memiliki MS Word atau LibreOffice."}), 500
+
+            elif conv_type == 'img_to_txt':
+                try:
+                    import pytesseract
+                    from PIL import Image
+                    file = files[0]
+                    img_path = os.path.join(temp_dir, secure_filename(file.filename))
+                    file.save(img_path)
+                    ocr_lang = request.form.get('lang', 'ind+eng')
+                    extracted_text = pytesseract.image_to_string(Image.open(img_path), lang=ocr_lang)
+                    output_path = os.path.join(temp_dir, "Hasil_Ekstraksi.txt")
+                    with open(output_path, "w", encoding="utf-8") as f:
+                        f.write(extracted_text)
+                    return send_and_clean(output_path, "Hasil_Teks_OCR.txt", "text/plain")
+                except Exception as e:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    return jsonify({"status": "error", "message": "Pastikan bahasa yang dipilih sudah terinstal di server."}), 500
+
             shutil.rmtree(temp_dir, ignore_errors=True)
             return jsonify({"status": "error", "message": "Tipe konversi tidak didukung."}), 400
 
         except Exception as e:
             return jsonify({"status": "error", "message": f"Terjadi kesalahan teknis: {str(e)}"}), 500
 
-    # --- RUTE TERPROTEKSI (EXISTING) ---
+
+    # --- RUTE UI TERPROTEKSI ---
     @app.route('/performa')
     def performa_page(): return render_template('performa.html')
 
@@ -284,12 +324,266 @@ def create_app():
     @app.route('/analisa-top500')
     def analisa_top500_page(): return render_template('analisa_top500.html')
 
-    # --- MODUL BARU: SBRS MEGA-MERGE LNP ---
+    @app.route('/belum-bayar')
+    def belum_bayar_page(): return render_template('belum_bayar.html') 
+
+    # --- MODUL LAMA: SBRS MEGA-MERGE LNP ---
     @app.route('/upload-sbrs')
     def upload_sbrs_page(): return render_template('upload_sbrs.html')
 
     @app.route('/summary-sbrs')
     def summary_sbrs_page(): return render_template('summary_sbrs.html')
+    
+    @app.route('/analisa-sbrs')
+    def analisa_sbrs_page(): return render_template('analisa_sbrs.html')
+
+    # API LAMA SBRS (Tidak Diubah)
+    @app.route('/api/get-sbrs-filters', methods=['GET'])
+    def get_sbrs_filters():
+        try:
+            with engine_sbrs.connect() as conn:
+                res_p = conn.execute(text("SELECT DISTINCT periode_sbrs FROM history_lnp WHERE periode_sbrs IS NOT NULL ORDER BY periode_sbrs DESC")).fetchall()
+                periods = [r[0] for r in res_p if r[0]]
+                res_c = conn.execute(text("SELECT DISTINCT cmr_cycle FROM history_lnp WHERE cmr_cycle IS NOT NULL ORDER BY cmr_cycle ASC")).fetchall()
+                cycles = [r[0] for r in res_c if r[0]]
+                return jsonify({"status": "success", "periods": periods, "cycles": cycles})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+
+    @app.route('/api/process-sbrs', methods=['POST'])
+    def api_process_sbrs():
+        try:
+            if 'fileCust' not in request.files or 'fileSpot' not in request.files:
+                return jsonify({"status": "error", "message": "File Customer dan Spot Bill harus diunggah lengkap."}), 400
+
+            file_cust = request.files['fileCust']
+            file_spot = request.files['fileSpot']
+
+            df_cust = pd.read_csv(file_cust, sep=';', dtype=str, on_bad_lines='skip')
+            df_spot = pd.read_csv(file_spot, sep=';', dtype=str, on_bad_lines='skip')
+
+            df_cust.columns = df_cust.columns.str.strip()
+            df_spot.columns = df_spot.columns.str.strip()
+
+            df_final = pd.merge(df_cust, df_spot, left_on='cmr_account', right_on='Nomen', how='inner')
+
+            if 'cmr_account' in df_final.columns:
+                df_final.drop_duplicates(subset=['cmr_account'], keep='last', inplace=True)
+
+            if 'cmr_cycle' in df_final.columns:
+                cycle_terdeteksi = str(df_final['cmr_cycle'].mode()[0]).strip()
+                cycle_input = cycle_terdeteksi.zfill(2)
+            else:
+                cycle_input = "Unknown"
+
+            if 'cmr_rd_date' in df_final.columns:
+                tanggal_terdeteksi = str(df_final['cmr_rd_date'].mode()[0]).strip()
+                if len(tanggal_terdeteksi) == 8:
+                    bulan = tanggal_terdeteksi[2:4] 
+                    tahun = tanggal_terdeteksi[4:8] 
+                    periode_otomatis = f"{tahun}-{bulan}" 
+                else:
+                    periode_otomatis = datetime.now().strftime('%Y-%m')
+            else:
+                periode_otomatis = datetime.now().strftime('%Y-%m')
+            
+            df_final['cmr_cycle'] = cycle_input
+            df_final['periode_sbrs'] = periode_otomatis
+
+            kolom_numerik = ['cmr_reading', 'cmr_prev_read', 'Curr_Read_1', 'Prev_Read_1', 'SB_Stand']
+            for col in kolom_numerik:
+                if col in df_final.columns:
+                    df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0)
+
+            if 'cmr_reading' in df_final.columns and 'cmr_prev_read' in df_final.columns:
+                df_final['Vol_Lap'] = df_final['cmr_reading'] - df_final['cmr_prev_read']
+            
+            if 'Curr_Read_1' in df_final.columns and 'Prev_Read_1' in df_final.columns:
+                df_final['Vol_Bill'] = df_final['Curr_Read_1'] - df_final['Prev_Read_1']
+                
+            if 'SB_Stand' in df_final.columns and 'Prev_Read_1' in df_final.columns:
+                df_final['Vol_SB'] = df_final['SB_Stand'] - df_final['Prev_Read_1']
+
+            if 'Vol_Lap' in df_final.columns:
+                df_final['Vol_Riil'] = df_final['Vol_Lap'] 
+            df_final['Selisih_HB'] = 31 
+
+            with engine_sbrs.begin() as conn:
+                try:
+                    conn.execute(text(f"DELETE FROM history_lnp WHERE cmr_cycle = '{cycle_input}' AND periode_sbrs = '{periode_otomatis}'"))
+                except Exception:
+                    pass 
+
+            df_final.to_sql('history_lnp', con=engine_sbrs, if_exists='append', index=False)
+
+            return jsonify({
+                "status": "success", 
+                "message": f"Data Periode {periode_otomatis} Cycle {cycle_input} berhasil digabung!",
+                "total_rows": len(df_final)
+            })
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Gagal memproses file: {str(e)}"}), 500
+
+    @app.route('/api/get-summary-sbrs', methods=['GET'])
+    def get_summary_sbrs():
+        cycle = request.args.get('cycle', 'all')
+        periode = request.args.get('periode', 'all')
+        sort_by = request.args.get('sort_by', 'ROWID')
+        order = request.args.get('order', 'DESC')
+        status_filter = request.args.get('filter', 'all')
+
+        try:
+            with engine_sbrs.connect() as conn:
+                check = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='history_lnp'")).fetchone()
+                if not check:
+                    return jsonify({
+                        "status": "success", "summary": {"total_objek": 0, "total_vol_sb": 0}, 
+                        "stats": {"zero_baru":0,"zero_lama":0,"ekstrim":0,"turun":0,"anomali":0, "negative":0},
+                        "skip": [], "trouble": [], "methods": [], "master": []
+                    })
+
+                query = "SELECT ROWID as rowid, * FROM history_lnp WHERE 1=1"
+                params = {}
+                if cycle != 'all':
+                    query += " AND cmr_cycle = :cycle"
+                    params['cycle'] = cycle
+                if periode != 'all':
+                    query += " AND periode_sbrs = :periode"
+                    params['periode'] = periode
+                    
+                query += f" ORDER BY {sort_by} {order}"
+                rows = conn.execute(text(query), params).mappings().all()
+
+            master_data = []
+            stats = {"zero_baru": 0, "zero_lama": 0, "ekstrim": 0, "anomali": 0, "turun": 0, "negative": 0}
+            skip_count, trbl_count, meth_count = {}, {}, {}
+            total_vol_sb = 0
+
+            for d in rows:
+                col_nomen = d.get('Nomen', d.get('cmr_account', '-'))
+                col_nama = d.get('cmr_nama', d.get('Nama', 'Pelanggan'))
+
+                s_raw = str(d.get('cmr_skip_code', '0')).strip().upper()
+                t_raw = str(d.get('cmr_trbl1_code', '0')).strip().upper()
+                m_raw = str(d.get('Read_Method', d.get('cmr_read_method', '-'))).strip()
+                spcl_msg = str(d.get('cmr_chg_spcl_msg', '-')).strip()
+
+                if s_raw not in ['0', 'NAN', '', 'NONE']: skip_count[s_raw] = skip_count.get(s_raw, 0) + 1
+                if t_raw not in ['0', 'NAN', '', 'NONE']: trbl_count[t_raw] = trbl_count.get(t_raw, 0) + 1
+                if m_raw != '-': meth_count[m_raw] = meth_count.get(m_raw, 0) + 1
+
+                v_lap, v_bill, v_sb = float(d.get('Vol_Lap', 0)), float(d.get('Vol_Bill', 0)), float(d.get('Vol_SB', 0))
+                v_gap, sb_gap = (v_bill - v_lap), (v_sb - v_lap)
+                selisih_naik = v_lap - v_bill
+                pct_naik = (selisih_naik / v_bill * 100) if v_bill > 0 else 0
+                
+                tags = []
+                if v_lap < 0:
+                    tags.append("Negative Read")
+                    stats["negative"] += 1
+                elif v_lap == 0:
+                    if v_bill > 0: 
+                        tags.append("Zero Baru")
+                        stats["zero_baru"] += 1
+                    else: 
+                        tags.append("Zero Lama")
+                        stats["zero_lama"] += 1
+                
+                if (v_lap > 10 and pct_naik >= 100) or (selisih_naik >= 50):
+                    tags.append("Ekstrim")
+                    stats["ekstrim"] += 1
+                
+                if 0 < v_lap < (v_bill * 0.4): 
+                    tags.append("Turun")
+                    stats["turun"] += 1
+                    
+                if v_gap != 0 or sb_gap != 0: 
+                    tags.append("Anomali")
+                    stats["anomali"] += 1
+                
+                match = True
+                if status_filter == 'ekstrem' and "Ekstrim" not in tags and "Anomali" not in tags: match = False
+                elif status_filter == 'turun' and "Turun" not in tags: match = False
+                elif status_filter == 'zero_baru' and "Zero Baru" not in tags: match = False
+                elif status_filter == 'zero_lama' and "Zero Lama" not in tags: match = False
+                elif status_filter == 'anomali' and "Anomali" not in tags: match = False
+                elif status_filter == 'negative' and "Negative Read" not in tags: match = False
+                elif status_filter == 'skip' and s_raw in ['0', 'NAN', '', 'NONE']: match = False
+                elif status_filter == 'trouble' and t_raw in ['0', 'NAN', '', 'NONE']: match = False
+
+                if match:
+                    total_vol_sb += v_sb
+                    master_data.append({
+                        "rowid": d['rowid'], "nomen": col_nomen, "nama": col_nama,
+                        "vol_lap": v_lap, "vol_bill": v_bill, "vol_sb": v_sb, "v_gap": v_gap, "sb_gap": sb_gap,
+                        "status": " / ".join(tags) if tags else "Normal",
+                        "method": m_raw, "method_full": METHOD_MAP.get(m_raw, m_raw),
+                        "spcl_msg": spcl_msg, "hb": d.get('Selisih_HB', 31), "vol_riil": d.get('Vol_Riil', v_lap)
+                    })
+
+            return jsonify({
+                "status": "success",
+                "summary": {"total_objek": len(rows), "total_vol_sb": total_vol_sb},
+                "stats": stats,
+                "skip": [{"kode": k, "ket": SKIP_MAP.get(k, "Lain-lain"), "jml": v} for k, v in skip_count.items()],
+                "trouble": [{"kode": k, "ket": TROUBLE_MAP.get(k, "Lain-lain"), "jml": v} for k, v in trbl_count.items()],
+                "methods": [{"kode": k, "ket": METHOD_MAP.get(k, k), "jml": v} for k, v in meth_count.items()],
+                "master": master_data[:1000] 
+            })
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Terjadi Kesalahan SQL: {str(e)}"})
+
+    @app.route('/api/edit-sbrs', methods=['POST'])
+    def edit_sbrs():
+        try:
+            d = request.json
+            with engine_sbrs.begin() as conn:
+                conn.execute(text("UPDATE history_lnp SET Vol_Lap=:lap, Vol_Bill=:bill, Vol_SB=:sb, Vol_Riil=:riil, Selisih_HB=:hb WHERE ROWID=:rowid"),
+                             {"lap": d['vol_lap'], "bill": d['vol_bill'], "sb": d['vol_sb'], "riil": d['vol_riil'], "hb": d.get('hb', 31), "rowid": d['rowid']})
+            return jsonify({"status": "success"})
+        except Exception as e: 
+            return jsonify({"status": "error", "message": str(e)})
+
+    @app.route('/api/download-sbrs-excel', methods=['GET'])
+    def download_sbrs_excel():
+        cycle = request.args.get('cycle', 'all')
+        periode = request.args.get('periode', 'all')
+        try:
+            with engine_sbrs.connect() as conn:
+                query = "SELECT * FROM history_lnp WHERE 1=1"
+                params = {}
+                if cycle != 'all':
+                    query += " AND cmr_cycle = :cycle"
+                    params['cycle'] = cycle
+                if periode != 'all':
+                    query += " AND periode_sbrs = :periode"
+                    params['periode'] = periode
+                    
+                df = pd.read_sql_query(text(query), conn, params=params)
+                
+            if df.empty:
+                return "Data tidak ditemukan untuk diekspor", 404
+
+            temp_dir = tempfile.mkdtemp()
+            output_path = os.path.join(temp_dir, f"Laporan_SBRS_{periode}_Cycle_{cycle}.xlsx")
+            df.to_excel(output_path, index=False)
+            
+            with open(output_path, 'rb') as f:
+                file_data = f.read()
+            shutil.rmtree(temp_dir, ignore_errors=True) 
+            
+            return send_file(io.BytesIO(file_data), as_attachment=True, download_name=f"Laporan_SBRS_{periode}_Cycle_{cycle}.xlsx", mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            
+        except Exception as e:
+            return f"Terjadi kesalahan saat membuat Excel: {str(e)}", 500
+
+    @app.route('/static/uploads/kunjungan/<filename>')
+    def serve_kunjungan_photo(filename):
+        folder = os.path.join(app.root_path, 'static', 'uploads', 'kunjungan')
+        return send_from_directory(folder, filename)
+
 
     # =====================================================================
     # --- MODUL BARU: MASTER ANALISA (1 SINERGI) ---
@@ -297,26 +591,20 @@ def create_app():
 
     @app.route('/master-analisa')
     def master_analisa_page(): 
-        """Halaman UI untuk mengunggah MC, CID, MB, ARDEBT"""
         return render_template('master_analisa.html')
 
     @app.route('/api/process-master-analisa', methods=['POST'])
     def api_process_master_analisa():
-        """
-        API untuk memproses 6 file master.
-        Memanfaatkan SmartImporter untuk otomatisasi Nomen, Periode, dan Status Lunas.
-        """
         try:
             if 'file' not in request.files:
                 return jsonify({"status": "error", "message": "File tidak ditemukan."}), 400
                 
             file = request.files['file']
-            file_type = request.form.get('file_type') # Expected: 'MC', 'CID', 'MB', 'DAILY', 'ARDEBT', 'MAINBILL'
+            file_type = request.form.get('file_type')
             
             if not file or not file_type:
                 return jsonify({"status": "error", "message": "Data file atau tipe file tidak lengkap."}), 400
 
-            # Simpan file ke direktori temp
             filename = secure_filename(file.filename)
             temp_dir = tempfile.mkdtemp()
             file_path = os.path.join(temp_dir, filename)
@@ -324,27 +612,21 @@ def create_app():
 
             importer = SmartImporter()
             
-            # Routing ke fungsi Importer sesuai jenis file
             if file_type == 'CID':
                 importer.import_cid(file_path)
                 msg = "Data Master Pelanggan (CID) berhasil disinkronisasi."
-            
             elif file_type == 'MC':
                 count = importer.import_mc(file_path)
                 msg = f"{count} Data Tagihan Baru (MC) berhasil diunggah ke database."
-            
             elif file_type in ['MB', 'DAILY']:
                 importer.import_pembayaran(file_path, type=file_type)
-                msg = f"Data Pembayaran ({file_type}) berhasil diunggah. Status tagihan terkait otomatis menjadi LUNAS."
-            
+                msg = f"Data Pembayaran ({file_type}) berhasil diunggah. Status otomatis LUNAS."
             elif file_type == 'ARDEBT':
                 importer.import_ardebt(file_path)
                 msg = "Data Tunggakan (Ardebt) berhasil disinkronisasi ke database."
-                
             elif file_type == 'MAINBILL':
                 importer.import_mainbill(file_path)
                 msg = "Data Referensi Pusat (Mainbill) berhasil disinkronisasi."
-                
             else:
                 return jsonify({"status": "error", "message": "Tipe Kategori File tidak valid."}), 400
 
@@ -353,9 +635,7 @@ def create_app():
         except Exception as e:
             return jsonify({"status": "error", "message": f"Gagal memproses file: {str(e)}"}), 500
         finally:
-            shutil.rmtree(temp_dir, ignore_errors=True) # Cleanup memori
-
-    # =====================================================================
+            shutil.rmtree(temp_dir, ignore_errors=True) 
 
     return app
 
