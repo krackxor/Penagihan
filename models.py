@@ -6,13 +6,14 @@ db = SQLAlchemy()
 
 class MasterPetugas(db.Model):
     """
-    Tabel Referensi Petugas.
-    Data ini diisi lewat menu upload 'File Petugas'.
-    Fungsinya untuk 'mengawinkan' Kode PCEZ dengan Nama orangnya (Wahyu, dll).
+    Tabel Petugas Berdasarkan Peran.
+    Satu PCEZ bisa punya 3 baris (Penagihan, Pencatatan, SBRS).
     """
     __tablename__ = 'master_petugas'
-    pcez = db.Column(db.String(20), primary_key=True) # Contoh: 0920504
+    id = db.Column(db.Integer, primary_key=True) # Gunakan ID Auto-Increment
+    pcez = db.Column(db.String(20))              # Contoh: 0920504
     nama_petugas = db.Column(db.String(100), nullable=False) # Contoh: Wahyu
+    peran = db.Column(db.String(20))             # Isi: 'TAGIHAN', 'CATAT', atau 'ANOMALI'
 
 class MasterPelanggan(db.Model):
     """
@@ -27,7 +28,9 @@ class MasterPelanggan(db.Model):
     ab = db.Column(db.String(50), default='AB Sunter') # Default Sunter sesuai request
     rayon = db.Column(db.String(50))                  # Contoh: Rayon 01
     kelurahan = db.Column(db.String(50))              # Contoh: Sunter Jaya
-    pcez = db.Column(db.String(20), db.ForeignKey('master_petugas.pcez'))
+    
+    # PCEZ sekarang berdiri sendiri (tanpa ForeignKey kaku) karena 1 PCEZ ada banyak petugas
+    pcez = db.Column(db.String(20))
     
     # Detail Tambahan (Biar pengembangan kedepan enak)
     alamat = db.Column(db.Text)
@@ -39,8 +42,13 @@ class MasterPelanggan(db.Model):
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
 
-    # Relasi otomatis ke tabel petugas
-    petugas_rel = db.relationship('MasterPetugas', backref='list_pelanggan', lazy=True)
+    def get_petugas(self, kategori):
+        """
+        Fungsi pintar untuk memanggil nama petugas sesuai urusannya.
+        Kategori bisa diisi: 'TAGIHAN', 'CATAT', atau 'ANOMALI'.
+        """
+        p = MasterPetugas.query.filter_by(pcez=self.pcez, peran=kategori).first()
+        return p.nama_petugas if p else "Belum Ada Petugas"
 
 class TransaksiTagihan(db.Model):
     """
@@ -76,3 +84,16 @@ class AnalisaAuditor(db.Model):
     pcez_saat_ini = db.Column(db.String(20))
     
     timestamp = db.Column(db.DateTime, default=datetime.now)
+
+class DataSBRS(db.Model):
+    """
+    Tabel khusus untuk analisa pembacaan meter (SBRS).
+    """
+    __tablename__ = 'data_sbrs'
+    id = db.Column(db.Integer, primary_key=True)
+    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'))
+    bulan_ini = db.Column(db.Integer)  # Pemakaian m3 bulan ini
+    bulan_lalu = db.Column(db.Integer) # Pemakaian m3 bulan lalu
+    rata_rata = db.Column(db.Integer)  # Rata-rata 3 bulan terakhir
+    stand_meter = db.Column(db.Integer)
+    kategori_anomali = db.Column(db.String(50)) # Zero, Ekstrem, Turun
