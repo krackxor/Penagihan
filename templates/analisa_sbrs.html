@@ -15,18 +15,24 @@
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
     }
 
-    /* Filter Chips Elegan */
-    .filter-group-label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
-    .chip-container { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
+    /* Custom Styled Dropdown */
+    .filter-label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; margin-left: 5px; display: block; }
+    .custom-select {
+        border-radius: 12px; border: 1px solid #e2e8f0; padding: 10px 15px;
+        font-weight: 700; color: #1e293b; background-color: #ffffff;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s;
+    }
+    .custom-select:focus { border-color: var(--service-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); outline: none; }
 
-    .filter-chip, .pill-chip { 
+    /* Filter Chips Elegan (Status Audit) */
+    .filter-chip { 
         cursor: pointer; transition: all 0.2s ease; border: 1px solid #e2e8f0; 
         background: white; color: #64748b; font-weight: 600; 
         border-radius: 20px; padding: 6px 18px; font-size: 0.85rem;
         display: inline-flex; align-items: center; gap: 6px;
     }
-    .filter-chip:hover, .pill-chip:hover { background: #f8fafc; border-color: #cbd5e1; transform: translateY(-1px); }
-    .filter-chip.active, .pill-chip.active { background: #0f172a; color: white; border-color: #0f172a; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.2); }
+    .filter-chip:hover { background: #f8fafc; border-color: #cbd5e1; transform: translateY(-1px); }
+    .filter-chip.active { background: #0f172a; color: white; border-color: #0f172a; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.2); }
     
     /* Tabel Clean */
     .table-responsive { border-radius: 0 0 16px 16px; }
@@ -43,41 +49,32 @@
 
 <div class="container-fluid mt-3">
     <div class="header-sbrs animate__animated animate__fadeInDown">
-        <div>
-            <h4 class="fw-800 mb-1 text-dark">Tabel Master Analisa LNP</h4>
-            <p class="text-muted small mb-0">Halaman ini memuat seluruh data pelanggan secara rinci berdasarkan parameter filter.</p>
-        </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-light border fw-bold text-secondary" style="border-radius: 10px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
-                <i class="fa-solid fa-circle-info"></i> Info Logika
-            </button>
-            <button class="btn btn-light border fw-bold text-secondary px-3" style="border-radius: 10px;" onclick="window.history.back()">
-                <i class="fa-solid fa-arrow-left"></i> Kembali
-            </button>
-            <button class="btn btn-dark fw-bold px-4 shadow-sm" style="border-radius: 10px;" onclick="downloadExcel()">
-                <i class="fa-solid fa-download me-2"></i> EXCEL
-            </button>
-        </div>
-    </div>
-
-    <div class="card border-0 shadow-sm p-4 mb-3 animate__animated animate__fadeIn" style="border-radius: 20px;">
-        <div class="row g-3">
-            <div class="col-md-6">
-                <div class="filter-group-label"><i class="fa-regular fa-calendar me-1"></i> Pilih Periode LNP</div>
-                <div id="periodPills" class="chip-container">
-                    <div class="pill-chip active" onclick="setPeriode('all', this)">Memuat...</div>
-                </div>
+        <div class="row w-100 align-items-center g-3">
+            <div class="col-md-4">
+                <h4 class="fw-800 mb-0 text-dark">Master Analisa LNP</h4>
+                <p class="text-muted small mb-0 mt-1">Detail data pelanggan berdasarkan filter.</p>
             </div>
-            <div class="col-md-6 border-start border-light d-none d-md-block">
-                <div class="filter-group-label"><i class="fa-solid fa-rotate me-1"></i> Pilih Cycle</div>
-                <div id="cyclePills" class="chip-container">
-                    <div class="pill-chip active" onclick="setCycle('all', 'cyclePills')">Memuat...</div>
-                </div>
+            <div class="col-md-3">
+                <span class="filter-label">Periode Bulan</span>
+                <select id="selectPeriode" class="form-select custom-select" onchange="updateURLAndLoadData()">
+                    <option value="all">Semua Bulan</option>
+                </select>
             </div>
-            <div class="col-12 d-block d-md-none border-top pt-2">
-                <div class="filter-group-label"><i class="fa-solid fa-rotate me-1"></i> Pilih Cycle</div>
-                <div id="cyclePillsMobile" class="chip-container">
-                    </div>
+            <div class="col-md-2">
+                <span class="filter-label">Cycle Baca</span>
+                <select id="selectCycle" class="form-select custom-select" onchange="updateURLAndLoadData()">
+                    <option value="all">Semua Cycle</option>
+                </select>
+            </div>
+            <div class="col-md-3 text-end">
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <button class="btn btn-light border fw-bold text-secondary" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
+                        <i class="fa-solid fa-circle-info"></i> Logika
+                    </button>
+                    <button class="btn btn-dark fw-bold px-4 shadow-sm" style="border-radius: 12px;" onclick="downloadExcel()">
+                        <i class="fa-solid fa-download me-1"></i> EXCEL
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -244,8 +241,6 @@
 <script>
     // 1. Ambil Parameter Awal dari URL
     const urlParams = new URLSearchParams(window.location.search);
-    let currentCycle = urlParams.get('cycle') || 'all';
-    let currentPeriode = urlParams.get('periode') || 'all';
     let currentFilter = urlParams.get('filter') || 'all';
     let currentSort = { column: 'ROWID', order: 'DESC' };
 
@@ -261,62 +256,28 @@
         loadDataMaster();
     }
 
-    // --- INISIALISASI DYNAMIC FILTER CHIPS ---
+    // --- INISIALISASI DYNAMIC DROPDOWN ---
     async function initFilters() {
+        const pParam = urlParams.get('periode') || 'all';
+        const cParam = urlParams.get('cycle') || 'all';
+
         const res = await fetch('/api/get-sbrs-filters');
         const data = await res.json();
         
         if(data.status === 'success') {
-            // Render Periode Pills
-            const pContainer = document.getElementById('periodPills');
-            let pActive = currentPeriode === 'all' ? 'active' : '';
-            pContainer.innerHTML = `<div class="pill-chip ${pActive}" onclick="setPeriode('all', this)">Semua Bulan</div>`;
+            const pSel = document.getElementById('selectPeriode');
+            const cSel = document.getElementById('selectCycle');
+
             data.periods.forEach(p => {
-                pActive = currentPeriode === p ? 'active' : '';
-                pContainer.innerHTML += `<div class="pill-chip ${pActive}" onclick="setPeriode('${p}', this)">${p}</div>`;
+                pSel.innerHTML += `<option value="${p}" ${p === pParam ? 'selected' : ''}>${p}</option>`;
             });
-
-            // Render Cycle Pills (Untuk Desktop)
-            const cContainer = document.getElementById('cyclePills');
-            let cActive = currentCycle === 'all' ? 'active' : '';
-            cContainer.innerHTML = `<div class="pill-chip ${cActive}" onclick="setCycle('all', 'cyclePills')">Semua Cycle</div>`;
             data.cycles.forEach(c => {
-                cActive = currentCycle === c ? 'active' : '';
-                cContainer.innerHTML += `<div class="pill-chip ${cActive}" onclick="setCycle('${c}', 'cyclePills')">C-${c}</div>`;
+                cSel.innerHTML += `<option value="${c}" ${c === cParam ? 'selected' : ''}>Cycle ${c}</option>`;
             });
-
-            // Render Cycle Pills (Untuk Mobile)
-            const cContainerMobile = document.getElementById('cyclePillsMobile');
-            if(cContainerMobile) {
-                let cmActive = currentCycle === 'all' ? 'active' : '';
-                cContainerMobile.innerHTML = `<div class="pill-chip ${cmActive}" onclick="setCycle('all', 'cyclePillsMobile')">Semua Cycle</div>`;
-                data.cycles.forEach(c => {
-                    cmActive = currentCycle === c ? 'active' : '';
-                    cContainerMobile.innerHTML += `<div class="pill-chip ${cmActive}" onclick="setCycle('${c}', 'cyclePillsMobile')">C-${c}</div>`;
-                });
-            }
         }
         
         // Aktifkan Status Filter Chip dari URL
         applyStatusFilter(currentFilter, false); 
-    }
-
-    function setPeriode(val, el) {
-        currentPeriode = val;
-        document.querySelectorAll('#periodPills .pill-chip').forEach(c => c.classList.remove('active'));
-        el.classList.add('active');
-        updateURLAndLoadData();
-    }
-
-    function setCycle(val, containerId) {
-        currentCycle = val;
-        // Hapus active dari desktop & mobile
-        document.querySelectorAll('#cyclePills .pill-chip, #cyclePillsMobile .pill-chip').forEach(c => c.classList.remove('active'));
-        // Aktifkan chip yang di-klik sesuai teks nilainya
-        document.querySelectorAll(`#cyclePills .pill-chip, #cyclePillsMobile .pill-chip`).forEach(c => {
-            if(c.innerText === (val === 'all' ? 'Semua Cycle' : `C-${val}`)) c.classList.add('active');
-        });
-        updateURLAndLoadData();
     }
 
     function applyStatusFilter(filterType, reloadData = true) {
@@ -329,8 +290,12 @@
     }
 
     function updateURLAndLoadData() {
-        // Update URL tanpa reload halaman (hanya ganti parameternya)
-        const newUrl = `${window.location.pathname}?periode=${currentPeriode}&cycle=${currentCycle}&filter=${currentFilter}`;
+        // Ambil nilai terbaru dari dropdown
+        const p = document.getElementById('selectPeriode').value;
+        const c = document.getElementById('selectCycle').value;
+
+        // Update URL tanpa reload halaman
+        const newUrl = `${window.location.pathname}?periode=${p}&cycle=${c}&filter=${currentFilter}`;
         window.history.replaceState({}, '', newUrl);
         loadDataMaster();
     }
@@ -339,13 +304,16 @@
     async function loadDataMaster() {
         document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="10" class="text-center py-5 text-primary"><i class="fa-solid fa-spinner fa-spin fa-2x mb-3 d-block"></i>Menarik Data LNP...</td></tr>';
         
+        const p = document.getElementById('selectPeriode').value;
+        const c = document.getElementById('selectCycle').value;
+
         // Ganti judul tabel sesuai filter
         let namaFilter = currentFilter.replace('_', ' ').toUpperCase();
-        let teksPeriode = currentPeriode === 'all' ? 'Semua Bulan' : currentPeriode;
-        let teksCycle = currentCycle === 'all' ? 'Semua Cycle' : `Cycle ${currentCycle}`;
+        let teksPeriode = p === 'all' ? 'Semua Bulan' : p;
+        let teksCycle = c === 'all' ? 'Semua Cycle' : `Cycle ${c}`;
         document.getElementById('labelTabel').innerHTML = `Menampilkan: <b class="text-primary">${namaFilter}</b> | ${teksPeriode} | ${teksCycle}`;
 
-        const url = `/api/get-summary-sbrs?periode=${currentPeriode}&cycle=${currentCycle}&sort_by=${currentSort.column}&order=${currentSort.order}&filter=${currentFilter}`;
+        const url = `/api/get-summary-sbrs?periode=${p}&cycle=${c}&sort_by=${currentSort.column}&order=${currentSort.order}&filter=${currentFilter}`;
         
         try {
             const res = await fetch(url);
@@ -447,12 +415,14 @@
     }
 
     function downloadExcel() {
-        window.location.href = `/api/download-sbrs-excel?periode=${currentPeriode}&cycle=${currentCycle}`;
+        const p = document.getElementById('selectPeriode').value;
+        const c = document.getElementById('selectCycle').value;
+        window.location.href = `/api/download-sbrs-excel?periode=${p}&cycle=${c}`;
     }
 
     // Panggil saat start
     window.onload = async () => {
-        await initFilters(); // Muat data filter chip dulu
+        await initFilters(); // Muat data filter dropdown dulu
         loadDataMaster();    // Baru muat data tabel
     };
 </script>
