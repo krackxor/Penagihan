@@ -40,7 +40,7 @@
         .status-code { font-weight: 800; color: var(--sbrs-blue); background: #eff6ff; padding: 2px 8px; border-radius: 6px; }
         .vol-highlight { color: var(--sbrs-info); font-weight: 700; background: #ecfeff; }
         
-        .table-responsive { border-radius: 15px; border: 1px solid #e2e8f0; }
+        .table-responsive { border-radius: 15px; border: 1px solid #e2e8f0; background: white; }
         .table thead { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
 
         /* Fitur Tambahan (Sorting & Filter) */
@@ -48,7 +48,7 @@
         .sort-icon:hover { color: #fff; }
         .th-content { display: flex; align-items: center; justify-content: center; }
         .clickable-info { cursor: help; border-bottom: 1px dotted rgba(255,255,255,0.5); }
-        .filter-chip { cursor: pointer; transition: 0.2s; border: 1px solid #e2e8f0; background: white; color: #64748b; }
+        .filter-chip { cursor: pointer; transition: 0.2s; border: 1px solid #e2e8f0; background: white; color: #64748b; font-weight: 700; }
         .filter-chip.active { background: var(--sbrs-dark); color: white; border-color: var(--sbrs-dark); }
         .anomali-row { background-color: rgba(239, 68, 68, 0.05) !important; }
     </style>
@@ -72,30 +72,31 @@
 <div class="main-content">
     <div class="header-sbrs shadow-sm">
         <div>
-            <h4 class="fw-800 mb-1">Dashboard Monitoring SBRS</h4>
-            <p class="text-muted small mb-0">Intelijen Data LNP (Deteksi Anomali Otomatis)</p>
+            <h4 class="fw-800 mb-1">Dashboard Audit SBRS</h4>
+            <p class="text-muted small mb-0">Analisa Pemakaian Zero, Ekstrim Hybrid & Metode Baca</p>
         </div>
         <div class="d-flex gap-3">
             <button class="btn btn-outline-primary fw-bold" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
                 <i class="fa-solid fa-microscope me-2"></i> PANDUAN AUDIT
             </button>
             <select id="filterCycle" class="form-select border-light shadow-sm fw-bold" style="width: 200px; border-radius: 12px;">
-                <option value="all" selected>Total Seluruh Cycle</option>
+                <option value="all" selected>Semua Cycle</option>
                 <option value="01">Cycle 01</option>
                 <option value="02">Cycle 02</option>
                 <option value="15">Cycle 15</option>
             </select>
             <button class="btn btn-dark fw-bold px-4" style="border-radius: 12px;" onclick="downloadExcel()">
-                <i class="fa-solid fa-download me-2"></i> SIMPAN KE EXCEL
+                <i class="fa-solid fa-download me-2"></i> EXCEL
             </button>
         </div>
     </div>
 
     <div class="d-flex flex-wrap gap-2 mb-4">
-        <button class="btn btn-sm filter-chip rounded-pill px-3 active fw-bold" onclick="applyFilter('all', this)">Semua Data</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 fw-bold" onclick="applyFilter('ekstrem', this)">🔥 Ekstrim / Salah Catet</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 fw-bold" onclick="applyFilter('turun', this)">📉 Pemakaian Turun</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 fw-bold" onclick="applyFilter('zero', this)">⚪ Zero/Tunggu</button>
+        <button class="btn btn-sm filter-chip rounded-pill px-3 active" onclick="applyFilter('all', this)">Semua Data</button>
+        <button class="btn btn-sm filter-chip rounded-pill px-3 text-danger" onclick="applyFilter('ekstrem', this)">🔥 Ekstrim / Anomali</button>
+        <button class="btn btn-sm filter-chip rounded-pill px-3 text-warning" onclick="applyFilter('turun', this)">📉 Pemakaian Turun</button>
+        <button class="btn btn-sm filter-chip rounded-pill px-3 text-primary" onclick="applyFilter('zero_baru', this)">🔵 Zero Baru</button>
+        <button class="btn btn-sm filter-chip rounded-pill px-3 text-secondary" onclick="applyFilter('zero_lama', this)">🔘 Zero Lama</button>
     </div>
 
     <div class="row mb-4">
@@ -112,15 +113,48 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card card-lnp bg-white p-4 border-start border-warning border-4">
-                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Anomali Temuan</small>
-                <h2 class="fw-800 mb-0 text-danger"><span id="totAnomali">0</span> <span class="fs-6 fw-normal">Kasus</span></h2>
+            <div class="card card-lnp bg-white p-4 border-start border-primary border-4">
+                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Indikasi Zero Baru</small>
+                <h2 class="fw-800 mb-0 text-primary"><span id="totZeroBaru">0</span> <span class="fs-6 fw-normal text-muted">Pelanggan</span></h2>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card card-lnp bg-white p-4 border-start border-danger border-4">
-                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Zero / Stan Tunggu</small>
-                <h2 class="fw-800 mb-0 text-info" id="totZero">0</h2>
+            <div class="card card-lnp bg-white p-4 border-start border-secondary border-4">
+                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Indikasi Zero Lama</small>
+                <h2 class="fw-800 mb-0 text-secondary" id="totZeroLama">0 <span class="fs-6 fw-normal text-muted">Pelanggan</span></h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-5">
+        <div class="col-md-4">
+            <div class="card card-lnp border-0 shadow-sm overflow-hidden">
+                <div class="card-header bg-danger text-white fw-800 py-3 small border-0">REKAP KODAL (SKIP)</div>
+                <div class="table-responsive p-0" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-hover mb-0 align-middle">
+                        <tbody id="bodySkip" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card card-lnp border-0 shadow-sm overflow-hidden">
+                <div class="card-header bg-warning text-dark fw-800 py-3 small border-0">REKAP TROUBLE</div>
+                <div class="table-responsive p-0" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-hover mb-0 align-middle">
+                        <tbody id="bodyTrouble" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card card-lnp border-0 shadow-sm overflow-hidden">
+                <div class="card-header bg-dark text-white fw-800 py-3 small border-0">METODE BACA (READ METHOD)</div>
+                <div class="table-responsive p-0" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-hover mb-0 align-middle">
+                        <tbody id="bodyMethods" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -131,7 +165,7 @@
             <span class="badge bg-secondary rounded-pill fw-normal" style="font-size: 0.6rem;">Pratinjau 300 Data Terakhir</span>
         </div>
         <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-            <table class="table table-hover mb-0 align-middle text-center">
+            <table class="table table-hover mb-0 align-middle text-center text-nowrap">
                 <thead class="table-dark" style="font-size: 0.75rem; position: sticky; top: 0; z-index: 1;">
                     <tr>
                         <th class="ps-3 text-start">Nomen / Nama</th>
@@ -140,12 +174,13 @@
                         <th><div class="th-content"><span class="clickable-info text-info" onclick="openMapping()">Vol_SB</span><i class="fa-solid fa-sort sort-icon" onclick="handleSort('Vol_SB')"></i></div></th>
                         <th class="bg-primary">V-Gap</th>
                         <th class="bg-primary">SB-Gap</th>
+                        <th>Metode</th>
                         <th>Status Audit</th>
                         <th class="pe-3">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="bodyMaster" style="font-size: 0.8rem;">
-                    <tr><td colspan="8" class="text-center text-muted py-4">Memuat data LNP...</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4">Memuat mesin analisa LNP...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -171,14 +206,19 @@
                         </thead>
                         <tbody class="small align-middle">
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-secondary">Zero / Tunggu</span></td>
-                                <td><code>Vol_Lap == 0</code></td>
-                                <td>Pemakaian air tidak bergerak dari bulan lalu.</td>
+                                <td class="ps-4 py-3"><span class="badge bg-primary">Zero Baru</span></td>
+                                <td><code>Vol_Lap == 0 & Bill > 0</code></td>
+                                <td>Bulan lalu bayar, sekarang pemakaian 0 (Indikasi meter baru macet).</td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td class="ps-4 py-3"><span class="badge bg-secondary">Zero Lama</span></td>
+                                <td><code>Vol_Lap == 0 & Bill == 0</code></td>
+                                <td>Pemakaian 0 berturut-turut (Rumah kosong lama).</td>
                             </tr>
                             <tr class="border-bottom">
                                 <td class="ps-4 py-3"><span class="badge bg-danger">Ekstrim 🚀</span></td>
-                                <td><code>Vol_Lap >= 75 m³</code></td>
-                                <td>Pemakaian sangat tinggi (Wajib cek kebocoran dalam).</td>
+                                <td><code>Naik > 100% OR Selisih > 50 m³</code></td>
+                                <td>Lonjakan drastis secara persentase maupun volume mutlak.</td>
                             </tr>
                             <tr class="border-bottom">
                                 <td class="ps-4 py-3"><span class="badge bg-warning text-dark">Turun 📉</span></td>
@@ -186,7 +226,7 @@
                                 <td>Pemakaian turun drastis (Potensi meter macet).</td>
                             </tr>
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-danger">Salah Catet</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-danger">Anomali</span></td>
                                 <td><code>Gap != 0</code></td>
                                 <td>Data tidak sinkron antara Petugas, Kantor, & Struk.</td>
                             </tr>
@@ -268,7 +308,7 @@
     }
 
     async function loadDataSBRS(cycle) {
-        document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="8" class="text-center py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>Menganalisa data...</td></tr>';
+        document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="9" class="text-center py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>Menganalisa data...</td></tr>';
         
         const url = `/api/get-summary-sbrs?cycle=${cycle}&sort_by=${currentSort.column}&order=${currentSort.order}&filter=${currentFilter}`;
         
@@ -279,10 +319,16 @@
             if (data.status === 'success') {
                 // Update Summary Cards
                 document.getElementById('totObjek').innerText = formatRibuan(data.summary.total_objek);
-                document.getElementById('totVolRiil').innerText = formatRibuan(data.summary.total_vol_sb); // Update ke Vol_SB
-                document.getElementById('totAnomali').innerText = formatRibuan(data.stats.anomali);
-                document.getElementById('totZero').innerText = formatRibuan(data.stats.zero);
+                document.getElementById('totVolRiil').innerText = formatRibuan(data.summary.total_vol_sb); 
+                document.getElementById('totZeroBaru').innerText = formatRibuan(data.stats.zero_baru);
+                document.getElementById('totZeroLama').innerText = formatRibuan(data.stats.zero_lama);
 
+                // Rekap Tabel Kecil (Skip, Trouble, Metode)
+                document.getElementById('bodySkip').innerHTML = data.skip.map(i => `<tr><td class="ps-3"><span class="badge bg-danger">${i.kode}</span></td><td class="text-muted" style="font-size:0.75rem">${i.ket}</td><td class="text-center fw-bold">${i.jml}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center py-2">Kosong</td></tr>';
+                document.getElementById('bodyTrouble').innerHTML = data.trouble.map(i => `<tr><td class="ps-3"><span class="badge bg-warning text-dark">${i.kode}</span></td><td class="text-muted" style="font-size:0.75rem">${i.ket}</td><td class="text-center fw-bold">${i.jml}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center py-2">Kosong</td></tr>';
+                document.getElementById('bodyMethods').innerHTML = data.methods.map(i => `<tr><td class="ps-3"><span class="badge bg-dark">${i.kode}</span></td><td class="text-muted" style="font-size:0.75rem">${i.ket}</td><td class="text-center fw-bold">${i.jml}</td></tr>`).join('') || '<tr><td colspan="3" class="text-center py-2">Kosong</td></tr>';
+
+                // Tabel Master
                 let html = '';
                 if(data.master.length > 0) {
                     data.master.forEach(row => {
@@ -290,9 +336,10 @@
                         let sbGapClass = row.sb_gap != 0 ? 'text-danger fw-bold bg-danger bg-opacity-10' : 'text-muted';
                         
                         let badgeClass = 'bg-secondary';
-                        if(row.status.includes('Ekstrim') || row.status.includes('Salah') || row.status.includes('Mundur')) badgeClass = 'bg-danger';
+                        if(row.status.includes('Ekstrim') || row.status.includes('Anomali') || row.status.includes('Mundur')) badgeClass = 'bg-danger';
                         else if(row.status.includes('Turun')) badgeClass = 'bg-warning text-dark';
-                        else if(row.status.includes('Mutasi')) badgeClass = 'bg-info text-dark';
+                        else if(row.status.includes('Zero Baru')) badgeClass = 'bg-primary';
+                        else if(row.status.includes('Zero Lama')) badgeClass = 'bg-secondary';
                         else if(row.status === 'Normal') badgeClass = 'bg-success';
 
                         html += `
@@ -306,6 +353,7 @@
                             <td class="fw-bold text-info">${row.vol_sb}</td>
                             <td class="${vGapClass}">${row.v_gap}</td>
                             <td class="${sbGapClass}">${row.sb_gap}</td>
+                            <td><span class="badge bg-light text-dark border" title="${row.method_full}">${row.method}</span></td>
                             <td><span class="badge ${badgeClass} shadow-sm" style="font-size: 0.65rem;">${row.status}</span></td>
                             <td class="pe-3">
                                 <button class="btn btn-sm btn-light border" onclick="openEdit(${row.rowid}, ${row.vol_lap}, ${row.vol_bill}, ${row.vol_sb}, ${row.vol_riil}, ${row.hb})">
@@ -315,13 +363,13 @@
                         </tr>`;
                     });
                 } else {
-                    html = '<tr><td colspan="8" class="text-center py-4">Data tidak ditemukan.</td></tr>';
+                    html = '<tr><td colspan="9" class="text-center py-4">Data tidak ditemukan.</td></tr>';
                 }
                 document.getElementById('bodyMaster').innerHTML = html;
             }
         } catch(e) { 
             console.error(e);
-            document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Gagal memuat data dari server.</td></tr>';
+            document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">Gagal memuat data dari server.</td></tr>';
         }
     }
 
