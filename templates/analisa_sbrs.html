@@ -1,122 +1,111 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analisa SBRS - AREA SERVICE</title>
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Desain Modern & Clean Khusus Analisa SBRS */
+    .header-sbrs { 
+        background: white; padding: 20px 25px; border-radius: 16px; 
+        margin-bottom: 25px; display: flex; justify-content: space-between; 
+        align-items: center; border: 1px solid #e2e8f0; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
     
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    .card-lnp { 
+        background: #ffffff; border: none; border-radius: 16px; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+    }
 
-    <style>
-        :root {
-            --sbrs-dark: #0f172a;
-            --sbrs-blue: #2563eb;
-            --sbrs-info: #0891b2;
-            --sbrs-bg: #f8fafc;
-        }
+    /* Filter Chips Elegan */
+    .filter-chip { 
+        cursor: pointer; transition: all 0.2s ease; border: 1px solid #e2e8f0; 
+        background: white; color: #64748b; font-weight: 600; 
+        border-radius: 20px; padding: 6px 18px; font-size: 0.85rem;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    .filter-chip:hover { background: #f8fafc; border-color: #cbd5e1; transform: translateY(-1px); }
+    .filter-chip.active { background: #0f172a; color: white; border-color: #0f172a; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.2); }
+    
+    /* Tabel Clean */
+    .table-responsive { border-radius: 0 0 16px 16px; }
+    .table thead th { 
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; 
+        font-weight: 700; white-space: nowrap; vertical-align: middle;
+    }
+    .sort-icon { cursor: pointer; color: #94a3b8; margin-left: 8px; font-size: 0.8rem; transition: 0.2s; }
+    .sort-icon:hover { color: #fff; }
+    .clickable-info { cursor: help; border-bottom: 1px dotted rgba(255,255,255,0.4); }
+    
+    .th-content { display: flex; align-items: center; justify-content: center; }
+</style>
 
-        body { background: var(--sbrs-bg); font-family: 'Plus Jakarta Sans', sans-serif; color: #1e293b; }
-        
-        .sidebar-sbrs { 
-            background: var(--sbrs-dark); color: white; padding: 25px; 
-            height: 100vh; position: fixed; width: 260px; 
-            box-shadow: 4px 0 10px rgba(0,0,0,0.1); 
-            z-index: 1000;
-        }
-        
-        .main-content { margin-left: 260px; padding: 40px; }
-        
-        .card-lnp { border: none; border-radius: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); transition: 0.3s; position: relative; }
-        
-        .header-sbrs { 
-            background: white; padding: 25px; border-radius: 20px; 
-            margin-bottom: 30px; display: flex; justify-content: space-between; 
-            align-items: center; border: 1px solid #e2e8f0; 
-        }
-
-        .table-responsive { border-radius: 15px; border: 1px solid #e2e8f0; background: white; }
-        .table thead { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        .sort-icon { cursor: pointer; color: #94a3b8; margin-left: 5px; font-size: 0.7rem; transition: 0.3s; }
-        .sort-icon:hover { color: #fff; }
-        .th-content { display: flex; align-items: center; justify-content: center; }
-        .clickable-info { cursor: help; border-bottom: 1px dotted rgba(255,255,255,0.5); }
-        
-        .filter-chip { cursor: pointer; transition: 0.2s; border: 1px solid #e2e8f0; background: white; color: #64748b; font-weight: 700; }
-        .filter-chip.active { background: var(--sbrs-dark); color: white; border-color: var(--sbrs-dark); }
-        .anomali-row { background-color: rgba(239, 68, 68, 0.05) !important; }
-    </style>
-</head>
-<body>
-
-<div class="sidebar-sbrs">
-    <div class="mb-4 text-center">
-        <i class="fa-solid fa-droplet text-info fa-2xl mb-3"></i>
-        <h5 class="fw-800 mb-0">SBRS SYSTEM</h5>
-        <small class="opacity-50">Area Service Integrated</small>
-    </div>
-    <hr class="opacity-10">
-    <div class="nav flex-column nav-pills">
-        <a class="nav-link text-white mb-2" href="/summary-sbrs"><i class="fa-solid fa-chart-pie me-2"></i> Ringkasan (Dashboard)</a>
-        <a class="nav-link text-white active mb-2" href="/analisa-sbrs"><i class="fa-solid fa-microscope me-2"></i> Detail Analisa LNP</a>
-        <a class="nav-link text-white mb-2" href="/upload-sbrs"><i class="fa-solid fa-file-import me-2"></i> Upload File</a>
-    </div>
-</div>
-
-<div class="main-content">
-    <div class="header-sbrs shadow-sm">
+<div class="container-fluid mt-3">
+    <div class="header-sbrs animate__animated animate__fadeInDown">
         <div>
-            <h4 class="fw-800 mb-1">Tabel Master Analisa LNP</h4>
-            <p class="text-muted small mb-0">Halaman ini memuat seluruh data pelanggan secara rinci.</p>
+            <h4 class="fw-800 mb-1 text-dark">Tabel Master Analisa LNP</h4>
+            <p class="text-muted small mb-0">Halaman ini memuat seluruh data pelanggan secara rinci berdasarkan parameter filter.</p>
         </div>
-        <div class="d-flex gap-3">
-            <button class="btn btn-outline-primary fw-bold" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
-                <i class="fa-solid fa-circle-info me-2"></i> INFO ANALISA
+        <div class="d-flex gap-2">
+            <button class="btn btn-light border fw-bold text-secondary" style="border-radius: 10px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
+                <i class="fa-solid fa-circle-info"></i> Info Logika
             </button>
-            <button class="btn btn-light border-secondary fw-bold px-4" style="border-radius: 12px;" onclick="window.history.back()">
-                <i class="fa-solid fa-arrow-left me-2"></i> KEMBALI
+            <button class="btn btn-light border fw-bold text-secondary px-3" style="border-radius: 10px;" onclick="window.history.back()">
+                <i class="fa-solid fa-arrow-left"></i> Kembali
             </button>
-            <button class="btn btn-dark fw-bold px-4" style="border-radius: 12px;" onclick="downloadExcel()">
+            <button class="btn btn-dark fw-bold px-4 shadow-sm" style="border-radius: 10px;" onclick="downloadExcel()">
                 <i class="fa-solid fa-download me-2"></i> EXCEL
             </button>
         </div>
     </div>
 
-    <div class="d-flex flex-wrap gap-2 mb-4" id="chipContainer">
-        <button class="btn btn-sm filter-chip rounded-pill px-3" id="chip_all" onclick="applyFilter('all')">Semua Data</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 text-danger border-danger" id="chip_ekstrem" onclick="applyFilter('ekstrem')">🔥 Ekstrim</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 text-warning border-warning" id="chip_turun" onclick="applyFilter('turun')">📉 Turun</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 text-primary border-primary" id="chip_zero_baru" onclick="applyFilter('zero_baru')">🔵 Zero Baru</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 text-secondary border-secondary" id="chip_zero_lama" onclick="applyFilter('zero_lama')">🔘 Zero Lama</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 text-danger" id="chip_skip" onclick="applyFilter('skip')">🚫 Skip</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 text-warning" id="chip_trouble" onclick="applyFilter('trouble')">🔧 Trouble</button>
-        <button class="btn btn-sm filter-chip rounded-pill px-3 text-dark" id="chip_anomali" onclick="applyFilter('anomali')">⚠️ Anomali Gap</button>
+    <div class="d-flex flex-wrap gap-2 mb-4 animate__animated animate__fadeIn" id="chipContainer">
+        <div class="filter-chip" id="chip_all" onclick="applyFilter('all')">
+            Semua Data
+        </div>
+        <div class="filter-chip text-danger" id="chip_ekstrem" onclick="applyFilter('ekstrem')">
+            <i class="fa-solid fa-arrow-trend-up"></i> Ekstrim
+        </div>
+        <div class="filter-chip text-warning" id="chip_turun" onclick="applyFilter('turun')">
+            <i class="fa-solid fa-arrow-trend-down"></i> Turun
+        </div>
+        <div class="filter-chip text-primary" id="chip_zero_baru" onclick="applyFilter('zero_baru')">
+            <i class="fa-regular fa-circle-dot"></i> Zero Baru
+        </div>
+        <div class="filter-chip text-secondary" id="chip_zero_lama" onclick="applyFilter('zero_lama')">
+            <i class="fa-regular fa-circle"></i> Zero Lama
+        </div>
+        <div class="filter-chip text-danger" id="chip_skip" onclick="applyFilter('skip')">
+            <i class="fa-solid fa-ban"></i> Skip
+        </div>
+        <div class="filter-chip text-warning" id="chip_trouble" onclick="applyFilter('trouble')">
+            <i class="fa-solid fa-screwdriver-wrench"></i> Trouble
+        </div>
+        <div class="filter-chip text-dark border-dark" id="chip_anomali" onclick="applyFilter('anomali')">
+            <i class="fa-solid fa-triangle-exclamation"></i> Anomali Gap
+        </div>
     </div>
 
-    <div id="tabelMasterContainer" class="card card-lnp border-0 shadow-sm overflow-hidden mb-5">
-        <div class="card-header bg-white fw-800 py-3 d-flex justify-content-between align-items-center border-0">
-            <span id="labelTabel">Detail Data Pelanggan</span>
-            <span class="badge bg-secondary rounded-pill fw-normal" style="font-size: 0.6rem;">Limit 1000 Baris</span>
+    <div id="tabelMasterContainer" class="card card-lnp border-0 shadow-sm overflow-hidden mb-5 animate__animated animate__fadeInUp">
+        <div class="card-header bg-white fw-800 py-3 d-flex justify-content-between align-items-center border-bottom border-light">
+            <span id="labelTabel" class="text-dark">Detail Data Pelanggan</span>
+            <span class="badge bg-light text-secondary border rounded-pill fw-bold" style="font-size: 0.7rem;">Limit 1000 Baris</span>
         </div>
         <div class="table-responsive" style="height: 65vh; overflow-y: auto;">
             <table class="table table-hover mb-0 align-middle text-center text-nowrap">
-                <thead class="table-dark" style="font-size: 0.75rem; position: sticky; top: 0; z-index: 1;">
+                <thead class="table-dark" style="position: sticky; top: 0; z-index: 1;">
                     <tr>
-                        <th class="ps-3 text-start">Nomen / Nama</th>
+                        <th class="ps-4 text-start">Nomen / Nama</th>
                         <th><div class="th-content"><span class="clickable-info" onclick="openMapping()">Vol_Lap</span><i class="fa-solid fa-sort sort-icon" onclick="handleSort('Vol_Lap')"></i></div></th>
                         <th><div class="th-content"><span class="clickable-info" onclick="openMapping()">Vol_Bill</span><i class="fa-solid fa-sort sort-icon" onclick="handleSort('Vol_Bill')"></i></div></th>
                         <th><div class="th-content"><span class="clickable-info text-info" onclick="openMapping()">Vol_SB</span><i class="fa-solid fa-sort sort-icon" onclick="handleSort('Vol_SB')"></i></div></th>
-                        <th class="bg-primary">V-Gap</th>
-                        <th class="bg-primary">SB-Gap</th>
+                        <th class="bg-primary bg-opacity-75">V-Gap</th>
+                        <th class="bg-primary bg-opacity-75">SB-Gap</th>
                         <th>Metode Baca</th>
                         <th class="text-warning">Pesan Khusus</th>
                         <th>Status Audit</th>
-                        <th class="pe-3">Aksi</th>
+                        <th class="pe-4">Aksi</th>
                     </tr>
                 </thead>
-                <tbody id="bodyMaster" style="font-size: 0.8rem;">
+                <tbody id="bodyMaster" style="font-size: 0.85rem; color: #334155;">
                     <tr><td colspan="10" class="text-center text-muted py-5"><i class="fa-solid fa-spinner fa-spin me-2"></i>Memuat mesin analisa LNP...</td></tr>
                 </tbody>
             </table>
@@ -126,46 +115,46 @@
 
 <div class="modal fade" id="modalMapping" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 25px; overflow: hidden;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
             <div class="modal-header bg-dark text-white border-0 py-4">
-                <h5 class="fw-800 mb-0"><i class="fa-solid fa-microscope text-info me-2"></i>Parameter Audit & Analisa LNP</h5>
+                <h6 class="fw-800 mb-0 text-uppercase tracking-wide"><i class="fa-solid fa-microscope text-info me-2"></i>Parameter Audit & Analisa LNP</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0">
-                <div class="table-responsive">
+                <div class="table-responsive border-0">
                     <table class="table table-borderless mb-0">
                         <thead class="bg-light small fw-bold text-muted">
                             <tr>
-                                <th class="ps-4">KATEGORI</th>
-                                <th>LOGIKA SISTEM</th>
-                                <th>DESKRIPSI ANALISA</th>
+                                <th class="ps-4 py-3">KATEGORI</th>
+                                <th class="py-3">LOGIKA SISTEM</th>
+                                <th class="py-3">DESKRIPSI ANALISA</th>
                             </tr>
                         </thead>
                         <tbody class="small align-middle">
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-primary">Zero Baru</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1">Zero Baru</span></td>
                                 <td><code>Vol_Lap == 0 & Bill > 0</code></td>
-                                <td>Bulan lalu bayar, sekarang pemakaian 0 (Indikasi meter baru macet).</td>
+                                <td class="text-muted">Bulan lalu bayar, sekarang pemakaian 0 (Indikasi meter baru macet).</td>
                             </tr>
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-secondary">Zero Lama</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-secondary bg-opacity-10 text-secondary px-2 py-1">Zero Lama</span></td>
                                 <td><code>Vol_Lap == 0 & Bill == 0</code></td>
-                                <td>Pemakaian 0 berturut-turut (Rumah kosong lama).</td>
+                                <td class="text-muted">Pemakaian 0 berturut-turut (Rumah kosong lama).</td>
                             </tr>
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-danger">Ekstrim 🚀</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1">Ekstrim 🚀</span></td>
                                 <td><code>Naik > 100% OR Selisih > 50 m³</code></td>
-                                <td>Lonjakan drastis secara persentase maupun volume mutlak.</td>
+                                <td class="text-muted">Lonjakan drastis secara persentase maupun volume mutlak.</td>
                             </tr>
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-warning text-dark">Turun 📉</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-warning bg-opacity-10 text-warning px-2 py-1">Turun 📉</span></td>
                                 <td><code>Vol_Lap < (Bill * 40%)</code></td>
-                                <td>Pemakaian turun drastis (Potensi meter macet).</td>
+                                <td class="text-muted">Pemakaian turun drastis (Potensi meter macet).</td>
                             </tr>
-                            <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-danger">Anomali</span></td>
+                            <tr>
+                                <td class="ps-4 py-3"><span class="badge bg-dark bg-opacity-10 text-dark px-2 py-1">Anomali</span></td>
                                 <td><code>Gap != 0</code></td>
-                                <td>Data tidak sinkron antara Petugas, Kantor, & Struk.</td>
+                                <td class="text-muted">Data tidak sinkron antara Petugas, Kantor, & Struk.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -178,48 +167,47 @@
 <div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0" style="border-radius: 20px;">
-            <div class="modal-header border-0 pb-0">
-                <h5 class="fw-800 mb-0">Koreksi Data LNP</h5>
+            <div class="modal-header border-bottom border-light pb-3 pt-4 px-4">
+                <h5 class="fw-800 text-dark mb-0"><i class="fa-solid fa-pen-to-square text-primary me-2"></i>Koreksi Data LNP</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4 py-4">
                 <form id="formEdit">
                     <input type="hidden" id="editRowId">
                     <div class="row g-3">
                         <div class="col-4">
-                            <label class="small fw-bold">Vol_Lap</label>
-                            <input type="number" id="editLap" class="form-control text-center fw-bold">
+                            <label class="small fw-bold text-muted mb-1">Vol_Lap</label>
+                            <input type="number" id="editLap" class="form-control text-center fw-bold shadow-sm">
                         </div>
                         <div class="col-4">
-                            <label class="small fw-bold">Vol_Bill</label>
-                            <input type="number" id="editBill" class="form-control text-center fw-bold">
+                            <label class="small fw-bold text-muted mb-1">Vol_Bill</label>
+                            <input type="number" id="editBill" class="form-control text-center fw-bold shadow-sm">
                         </div>
                         <div class="col-4">
-                            <label class="small fw-bold text-info">Vol_SB</label>
-                            <input type="number" id="editSB" class="form-control border-info text-center fw-bold">
+                            <label class="small fw-bold text-info mb-1">Vol_SB</label>
+                            <input type="number" id="editSB" class="form-control border-info text-info text-center fw-bold shadow-sm">
                         </div>
-                        <div class="col-6 mt-3">
-                            <label class="small fw-bold text-primary">Vol_Riil (Audit)</label>
-                            <input type="number" id="editRiil" class="form-control border-primary text-center">
+                        <div class="col-6 mt-4">
+                            <label class="small fw-bold text-primary mb-1">Vol_Riil (Audit)</label>
+                            <input type="number" id="editRiil" class="form-control border-primary text-center shadow-sm">
                         </div>
-                        <div class="col-6 mt-3">
-                            <label class="small fw-bold">Selisih HB</label>
-                            <input type="number" id="editHB" class="form-control text-center">
+                        <div class="col-6 mt-4">
+                            <label class="small fw-bold text-muted mb-1">Selisih HB</label>
+                            <input type="number" id="editHB" class="form-control text-center shadow-sm">
                         </div>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-light fw-bold rounded-pill" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary fw-bold px-4 rounded-pill" onclick="saveEdit()">Simpan Koreksi</button>
+            <div class="modal-footer border-0 px-4 pb-4">
+                <button type="button" class="btn btn-light fw-bold border rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary fw-bold px-4 rounded-pill shadow-sm" onclick="saveEdit()">Simpan Koreksi</button>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+{% block scripts %}
 <script>
     // Ambil Parameter dari URL (Contoh: ?cycle=15&filter=ekstrem)
     const urlParams = new URLSearchParams(window.location.search);
@@ -249,11 +237,11 @@
     }
 
     async function loadDataMaster() {
-        document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="10" class="text-center py-5"><i class="fa-solid fa-spinner fa-spin me-2"></i>Mengambil Data LNP...</td></tr>';
+        document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="10" class="text-center py-5 text-primary"><i class="fa-solid fa-spinner fa-spin fa-2x mb-3 d-block"></i>Menarik Data LNP...</td></tr>';
         
         // Ganti judul tabel sesuai filter
         let namaFilter = currentFilter.replace('_', ' ').toUpperCase();
-        document.getElementById('labelTabel').innerHTML = `Menampilkan Data: <b>${namaFilter}</b> (Cycle: ${currentCycle})`;
+        document.getElementById('labelTabel').innerHTML = `Menampilkan: <b>${namaFilter}</b> (Cycle: ${currentCycle})`;
 
         const url = `/api/get-summary-sbrs?cycle=${currentCycle}&sort_by=${currentSort.column}&order=${currentSort.order}&filter=${currentFilter}`;
         
@@ -265,51 +253,51 @@
                 let html = '';
                 if(data.master && data.master.length > 0) {
                     data.master.forEach(row => {
-                        let vGapClass = row.v_gap != 0 ? 'text-danger fw-bold bg-danger bg-opacity-10' : '';
-                        let sbGapClass = row.sb_gap != 0 ? 'text-danger fw-bold bg-danger bg-opacity-10' : '';
+                        let vGapClass = row.v_gap != 0 ? 'text-danger fw-bold bg-danger bg-opacity-10' : 'text-muted';
+                        let sbGapClass = row.sb_gap != 0 ? 'text-danger fw-bold bg-danger bg-opacity-10' : 'text-muted';
                         
-                        let badgeClass = 'bg-secondary';
-                        if(row.status.includes('Ekstrim') || row.status.includes('Anomali')) badgeClass = 'bg-danger';
-                        else if(row.status.includes('Turun')) badgeClass = 'bg-warning text-dark';
-                        else if(row.status.includes('Zero Baru')) badgeClass = 'bg-primary';
-                        else if(row.status.includes('Zero Lama')) badgeClass = 'bg-secondary';
-                        else if(row.status === 'Normal') badgeClass = 'bg-success';
+                        // Smart Soft Badges
+                        let badgeClass = 'bg-secondary bg-opacity-10 text-secondary border-secondary';
+                        if(row.status.includes('Ekstrim') || row.status.includes('Anomali')) badgeClass = 'bg-danger bg-opacity-10 text-danger border-danger';
+                        else if(row.status.includes('Turun')) badgeClass = 'bg-warning bg-opacity-10 text-warning border-warning';
+                        else if(row.status.includes('Zero Baru')) badgeClass = 'bg-primary bg-opacity-10 text-primary border-primary';
+                        else if(row.status.includes('Zero Lama')) badgeClass = 'bg-secondary bg-opacity-10 text-secondary border-secondary';
+                        else if(row.status === 'Normal') badgeClass = 'bg-success bg-opacity-10 text-success border-success';
 
-                        // Kolom Pesan Khusus (warna kuning jika ada isi)
+                        // Kolom Pesan Khusus
                         let spclMsg = row.spcl_msg && row.spcl_msg !== '-' && row.spcl_msg !== 'nan' ? row.spcl_msg : '-';
-                        let spclClass = spclMsg !== '-' ? 'text-warning fw-bold bg-warning bg-opacity-10 rounded' : 'text-muted';
-                        
+                        let spclClass = spclMsg !== '-' ? 'text-warning fw-bold bg-warning bg-opacity-10 rounded' : 'text-muted opacity-50';
                         let readMethod = row.method || '-';
 
                         html += `
-                        <tr>
-                            <td class="ps-3 text-start">
-                                <div class="fw-800 mb-0 text-primary">${row.nomen}</div>
-                                <small class="text-muted" style="font-size: 0.7rem;">${row.nama}</small>
+                        <tr class="border-bottom border-light">
+                            <td class="ps-4 text-start">
+                                <div class="fw-bold text-dark" style="font-size: 0.9rem;">${row.nomen}</div>
+                                <small class="text-muted" style="font-size: 0.75rem;">${row.nama}</small>
                             </td>
-                            <td>${row.vol_lap}</td>
-                            <td>${row.vol_bill}</td>
+                            <td class="fw-medium">${row.vol_lap}</td>
+                            <td class="fw-medium">${row.vol_bill}</td>
                             <td class="fw-bold text-info">${row.vol_sb}</td>
                             <td class="${vGapClass}">${row.v_gap}</td>
                             <td class="${sbGapClass}">${row.sb_gap}</td>
-                            <td><span class="badge bg-light text-dark border" title="${row.method_full || readMethod}">${readMethod}</span></td>
-                            <td class="${spclClass} text-wrap" style="max-width: 180px; font-size: 0.7rem; padding: 4px;">${spclMsg}</td>
-                            <td><span class="badge ${badgeClass} shadow-sm" style="font-size: 0.65rem;">${row.status}</span></td>
-                            <td class="pe-3">
-                                <button class="btn btn-sm btn-light border shadow-sm" onclick="openEdit(${row.rowid}, ${row.vol_lap}, ${row.vol_bill}, ${row.vol_sb}, ${row.vol_riil || row.vol_lap}, ${row.hb || 31})">
+                            <td><span class="badge bg-light text-secondary border fw-medium px-2 py-1" title="${row.method_full || readMethod}">${readMethod}</span></td>
+                            <td class="${spclClass} text-wrap" style="max-width: 180px; font-size: 0.75rem; padding: 6px;">${spclMsg}</td>
+                            <td><span class="badge border ${badgeClass} px-2 py-1" style="font-size: 0.7rem;">${row.status}</span></td>
+                            <td class="pe-4">
+                                <button class="btn btn-sm btn-light border shadow-sm rounded-circle" style="width: 32px; height: 32px;" onclick="openEdit(${row.rowid}, ${row.vol_lap}, ${row.vol_bill}, ${row.vol_sb}, ${row.vol_riil || row.vol_lap}, ${row.hb || 31})">
                                     <i class="fa-solid fa-pen-to-square text-primary"></i>
                                 </button>
                             </td>
                         </tr>`;
                     });
                 } else {
-                    html = `<tr><td colspan="10" class="text-center py-5 text-muted">Tidak ada data untuk filter <b>${currentFilter.toUpperCase()}</b> pada Cycle ini.</td></tr>`;
+                    html = `<tr><td colspan="10" class="text-center py-5 text-muted"><i class="fa-solid fa-folder-open fa-2x mb-3 d-block opacity-25"></i>Tidak ada data untuk filter <b>${currentFilter.toUpperCase()}</b> pada Cycle ini.</td></tr>`;
                 }
                 document.getElementById('bodyMaster').innerHTML = html;
             }
         } catch(e) { 
             console.error(e);
-            document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">Gagal memuat data dari server.</td></tr>';
+            document.getElementById('bodyMaster').innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">Gagal memuat data dari server. Pastikan koneksi backend aktif.</td></tr>';
         }
     }
 
@@ -333,17 +321,23 @@
             hb: document.getElementById('editHB').value
         };
 
-        const res = await fetch('/api/edit-sbrs', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        });
-        
-        const result = await res.json();
-        if(result.status === 'success') {
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data LNP diperbarui!', showConfirmButton: false, timer: 2000 });
-            loadDataMaster(); // Refresh tabel saat ini
-            bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();
+        try {
+            const res = await fetch('/api/edit-sbrs', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            const result = await res.json();
+            if(result.status === 'success') {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Data LNP diperbarui!', showConfirmButton: false, timer: 2000 });
+                loadDataMaster(); // Refresh tabel saat ini
+                bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();
+            } else {
+                Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', text: result.message });
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Gagal terhubung ke server saat menyimpan.' });
         }
     }
 
@@ -359,5 +353,4 @@
         window.location.href = `/api/download-sbrs-excel?cycle=${currentCycle}`;
     }
 </script>
-</body>
-</html>
+{% endblock %}
