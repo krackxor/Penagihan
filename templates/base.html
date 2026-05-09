@@ -259,8 +259,17 @@
                     </a>
                     
                     <a href="/summary-sbrs" class="nav-link-custom {% if request.path == '/summary-sbrs' %}active-menu{% endif %}">
-                        <i class="fa-solid fa-chart-line text-info"></i>Summary LNP
+                        <i class="fa-solid fa-chart-pie text-info"></i>Dashboard SBRS
                     </a>
+
+                    <a href="/analisa-sbrs" class="nav-link-custom {% if request.path == '/analisa-sbrs' %}active-menu{% endif %}">
+                        <i class="fa-solid fa-microscope text-warning"></i>Detail Analisa LNP
+                    </a>
+
+                    <a href="/" class="nav-link-custom mt-3 border border-secondary" style="background-color: #f8fafc;">
+                        <i class="fa-solid fa-arrow-left text-secondary"></i>Kembali ke Beranda
+                    </a>
+
                     <div class="menu-divider"></div>
                     {% endif %}
                 {% endif %}
