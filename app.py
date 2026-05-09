@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V15.0 Full Anti-Double & Audit Engine)
+Flask Application - Area Service Integrated System (V16.0 Full Anti-Double & Audit Engine)
 Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -18,7 +18,7 @@ Fixes Log:
 13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
 14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP dengan Auto-Detect Cycle & Periode.
 15. ✅ API SBRS: Tambahan API Get-Summary (Bulletproof) & Download Excel LNP.
-16. ✅ V15.0 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid).
+16. ✅ V16.0 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Split Analisa).
 """
 
 import os
@@ -52,7 +52,7 @@ from api.ekstrem import ekstrem_bp
 from api.drop import drop_bp 
 from api.map_gis import map_bp 
 
-# --- MAPPING KAMUS DATA (V15.0) ---
+# --- MAPPING KAMUS DATA (V16.0) ---
 METHOD_MAP = {
     "30/PE": "System Estimate", 
     "35/PS": "Service Provider Estimate", 
@@ -142,8 +142,9 @@ def create_app():
             'pelanggan_ekstrem_page',
             'pelanggan_drop_page',
             'peta_sebaran_page',
-            'upload_sbrs_page',    # Proteksi Modul SBRS LNP
-            'summary_sbrs_page'    # Proteksi Modul SBRS LNP
+            'upload_sbrs_page',    
+            'summary_sbrs_page',
+            'analisa_sbrs_page'    # Ditambahkan agar aman
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -398,7 +399,7 @@ def create_app():
     def peta_sebaran_page():
         return render_template('peta_sebaran.html')
 
-    # --- MODUL BARU: SBRS MEGA-MERGE LNP (V15.0 ANTI-DOUBLE) ---
+    # --- MODUL BARU: SBRS MEGA-MERGE LNP (V16.0) ---
     @app.route('/upload-sbrs')
     def upload_sbrs_page():
         return render_template('upload_sbrs.html')
@@ -406,6 +407,10 @@ def create_app():
     @app.route('/summary-sbrs')
     def summary_sbrs_page():
         return render_template('summary_sbrs.html')
+
+    @app.route('/analisa-sbrs')
+    def analisa_sbrs_page():
+        return render_template('analisa_sbrs.html')
 
     @app.route('/api/process-sbrs', methods=['POST'])
     def api_process_sbrs():
@@ -542,7 +547,10 @@ def create_app():
                 # Ambil Kode Analisa
                 s_raw = str(d.get('cmr_skip_code', '0')).strip().upper()
                 t_raw = str(d.get('cmr_trbl1_code', '0')).strip().upper()
-                m_raw = str(d.get('cmr_read_method', '-')).strip()
+                
+                # Baca metode & pesan dari header
+                m_raw = str(d.get('Read_Method', d.get('cmr_read_method', '-'))).strip()
+                spcl_msg = str(d.get('cmr_chg_spcl_msg', '-')).strip()
 
                 if s_raw not in ['0', 'NAN', '', 'NONE']: skip_count[s_raw] = skip_count.get(s_raw, 0) + 1
                 if t_raw not in ['0', 'NAN', '', 'NONE']: trbl_count[t_raw] = trbl_count.get(t_raw, 0) + 1
@@ -584,6 +592,9 @@ def create_app():
                 elif status_filter == 'turun' and "Turun" not in tags: match = False
                 elif status_filter == 'zero_baru' and "Zero Baru" not in tags: match = False
                 elif status_filter == 'zero_lama' and "Zero Lama" not in tags: match = False
+                elif status_filter == 'anomali' and "Anomali" not in tags: match = False
+                elif status_filter == 'skip' and s_raw in ['0', 'NAN', '', 'NONE']: match = False
+                elif status_filter == 'trouble' and t_raw in ['0', 'NAN', '', 'NONE']: match = False
 
                 if match:
                     total_vol_sb += v_sb
@@ -592,7 +603,7 @@ def create_app():
                         "vol_lap": v_lap, "vol_bill": v_bill, "vol_sb": v_sb, "v_gap": v_gap, "sb_gap": sb_gap,
                         "status": " / ".join(tags) if tags else "Normal",
                         "method": m_raw, "method_full": METHOD_MAP.get(m_raw, m_raw),
-                        "hb": d.get('Selisih_HB', 31), "vol_riil": d.get('Vol_Riil', v_lap)
+                        "spcl_msg": spcl_msg, "hb": d.get('Selisih_HB', 31), "vol_riil": d.get('Vol_Riil', v_lap)
                     })
 
             return jsonify({
@@ -602,7 +613,7 @@ def create_app():
                 "skip": [{"kode": k, "ket": SKIP_MAP.get(k, "Lain-lain"), "jml": v} for k, v in skip_count.items()],
                 "trouble": [{"kode": k, "ket": TROUBLE_MAP.get(k, "Lain-lain"), "jml": v} for k, v in trbl_count.items()],
                 "methods": [{"kode": k, "ket": METHOD_MAP.get(k, k), "jml": v} for k, v in meth_count.items()],
-                "master": master_data[:300]
+                "master": master_data[:1000] # Limit diubah jadi 1000 agar data analisa lebih lengkap
             })
 
         except Exception as e:
