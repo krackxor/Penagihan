@@ -12,7 +12,7 @@ from api.sbrs import sbrs_bp
 def sync_database_schema(app):
     """
     Fungsi Sinergi Self-Healing: Otomatis sinkronisasi struktur PostgreSQL.
-    Memasukkan semua kolom yang dibutuhkan agar tidak terjadi 'UndefinedColumn' error.
+    Menjamin ketersediaan kolom kontainer 'raw_data' untuk menampung semua header.
     """
     with app.app_context():
         inspector = inspect(db.engine)
@@ -21,7 +21,8 @@ def sync_database_schema(app):
         if 'data_sbrs' in inspector.get_table_names():
             columns = [c['name'] for c in inspector.get_columns('data_sbrs')]
             
-            # DAFTAR KOLOM WAJIB (Termasuk status_audit untuk fix error)
+            # DAFTAR KOLOM WAJIB
+            # Ditambahkan 'raw_data' dengan tipe JSONB agar semua header tersimpan
             required_columns = [
                 ('periode', 'VARCHAR(10)'),
                 ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
@@ -29,7 +30,8 @@ def sync_database_schema(app):
                 ('pcez', 'VARCHAR(20)'),
                 ('nama', 'VARCHAR(150)'),
                 ('alamat', 'TEXT'),
-                ('status_audit', 'INTEGER DEFAULT 0') # <-- FIX UNTUK ERROR TADI
+                ('status_audit', 'INTEGER DEFAULT 0'),
+                ('raw_data', 'JSONB') # <-- Kontainer untuk semua header asli
             ]
             
             with db.engine.connect() as conn:
@@ -45,19 +47,19 @@ def create_app():
     # --- 2. KONFIGURASI SINERGI & KEAMANAN ---
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     
-    # Koneksi DB: Sangat stabil untuk data raksasa
+    # Koneksi DB: Stabil untuk jutaan baris data SBRS
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = 'sinergi-pam-jaya-2026'
     
-    # Folder Media & Upload
+    # Folder Media & Batas Upload Raksasa
     app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'kunjungan')
-    app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # Limit 1 GB
+    app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # Dukung file hingga 1 GB
 
     # --- 3. INISIALISASI & FOLDER AUTO-CREATE ---
     db.init_app(app)
 
-    # Memastikan folder sistem tersedia
+    # Memastikan ekosistem folder siap pakai untuk log dan foto
     os.makedirs(os.path.join(BASE_DIR, 'instance'), exist_ok=True)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR, 'static', 'uploads', 'materi'), exist_ok=True)
@@ -71,6 +73,7 @@ def create_app():
     # --- 5. NAVIGASI UTAMA ---
     @app.route('/')
     def index():
+        """Redirect otomatis ke jantung operasional Sunter."""
         return redirect(url_for('monitoring.list_tagihan', ab='AB Sunter'))
 
     @app.route('/upload')
@@ -83,7 +86,7 @@ def create_app():
 
     # --- 6. STARTUP PROTOCOL ---
     with app.app_context():
-        # Buat tabel jika benar-benar kosong
+        # Buat tabel dasar jika benar-benar baru
         db.create_all()
     
     # Jalankan audit kolom otomatis (Self-Healing)
@@ -92,6 +95,6 @@ def create_app():
     return app
 
 if __name__ == '__main__':
-    # Aktifkan debug=True untuk memantau log perbaikan kolom di terminal
+    # Debug=True mempermudah Bos melihat log "SINERGI-FIX" di terminal
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
