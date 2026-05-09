@@ -1,53 +1,116 @@
-sbrs_analisa.html{% extends "base.html" %}
-{% block title %}Analisa Detail SBRS{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}Analisa Detail SBRS - 1 Sinergi{% endblock %}
+
+{% block extra_css %}
+<style>
+    .anomaly-badge {
+        font-size: 0.75rem;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+    .status-badge {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    .btn-audit {
+        border-radius: 8px;
+        font-size: 0.8rem;
+        transition: 0.3s;
+    }
+    .btn-audit:hover {
+        transform: scale(1.05);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="fw-bold">Detail Kasus Anomali</h3>
-    <a href="/sbrs/summary?ab={{ current_ab }}" class="btn btn-outline-secondary btn-sm">Kembali ke Summary</a>
+<div class="row align-items-center mb-4">
+    <div class="col-md-7">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="/sbrs/summary?ab={{ current_ab }}&periode={{ periode_aktif }}">Summary SBRS</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Detail Kasus</li>
+            </ol>
+        </nav>
+        <h3 class="fw-bold mb-0">
+            <i class="fas fa-microscope text-primary me-2"></i>Detail Verifikasi Anomali
+        </h3>
+        <p class="text-muted small">Periode: <b>{{ periode_aktif }}</b> | Wilayah: <b>{{ current_ab }}</b></p>
+    </div>
+    <div class="col-md-5 text-md-end">
+        <div class="badge bg-light text-dark border p-2 shadow-sm">
+            <i class="fas fa-filter text-primary me-1"></i> 
+            Filter: <span class="text-primary fw-bold">{{ current_kat if current_kat else 'SEMUA' }}</span>
+        </div>
+    </div>
 </div>
 
-<div class="table-container shadow-sm p-3 bg-white" style="border-radius: 15px;">
+<div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="bg-dark text-white">
                 <tr>
-                    <th>Pelanggan</th>
-                    <th class="text-center">Pemakaian (m3)</th>
-                    <th>Analis SBRS</th>
-                    <th class="text-center">Kategori</th>
-                    <th class="text-center">Aksi</th>
+                    <th class="ps-4">DATA PELANGGAN</th>
+                    <th class="text-center">KONSUMSI (M3)</th>
+                    <th>ANALIS LAPANGAN</th>
+                    <th class="text-center">KATEGORI</th>
+                    <th class="text-center">STATUS AUDIT</th>
+                    <th class="text-center pe-4">AKSI</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in data %}
                 <tr>
-                    <td>
+                    <td class="ps-4">
                         <div class="fw-bold text-primary">{{ item.nomen }}</div>
-                        <div class="small">{{ item.nama }}</div>
-                        <div class="text-muted small">PCEZ: {{ item.pcez }}</div>
+                        <div class="small fw-bold text-dark text-uppercase">{{ item.nama }}</div>
+                        <div class="text-muted extra-small" style="font-size: 0.7rem;">
+                            <i class="fas fa-map-marker-alt me-1"></i> {{ item.kelurahan }} | PCEZ: {{ item.pcez }}
+                        </div>
                     </td>
                     <td class="text-center">
-                        <div class="fw-bold">{{ item.bulan_ini }}</div>
-                        <div class="text-muted small">Avg: {{ item.rata_rata }}</div>
+                        <div class="fw-bold fs-5">{{ item.bulan_ini }}</div>
+                        <div class="badge bg-light text-muted border" style="font-size: 0.65rem;">Avg: {{ item.rata_rata }} m3</div>
                     </td>
                     <td>
-                        <i class="fas fa-user-tag text-info me-1"></i>
-                        <span class="fw-bold">{{ item.nama_petugas_anomali if item.nama_petugas_anomali else 'Belum Ada Petugas' }}</span>
+                        <div class="small fw-bold">
+                            <i class="fas fa-user-tag text-info me-1"></i>
+                            {{ item.nama_petugas_anomali if item.nama_petugas_anomali else 'Belum Diplot' }}
+                        </div>
+                        <div class="text-muted extra-small" style="font-size: 0.65rem;">Petugas SBRS Sunter</div>
                     </td>
                     <td class="text-center">
                         {% if item.kategori_anomali == 'ZERO' %}
-                            <span class="badge bg-danger">ZERO</span>
+                            <span class="anomaly-badge bg-danger text-white">ZERO</span>
                         {% elif item.kategori_anomali == 'EKSTREM' %}
-                            <span class="badge bg-warning text-dark">EKSTREM</span>
+                            <span class="anomaly-badge bg-warning text-dark">EKSTREM</span>
                         {% else %}
-                            <span class="badge bg-info">TURUN</span>
+                            <span class="anomaly-badge bg-info text-white">TURUN</span>
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-dark">
-                            <i class="fas fa-camera me-1"></i> Cek Lapangan
+                        {% if item.status_audit == 1 %}
+                            <span class="badge bg-success status-badge"><i class="fas fa-check-circle me-1"></i>Selesai</span>
+                        {% else %}
+                            <span class="badge bg-secondary status-badge opacity-50">Belum Audit</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center pe-4">
+                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS" class="btn btn-sm btn-dark btn-audit px-3">
+                            <i class="fas fa-camera me-1"></i> Verifikasi
                         </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted opacity-25 mb-3"></i>
+                        <p class="text-muted">Tidak ada data detail anomali untuk filter ini.</p>
                     </td>
                 </tr>
                 {% endfor %}
