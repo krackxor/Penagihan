@@ -36,6 +36,16 @@
         border-radius: 4px;
         letter-spacing: 0.5px;
     }
+    /* Style untuk link Nomen */
+    .nomen-link {
+        cursor: pointer;
+        text-decoration: underline dotted;
+        transition: 0.2s;
+    }
+    .nomen-link:hover {
+        color: #0056b3 !important;
+        background-color: #e7f1ff;
+    }
 </style>
 {% endblock %}
 
@@ -100,7 +110,9 @@
                 {% for item in data %}
                 <tr>
                     <td class="ps-4">
-                        <div class="fw-bold text-primary">{{ item.nomen }}</div>
+                        <div class="fw-bold text-primary nomen-link" onclick='openCidDetail({{ item|tojson }})'>
+                            {{ item.nomen }}
+                        </div>
                         <div class="small fw-bold text-dark text-uppercase">{{ item.nama }}</div>
                         <div class="text-muted extra-small" style="font-size: 0.7rem;">
                             <i class="fas fa-map-marker-alt me-1"></i> {{ item.kelurahan }} | PCEZ: {{ item.pcez }}
@@ -168,4 +180,109 @@
         </table>
     </div>
 </div>
+
+<div class="modal fade" id="modalCid" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header bg-primary text-white" style="border-radius: 15px 15px 0 0;">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas fa-id-card me-2"></i><span id="m_nomen"></span> - <span id="m_nama"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body bg-light">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-map-marked-alt me-2"></i>Kontak & Alamat (CID)</h6>
+                                <p class="mb-2"><strong>Alamat Lengkap:</strong> <br><span id="m_alamat" class="text-muted small"></span></p>
+                                <div id="m_mtr_info" class="p-2 bg-light rounded small mb-3 border-start border-primary border-4"></div>
+                                <hr>
+                                <div class="mb-2 d-flex align-items-center">
+                                    <i class="fab fa-whatsapp text-success fs-5 me-2"></i>
+                                    <div><small class="text-muted d-block">WhatsApp/Mobile:</small><span id="m_wa" class="fw-bold"></span></div>
+                                </div>
+                                <div class="mb-2 d-flex align-items-center">
+                                    <i class="fas fa-phone-alt text-primary me-2"></i>
+                                    <div><small class="text-muted d-block">Telepon:</small><span id="m_telp" class="fw-bold"></span></div>
+                                </div>
+                                <div class="mb-3 d-flex align-items-center">
+                                    <i class="fas fa-envelope text-danger me-2"></i>
+                                    <div><small class="text-muted d-block">Email:</small><span id="m_email" class="fw-bold"></span></div>
+                                </div>
+                                <a id="m_gmaps" href="#" target="_blank" class="btn btn-sm btn-outline-danger w-100 fw-bold">
+                                    <i class="fas fa-directions me-2"></i>BUKA DI GOOGLE MAPS
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="fw-bold text-warning mb-3"><i class="fas fa-tachometer-alt me-2"></i>Data Teknis Pembacaan</h6>
+                                <table class="table table-sm table-borderless mb-0 small">
+                                    <tr><td class="text-muted">Tarif:</td><td class="fw-bold text-end" id="m_tarif"></td></tr>
+                                    <tr><td class="text-muted">No Seri Meter:</td><td class="fw-bold text-end" id="m_meter"></td></tr>
+                                    <tr><td class="text-muted">Metode Baca:</td><td class="fw-bold text-end text-uppercase badge bg-light text-dark" id="m_metode"></td></tr>
+                                    <tr><td class="text-muted">ID Tagihan:</td><td class="fw-bold text-end text-primary" id="m_bill"></td></tr>
+                                </table>
+                                
+                                <div class="mt-4 p-3 bg-primary-subtle border border-primary-subtle rounded text-center">
+                                    <span class="d-block small text-primary fw-bold mb-1">DATA VOLUME CID</span>
+                                    <h2 class="fw-bold text-dark mb-0"><span id="m_konsumsi"></span> <small class="fs-6">m³</small></h2>
+                                    <div class="text-muted small mt-1" id="m_stand"></div>
+                                    <div class="badge bg-white text-primary border border-primary-subtle mt-2" id="m_hari"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer bg-white border-0">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">TUTUP</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCidDetail(item) {
+    const raw = item.raw_data || {};
+    
+    // 1. Set Identitas
+    document.getElementById('m_nomen').innerText = item.nomen;
+    document.getElementById('m_nama').innerText = item.nama || '-';
+    
+    // 2. Set Kontak & Alamat
+    document.getElementById('m_alamat').innerText = raw.cmr_address || raw.ALAMAT || 'Alamat tidak ditemukan di sistem.';
+    document.getElementById('m_mtr_info').innerText = "Info Meter: " + (raw.cmr_mtr_info || 'Tidak ada catatan lokasi meter.');
+    document.getElementById('m_wa').innerText = raw.WA_NUMBER || raw.MOBILE_PHONE || '-';
+    document.getElementById('m_telp').innerText = raw.PHONE || '-';
+    document.getElementById('m_email').innerText = raw.EMAIL || '-';
+    
+    // Google Maps Link
+    const address = raw.cmr_address || raw.ALAMAT || '';
+    document.getElementById('m_gmaps').href = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : '#';
+    
+    // 3. Set Teknis
+    document.getElementById('m_tarif').innerText = raw.TARIF || raw.cmr_tarif || '-';
+    document.getElementById('m_meter').innerText = raw.cmr_mtr_num || raw.METER_SERIAL || '-';
+    document.getElementById('m_metode').innerText = raw.READ_METHOD || raw.cmr_read_code || '-';
+    document.getElementById('m_bill').innerText = raw.BILL_ID || '-';
+    
+    // 4. Set Volume (Gunakan hasil bypass Python jika tersedia)
+    document.getElementById('m_konsumsi').innerText = item.bulan_ini;
+    document.getElementById('m_stand').innerText = `Stand: ${raw.START_READ_STAN || '-'} s/d ${raw.END_READ_STAN || '-'}`;
+    document.getElementById('m_hari').innerText = `${raw.HARI_BACA || '0'} Hari Baca`;
+
+    // Tampilkan Modal
+    var myModal = new bootstrap.Modal(document.getElementById('modalCid'));
+    myModal.show();
+}
+</script>
+
 {% endblock %}
