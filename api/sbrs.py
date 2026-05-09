@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify
+import io
+import pandas as pd
+from flask import Blueprint, render_template, request, jsonify, send_file
 from models import db, MasterPelanggan, MasterPetugas, DataSBRS
 from sqlalchemy import func, and_, case
 from datetime import datetime
@@ -185,3 +187,115 @@ def sbrs_analisa():
                            current_cycle=cycle,
                            current_kat=kat,
                            periode_aktif=periode_filter)
+
+# ==========================================
+# FITUR BARU: MESIN EXPORT DATA KE EXCEL
+# ==========================================
+
+@sbrs_bp.route('/export/summary')
+def export_summary():
+    """Mengunduh Dashboard Ringkasan ke format Excel (Multi-Sheet)."""
+    ab = request.args.get('ab', 'AB Sunter')
+    cycle = request.args.get('cycle', 'all')
+    periode_raw = request.args.get('periode')
+    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+
+    try:
+        yyyy = int(periode_filter[:4])
+        mm = int(periode_filter[4:])
+        prev_periode = f"{yyyy-1}12" if mm == 1 else f"{yyyy}{mm-1:02d}"
+    except:
+        prev_periode = periode_filter
+
+    # Tarik Data Identik dengan Summary
+    base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': base_q = base_q.filter(DataSBRS.ab == ab)
+    if cycle != 'all': base_q = base_q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    total_nomen = base_q.count()
+
+    stats_query = db.session.query(DataSBRS.kategori_anomali, func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': stats_query = stats_query.filter(DataSBRS.ab == ab)
+    if cycle != 'all': stats_query = stats_query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    summary_dict = {k: v for k, v in stats_query.group_by(DataSBRS.kategori_anomali).all() if k}
+
+    zero_lama_q = db.session.query(func.count(DataSBRS.id)).filter(
+        DataSBRS.periode == periode_filter, DataSBRS.kategori_anomali == 'ZERO',
+        DataSBRS.nomen.in_(db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == 'ZERO'))
+    )
+    if ab != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.ab == ab)
+    if cycle != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    zero_lama = zero_lama_q.scalar() or 0
+    zero_baru = summary_dict.get('ZERO', 0) - zero_lama
+
+    skip_stats = db.session.query(DataSBRS.raw_data['CMR_SKIP_CODE'].astext.label('code'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': skip_stats = skip_stats.filter(DataSBRS.ab == ab)
+    if cycle != 'all': skip_stats = skip_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    skip_final = [{"Kode": c, "Keterangan": SKIP_LABELS.get(c, 'Lainnya'), "Total": count} for c, count in skip_stats.group_by('code').all() if c and c != 'None']
+
+    # Pembentukan File Excel
+    df_utama = pd.DataFrame([
+        {"Indikator": "Total Data Nomen", "Jumlah": total_nomen},
+        {"Indikator": "Zero Baru (Macet)", "Jumlah": zero_baru},
+        {"Indikator": "Zero Lama (Kronis)", "Jumlah": zero_lama},
+        {"Indikator": "Total Skip", "Jumlah": sum(i['Total'] for i in skip_final)},
+        {"Indikator": "Ekstrem", "Jumlah": summary_dict.get('EKSTREM', 0)},
+        {"Indikator": "Turun Drastis", "Jumlah": summary_dict.get('TURUN', 0)},
+    ])
+    df_skip = pd.DataFrame(skip_final)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_utama.to_excel(writer, sheet_name='Ringkasan_Utama', index=False)
+        if not df_skip.empty: df_skip.to_excel(writer, sheet_name='Rincian_Skip', index=False)
+    
+    output.seek(0)
+    nama_file = f"Laporan_SBRS_Summary_{ab}_Cycle_{cycle}_{periode_filter}.xlsx"
+    return send_file(output, download_name=nama_file, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@sbrs_bp.route('/export/analisa')
+def export_analisa():
+    """Mengunduh Hasil Append Data (Seluruh Rincian Pelanggan) ke format Excel."""
+    ab = request.args.get('ab', 'AB Sunter')
+    cycle = request.args.get('cycle', 'all')
+    kat = request.args.get('kategori', 'all')
+    periode_raw = request.args.get('periode')
+    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+
+    query = db.session.query(
+        DataSBRS.nomen, DataSBRS.nama, DataSBRS.kelurahan, DataSBRS.pcez, 
+        DataSBRS.stand_meter, DataSBRS.bulan_ini, DataSBRS.rata_rata, 
+        DataSBRS.kategori_anomali, DataSBRS.raw_data
+    ).filter(DataSBRS.periode == periode_filter)
+
+    if ab != 'all': query = query.filter(DataSBRS.ab == ab)
+    if cycle != 'all': query = query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    if kat != 'all': query = query.filter(DataSBRS.kategori_anomali == kat)
+
+    results = query.all()
+    
+    data_list = []
+    for r in results:
+        raw = r.raw_data or {}
+        data_list.append({
+            "Nomen": r.nomen,
+            "Nama Pelanggan": r.nama,
+            "Kelurahan": r.kelurahan,
+            "Wilayah PCEZ": r.pcez,
+            "Cycle": raw.get('CYCLE', '-'),
+            "Meter Bulan Ini": r.stand_meter,
+            "Pakai (m3)": r.bulan_ini,
+            "Rata-rata (m3)": r.rata_rata,
+            "Kategori Anomali": r.kategori_anomali,
+            "Skip Code": raw.get('CMR_SKIP_CODE', ''),
+            "Trouble Code": raw.get('CMR_TRBL1_CODE', ''),
+            "Metode Baca": raw.get('READ_METHOD', '')
+        })
+
+    df = pd.DataFrame(data_list)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Data_Analisa_SBRS', index=False)
+    
+    output.seek(0)
+    nama_file = f"Data_SBRS_Append_{ab}_Cycle_{cycle}_{periode_filter}.xlsx"
+    return send_file(output, download_name=nama_file, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
