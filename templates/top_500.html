@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <style>
+    /* Styling Sinergi untuk Row Prioritas */
     .gold-row {
         background-color: #fffdf0 !important;
     }
@@ -18,6 +19,7 @@
         font-size: 0.85rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    /* Medali untuk 3 Besar */
     .top-1 { background: #ffd700; color: #000; border: 2px solid #e6c200; }
     .top-2 { background: #c0c0c0; color: #000; border: 2px solid #a9a9a9; }
     .top-3 { background: #cd7f32; color: #fff; border: 2px solid #b87333; }
@@ -44,12 +46,12 @@
         <h2 class="fw-bold text-dark mb-1">
             <i class="fas fa-trophy text-warning me-2"></i>Prioritas Top 500
         </h2>
-        <p class="text-muted">Analisa tunggakan terbesar di <b>{{ current_ab }}</b></p>
+        <p class="text-muted">Analisa tunggakan terbesar di wilayah <b>{{ current_ab }}</b></p>
     </div>
     
     <div class="col-md-6 d-flex justify-content-md-end gap-2 align-items-end">
         <form method="GET" action="/monitoring/top-500" class="d-flex flex-column">
-            <label class="extra-small fw-bold text-primary mb-1">Pilih Periode:</label>
+            <label class="extra-small fw-bold text-primary mb-1">Filter Periode:</label>
             <div class="d-flex gap-2">
                 <input type="month" name="periode" class="form-control calendar-filter shadow-sm" 
                        value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" 
@@ -67,7 +69,7 @@
         <i class="fas fa-bullseye fa-lg"></i>
     </div>
     <div>
-        <strong>Target Periode {{ periode_aktif }}:</strong> Fokuskan kunjungan pada pelanggan Rank 1-100 untuk efisiensi penurunan piutang.
+        <strong>Target Periode {{ periode_aktif }}:</strong> Fokuskan kunjungan lapangan pada pelanggan Rank 1-100 untuk efisiensi penurunan saldo piutang.
     </div>
 </div>
 
@@ -78,8 +80,8 @@
                 <tr>
                     <th class="text-center" style="width: 80px;">RANK</th>
                     <th>NOMEN / NAMA</th>
-                    <th>KELURAHAN & PCEZ</th>
-                    <th>PETUGAS LAPANGAN</th>
+                    <th>WILAYAH (KELURAHAN & PCEZ)</th>
+                    <th>PENANGGUNG JAWAB</th>
                     <th class="text-end px-4">NOMINAL TAGIHAN</th>
                 </tr>
             </thead>
@@ -108,14 +110,14 @@
                             <i class="fas fa-user-check text-success me-1"></i>
                             {{ item.nama_petugas if item.nama_petugas else 'Belum Diplot' }}
                         </div>
-                        <div class="text-muted extra-small" style="font-size: 0.65rem;">Tim Penagihan</div>
+                        <div class="text-muted extra-small" style="font-size: 0.65rem;">Tim Penagihan Sunter</div>
                     </td>
                     <td class="text-end px-4">
                         <div class="fw-bold text-danger" style="font-size: 1.15rem;">
                             Rp {{ "{:,.0f}".format(item.total_nominal) }}
                         </div>
                         <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-primary mt-1 px-3 shadow-sm no-print" style="font-size: 0.75rem; border-radius: 8px;">
-                            <i class="fas fa-camera me-1"></i>Audit
+                            <i class="fas fa-camera me-1"></i>Audit Lapangan
                         </a>
                     </td>
                 </tr>
@@ -123,7 +125,7 @@
                 <tr>
                     <td colspan="5" class="text-center py-5">
                         <i class="fas fa-search fa-3x mb-3 d-block text-muted opacity-25"></i>
-                        <p class="text-muted small">Data tagihan periode <b>{{ periode_aktif }}</b> belum diupload.</p>
+                        <p class="text-muted small">Data tagihan periode <b>{{ periode_aktif }}</b> belum diupload ke sistem.</p>
                     </td>
                 </tr>
                 {% endfor %}
