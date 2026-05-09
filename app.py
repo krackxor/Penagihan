@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V16.1 Full Anti-Double, Audit Engine & Stability Patch)
+Flask Application - Area Service Integrated System (V16.2 Full Anti-Double, Audit Engine, Negative Read & Stability Patch)
 Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -7,7 +7,7 @@ Fixes Log:
 2.  ✅ FIX STORAGE LEAK: Otomatis hapus folder temp pada fitur Konversi & Ekspor Excel (Menggunakan io.BytesIO).
 3.  ✅ FIX DATABASE LOCK: Standarisasi penuh menggunakan SQLAlchemy Connection Pooling untuk modul SBRS.
 4.  ✅ FIX CONFIG CONFLICT: Sinkronisasi Max Upload Size dengan config.py (100MB).
-5.  ✅ V16.1 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Split Analisa).
+5.  ✅ V16.2 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Anomali Gap, Negative Read).
 """
 
 import os
@@ -486,7 +486,7 @@ def create_app():
                 if not check:
                     return jsonify({
                         "status": "success", "summary": {"total_objek": 0, "total_vol_sb": 0}, 
-                        "stats": {"zero_baru":0,"zero_lama":0,"ekstrim":0,"turun":0,"anomali":0},
+                        "stats": {"zero_baru":0,"zero_lama":0,"ekstrim":0,"turun":0,"anomali":0, "negative":0},
                         "skip": [], "trouble": [], "methods": [], "master": []
                     })
 
@@ -500,7 +500,7 @@ def create_app():
                 rows = conn.execute(text(query), params).mappings().all()
 
             master_data = []
-            stats = {"zero_baru": 0, "zero_lama": 0, "ekstrim": 0, "anomali": 0, "turun": 0}
+            stats = {"zero_baru": 0, "zero_lama": 0, "ekstrim": 0, "anomali": 0, "turun": 0, "negative": 0}
             skip_count, trbl_count, meth_count = {}, {}, {}
             total_vol_sb = 0
 
@@ -529,8 +529,11 @@ def create_app():
                 
                 tags = []
                 
-                # Zero Split Logic
-                if v_lap == 0:
+                # Zero Split Logic & Negative Read
+                if v_lap < 0:
+                    tags.append("Negative Read")
+                    stats["negative"] += 1
+                elif v_lap == 0:
                     if v_bill > 0: 
                         tags.append("Zero Baru")
                         stats["zero_baru"] += 1
@@ -558,6 +561,7 @@ def create_app():
                 elif status_filter == 'zero_baru' and "Zero Baru" not in tags: match = False
                 elif status_filter == 'zero_lama' and "Zero Lama" not in tags: match = False
                 elif status_filter == 'anomali' and "Anomali" not in tags: match = False
+                elif status_filter == 'negative' and "Negative Read" not in tags: match = False
                 elif status_filter == 'skip' and s_raw in ['0', 'NAN', '', 'NONE']: match = False
                 elif status_filter == 'trouble' and t_raw in ['0', 'NAN', '', 'NONE']: match = False
 
