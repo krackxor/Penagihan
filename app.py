@@ -1,9 +1,9 @@
 import os
 from flask import Flask, render_template, redirect, url_for
 from models import db
-from sqlalchemy import inspect, text # Tambahan untuk inspeksi database otomatis
+from sqlalchemy import inspect, text # Komponen penting untuk audit database
 
-# --- 1. IMPORT BLUEPRINTS ---
+# --- 1. IMPORT BLUEPRINTS (MODULASI SISTEM) ---
 from api.monitoring import monitoring_bp
 from api.importer import importer_bp
 from api.kunjungan import kunjungan_bp
@@ -11,64 +11,58 @@ from api.sbrs import sbrs_bp
 
 def sync_database_schema(app):
     """
-    Fungsi Otomatis (Self-Healing) untuk sinkronisasi kolom database.
-    Mencegah error 'UndefinedColumn' pada PostgreSQL.
+    Fungsi Sinergi Self-Healing: Otomatis sinkronisasi struktur PostgreSQL.
+    Memastikan kolom baru di models.py langsung tercipta di database fisik.
     """
     with app.app_context():
         inspector = inspect(db.engine)
         
-        # Cek apakah tabel data_sbrs sudah ada
+        # Target Audit: Tabel data_sbrs
         if 'data_sbrs' in inspector.get_table_names():
-            # Ambil daftar nama kolom yang ada saat ini
             columns = [c['name'] for c in inspector.get_columns('data_sbrs')]
             
-            # 1. Tambah kolom 'periode' jika belum ada
-            if 'periode' not in columns:
-                print(">>> [AUTO-SYNC] Menambah kolom 'periode' ke data_sbrs...")
-                with db.engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE data_sbrs ADD COLUMN periode VARCHAR(10)"))
-                    conn.commit()
+            # Daftar kolom wajib untuk fitur SBRS yang Sinergi
+            required_columns = [
+                ('periode', 'VARCHAR(10)'),
+                ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
+                ('kelurahan', 'VARCHAR(100)')
+            ]
             
-            # 2. Tambah kolom 'ab' jika belum ada (untuk filter wilayah)
-            if 'ab' not in columns:
-                print(">>> [AUTO-SYNC] Menambah kolom 'ab' ke data_sbrs...")
-                with db.engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE data_sbrs ADD COLUMN ab VARCHAR(50) DEFAULT 'AB Sunter'"))
-                    conn.commit()
-            
-            # 3. Tambah kolom 'kelurahan' jika belum ada (untuk sebaran anomali)
-            if 'kelurahan' not in columns:
-                print(">>> [AUTO-SYNC] Menambah kolom 'kelurahan' ke data_sbrs...")
-                with db.engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE data_sbrs ADD COLUMN kelurahan VARCHAR(100)"))
-                    conn.commit()
+            with db.engine.connect() as conn:
+                for col_name, col_type in required_columns:
+                    if col_name not in columns:
+                        print(f">>> [SINERGI-SYNC] Menambah kolom '{col_name}' ke data_sbrs...")
+                        conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
 
 def create_app():
     app = Flask(__name__)
 
-    # --- 2. KONFIGURASI DATABASE & KEAMANAN ---
+    # --- 2. KONFIGURASI SINERGI & KEAMANAN ---
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     
-    # Koneksi PostgreSQL dari environment Docker
+    # Koneksi PostgreSQL: Diambil dari Environment Docker agar sangat stabil
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = 'sinergi-pam-jaya-2026'
     
-    # Folder upload foto kunjungan & materi
+    # Managemen Folder Media
     app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'kunjungan')
     
-    # --- 3. LIMIT UPLOAD 1 GB ---
-    # Mendukung upload file CID dan MC raksasa
+    # --- 3. OPTIMASI UPLOAD RAKSASA ---
+    # Mendukung file CID/MC hingga 1 GB agar tidak putus di tengah jalan
     app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 
 
     # --- 4. INISIALISASI & FOLDER AUTO-CREATE ---
     db.init_app(app)
 
+    # Memastikan ekosistem folder siap pakai
     os.makedirs(os.path.join(BASE_DIR, 'instance'), exist_ok=True)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR, 'static', 'uploads', 'materi'), exist_ok=True)
 
-    # --- 5. REGISTRASI MODUL (BLUEPRINTS) ---
+    # --- 5. REGISTRASI MODUL (SINERGI BLUEPRINTS) ---
+    # Mengelompokkan fungsi agar kode tidak menumpuk di satu file
     app.register_blueprint(monitoring_bp, url_prefix='/monitoring')
     app.register_blueprint(importer_bp, url_prefix='/api/import')
     app.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
@@ -77,6 +71,7 @@ def create_app():
     # --- 6. NAVIGASI UTAMA ---
     @app.route('/')
     def index():
+        """Arahkan langsung ke jantung dashboard AB Sunter."""
         return redirect(url_for('monitoring.list_tagihan', ab='AB Sunter'))
 
     @app.route('/upload')
@@ -89,15 +84,15 @@ def create_app():
 
     # --- 7. STARTUP PROTOCOL ---
     with app.app_context():
-        # Buat tabel baru jika belum ada sama sekali
+        # Buat tabel dasar jika database masih kosong
         db.create_all()
     
-    # Jalankan pemeriksaan kolom (Self-Healing) untuk tabel lama
+    # Audit & Sinkronisasi kolom untuk tabel yang sudah ada
     sync_database_schema(app)
 
     return app
 
 if __name__ == '__main__':
+    # Mode Debug aktif agar Bos mudah melihat log jika ada kendala
     app = create_app()
-    # Host 0.0.0.0 wajib untuk akses lewat Docker/VPS
     app.run(host='0.0.0.0', port=5000, debug=True)
