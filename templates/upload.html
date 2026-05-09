@@ -20,17 +20,12 @@
                 <div class="card h-100 shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title fw-bold text-primary"><i class="fas fa-users me-2"></i>Master Pelanggan (CID)</h5>
-                        <p class="small text-muted">Upload file <b>cid.txt</b> atau Excel untuk sinkronisasi database pelanggan.</p>
+                        <p class="small text-muted">Upload file <b>cid.txt</b> untuk sinkronisasi database pelanggan (PCEZ & Alamat).</p>
                         <hr>
                         <form onsubmit="handleUpload(event, '/api/import/cid', 'formCID')" id="formCID">
                             <div class="mb-3">
                                 <label class="form-label small fw-bold">Pilih File (.xlsx, .txt, .csv)</label>
                                 <input type="file" name="file" class="form-control" accept=".xlsx, .xls, .txt, .csv" required>
-                                <div class="form-text mt-2">
-                                    Format: <span class="badge bg-light text-dark border">NOMEN</span> 
-                                    <span class="badge bg-light text-dark border">PCEZBK</span>
-                                    <span class="badge bg-light text-dark border">JENIS_PELANGGAN</span>
-                                </div>
                             </div>
                             <button type="submit" class="btn btn-primary w-100 mt-2">
                                 <i class="fas fa-sync me-2"></i>Sinkron CID
@@ -44,7 +39,7 @@
                 <div class="card h-100 shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title fw-bold text-warning"><i class="fas fa-user-shield me-2"></i>Mapping Petugas PCEZ</h5>
-                        <p class="small text-muted">Hubungkan PCEZ dengan nama petugas sesuai perannya.</p>
+                        <p class="small text-muted">Hubungkan PCEZ dengan nama petugas (Wahyu, Sastra, dkk) sesuai perannya.</p>
                         <hr>
                         <form onsubmit="handleUpload(event, '/api/import/petugas', 'formPetugas')" id="formPetugas">
                             <div class="row g-2 mb-3">
@@ -52,8 +47,8 @@
                                     <label class="form-label small fw-bold">Pilih Peran</label>
                                     <select name="peran" class="form-select" required>
                                         <option value="TAGIHAN">TAGIHAN</option>
+                                        <option value="SBRS">SBRS (ANOMALI)</option>
                                         <option value="CATAT">CATAT METER</option>
-                                        <option value="ANOMALI">ANOMALI (SBRS)</option>
                                     </select>
                                 </div>
                                 <div class="col-6">
@@ -73,7 +68,7 @@
                 <div class="card h-100 shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title fw-bold text-success"><i class="fas fa-money-bill-wave me-2"></i>Tagihan (MC / MB)</h5>
-                        <p class="small text-muted">Upload data piutang berjalan atau tunggakan berekor.</p>
+                        <p class="small text-muted">Upload data piutang berjalan atau tunggakan berekor (Ardebt).</p>
                         <hr>
                         <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formTagihan')" id="formTagihan">
                             <div class="row g-2 mb-3">
@@ -82,6 +77,7 @@
                                     <select name="sumber" class="form-select" required>
                                         <option value="MC">MC (Berjalan)</option>
                                         <option value="MB">MB (Ekor/MB)</option>
+                                        <option value="ARDEBT">ARDEBT</option>
                                     </select>
                                 </div>
                                 <div class="col-7">
@@ -100,17 +96,20 @@
             <div class="col-md-6">
                 <div class="card h-100 shadow-sm border-0 border-start border-danger border-4">
                     <div class="card-body">
-                        <h5 class="card-title fw-bold text-danger"><i class="fas fa-microscope me-2"></i>Data SBRS (Anomali)</h5>
-                        <p class="small text-muted">Gunakan file SBRS untuk menganalisa meteran macet atau ekstrem.</p>
+                        <h5 class="card-title fw-bold text-danger"><i class="fas fa-bolt me-2"></i>Data SBRS (Turbo Join)</h5>
+                        <p class="small text-muted">Upload <b>customer.txt</b> dan <b>spot_bill.txt</b> untuk analisa anomali.</p>
                         <hr>
-                        <form onsubmit="handleUpload(event, '/api/import/sbrs', 'formSBRS')" id="formSBRS">
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold">Pilih File SBRS (.txt / .xlsx)</label>
-                                <input type="file" name="file" class="form-control" accept=".xlsx, .xls, .txt, .csv" required>
-                                <div class="form-text mt-2">Wajib: <span class="badge bg-light text-dark border">KONSUMSI</span> <span class="badge bg-light text-dark border">END_READ_STAN</span></div>
+                        <form onsubmit="handleUpload(event, '/api/import/sbrs-combined', 'formSBRS')" id="formSBRS">
+                            <div class="mb-2">
+                                <label class="form-label small fw-bold">1. File Customer (PCEZ/Alamat)</label>
+                                <input type="file" name="file_customer" class="form-control form-control-sm" accept=".txt, .csv, .xlsx" required>
                             </div>
-                            <button type="submit" class="btn btn-danger w-100 mt-2">
-                                <i class="fas fa-search-plus me-2"></i>Analisa SBRS
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">2. File Spotbill (Angka Meter)</label>
+                                <input type="file" name="file_spotbill" class="form-control form-control-sm" accept=".txt, .csv, .xlsx" required>
+                            </div>
+                            <button type="submit" class="btn btn-danger w-100">
+                                <i class="fas fa-search-plus me-2"></i>Jalankan Turbo Join
                             </button>
                         </form>
                     </div>
@@ -131,20 +130,25 @@
         const originalText = submitBtn.innerHTML;
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses Data Raksasa...';
 
         try {
             const response = await fetch(url, { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.status === 'success') {
-                Swal.fire({ icon: 'success', title: 'Berhasil!', text: result.message });
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: 'Sinergi Berhasil!', 
+                    text: result.message,
+                    confirmButtonColor: '#0d6efd'
+                });
                 form.reset();
             } else {
-                Swal.fire({ icon: 'error', title: 'Gagal', text: result.message });
+                Swal.fire({ icon: 'error', title: 'Gagal Sinkron', text: result.message });
             }
         } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Koneksi terputus!' });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Koneksi terputus atau file terlalu besar!' });
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
