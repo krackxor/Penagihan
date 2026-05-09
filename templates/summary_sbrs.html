@@ -2,6 +2,34 @@
 
 {% block content %}
 <style>
+    /* Styling Dropdown Modern */
+    .filter-label { 
+        font-size: 0.7rem; 
+        font-weight: 800; 
+        color: #94a3b8; 
+        text-transform: uppercase; 
+        margin-bottom: 6px; 
+        margin-left: 4px; 
+        display: block; 
+        letter-spacing: 0.5px;
+    }
+    .custom-select {
+        border-radius: 12px; 
+        border: 1px solid #e2e8f0; 
+        padding: 10px 15px;
+        font-weight: 700; 
+        color: #1e293b; 
+        background-color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02); 
+        cursor: pointer; 
+        transition: all 0.2s;
+    }
+    .custom-select:focus { 
+        border-color: var(--service-blue); 
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); 
+        outline: none; 
+    }
+
     /* Styling Ringkasan Metrik (Satu Kartu) */
     .summary-card {
         background: #ffffff;
@@ -53,89 +81,42 @@
         opacity: 0.4;
     }
 
-    /* Filter Chips Dinamis Baru */
-    .filter-group-label { 
-        font-size: 0.65rem; 
-        font-weight: 800; 
-        color: #94a3b8; 
-        text-transform: uppercase; 
-        margin-bottom: 8px; 
-        letter-spacing: 1px; 
-    }
-    
-    .chip-container { 
-        display: flex; 
-        gap: 8px; 
-        flex-wrap: wrap; 
-    }
-    
-    .pill-chip {
-        padding: 8px 20px; 
-        border-radius: 50px; 
-        background: white; 
-        border: 1px solid #e2e8f0;
-        font-size: 0.85rem; 
-        font-weight: 700; 
-        color: #64748b; 
-        cursor: pointer; 
-        transition: all 0.2s;
-    }
-    
-    .pill-chip:hover { 
-        border-color: var(--service-blue); 
-        color: var(--service-blue); 
-        background: #eff6ff; 
-    }
-    
-    .pill-chip.active { 
-        background: #0f172a; 
-        color: white; 
-        border-color: #0f172a; 
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
-    }
-
+    /* Tabel Detail Bawah */
     .table-container { border-radius: 15px; border: 1px solid #e2e8f0; background: white; }
 </style>
 
 <div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3 animate__animated animate__fadeInDown">
+    <div class="d-flex justify-content-between align-items-center mb-2 animate__animated animate__fadeInDown">
         <div>
             <h4 class="fw-800 text-dark mb-1">Dashboard Ringkasan SBRS</h4>
             <p class="text-muted small mb-0">Klik pada salah satu metrik di bawah untuk melihat rincian datanya.</p>
         </div>
-        <div>
-            <button class="btn btn-light border fw-bold text-secondary shadow-sm" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
-                <i class="fa-solid fa-circle-info me-1"></i> Info Logika
-            </button>
-        </div>
     </div>
 
-    <div class="card border-0 shadow-sm p-4 mb-4 animate__animated animate__fadeInDown" style="border-radius: 20px;">
-        <div class="row g-4">
-            <div class="col-md-6">
-                <div class="filter-group-label"><i class="fa-regular fa-calendar me-1"></i> Pilih Periode LNP</div>
-                <div id="periodPills" class="chip-container">
-                    <div class="pill-chip active" onclick="setPeriode('all', this)">Memuat...</div>
-                </div>
-            </div>
-            <div class="col-md-6 border-start border-light d-none d-md-block">
-                <div class="filter-group-label"><i class="fa-solid fa-rotate me-1"></i> Pilih Cycle</div>
-                <div id="cyclePills" class="chip-container">
-                    <div class="pill-chip active" onclick="setCycle('all', this)">Memuat...</div>
-                </div>
-            </div>
-            <div class="col-12 d-block d-md-none border-top pt-3">
-                <div class="filter-group-label"><i class="fa-solid fa-rotate me-1"></i> Pilih Cycle</div>
-                <div id="cyclePillsMobile" class="chip-container">
-                    </div>
-            </div>
+    <div class="row mb-4 g-3 animate__animated animate__fadeInDown">
+        <div class="col-md-3">
+            <span class="filter-label"><i class="fa-regular fa-calendar me-1"></i> Periode LNP</span>
+            <select id="selectPeriode" class="form-select custom-select" onchange="loadDataSBRS()">
+                <option value="all">Semua Bulan</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <span class="filter-label"><i class="fa-solid fa-rotate me-1"></i> Cycle</span>
+            <select id="selectCycle" class="form-select custom-select" onchange="loadDataSBRS()">
+                <option value="all">Semua Cycle</option>
+            </select>
+        </div>
+        <div class="col-md-6 d-flex align-items-end justify-content-end">
+            <button class="btn btn-light border fw-bold text-secondary mb-1 shadow-sm" style="border-radius: 12px; padding: 10px 20px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
+                <i class="fa-solid fa-circle-info me-1"></i> Info Logika
+            </button>
         </div>
     </div>
 
     <div class="summary-card mb-5 animate__animated animate__fadeInUp">
         <div class="card-header bg-dark text-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
             <span class="fw-bold"><i class="fa-solid fa-chart-pie text-info me-2"></i>Executive Summary SBRS</span>
-            <span class="badge bg-white text-dark rounded-pill shadow-sm" id="cycleBadge">Semua Data</span>
+            <span class="badge bg-white text-dark rounded-pill shadow-sm" id="cycleBadge">Memuat...</span>
         </div>
         
         <div class="row g-0 text-start">
@@ -301,70 +282,42 @@
 <script>
     const formatRibuan = (angka) => new Intl.NumberFormat('id-ID').format(angka || 0);
 
-    let currentPeriode = 'all';
-    let currentCycle = 'all';
-
-    // --- INISIALISASI DYNAMIC FILTER CHIPS ---
+    // --- INISIALISASI DYNAMIC DROPDOWN ---
     async function initFilters() {
         const res = await fetch('/api/get-sbrs-filters');
         const data = await res.json();
         
         if(data.status === 'success') {
-            // Render Periode Pills
-            const pContainer = document.getElementById('periodPills');
-            pContainer.innerHTML = `<div class="pill-chip active" onclick="setPeriode('all', this)">Semua Bulan</div>`;
+            const pSel = document.getElementById('selectPeriode');
+            const cSel = document.getElementById('selectCycle');
+
             data.periods.forEach(p => {
-                pContainer.innerHTML += `<div class="pill-chip" onclick="setPeriode('${p}', this)">${p}</div>`;
+                pSel.innerHTML += `<option value="${p}">${p}</option>`;
             });
-
-            // Render Cycle Pills (Untuk Desktop)
-            const cContainer = document.getElementById('cyclePills');
-            cContainer.innerHTML = `<div class="pill-chip active" onclick="setCycle('all', 'cyclePills')">Semua Cycle</div>`;
             data.cycles.forEach(c => {
-                cContainer.innerHTML += `<div class="pill-chip" onclick="setCycle('${c}', 'cyclePills')">C-${c}</div>`;
+                cSel.innerHTML += `<option value="${c}">Cycle ${c}</option>`;
             });
-
-            // Render Cycle Pills (Untuk Mobile)
-            const cContainerMobile = document.getElementById('cyclePillsMobile');
-            if(cContainerMobile) {
-                cContainerMobile.innerHTML = `<div class="pill-chip active" onclick="setCycle('all', 'cyclePillsMobile')">Semua Cycle</div>`;
-                data.cycles.forEach(c => {
-                    cContainerMobile.innerHTML += `<div class="pill-chip" onclick="setCycle('${c}', 'cyclePillsMobile')">C-${c}</div>`;
-                });
-            }
         }
     }
 
-    function setPeriode(val, el) {
-        currentPeriode = val;
-        document.querySelectorAll('#periodPills .pill-chip').forEach(c => c.classList.remove('active'));
-        el.classList.add('active');
-        loadDataSBRS();
-    }
-
-    function setCycle(val, containerId) {
-        currentCycle = val;
-        // Hapus active dari desktop & mobile
-        document.querySelectorAll('#cyclePills .pill-chip, #cyclePillsMobile .pill-chip').forEach(c => c.classList.remove('active'));
-        // Aktifkan chip yang di-klik sesuai teks nilainya
-        document.querySelectorAll(`#cyclePills .pill-chip, #cyclePillsMobile .pill-chip`).forEach(c => {
-            if(c.innerText === (val === 'all' ? 'Semua Cycle' : `C-${val}`)) c.classList.add('active');
-        });
-        loadDataSBRS();
+    // --- FUNGSI NAVIGASI ---
+    function goToAnalisa(filterType) {
+        const p = document.getElementById('selectPeriode').value;
+        const c = document.getElementById('selectCycle').value;
+        window.location.href = `/analisa-sbrs?periode=${p}&cycle=${c}&filter=${filterType}`;
     }
 
     // --- FUNGSI MENGAMBIL DATA UTAMA ---
-    function goToAnalisa(filterType) {
-        window.location.href = `/analisa-sbrs?periode=${currentPeriode}&cycle=${currentCycle}&filter=${filterType}`;
-    }
-
     async function loadDataSBRS() {
+        const p = document.getElementById('selectPeriode').value;
+        const c = document.getElementById('selectCycle').value;
+
         // Update teks badge di sudut kartu
-        let badgeText = currentPeriode === 'all' ? 'Semua Bulan' : currentPeriode;
-        badgeText += currentCycle === 'all' ? ' | Semua Cycle' : ` | Cycle ${currentCycle}`;
+        let badgeText = p === 'all' ? 'Semua Bulan' : p;
+        badgeText += c === 'all' ? ' | Semua Cycle' : ` | Cycle ${c}`;
         document.getElementById('cycleBadge').innerText = badgeText;
 
-        const url = `/api/get-summary-sbrs?periode=${currentPeriode}&cycle=${currentCycle}`;
+        const url = `/api/get-summary-sbrs?periode=${p}&cycle=${c}`;
         
         try {
             const res = await fetch(url);
@@ -407,10 +360,10 @@
         }
     }
 
-    // Panggil initFilters dulu, baru load data
+    // Panggil saat start
     window.onload = async () => {
-        await initFilters();
-        loadDataSBRS();
+        await initFilters(); // Muat data filter dropdown dulu
+        loadDataSBRS();      // Baru muat data tabel
     };
 </script>
 {% endblock %}
