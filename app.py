@@ -11,18 +11,18 @@ from api.sbrs import sbrs_bp
 
 def sync_database_schema(app):
     """
-    Fungsi Sinergi Self-Healing: Otomatis sinkronisasi struktur PostgreSQL.
-    Menjamin SEMUA kolom yang ada di models.py masuk ke database fisik secara paksa.
+    Fungsi Sinergi Self-Healing: Otomatis sinkronisasi struktur & Gembok (Constraint) PostgreSQL.
+    Menyelesaikan error 'no unique or exclusion constraint' agar Upsert berjalan mulus.
     """
     with app.app_context():
         inspector = inspect(db.engine)
         
-        # Target Audit: Tabel data_sbrs
         if 'data_sbrs' in inspector.get_table_names():
+            # 1. AMBIL DATA KOLOM & CONSTRAINT SAAT INI
             columns = [c['name'] for c in inspector.get_columns('data_sbrs')]
+            existing_constraints = [c['name'] for c in inspector.get_unique_constraints('data_sbrs')]
             
-            # DAFTAR LENGKAP KOLOM AGAR TIDAK ERROR BERUNTUN
-            # Menambahkan created_at, rayon, tarif, dan data teknis lainnya.
+            # 2. DAFTAR LENGKAP KOLOM WAJIB
             required_columns = [
                 ('periode', 'VARCHAR(10)'),
                 ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
@@ -38,7 +38,7 @@ def sync_database_schema(app):
                 ('kategori_anomali', 'VARCHAR(50)'),
                 ('status_audit', 'INTEGER DEFAULT 0'),
                 ('raw_data', 'JSONB'),
-                ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'), # <-- SOLUSI FATAL ERROR
+                ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
                 ('tgl_audit', 'TIMESTAMP'),
                 ('catatan_lapangan', 'TEXT'),
                 ('foto_meter_path', 'VARCHAR(255)'),
@@ -47,11 +47,22 @@ def sync_database_schema(app):
             ]
             
             with db.engine.connect() as conn:
+                # Tambah kolom jika belum ada di fisik database
                 for col_name, col_type in required_columns:
                     if col_name not in columns:
-                        # Eksekusi penambahan kolom secara dinamis
                         print(f">>> [SINERGI-FIX] Menambah kolom '{col_name}' ke database...")
                         conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col_name} {col_type}"))
+                
+                # 3. PASANG GEMBOK UNIK (UNIQUE CONSTRAINT)
+                # Nama gembok: uix_sbrs_nomen_periode (Wajib untuk ON CONFLICT)
+                if 'uix_sbrs_nomen_periode' not in existing_constraints:
+                    print(">>> [SINERGI-FIX] Menciptakan Gembok Unik (Nomen + Periode)...")
+                    try:
+                        # Jika gagal, biasanya karena ada data duplikat yang sudah terlanjur masuk
+                        conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
+                    except Exception as e:
+                        print(f"!!! Gagal pasang gembok: Mungkin ada data duplikat di DB. Kosongkan tabel dulu, Bos!")
+                
                 conn.commit()
 
 def create_app():
@@ -59,25 +70,20 @@ def create_app():
 
     # --- 2. KONFIGURASI SINERGI & KEAMANAN ---
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    
-    # Koneksi DB: Diambil dari Docker Environment
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = 'sinergi-pam-jaya-2026'
     
-    # Folder Media & Batas Upload (1 GB untuk file CID/MC Raksasa)
     app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'kunjungan')
-    app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 
+    app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # 1 GB untuk file raksasa
 
     # --- 3. INISIALISASI & FOLDER AUTO-CREATE ---
     db.init_app(app)
-
-    # Memastikan ekosistem folder siap pakai untuk laporan & foto
     os.makedirs(os.path.join(BASE_DIR, 'instance'), exist_ok=True)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR, 'static', 'uploads', 'materi'), exist_ok=True)
 
-    # --- 4. REGISTRASI MODUL (BLUEPRINTS) ---
+    # --- 4. REGISTRASI MODUL ---
     app.register_blueprint(monitoring_bp, url_prefix='/monitoring')
     app.register_blueprint(importer_bp, url_prefix='/api/import')
     app.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
@@ -86,7 +92,6 @@ def create_app():
     # --- 5. NAVIGASI UTAMA ---
     @app.route('/')
     def index():
-        """Redirect otomatis ke jantung monitoring Sunter."""
         return redirect(url_for('monitoring.list_tagihan', ab='AB Sunter'))
 
     @app.route('/upload')
@@ -99,15 +104,13 @@ def create_app():
 
     # --- 6. STARTUP PROTOCOL ---
     with app.app_context():
-        # Buat tabel dasar (hanya jika database kosong)
         db.create_all()
     
-    # Menjalankan pemulihan kolom yang hilang secara otomatis
+    # Jalankan sinkronisasi kolom & gembok unik secara otomatis
     sync_database_schema(app)
 
     return app
 
 if __name__ == '__main__':
-    # Debug=True mempermudah Bos memantau log perbaikan kolom di terminal
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
