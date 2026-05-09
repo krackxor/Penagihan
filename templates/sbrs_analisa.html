@@ -25,28 +25,54 @@
     .btn-audit:hover {
         transform: scale(1.05);
     }
+    .filter-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row align-items-center mb-4">
-    <div class="col-md-7">
+    <div class="col-md-6">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="/sbrs/summary?ab={{ current_ab }}&periode={{ periode_aktif }}">Summary SBRS</a></li>
+                <li class="breadcrumb-item"><a href="/sbrs/summary?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}">Summary SBRS</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Detail Kasus</li>
             </ol>
         </nav>
         <h3 class="fw-bold mb-0">
             <i class="fas fa-microscope text-primary me-2"></i>Detail Verifikasi Anomali
         </h3>
-        <p class="text-muted small">Periode: <b>{{ periode_aktif }}</b> | Wilayah: <b>{{ current_ab }}</b></p>
+        <p class="text-muted small mb-0">Periode: <b>{{ periode_aktif }}</b> | Wilayah: <b>{{ current_ab }}</b></p>
     </div>
-    <div class="col-md-5 text-md-end">
-        <div class="badge bg-light text-dark border p-2 shadow-sm">
-            <i class="fas fa-filter text-primary me-1"></i> 
-            Filter: <span class="text-primary fw-bold">{{ current_kat if current_kat else 'SEMUA' }}</span>
-        </div>
+    
+    <div class="col-md-6 d-flex justify-content-md-end align-items-center">
+        <form method="GET" action="/sbrs/analisa" class="d-flex gap-2 align-items-end filter-card p-2 shadow-sm">
+            <input type="hidden" name="ab" value="{{ current_ab }}">
+            <input type="hidden" name="periode" value="{{ periode_aktif }}">
+            
+            <div style="min-width: 120px;">
+                <label class="extra-small fw-bold text-muted mb-1 d-block" style="font-size: 0.65rem;">FILTER CYCLE:</label>
+                <select name="cycle" class="form-select form-select-sm fw-bold text-primary border-primary" onchange="this.form.submit()">
+                    <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>SEMUA CYCLE</option>
+                    {% for c in cycles %}
+                    <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>Cycle {{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="min-width: 140px;">
+                <label class="extra-small fw-bold text-muted mb-1 d-block" style="font-size: 0.65rem;">FILTER KATEGORI:</label>
+                <select name="kategori" class="form-select form-select-sm fw-bold text-danger border-danger" onchange="this.form.submit()">
+                    <option value="all" {% if not current_kat or current_kat == 'all' %}selected{% endif %}>SEMUA ANOMALI</option>
+                    <option value="ZERO" {% if current_kat == 'ZERO' %}selected{% endif %}>HANYA ZERO</option>
+                    <option value="EKSTREM" {% if current_kat == 'EKSTREM' %}selected{% endif %}>HANYA EKSTREM</option>
+                    <option value="TURUN" {% if current_kat == 'TURUN' %}selected{% endif %}>HANYA TURUN</option>
+                </select>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -86,22 +112,22 @@
                     </td>
                     <td class="text-center">
                         {% if item.kategori_anomali == 'ZERO' %}
-                            <span class="anomaly-badge bg-danger text-white">ZERO</span>
+                            <span class="anomaly-badge bg-danger text-white shadow-sm">ZERO</span>
                         {% elif item.kategori_anomali == 'EKSTREM' %}
-                            <span class="anomaly-badge bg-warning text-dark">EKSTREM</span>
+                            <span class="anomaly-badge bg-warning text-dark shadow-sm">EKSTREM</span>
                         {% else %}
-                            <span class="anomaly-badge bg-info text-white">TURUN</span>
+                            <span class="anomaly-badge bg-info text-white shadow-sm">TURUN</span>
                         {% endif %}
                     </td>
                     <td class="text-center">
                         {% if item.status_audit == 1 %}
                             <span class="badge bg-success status-badge"><i class="fas fa-check-circle me-1"></i>Selesai</span>
                         {% else %}
-                            <span class="badge bg-secondary status-badge opacity-50">Belum Audit</span>
+                            <span class="badge bg-secondary status-badge opacity-50 border">Belum Audit</span>
                         {% endif %}
                     </td>
                     <td class="text-center pe-4">
-                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS" class="btn btn-sm btn-dark btn-audit px-3">
+                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-dark btn-audit px-3 shadow-sm">
                             <i class="fas fa-camera me-1"></i> Verifikasi
                         </a>
                     </td>
@@ -110,7 +136,8 @@
                 <tr>
                     <td colspan="6" class="text-center py-5">
                         <i class="fas fa-search fa-3x text-muted opacity-25 mb-3"></i>
-                        <p class="text-muted">Tidak ada data detail anomali untuk filter ini.</p>
+                        <p class="text-muted">Tidak ada data detail anomali untuk filter <b>Cycle {{ current_cycle }}</b> dan <b>{{ current_kat }}</b>.</p>
+                        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}" class="btn btn-sm btn-link">Reset Filter</a>
                     </td>
                 </tr>
                 {% endfor %}
