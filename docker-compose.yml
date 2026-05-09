@@ -1,17 +1,33 @@
 version: '3.8'
 
 services:
+  # 1. Kontainer Aplikasi (Flask + Gunicorn/Python)
   sinergi-app:
     build: .
-    container_name: sinergi_v16_container
-    ports:
-      - "5000:5000"
+    container_name: sinergi_v16_app
+    # Kita gunakan 'expose' (internal), bukan 'ports' (external) 
+    # agar hanya Nginx yang bisa memanggil Flask. Lebih aman!
+    expose:
+      - "5000"
     volumes:
-      # PENTING: Menghubungkan folder di laptop Bos ke dalam Docker
-      # Agar kalau Docker dimatikan, data database dan foto tidak hilang (Persistent)
       - ./instance:/app/instance
       - ./static/uploads:/app/static/uploads
     environment:
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
+    restart: always
+
+  # 2. Kontainer Nginx (Si Satpam Pintu Depan)
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: sinergi_v16_nginx
+    ports:
+      - "80:80"
+    volumes:
+      # Kita masukkan konfigurasi nginx ke dalam kontainer
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # Nginx juga butuh akses ke folder foto agar loading gambar lebih kencang
+      - ./static/uploads:/app/static/uploads:ro
+    depends_on:
+      - sinergi-app
     restart: always
