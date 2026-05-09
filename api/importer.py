@@ -8,22 +8,24 @@ from models import db, MasterPelanggan, TransaksiTagihan, DataSBRS
 importer_bp = Blueprint('importer', __name__)
 
 def clean_nomen(val):
-    """Membersihkan nomen agar seragam 8 digit."""
+    """Pembersihan Nomen agar seragam 8 digit."""
     if not val or pd.isna(val): return None
-    return str(val).strip().split('.')[0][-8:].zfill(8)
+    s = str(val).strip().split('.')[0]
+    return s[-8:].zfill(8)
 
 def extract_periode(val):
     """Konversi format 042026 (MMYYYY) ke 202604 (YYYYMM)."""
     try:
         val = str(val).strip()
         if len(val) == 6:
-            return val[2:] + val[:2] # 042026 -> 202604
+            # Jika format MMYYYY (misal 042026) -> 202604
+            if val[2:].startswith('20'): return val[2:] + val[:2]
         return val[:6]
     except:
         return "202605"
 
 def process_mega_file(file, logic_func):
-    """Mesin Turbo: Memproses 50.000 baris per putaran untuk hemat RAM."""
+    """Mesin Turbo Chunking: Hemat RAM untuk file raksasa."""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     file.save(temp_path)
@@ -35,36 +37,43 @@ def process_mega_file(file, logic_func):
         )
         total = 0
         for chunk in reader:
+            # Standarisasi Header menjadi Uppercase
             chunk.columns = chunk.columns.str.strip().str.upper()
             total += logic_func(chunk)
             db.session.commit()
-            db.session.expunge_all() # Kosongkan RAM setelah commit
+            db.session.expunge_all() 
         return total
     finally:
         if os.path.exists(temp_path): os.remove(temp_path)
 
 @importer_bp.route('/cid', methods=['POST'])
 def import_cid():
-    """Import Master Pelanggan dengan PostgreSQL UPSERT."""
+    """Import Master Pelanggan dengan penyimpanan seluruh header asli."""
     file = request.files.get('file')
     if not file: return jsonify({"status": "error", "message": "File CID kosong"}), 400
     
     def cid_logic(df):
         data_list = []
         for _, row in df.iterrows():
-            nomen = clean_nomen(row.get('NOMEN') or row.get('CMR_ACCOUNT'))
+            nomen = clean_nomen(row.get('CMR_ACCOUNT') or row.get('NOMEN'))
             if not nomen: continue
+            
+            # AMBIL SEMUA HEADER: Konversi baris ke Dictionary
+            raw_data_dict = row.to_dict()
+
             data_list.append({
                 "nomen": nomen,
-                "nama": row.get('CMR_NAME', 'Pelanggan'),
-                "pcez": row.get('PCEZBK') or row.get('PC', '') + row.get('EZ', ''),
+                "nama": row.get('CMR_NAME') or row.get('NAMA', 'Pelanggan'),
+                "pcez": row.get('PCEZBK') or (str(row.get('PC','')) + str(row.get('EZ',''))),
                 "ab": row.get('CC') or row.get('AB', 'AB Sunter'),
                 "kelurahan": row.get('KELURAHAN') or row.get('KEL', ''),
-                "tarif": row.get('TARIF') or row.get('CMR_TARIFF', '')
+                "tarif": row.get('TARIF') or row.get('CMR_TARIFF', ''),
+                "raw_data": raw_data_dict # Simpan semua header asli
             })
+
         if data_list:
             stmt = insert(MasterPelanggan).values(data_list)
-            # Update jika Nomen sudah ada (Sinergi Upsert)
+            # Sinergi Upsert
             upsert_stmt = stmt.on_conflict_do_update(
                 index_elements=['nomen'],
                 set_={k: getattr(stmt.excluded, k) for k in data_list[0].keys() if k != 'nomen'}
@@ -74,36 +83,48 @@ def import_cid():
         return 0
 
     total = process_mega_file(file, cid_logic)
-    return jsonify({"status": "success", "message": f"{total} Master Pelanggan Berhasil Disinkronkan"})
+    return jsonify({"status": "success", "message": f"{total} Master Pelanggan Disinkronkan (Full Header Captured)"})
 
 @importer_bp.route('/sbrs-combined', methods=['POST'])
 def import_sbrs():
     """
-    Turbo Join: Menggabungkan Customer & Spotbill untuk SBRS.
-    Mengisi kolom Denormalisasi (ab, kelurahan) agar Dashboard kencang.
+    Turbo Join V5.8: Menggabungkan Customer & Spotbill.
+    Seluruh header dari kedua file disimpan ke dalam JSONB.
     """
     file_cust = request.files.get('file_customer')
     file_spot = request.files.get('file_spotbill')
     
     if not file_cust or not file_spot:
-        return jsonify({"status": "error", "message": "File Customer & Spotbill wajib ada"}), 400
+        return jsonify({"status": "error", "message": "Kedua file wajib ada"}), 400
 
     try:
-        # Load Customer ke Memory (Biasanya tidak sebesar file transaksi)
+        # Load Peta Wilayah (Customer)
         df_cust = pd.read_csv(file_cust, sep=';', dtype=str).rename(columns=str.upper)
-        df_cust['NOMEN_KEY'] = df_cust['CMR_ACCOUNT'].apply(clean_nomen)
+        col_key_c = 'CMR_ACCOUNT' if 'CMR_ACCOUNT' in df_cust.columns else 'NOMEN'
+        df_cust['NOMEN_KEY'] = df_cust[col_key_c].apply(clean_nomen)
 
         def sbrs_logic(df_spot):
-            data_list = []
-            # Join Spotbill dengan Customer Data di tingkat RAM
-            df_merged = pd.merge(df_spot, df_cust, left_on='NOMEN', right_on='NOMEN_KEY', how='left')
+            # Tentukan kolom join di file spotbill
+            col_key_s = 'NOMEN' if 'NOMEN' in df_spot.columns else 'CMR_ACCOUNT'
             
+            # Turbo Join di RAM
+            df_merged = pd.merge(df_spot, df_cust, left_on=col_key_s, right_on='NOMEN_KEY', how='left')
+            
+            data_list = []
             for _, row in df_merged.iterrows():
-                nomen = clean_nomen(row.get('NOMEN'))
+                nomen = clean_nomen(row.get(col_key_s))
                 if not nomen: continue
                 
-                m3 = int(row.get('CMR_DIAL_DIFFERENCE', 0))
-                rata = 15
+                # Konversi satu baris hasil join menjadi Dictionary
+                # Ini mencakup header dari spot_bill DAN customer.
+                all_headers = row.to_dict()
+                
+                # Kalkulasi Anomali
+                curr = float(row.get('CURR_READ_1') or row.get('END_READ_STAN') or 0)
+                prev = float(row.get('PREV_READ_1') or row.get('CMR_PREV_READ') or 0)
+                m3 = curr - prev
+                rata = float(row.get('AVG_CONSUMPTION') or 15)
+                
                 kat = "NORMAL"
                 if m3 == 0: kat = "ZERO"
                 elif m3 > (rata * 2): kat = "EKSTREM"
@@ -111,20 +132,20 @@ def import_sbrs():
 
                 data_list.append({
                     "nomen": nomen,
-                    "periode": extract_periode(row.get('BILL_PERIOD', '052026')),
-                    "nama": row.get('CMR_NAME'),
-                    "ab": row.get('AB', 'AB Sunter'),
-                    "kelurahan": row.get('KEL', ''),
-                    "pcez": row.get('PC', '') + row.get('EZ', ''),
+                    "periode": extract_periode(row.get('BILL_PERIOD') or row.get('PERIODE') or '202605'),
+                    "nama": row.get('CMR_NAME') or row.get('NAMA', 'Pelanggan'),
+                    "ab": row.get('AB') or row.get('CC', 'AB Sunter'),
+                    "kelurahan": row.get('KEL') or row.get('KELURAHAN', ''),
+                    "pcez": row.get('PCEZBK') or (str(row.get('PC','')) + str(row.get('EZ',''))),
                     "bulan_ini": m3,
                     "rata_rata": rata,
-                    "stand_meter": int(row.get('CURR_READ_1', 0)),
-                    "kategori_anomali": kat
+                    "stand_meter": curr,
+                    "kategori_anomali": kat,
+                    "raw_data": all_headers # SELURUH HEADER MASUK SINI
                 })
 
             if data_list:
                 stmt = insert(DataSBRS).values(data_list)
-                # Upsert agar tidak error UNIQUE(nomen, periode)
                 upsert_stmt = stmt.on_conflict_do_update(
                     index_elements=['nomen', 'periode'],
                     set_={k: getattr(stmt.excluded, k) for k in data_list[0].keys() if k not in ['nomen', 'periode']}
@@ -134,6 +155,6 @@ def import_sbrs():
             return 0
 
         total = process_mega_file(file_spot, sbrs_logic)
-        return jsonify({"status": "success", "message": f"{total} Data SBRS Gabungan Berhasil Dianalisa"})
+        return jsonify({"status": "success", "message": f"Sinergi Berhasil! {total} data anomali dengan header lengkap disimpan."})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Fatal Error: {str(e)}"}), 500
