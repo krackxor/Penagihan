@@ -9,16 +9,14 @@ monitoring_bp = Blueprint('monitoring', __name__)
 def list_tagihan():
     """
     Halaman Utama Monitoring.
-    Mendukung filter: AB, Rayon, Kelurahan, PCEZ.
-    Default: AB Sunter.
+    Sudah dioptimasi untuk aturan GROUP BY PostgreSQL.
     """
-    # Ambil filter dari URL (Query String)
     ab_filter = request.args.get('ab', 'AB Sunter')
     rayon_filter = request.args.get('rayon')
     kel_filter = request.args.get('kelurahan')
     pcez_filter = request.args.get('pcez')
     
-    # Query Dasar: Gabungkan Tagihan + Pelanggan + Nama Petugas
+    # Query Dasar
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -33,7 +31,7 @@ def list_tagihan():
      .outerjoin(MasterPetugas, MasterPelanggan.pcez == MasterPetugas.pcez)\
      .filter(TransaksiTagihan.status_lunas == 0)
 
-    # Terapkan Filter Dinamis
+    # Filter Dinamis
     if ab_filter != 'all':
         query = query.filter(MasterPelanggan.ab == ab_filter)
     if rayon_filter:
@@ -43,8 +41,16 @@ def list_tagihan():
     if pcez_filter:
         query = query.filter(MasterPelanggan.pcez == pcez_filter)
 
-    # Grouping berdasarkan Nomen (Agar tagihan berekor jadi satu baris)
-    results = query.group_by(TransaksiTagihan.nomen).order_by(func.sum(TransaksiTagihan.nominal).desc()).all()
+    # PERBAIKAN: PostgreSQL mewajibkan semua kolom non-agregat masuk ke group_by
+    results = query.group_by(
+        TransaksiTagihan.nomen,
+        MasterPelanggan.nama,
+        MasterPelanggan.pcez,
+        MasterPelanggan.rayon,
+        MasterPelanggan.kelurahan,
+        MasterPelanggan.alamat,
+        MasterPetugas.nama_petugas
+    ).order_by(func.sum(TransaksiTagihan.nominal).desc()).all()
 
     return render_template('monitoring.html', 
                            data=results, 
@@ -54,7 +60,7 @@ def list_tagihan():
 
 @monitoring_bp.route('/top-500')
 def top_500():
-    """Khusus untuk menarik 500 besar tunggakan di AB Sunter."""
+    """Menarik 500 besar tunggakan dengan standarisasi Group By PostgreSQL."""
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -64,7 +70,12 @@ def top_500():
     ).join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, MasterPelanggan.pcez == MasterPetugas.pcez)\
      .filter(TransaksiTagihan.status_lunas == 0, MasterPelanggan.ab == 'AB Sunter')\
-     .group_by(TransaksiTagihan.nomen)\
+     .group_by(
+         TransaksiTagihan.nomen,
+         MasterPelanggan.nama,
+         MasterPelanggan.kelurahan,
+         MasterPetugas.nama_petugas
+     )\
      .order_by(func.sum(TransaksiTagihan.nominal).desc())\
      .limit(500)
     
@@ -73,12 +84,8 @@ def top_500():
 
 @monitoring_bp.route('/get-filters')
 def get_filters():
-    """
-    API pendukung untuk mengisi dropdown filter di halaman web.
-    Mengambil daftar Kelurahan dan Rayon yang tersedia di database.
-    """
+    """API pendukung filter dropdown."""
     ab = request.args.get('ab', 'AB Sunter')
-    
     kelurahans = db.session.query(MasterPelanggan.kelurahan).filter(MasterPelanggan.ab == ab).distinct().all()
     rayons = db.session.query(MasterPelanggan.rayon).filter(MasterPelanggan.ab == ab).distinct().all()
     
@@ -89,12 +96,12 @@ def get_filters():
 
 @monitoring_bp.route('/summary')
 def summary_stats():
-    """Menghitung ringkasan cepat untuk Dashboard."""
+    """Ringkasan Dashboard (Total Rupiah & Pelanggan)."""
     ab = request.args.get('ab', 'AB Sunter')
     
     total_duit = db.session.query(func.sum(TransaksiTagihan.nominal))\
-                   .join(MasterPelanggan)\
-                   .filter(MasterPelanggan.ab == ab, TransaksiTagihan.status_lunas == 0).scalar() or 0
+                    .join(MasterPelanggan)\
+                    .filter(MasterPelanggan.ab == ab, TransaksiTagihan.status_lunas == 0).scalar() or 0
                    
     total_plg = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
                   .join(MasterPelanggan)\
