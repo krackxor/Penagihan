@@ -43,32 +43,32 @@ class TransaksiTagihan(db.Model):
 
 class DataSBRS(db.Model):
     """
-    Tabel Analisa SBRS: Dilengkapi kolom audit lengkap sesuai Stability Patch V5.5.
-    Menampung hasil gabungan file Customer + Spotbill.
+    Tabel Analisa SBRS: Dilengkapi kolom audit lengkap sesuai Stability Patch V5.6.
+    Mendukung Denormalisasi Turbo untuk query tanpa join berat.
     """
     __tablename__ = 'data_sbrs'
     id = db.Column(db.Integer, primary_key=True)
     nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
     periode = db.Column(db.String(10), nullable=False, index=True) # YYYYMM
     
-    # Data dari Customer.txt (Denormalisasi untuk kecepatan query dashboard)
+    # --- KOLOM TURBO (Denormalisasi) ---
+    # Memastikan dashboard kencang meski data 1 juta pelanggan
     nama = db.Column(db.String(150))
     alamat = db.Column(db.Text)
     pcez = db.Column(db.String(20), index=True)
     rayon = db.Column(db.String(10))
     tarif = db.Column(db.String(10))
-    
-    # Kolom Wilayah: Kunci utama agar Dashboard Summary tidak AttributeError
     ab = db.Column(db.String(50), default='AB Sunter', index=True)
     kelurahan = db.Column(db.String(100), index=True)
     
-    # Data Konsumsi dari Spotbill.txt
+    # --- DATA KONSUMSI ---
     stand_meter = db.Column(db.Float, default=0)
     bulan_ini = db.Column(db.Float, default=0) # m3 terpakai
     rata_rata = db.Column(db.Float, default=15)
     kategori_anomali = db.Column(db.String(50), index=True) # ZERO, EKSTREM, TURUN
     
-    # Fitur Audit Lapangan (Audit Trail)
+    # --- FITUR AUDIT LAPANGAN (FIX ERROR) ---
+    # Kolom ini krusial untuk melacak siapa yang sudah dicek Wahyu dkk
     status_audit = db.Column(db.Integer, default=0, index=True) # 0=Belum, 1=Selesai
     tgl_audit = db.Column(db.DateTime)
     catatan_lapangan = db.Column(db.Text)
@@ -77,9 +77,9 @@ class DataSBRS(db.Model):
     longitude = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Proteksi Data Ganda & Percepatan Query PostgreSQL
+    # Proteksi data ganda (Nomen + Periode harus unik)
     __table_args__ = (
-        UniqueConstraint('nomen', 'periode', name='uix_sbrs_nomen_periode'), # Cegah duplikasi per bulan
+        UniqueConstraint('nomen', 'periode', name='uix_sbrs_nomen_periode'),
     )
 
 class AnalisaAuditor(db.Model):
