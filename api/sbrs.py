@@ -9,24 +9,45 @@ def get_current_periode():
     """Mendapatkan periode berjalan dalam format YYYYMM."""
     return datetime.now().strftime('%Y%m')
 
+# --- KAMUS DATA SBRS (BERDASARKAN SOP PAM JAYA) ---
+SKIP_LABELS = {
+    '1A': 'Meter Buram', '1B': 'Meter Berembun', '1C': 'Meter Rusak',
+    '2A': 'Meter Tidak Ada (Air Tidak Dipakai)', '2B': 'Meter Tidak Ada (Air Dipakai)',
+    '3A': 'Rumah Kosong', '4A': 'Rumah Dibongkar', '4B': 'Meter Terendam',
+    '4C': 'Alamat Tidak Ketemu', '5A': 'Tutup Bak Meter Berat', '5B': 'Meter Tertimbun',
+    '5C': 'Meter Terhalang Barang Berat', '5D': 'Meter Dicor', '5E': 'Bak Meter Dikunci',
+    '5F': 'Pagar Dikunci', '5G': 'Tidak Diizinkan Baca Meter'
+}
+
+TRBL_LABELS = {
+    '1A': 'Meter Berembun', '1B': 'Meter Mati', '1C': 'Meter Buram', '1D': 'Segel Pabrik Putus/Tidak Ada',
+    '2A': 'Meter Terbalik', '2B': 'Meter Dipindah', '2C': 'Meter Lepas', '2D': 'By Pass Meter',
+    '2E': 'Meter Dicolok', '2F': 'Meter Tidak Normal/Meter Dicolok', '2G': 'Meter Rusak/Kaca Meter Pecah',
+    '3A': 'Air Kecil/Mati', '4A': 'Pipa Dinas Sebelum Meter Bocor', '4B': 'Pipa Lama Keluar Air',
+    '4C': 'Perlu Rehab Pipa Dinas (Pipa Gip)', '4D': 'Aksesoris Meter Rusak', '4E': 'Segel Dinas Diputus/Tidak Ada',
+    '5A': 'Stand Tempel', '5B': 'No Seri Beda'
+}
+
+READ_LABELS = {
+    '30/PE': 'System Estimate', '35/PS': 'Service Provider Estimate',
+    '40/PE': 'Office Estimate', '60/SE': 'Regular', '80/PE': 'Billing Force'
+}
+
 @sbrs_bp.route('/summary')
 def sbrs_summary():
     """
     Dashboard Ringkasan SBRS.
-    Menampilkan statistik anomali (Zero, Ekstrem, Turun) per Periode dan Kelurahan.
+    Menampilkan statistik anomali dan Rincian Teknis Lapangan (Skip, Trouble, Read Method).
     """
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
-    # Sinkronisasi format periode kalender (YYYY-MM) ke format database (YYYYMM)
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # 1. Hitung total per kategori anomali (Turbo Mode: Tanpa Join)
+    # 1. Hitung total per kategori anomali (Zero, Ekstrem, Turun)
     stats_query = db.session.query(
         DataSBRS.kategori_anomali, 
         func.count(DataSBRS.id)
-    ).select_from(DataSBRS).filter(
-        DataSBRS.periode == periode_filter
-    )
+    ).select_from(DataSBRS).filter(DataSBRS.periode == periode_filter)
     
     if ab != 'all':
         stats_query = stats_query.filter(DataSBRS.ab == ab)
@@ -34,24 +55,42 @@ def sbrs_summary():
     stats = stats_query.group_by(DataSBRS.kategori_anomali).all()
     summary_data = {k: v for k, v in stats if k}
     
-    # 2. Hitung sebaran per Kelurahan (Denormalized: Sangat Cepat)
-    kelurahan_stats = db.session.query(
-        DataSBRS.kelurahan, 
+    # --- MULAI TARIK DATA JSONB ---
+    
+    # 2. Hitung SKIP CODE dari JSONB
+    skip_stats = db.session.query(
+        DataSBRS.raw_data['CMR_SKIP_CODE'].astext.label('code'),
         func.count(DataSBRS.id)
-    ).select_from(DataSBRS).filter(
-        DataSBRS.periode == periode_filter
-    )
+    ).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': skip_stats = skip_stats.filter(DataSBRS.ab == ab)
+    skip_raw = skip_stats.group_by('code').all()
 
-    if ab != 'all':
-        kelurahan_stats = kelurahan_stats.filter(DataSBRS.ab == ab)
+    # 3. Hitung TRUBLEM CODE dari JSONB
+    trbl_stats = db.session.query(
+        DataSBRS.raw_data['CMR_TRBL1_CODE'].astext.label('code'),
+        func.count(DataSBRS.id)
+    ).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': trbl_stats = trbl_stats.filter(DataSBRS.ab == ab)
+    trbl_raw = trbl_stats.group_by('code').all()
 
-    kelurahan_results = kelurahan_stats.group_by(DataSBRS.kelurahan)\
-                                      .order_by(func.count(DataSBRS.id).desc()).all()
+    # 4. Hitung READ METHOD dari JSONB
+    read_stats = db.session.query(
+        DataSBRS.raw_data['READ_METHOD'].astext.label('method'),
+        func.count(DataSBRS.id)
+    ).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': read_stats = read_stats.filter(DataSBRS.ab == ab)
+    read_raw = read_stats.group_by('method').all()
 
-    # MENGGUNAKAN NAMA TEMPLATE ASLI BOS
+    # --- PROSES MAPPING KE BAHASA MANUSIA ---
+    skip_final = [{"code": c, "desc": SKIP_LABELS.get(c, 'Lainnya'), "count": count} for c, count in skip_raw if c and c != 'None']
+    trbl_final = [{"code": c, "desc": TRBL_LABELS.get(c, 'Lainnya'), "count": count} for c, count in trbl_raw if c and c != 'None']
+    read_final = [{"code": c, "desc": READ_LABELS.get(c, 'Manual/Other'), "count": count} for c, count in read_raw if c and c != 'None']
+
     return render_template('sbrs_summary.html', 
                            summary=summary_data, 
-                           kelurahan_data=kelurahan_results,
+                           skip_data=skip_final,
+                           trbl_data=trbl_final,
+                           read_data=read_final,
                            current_ab=ab,
                            periode_aktif=periode_filter)
 
@@ -66,10 +105,10 @@ def sbrs_analisa():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # PERBAIKAN: Join ke MasterPetugas via kolom pcez yang sudah disembuhkan di DB
+    # Join ke MasterPetugas via kolom pcez yang sudah stabil
     query = db.session.query(
         DataSBRS.nomen,
-        DataSBRS.nama, # Kolom ini sekarang ada di DataSBRS (Turbo)
+        DataSBRS.nama, 
         DataSBRS.kelurahan,
         DataSBRS.pcez,
         DataSBRS.bulan_ini,
@@ -91,7 +130,6 @@ def sbrs_analisa():
 
     results = query.order_by(DataSBRS.bulan_ini.desc()).limit(1000).all()
     
-    # MENGGUNAKAN NAMA TEMPLATE ASLI BOS
     return render_template('sbrs_analisa.html', 
                            data=results, 
                            current_ab=ab, 
