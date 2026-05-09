@@ -1,114 +1,74 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Ringkasan SBRS - AREA SERVICE</title>
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Styling Ringkasan Metrik (Satu Kartu) */
+    .summary-card {
+        background: #ffffff;
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
     
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    .metric-box {
+        padding: 25px 20px;
+        border-right: 1px solid #f1f5f9;
+        border-bottom: 1px solid #f1f5f9;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+        background: #ffffff;
+    }
+    
+    /* Efek hover pada kotak metrik di dalam kartu */
+    .metric-box:hover {
+        background: #f8fafc;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        z-index: 2;
+    }
 
-    <style>
-        :root {
-            --sbrs-dark: #0f172a;
-            --sbrs-blue: #2563eb;
-            --sbrs-info: #0891b2;
-            --sbrs-bg: #f8fafc;
-            --text-muted: #64748b;
-        }
+    .metric-label {
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin-bottom: 8px;
+        display: block;
+    }
 
-        body { 
-            background: var(--sbrs-bg); 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            color: #1e293b; 
-        }
-        
-        .sidebar-sbrs { 
-            background: var(--sbrs-dark); color: white; padding: 25px; 
-            height: 100vh; position: fixed; width: 260px; 
-            box-shadow: 4px 0 10px rgba(0,0,0,0.05); 
-            z-index: 1000;
-        }
-        
-        .main-content { margin-left: 260px; padding: 30px 40px; }
-        
-        /* CARD MODERN & CLEAN */
-        .card-lnp { 
-            background: #ffffff;
-            border: none; 
-            border-radius: 16px; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); 
-            transition: all 0.2s ease-in-out; 
-            height: 100%;
-        }
-        
-        .card-clickable { cursor: pointer; }
-        .card-clickable:hover { 
-            transform: translateY(-4px); 
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); 
-        }
+    .metric-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        margin-bottom: 0;
+        letter-spacing: -0.5px;
+    }
 
-        /* Icon Box Modern */
-        .icon-box {
-            width: 48px; height: 48px;
-            border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.25rem;
-        }
+    .metric-icon {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 1.2rem;
+        opacity: 0.4;
+    }
 
-        /* Tipografi */
-        .card-label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-        }
-        
-        .header-sbrs { 
-            background: white; padding: 20px 25px; border-radius: 16px; 
-            margin-bottom: 25px; display: flex; justify-content: space-between; 
-            align-items: center; border: 1px solid #e2e8f0; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
+    /* Tabel Detail Bawah */
+    .table-container { border-radius: 15px; border: 1px solid #e2e8f0; background: white; }
+</style>
 
-        .table-responsive { border-radius: 12px; border: 1px solid #e2e8f0; background: white; }
-    </style>
-</head>
-<body>
-
-<div class="sidebar-sbrs">
-    <div class="mb-4 text-center mt-3">
-        <i class="fa-solid fa-droplet text-info fa-2xl mb-3"></i>
-        <h5 class="fw-800 mb-0">SBRS SYSTEM</h5>
-        <small class="opacity-50">Area Service Integrated</small>
-    </div>
-    <hr class="opacity-10 mb-4">
-    <div class="nav flex-column nav-pills">
-        <a class="nav-link text-white active mb-2" href="/summary-sbrs" style="background: rgba(255,255,255,0.1); border-radius: 10px;">
-            <i class="fa-solid fa-chart-pie me-2"></i> Ringkasan (Dashboard)
-        </a>
-        <a class="nav-link text-white mb-2 opacity-75 hover-opacity-100" href="/analisa-sbrs">
-            <i class="fa-solid fa-microscope me-2"></i> Detail Analisa LNP
-        </a>
-        <a class="nav-link text-white mb-2 opacity-75 hover-opacity-100" href="/upload-sbrs">
-            <i class="fa-solid fa-file-import me-2"></i> Upload File
-        </a>
-    </div>
-</div>
-
-<div class="main-content">
-    <div class="header-sbrs">
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 animate__animated animate__fadeInDown">
         <div>
-            <h4 class="fw-800 mb-1 text-dark">Dashboard Ringkasan SBRS</h4>
-            <p class="text-muted small mb-0">Klik pada kotak metrik untuk melihat detail data pelanggan terkait.</p>
+            <h4 class="fw-800 text-dark mb-1">Dashboard Ringkasan SBRS</h4>
+            <p class="text-muted small mb-0">Klik pada salah satu metrik di bawah untuk melihat rincian datanya.</p>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-light border fw-bold text-secondary" style="border-radius: 10px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
+            <button class="btn btn-light border fw-bold text-secondary" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
                 <i class="fa-solid fa-circle-info"></i> Info Logika
             </button>
-            <select id="filterCycle" class="form-select border shadow-sm fw-semibold text-dark" style="width: 180px; border-radius: 10px;" onchange="loadDataSBRS(this.value)">
+            <select id="filterCycle" class="form-select border shadow-sm fw-bold" style="width: 180px; border-radius: 12px;" onchange="loadDataSBRS(this.value)">
                 <option value="all" selected>Semua Cycle</option>
                 <option value="01">Cycle 01</option>
                 <option value="02">Cycle 02</option>
@@ -117,132 +77,75 @@
         </div>
     </div>
 
-    <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-primary p-4" onclick="goToAnalisa('all')">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="card-label">Total Objek Baca</div>
-                        <h2 class="fw-800 mb-0 mt-1 text-dark" id="totObjek">0</h2>
-                    </div>
-                    <div class="icon-box bg-primary bg-opacity-10 text-primary">
-                        <i class="fa-solid fa-users"></i>
-                    </div>
-                </div>
-            </div>
+    <div class="summary-card mb-5 animate__animated animate__fadeInUp">
+        <div class="card-header bg-dark text-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <span class="fw-bold"><i class="fa-solid fa-chart-pie text-info me-2"></i>Executive Summary SBRS</span>
+            <span class="badge bg-white text-dark rounded-pill" id="cycleBadge">Semua Cycle</span>
         </div>
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-success p-4" onclick="goToAnalisa('all')">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="card-label">Total Vol_SB (Struk)</div>
-                        <h2 class="fw-800 mb-0 mt-1 text-success"><span id="totVolRiil">0</span> <span class="fs-6 fw-normal text-muted">m³</span></h2>
-                    </div>
-                    <div class="icon-box bg-success bg-opacity-10 text-success">
-                        <i class="fa-solid fa-faucet-drip"></i>
-                    </div>
-                </div>
+        
+        <div class="row g-0 text-start">
+            <div class="col-md-3 metric-box border-start-0" onclick="goToAnalisa('all')">
+                <i class="fa-solid fa-users metric-icon text-primary"></i>
+                <span class="metric-label text-primary">Total Objek Baca</span>
+                <p class="metric-value text-dark" id="totObjek">0</p>
             </div>
-        </div>
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-dark p-4" onclick="goToAnalisa('anomali')">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="card-label text-dark">Total Gap Anomali</div>
-                        <h2 class="fw-800 mb-0 mt-1 text-dark" id="totAnomali">0</h2>
-                    </div>
-                    <div class="icon-box bg-dark bg-opacity-10 text-dark">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                    </div>
-                </div>
+            <div class="col-md-3 metric-box" onclick="goToAnalisa('all')">
+                <i class="fa-solid fa-faucet-drip metric-icon text-success"></i>
+                <span class="metric-label text-success">Total Vol_SB (Struk)</span>
+                <p class="metric-value text-success"><span id="totVolRiil">0</span><span class="fs-6 fw-normal text-muted ms-1">m³</span></p>
+            </div>
+            <div class="col-md-3 metric-box" onclick="goToAnalisa('anomali')">
+                <i class="fa-solid fa-triangle-exclamation metric-icon text-dark"></i>
+                <span class="metric-label text-dark">Total Gap Anomali</span>
+                <p class="metric-value text-dark" id="totAnomali">0</p>
+            </div>
+            <div class="col-md-3 metric-box border-end-0 bg-light" onclick="goToAnalisa('zero')">
+                <i class="fa-solid fa-0 metric-icon text-info"></i>
+                <span class="metric-label text-info">Total Zero</span>
+                <p class="metric-value text-info" id="totZero">0</p>
+            </div>
+
+            <div class="col-md-3 metric-box border-start-0 border-bottom-0" onclick="goToAnalisa('ekstrem')">
+                <i class="fa-solid fa-arrow-trend-up metric-icon text-danger"></i>
+                <span class="metric-label text-danger">Pemakaian Ekstrim</span>
+                <p class="metric-value text-danger" id="totEkstrim">0</p>
+            </div>
+            <div class="col-md-3 metric-box border-bottom-0" onclick="goToAnalisa('turun')">
+                <i class="fa-solid fa-arrow-trend-down metric-icon text-warning"></i>
+                <span class="metric-label text-warning">Volume Turun</span>
+                <p class="metric-value text-warning" id="totTurun">0</p>
+            </div>
+            <div class="col-md-3 metric-box border-bottom-0" onclick="goToAnalisa('zero_baru')">
+                <i class="fa-regular fa-circle-dot metric-icon text-primary"></i>
+                <span class="metric-label text-primary">Zero Baru</span>
+                <p class="metric-value text-primary" id="totZeroBaru">0</p>
+            </div>
+            <div class="col-md-3 metric-box border-end-0 border-bottom-0 bg-light" onclick="goToAnalisa('zero_lama')">
+                <i class="fa-regular fa-circle metric-icon text-secondary"></i>
+                <span class="metric-label text-secondary">Zero Lama</span>
+                <p class="metric-value text-secondary" id="totZeroLama">0</p>
+            </div>
+            
+            <div class="col-md-6 metric-box border-start-0 border-bottom-0 border-top bg-danger bg-opacity-10" onclick="goToAnalisa('skip')">
+                <i class="fa-solid fa-ban metric-icon text-danger"></i>
+                <span class="metric-label text-danger">Total Skip (Kodal)</span>
+                <p class="metric-value text-danger" id="totSkip">0</p>
+            </div>
+            <div class="col-md-6 metric-box border-end-0 border-bottom-0 border-top bg-warning bg-opacity-10" onclick="goToAnalisa('trouble')">
+                <i class="fa-solid fa-screwdriver-wrench metric-icon text-warning"></i>
+                <span class="metric-label text-warning">Total Trouble (Teknis)</span>
+                <p class="metric-value text-warning" id="totTrouble">0</p>
             </div>
         </div>
     </div>
 
-    <div class="row row-cols-1 row-cols-md-5 g-3 mb-4">
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5 animate__animated animate__fadeInUp animate__delay-1s">
         <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-danger p-3" onclick="goToAnalisa('ekstrem')">
-                <div class="card-label mb-2">Pemakaian Ekstrim</div>
-                <div class="d-flex justify-content-between align-items-end">
-                    <h3 class="fw-800 mb-0 text-danger" id="totEkstrim">0</h3>
-                    <i class="fa-solid fa-arrow-trend-up text-danger opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-warning p-3" onclick="goToAnalisa('turun')">
-                <div class="card-label mb-2">Volume Turun</div>
-                <div class="d-flex justify-content-between align-items-end">
-                    <h3 class="fw-800 mb-0 text-warning" id="totTurun">0</h3>
-                    <i class="fa-solid fa-arrow-trend-down text-warning opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-info p-3" onclick="goToAnalisa('zero')">
-                <div class="card-label mb-2">Total Zero</div>
-                <div class="d-flex justify-content-between align-items-end">
-                    <h3 class="fw-800 mb-0 text-info" id="totZero">0</h3>
-                    <i class="fa-solid fa-0 text-info opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-primary p-3" onclick="goToAnalisa('zero_baru')">
-                <div class="card-label mb-2">Zero Baru</div>
-                <div class="d-flex justify-content-between align-items-end">
-                    <h3 class="fw-800 mb-0 text-primary" id="totZeroBaru">0</h3>
-                    <i class="fa-regular fa-circle-dot text-primary opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-secondary p-3" onclick="goToAnalisa('zero_lama')">
-                <div class="card-label mb-2">Zero Lama</div>
-                <div class="d-flex justify-content-between align-items-end">
-                    <h3 class="fw-800 mb-0 text-secondary" id="totZeroLama">0</h3>
-                    <i class="fa-regular fa-circle text-secondary opacity-50"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row row-cols-1 row-cols-md-2 g-4 mb-4">
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-danger p-4" onclick="goToAnalisa('skip')">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="card-label">Total Skip (Kodal)</div>
-                        <h2 class="fw-800 mb-0 mt-1 text-danger" id="totSkip">0</h2>
-                    </div>
-                    <div class="icon-box bg-danger bg-opacity-10 text-danger">
-                        <i class="fa-solid fa-ban"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card card-lnp card-clickable border-start border-4 border-warning p-4" onclick="goToAnalisa('trouble')">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="card-label">Total Trouble (Teknis)</div>
-                        <h2 class="fw-800 mb-0 mt-1 text-warning" id="totTrouble">0</h2>
-                    </div>
-                    <div class="icon-box bg-warning bg-opacity-10 text-warning">
-                        <i class="fa-solid fa-screwdriver-wrench"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
-        <div class="col">
-            <div class="card card-lnp border-0 overflow-hidden">
+            <div class="summary-card h-100">
                 <div class="card-header bg-white border-bottom py-3">
-                    <span class="card-label text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i> RINCIAN KODAL (SKIP)</span>
+                    <span class="metric-label text-danger mb-0"><i class="fa-solid fa-circle-exclamation me-1"></i> RINCIAN KODAL (SKIP)</span>
                 </div>
-                <div class="table-responsive p-0 border-0" style="max-height: 250px; overflow-y: auto;">
+                <div class="table-responsive p-0 border-0" style="max-height: 300px; overflow-y: auto;">
                     <table class="table table-hover mb-0 align-middle">
                         <tbody id="bodySkip" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
                     </table>
@@ -250,11 +153,11 @@
             </div>
         </div>
         <div class="col">
-            <div class="card card-lnp border-0 overflow-hidden">
+            <div class="summary-card h-100">
                 <div class="card-header bg-white border-bottom py-3">
-                    <span class="card-label text-warning"><i class="fa-solid fa-wrench me-1"></i> RINCIAN TROUBLE</span>
+                    <span class="metric-label text-warning mb-0"><i class="fa-solid fa-wrench me-1"></i> RINCIAN TROUBLE</span>
                 </div>
-                <div class="table-responsive p-0 border-0" style="max-height: 250px; overflow-y: auto;">
+                <div class="table-responsive p-0 border-0" style="max-height: 300px; overflow-y: auto;">
                     <table class="table table-hover mb-0 align-middle">
                         <tbody id="bodyTrouble" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
                     </table>
@@ -262,11 +165,11 @@
             </div>
         </div>
         <div class="col">
-            <div class="card card-lnp border-0 overflow-hidden">
+            <div class="summary-card h-100">
                 <div class="card-header bg-white border-bottom py-3">
-                    <span class="card-label text-dark"><i class="fa-solid fa-tablet-screen-button me-1"></i> METODE BACA</span>
+                    <span class="metric-label text-dark mb-0"><i class="fa-solid fa-tablet-screen-button me-1"></i> METODE BACA</span>
                 </div>
-                <div class="table-responsive p-0 border-0" style="max-height: 250px; overflow-y: auto;">
+                <div class="table-responsive p-0 border-0" style="max-height: 300px; overflow-y: auto;">
                     <table class="table table-hover mb-0 align-middle">
                         <tbody id="bodyMethods" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
                     </table>
@@ -327,9 +230,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+{% block scripts %}
 <script>
     const formatRibuan = (angka) => new Intl.NumberFormat('id-ID').format(angka || 0);
 
@@ -339,6 +242,7 @@
     }
 
     async function loadDataSBRS(cycle) {
+        document.getElementById('cycleBadge').innerText = cycle === 'all' ? 'Semua Cycle' : `Cycle ${cycle}`;
         const url = `/api/get-summary-sbrs?cycle=${cycle}`;
         
         try {
@@ -367,13 +271,13 @@
                 document.getElementById('totSkip').innerText = formatRibuan(tSkip);
                 document.getElementById('totTrouble').innerText = formatRibuan(tTrouble);
 
-                let htmlSkip = data.skip ? data.skip.map(i => `<tr><td class="ps-3"><span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">${i.kode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || i.alasan}</td><td class="text-end pe-3 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
+                let htmlSkip = data.skip && data.skip.length > 0 ? data.skip.map(i => `<tr><td class="ps-3"><span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">${i.kode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || i.alasan}</td><td class="text-end pe-4 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
                 document.getElementById('bodySkip').innerHTML = htmlSkip || '<tr><td colspan="3" class="text-center py-4 text-muted small"><i class="fa-solid fa-folder-open mb-2 fa-2x opacity-25 d-block"></i>Data Kodal Kosong</td></tr>';
                 
-                let htmlTrouble = data.trouble ? data.trouble.map(i => `<tr><td class="ps-3"><span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">${i.kode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || i.alasan}</td><td class="text-end pe-3 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
+                let htmlTrouble = data.trouble && data.trouble.length > 0 ? data.trouble.map(i => `<tr><td class="ps-3"><span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">${i.kode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || i.alasan}</td><td class="text-end pe-4 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
                 document.getElementById('bodyTrouble').innerHTML = htmlTrouble || '<tr><td colspan="3" class="text-center py-4 text-muted small"><i class="fa-solid fa-folder-open mb-2 fa-2x opacity-25 d-block"></i>Data Trouble Kosong</td></tr>';
                 
-                let htmlMethods = (data.methods && data.methods.length > 0) ? data.methods.map(i => `<tr><td class="ps-3"><span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25">${i.kode || i.metode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || '-'}</td><td class="text-end pe-3 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
+                let htmlMethods = (data.methods && data.methods.length > 0) ? data.methods.map(i => `<tr><td class="ps-3"><span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25">${i.kode || i.metode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || '-'}</td><td class="text-end pe-4 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
                 document.getElementById('bodyMethods').innerHTML = htmlMethods || '<tr><td colspan="3" class="text-center py-4 text-muted small"><i class="fa-solid fa-folder-open mb-2 fa-2x opacity-25 d-block"></i>Metode Baca Kosong</td></tr>';
             }
         } catch(e) { 
@@ -383,5 +287,4 @@
 
     window.onload = () => loadDataSBRS('all');
 </script>
-</body>
-</html>
+{% endblock %}
