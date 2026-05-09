@@ -36,61 +36,109 @@ READ_LABELS = {
 @sbrs_bp.route('/summary')
 def sbrs_summary():
     """
-    Dashboard Ringkasan SBRS.
-    Menampilkan statistik anomali dan Rincian Teknis Lapangan (Skip, Trouble, Read Method).
+    Dashboard Eksekutif SBRS.
+    Menampilkan Total Nomen, Zero Lama/Baru, dan Rincian Teknis dengan Filter Cycle.
     """
     ab = request.args.get('ab', 'AB Sunter')
+    cycle = request.args.get('cycle', 'all')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # 1. Hitung total per kategori anomali (Zero, Ekstrem, Turun)
+    # Kalkulasi periode sebelumnya untuk melacak status Zero Lama
+    try:
+        yyyy = int(periode_filter[:4])
+        mm = int(periode_filter[4:])
+        if mm == 1:
+            prev_periode = f"{yyyy-1}12"
+        else:
+            prev_periode = f"{yyyy}{mm-1:02d}"
+    except:
+        prev_periode = periode_filter
+
+    # --- 1. HITUNG STATISTIK DASAR & TOTAL NOMEN ---
+    base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': base_q = base_q.filter(DataSBRS.ab == ab)
+    if cycle != 'all': base_q = base_q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    
+    total_nomen = base_q.count()
+
     stats_query = db.session.query(
-        DataSBRS.kategori_anomali, 
-        func.count(DataSBRS.id)
-    ).select_from(DataSBRS).filter(DataSBRS.periode == periode_filter)
+        DataSBRS.kategori_anomali, func.count(DataSBRS.id)
+    ).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': stats_query = stats_query.filter(DataSBRS.ab == ab)
+    if cycle != 'all': stats_query = stats_query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
     
+    summary_dict = {k: v for k, v in stats_query.group_by(DataSBRS.kategori_anomali).all() if k}
+
+    # --- 2. DETEKSI ZERO LAMA VS ZERO BARU ---
+    zero_lama_q = db.session.query(func.count(DataSBRS.id)).filter(
+        DataSBRS.periode == periode_filter,
+        DataSBRS.kategori_anomali == 'ZERO',
+        DataSBRS.nomen.in_(
+            db.session.query(DataSBRS.nomen).filter(
+                DataSBRS.periode == prev_periode, 
+                DataSBRS.kategori_anomali == 'ZERO'
+            )
+        )
+    )
+    if ab != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.ab == ab)
+    if cycle != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    
+    zero_lama = zero_lama_q.scalar() or 0
+    zero_baru = summary_dict.get('ZERO', 0) - zero_lama
+
+    # --- 3. TARIK DATA JSONB & MAPPING KODE ---
+    skip_stats = db.session.query(DataSBRS.raw_data['CMR_SKIP_CODE'].astext.label('code'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
+    trbl_stats = db.session.query(DataSBRS.raw_data['CMR_TRBL1_CODE'].astext.label('code'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
+    read_stats = db.session.query(DataSBRS.raw_data['READ_METHOD'].astext.label('method'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
+
     if ab != 'all':
-        stats_query = stats_query.filter(DataSBRS.ab == ab)
+        skip_stats = skip_stats.filter(DataSBRS.ab == ab)
+        trbl_stats = trbl_stats.filter(DataSBRS.ab == ab)
+        read_stats = read_stats.filter(DataSBRS.ab == ab)
         
-    stats = stats_query.group_by(DataSBRS.kategori_anomali).all()
-    summary_data = {k: v for k, v in stats if k}
-    
-    # --- MULAI TARIK DATA JSONB ---
-    
-    # 2. Hitung SKIP CODE dari JSONB
-    skip_stats = db.session.query(
-        DataSBRS.raw_data['CMR_SKIP_CODE'].astext.label('code'),
-        func.count(DataSBRS.id)
-    ).filter(DataSBRS.periode == periode_filter)
-    if ab != 'all': skip_stats = skip_stats.filter(DataSBRS.ab == ab)
+    if cycle != 'all':
+        skip_stats = skip_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+        trbl_stats = trbl_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+        read_stats = read_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+
     skip_raw = skip_stats.group_by('code').all()
-
-    # 3. Hitung TRUBLEM CODE dari JSONB
-    trbl_stats = db.session.query(
-        DataSBRS.raw_data['CMR_TRBL1_CODE'].astext.label('code'),
-        func.count(DataSBRS.id)
-    ).filter(DataSBRS.periode == periode_filter)
-    if ab != 'all': trbl_stats = trbl_stats.filter(DataSBRS.ab == ab)
     trbl_raw = trbl_stats.group_by('code').all()
-
-    # 4. Hitung READ METHOD dari JSONB
-    read_stats = db.session.query(
-        DataSBRS.raw_data['READ_METHOD'].astext.label('method'),
-        func.count(DataSBRS.id)
-    ).filter(DataSBRS.periode == periode_filter)
-    if ab != 'all': read_stats = read_stats.filter(DataSBRS.ab == ab)
     read_raw = read_stats.group_by('method').all()
 
-    # --- PROSES MAPPING KE BAHASA MANUSIA ---
     skip_final = [{"code": c, "desc": SKIP_LABELS.get(c, 'Lainnya'), "count": count} for c, count in skip_raw if c and c != 'None']
     trbl_final = [{"code": c, "desc": TRBL_LABELS.get(c, 'Lainnya'), "count": count} for c, count in trbl_raw if c and c != 'None']
     read_final = [{"code": c, "desc": READ_LABELS.get(c, 'Manual/Other'), "count": count} for c, count in read_raw if c and c != 'None']
 
+    # --- 4. KUMPULKAN KE DALAM MASTER OBJECT ---
+    master_totals = {
+        "total_nomen": total_nomen,
+        "zero_baru": zero_baru,
+        "zero_lama": zero_lama,
+        "total_skip": sum(i['count'] for i in skip_final),
+        "total_trbl": sum(i['count'] for i in trbl_final),
+        "ekstrem": summary_dict.get('EKSTREM', 0),
+        "turun": summary_dict.get('TURUN', 0)
+    }
+
+    # --- 5. TARIK SEBARAN KELURAHAN ---
+    kelurahan_stats = db.session.query(DataSBRS.kelurahan, func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': kelurahan_stats = kelurahan_stats.filter(DataSBRS.ab == ab)
+    if cycle != 'all': kelurahan_stats = kelurahan_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    kelurahan_results = kelurahan_stats.group_by(DataSBRS.kelurahan).order_by(func.count(DataSBRS.id).desc()).all()
+
+    # --- 6. SIAPKAN LIST CYCLE UNTUK DROPDOWN ---
+    available_cycles = db.session.query(DataSBRS.raw_data['CYCLE'].astext).filter(DataSBRS.periode == periode_filter).distinct().all()
+    cycles_list = sorted([c[0] for c in available_cycles if c[0] and c[0] != 'None'])
+
     return render_template('sbrs_summary.html', 
-                           summary=summary_data, 
+                           totals=master_totals, 
+                           cycles=cycles_list,
+                           current_cycle=cycle,
                            skip_data=skip_final,
                            trbl_data=trbl_final,
                            read_data=read_final,
+                           kelurahan_data=kelurahan_results,
                            current_ab=ab,
                            periode_aktif=periode_filter)
 
@@ -98,14 +146,14 @@ def sbrs_summary():
 def sbrs_analisa():
     """
     Detail Analisa Kasus SBRS.
-    Menampilkan daftar pelanggan yang butuh audit lapangan.
+    Dilengkapi filter Cycle agar pencarian target audit lebih spesifik.
     """
     ab = request.args.get('ab', 'AB Sunter')
+    cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # Join ke MasterPetugas via kolom pcez yang sudah stabil
     query = db.session.query(
         DataSBRS.nomen,
         DataSBRS.nama, 
@@ -124,7 +172,8 @@ def sbrs_analisa():
 
     if ab != 'all':
         query = query.filter(DataSBRS.ab == ab)
-
+    if cycle != 'all':
+        query = query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
     if kat and kat != 'all':
         query = query.filter(DataSBRS.kategori_anomali == kat)
 
@@ -132,33 +181,7 @@ def sbrs_analisa():
     
     return render_template('sbrs_analisa.html', 
                            data=results, 
-                           current_ab=ab, 
+                           current_ab=ab,
+                           current_cycle=cycle,
                            current_kat=kat,
                            periode_aktif=periode_filter)
-
-@sbrs_bp.route('/api-stats')
-def get_sbrs_api_stats():
-    """API untuk pembaruan widget angka secara real-time di frontend."""
-    ab = request.args.get('ab', 'AB Sunter')
-    periode_raw = request.args.get('periode')
-    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
-
-    res = db.session.query(
-        func.count(DataSBRS.id).label('total'),
-        func.sum(case((DataSBRS.kategori_anomali == 'ZERO', 1), else_=0)).label('zero'),
-        func.sum(case((DataSBRS.kategori_anomali == 'EKSTREM', 1), else_=0)).label('ekstrem'),
-        func.sum(case((DataSBRS.kategori_anomali == 'TURUN', 1), else_=0)).label('turun')
-    ).select_from(DataSBRS).filter(DataSBRS.periode == periode_filter)
-
-    if ab != 'all':
-        res = res.filter(DataSBRS.ab == ab)
-
-    stats = res.first()
-
-    return jsonify({
-        "total": stats.total or 0,
-        "zero": int(stats.zero or 0),
-        "ekstrem": int(stats.ekstrem or 0),
-        "turun": int(stats.turun or 0),
-        "periode_text": periode_filter
-    })
