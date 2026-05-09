@@ -3,7 +3,7 @@ import pandas as pd
 from flask import Blueprint, render_template, request, jsonify, send_file
 from models import db, MasterPelanggan, MasterPetugas, DataSBRS
 from sqlalchemy import func, and_, case
-from datetime import datetime
+from datetime import datetime, timedelta
 
 sbrs_bp = Blueprint('sbrs', __name__)
 
@@ -11,7 +11,7 @@ def get_current_periode():
     """Mendapatkan periode berjalan dalam format YYYYMM."""
     return datetime.now().strftime('%Y%m')
 
-# --- KAMUS DATA SBRS ---
+# --- KAMUS DATA SBRS (BERDASARKAN SOP PAM JAYA) ---
 SKIP_LABELS = {
     '1A': 'Meter Buram', '1B': 'Meter Berembun', '1C': 'Meter Rusak',
     '2A': 'Meter Tidak Ada (Air Tidak Dipakai)', '2B': 'Meter Tidak Ada (Air Dipakai)',
@@ -37,7 +37,7 @@ READ_LABELS = {
 
 @sbrs_bp.route('/summary')
 def sbrs_summary():
-    """Dashboard Eksekutif SBRS: Menampilkan 9 Angka Kunci (termasuk Nominal & HB)."""
+    """Dashboard Eksekutif SBRS: Menampilkan 10 Angka Kunci (termasuk Nominal & HB)."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     periode_raw = request.args.get('periode')
@@ -93,31 +93,38 @@ def sbrs_summary():
     trbl_final = [{"code": c, "desc": TRBL_LABELS.get(c, 'Lainnya'), "count": count} for c, count in trbl_raw if c and c != 'None']
     read_final = [{"code": c, "desc": READ_LABELS.get(c, 'Manual/Other'), "count": count} for c, count in read_raw if c and c != 'None']
 
-    # --- HITUNG TOTAL NOMINAL DAN HARI BACA UNTUK DASHBOARD ---
+    # --- HITUNG TOTAL NOMINAL, HARI BACA, DAN VOL TAGIHAN UNTUK DASHBOARD ---
     all_raw = db.session.query(DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
     if ab != 'all': all_raw = all_raw.filter(DataSBRS.ab == ab)
     if cycle != 'all': all_raw = all_raw.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
 
+    def safe_f(val):
+        try: return float(val or 0)
+        except: return 0.0
+
     total_nominal = 0
     total_hb = 0
+    total_vol_tagihan = 0
+
     for (raw,) in all_raw.all():
         if not raw: continue
-        try: total_nominal += float(raw.get('BILL_AMOUNT') or 0)
-        except: pass
+        total_nominal += safe_f(raw.get('BILL_AMOUNT'))
+        total_vol_tagihan += (safe_f(raw.get('SB_STAND')) - safe_f(raw.get('PREV_READ_1')))
         
         tgl_now = raw.get('READ_DATE_1') or raw.get('CURR_READ_DATE')
         tgl_prev = raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE') or raw.get('CMR_PREV_READ_DATE')
         try:
-            d1 = pd.to_datetime(tgl_now, dayfirst=True)
-            d2 = pd.to_datetime(tgl_prev, dayfirst=True)
+            d1 = pd.to_datetime(tgl_now, dayfirst=True, errors='coerce')
+            d2 = pd.to_datetime(tgl_prev, dayfirst=True, errors='coerce')
             if pd.notnull(d1) and pd.notnull(d2):
                 total_hb += (d1 - d2).days
         except: pass
 
     master_totals = {
-        "total_nomen": total_nomen,
+        "total_nomen": f"{total_nomen:,}".replace(',', '.'),
         "total_nominal": f"Rp {total_nominal:,.0f}".replace(',', '.'),
-        "total_hb": total_hb,
+        "total_hb": f"{total_hb:,}".replace(',', '.'),
+        "total_vol_tagihan": f"{total_vol_tagihan:,.0f}".replace(',', '.'),
         "zero_baru": zero_baru,
         "zero_lama": zero_lama,
         "total_skip": sum(i['count'] for i in skip_final),
@@ -140,26 +147,58 @@ def sbrs_summary():
 
 @sbrs_bp.route('/analisa')
 def sbrs_analisa():
+    """Detail Verifikasi: Mendukung Filter Drill-Down dari Dashboard."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
-    kat = request.args.get('kategori')
+    kat = request.args.get('kategori', 'all')
+    sub_kat = request.args.get('sub_kat')
+    skip_code = request.args.get('skip_code')
+    trbl_code = request.args.get('trbl_code')
+    read_method = request.args.get('read_method')
+    
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+
+    try:
+        dt = datetime.strptime(periode_filter, '%Y%m')
+        prev_periode = (dt - timedelta(days=28)).strftime('%Y%m')
+    except: prev_periode = periode_filter
 
     query = db.session.query(
         DataSBRS.nomen, DataSBRS.nama, DataSBRS.kelurahan, DataSBRS.pcez, DataSBRS.bulan_ini,
         DataSBRS.rata_rata, DataSBRS.kategori_anomali, DataSBRS.status_audit, MasterPetugas.nama_petugas.label('nama_petugas_anomali')
     ).select_from(DataSBRS).outerjoin(MasterPetugas, and_(DataSBRS.pcez == MasterPetugas.pcez, MasterPetugas.peran == 'SBRS')).filter(DataSBRS.periode == periode_filter)
 
+    # Filter Utama
     if ab != 'all': query = query.filter(DataSBRS.ab == ab)
     if cycle != 'all': query = query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
-    if kat and kat != 'all': query = query.filter(DataSBRS.kategori_anomali == kat)
+    
+    # Filter Klik Kategori & Sub Kategori
+    if kat != 'all' and kat is not None:
+        query = query.filter(DataSBRS.kategori_anomali == kat)
+        if kat == 'ZERO' and sub_kat:
+            prev_q = db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == 'ZERO')
+            if sub_kat == 'lama':
+                query = query.filter(DataSBRS.nomen.in_(prev_q))
+            elif sub_kat == 'baru':
+                query = query.filter(DataSBRS.nomen.not_in(prev_q))
+
+    # Filter Klik Rincian Teknis
+    if skip_code: query = query.filter(DataSBRS.raw_data['CMR_SKIP_CODE'].astext == skip_code)
+    if trbl_code: query = query.filter(DataSBRS.raw_data['CMR_TRBL1_CODE'].astext == trbl_code)
+    if read_method: query = query.filter(DataSBRS.raw_data['READ_METHOD'].astext == read_method)
 
     results = query.order_by(DataSBRS.bulan_ini.desc()).limit(1000).all()
-    return render_template('sbrs_analisa.html', data=results, current_ab=ab, current_cycle=cycle, current_kat=kat, periode_aktif=periode_filter)
+    
+    available_cycles = db.session.query(DataSBRS.raw_data['CYCLE'].astext).filter(DataSBRS.periode == periode_filter).distinct().all()
+    cycles_list = sorted([c[0] for c in available_cycles if c[0] and c[0] != 'None'])
+    
+    return render_template('sbrs_analisa.html', data=results, current_ab=ab, current_cycle=cycle, 
+                           current_kat=kat, cycles=cycles_list, periode_aktif=periode_filter)
 
 @sbrs_bp.route('/api-stats')
 def get_sbrs_api_stats():
+    """API untuk pembaruan widget angka secara real-time di frontend."""
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
@@ -217,27 +256,34 @@ def export_summary():
     if cycle != 'all': skip_stats = skip_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
     skip_final = [{"Kode": c, "Keterangan": SKIP_LABELS.get(c, 'Lainnya'), "Total": count} for c, count in skip_stats.group_by('code').all() if c and c != 'None']
 
-    # --- HITUNG NOMINAL DAN HARI BACA UNTUK EXPORT EXCEL ---
     all_raw = db.session.query(DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
     if ab != 'all': all_raw = all_raw.filter(DataSBRS.ab == ab)
     if cycle != 'all': all_raw = all_raw.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
 
+    def safe_f(val):
+        try: return float(val or 0)
+        except: return 0.0
+
     total_nominal = 0
     total_hb = 0
+    total_vol_tagihan = 0
+
     for (raw,) in all_raw.all():
         if not raw: continue
-        try: total_nominal += float(raw.get('BILL_AMOUNT') or 0)
-        except: pass
+        total_nominal += safe_f(raw.get('BILL_AMOUNT'))
+        total_vol_tagihan += (safe_f(raw.get('SB_STAND')) - safe_f(raw.get('PREV_READ_1')))
+        
         tgl_now = raw.get('READ_DATE_1') or raw.get('CURR_READ_DATE')
         tgl_prev = raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE') or raw.get('CMR_PREV_READ_DATE')
         try:
-            d1 = pd.to_datetime(tgl_now, dayfirst=True)
-            d2 = pd.to_datetime(tgl_prev, dayfirst=True)
+            d1 = pd.to_datetime(tgl_now, dayfirst=True, errors='coerce')
+            d2 = pd.to_datetime(tgl_prev, dayfirst=True, errors='coerce')
             if pd.notnull(d1) and pd.notnull(d2): total_hb += (d1 - d2).days
         except: pass
 
     df_utama = pd.DataFrame([
         {"Indikator": "Total Data Nomen", "Jumlah": total_nomen},
+        {"Indikator": "Total Volume Tagihan (m3)", "Jumlah": total_vol_tagihan},
         {"Indikator": "Total Nominal Tagihan (Rp)", "Jumlah": total_nominal},
         {"Indikator": "Total Akumulasi Hari Baca", "Jumlah": total_hb},
         {"Indikator": "Zero Baru (Macet)", "Jumlah": zero_baru},
@@ -303,8 +349,8 @@ def export_analisa():
         tgl_baca_lalu = raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE') or raw.get('CMR_PREV_READ_DATE')
 
         try:
-            d1 = pd.to_datetime(tgl_baca_sekarang, dayfirst=True)
-            d2 = pd.to_datetime(tgl_baca_lalu, dayfirst=True)
+            d1 = pd.to_datetime(tgl_baca_sekarang, dayfirst=True, errors='coerce')
+            d2 = pd.to_datetime(tgl_baca_lalu, dayfirst=True, errors='coerce')
             if pd.notnull(d1) and pd.notnull(d2):
                 hari_baca = (d1 - d2).days
         except:
