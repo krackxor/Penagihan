@@ -1,0 +1,58 @@
+sbrs_analisa.html{% extends "base.html" %}
+{% block title %}Analisa Detail SBRS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold">Detail Kasus Anomali</h3>
+    <a href="/sbrs/summary?ab={{ current_ab }}" class="btn btn-outline-secondary btn-sm">Kembali ke Summary</a>
+</div>
+
+<div class="table-container shadow-sm p-3 bg-white" style="border-radius: 15px;">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Pelanggan</th>
+                    <th class="text-center">Pemakaian (m3)</th>
+                    <th>Analis SBRS</th>
+                    <th class="text-center">Kategori</th>
+                    <th class="text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data %}
+                <tr>
+                    <td>
+                        <div class="fw-bold text-primary">{{ item.nomen }}</div>
+                        <div class="small">{{ item.nama }}</div>
+                        <div class="text-muted small">PCEZ: {{ item.pcez }}</div>
+                    </td>
+                    <td class="text-center">
+                        <div class="fw-bold">{{ item.bulan_ini }}</div>
+                        <div class="text-muted small">Avg: {{ item.rata_rata }}</div>
+                    </td>
+                    <td>
+                        <i class="fas fa-user-tag text-info me-1"></i>
+                        <span class="fw-bold">{{ item.nama_petugas_anomali if item.nama_petugas_anomali else 'Belum Ada Petugas' }}</span>
+                    </td>
+                    <td class="text-center">
+                        {% if item.kategori_anomali == 'ZERO' %}
+                            <span class="badge bg-danger">ZERO</span>
+                        {% elif item.kategori_anomali == 'EKSTREM' %}
+                            <span class="badge bg-warning text-dark">EKSTREM</span>
+                        {% else %}
+                            <span class="badge bg-info">TURUN</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-dark">
+                            <i class="fas fa-camera me-1"></i> Cek Lapangan
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
