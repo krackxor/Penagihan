@@ -10,7 +10,7 @@ def get_current_periode():
 
 @monitoring_bp.route('/')
 def list_tagihan():
-    """Halaman Utama dengan Explicit select_from."""
+    """Halaman Utama Monitoring dengan Fix Explicit Join."""
     ab_filter = request.args.get('ab', 'AB Sunter')
     rayon_filter = request.args.get('rayon')
     kel_filter = request.args.get('kelurahan')
@@ -19,7 +19,7 @@ def list_tagihan():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # PERBAIKAN: Menambahkan .select_from(TransaksiTagihan)
+    # PERBAIKAN: Menambahkan .select_from(TransaksiTagihan) agar PostgreSQL tidak bingung
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -45,6 +45,7 @@ def list_tagihan():
     if pcez_filter:
         query = query.filter(MasterPelanggan.pcez == pcez_filter)
 
+    # Pastikan group_by mencakup semua kolom non-agregat untuk standar PostgreSQL
     results = query.group_by(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -65,11 +66,12 @@ def list_tagihan():
 
 @monitoring_bp.route('/top-500')
 def top_500():
-    """Top 500 dengan Explicit select_from."""
+    """Top 500 dengan Fix Explicit Join."""
     ab_filter = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
+    # Tambahkan .select_from(TransaksiTagihan)
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -102,12 +104,12 @@ def top_500():
 
 @monitoring_bp.route('/summary')
 def summary_stats():
-    """API Summary dengan Explicit select_from."""
+    """API Summary dengan Fix Explicit Join."""
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # Menggunakan select_from agar PostgreSQL tidak bingung
+    # Gunakan select_from agar query agregat (SUM/COUNT) stabil
     stats = db.session.query(
         func.sum(TransaksiTagihan.nominal),
         func.count(TransaksiTagihan.id)
