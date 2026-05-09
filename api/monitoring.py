@@ -58,8 +58,8 @@ def list_tagihan():
         TransaksiTagihan.periode
     ).order_by(func.sum(TransaksiTagihan.nominal).desc()).all()
 
-    # PERBAIKAN: Nama template sesuai dengan daftar file (monitoring_collection.html)
-    return render_template('monitoring_collection.html', 
+    # KEMBALI KE NAMA ASLI BOS (monitoring.html)
+    return render_template('monitoring.html', 
                            data=results, 
                            current_ab=ab_filter,
                            current_rayon=rayon_filter,
@@ -98,8 +98,8 @@ def top_500():
          TransaksiTagihan.periode
      ).order_by(func.sum(TransaksiTagihan.nominal).desc()).limit(500).all()
     
-    # PERBAIKAN: Nama template sesuai dengan daftar file (analisa_top500.html)
-    return render_template('analisa_top500.html', 
+    # KEMBALI KE NAMA ASLI BOS (top_500.html)
+    return render_template('top_500.html', 
                            data=results, 
                            current_ab=ab_filter, 
                            periode_aktif=periode_filter)
