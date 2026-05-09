@@ -1,147 +1,160 @@
-import os
 import pandas as pd
-from flask import Blueprint, request, jsonify, current_app
-from models import db, MasterPelanggan, MasterPetugas, TransaksiTagihan
+import io
+from flask import Blueprint, request, jsonify
+from models import db, MasterPelanggan, MasterPetugas, TransaksiTagihan, DataSBRS
 
-# Inisialisasi Blueprint untuk modul Importer
 importer_bp = Blueprint('importer', __name__)
 
-def clean_nomen(val):
-    """Pastikan Nomen selalu string 8 digit bersih."""
-    if pd.isna(val): return None
-    s = str(val).strip()
-    return s[:8]
+def read_any_file(file):
+    """
+    Fungsi cerdas untuk membaca Excel atau Teks (Semicolon ;).
+    Mendukung format export sistem PAM Jaya.
+    """
+    filename = file.filename.lower()
+    file_bytes = file.read() # Baca file ke memori
+    
+    try:
+        if filename.endswith('.xlsx') or filename.endswith('.xls'):
+            return pd.read_excel(io.BytesIO(file_bytes), dtype=str)
+        else:
+            # Otomatis deteksi Semicolon (;) untuk file .txt / .csv
+            return pd.read_csv(io.BytesIO(file_bytes), sep=';', dtype=str, quotechar='"')
+    except Exception as e:
+        raise ValueError(f"Gagal membaca file: {str(e)}")
+
+def extract_periode(val):
+    """Konversi format '01-Apr-26' menjadi '202604'"""
+    try:
+        if not val or pd.isna(val): return "202601"
+        dt = pd.to_datetime(val)
+        return dt.strftime('%Y%m')
+    except:
+        return str(val)[:6]
 
 @importer_bp.route('/cid', methods=['POST'])
 def import_cid():
-    """
-    Fungsi Import Data Master Pelanggan (CID).
-    Menangkap: NOMEN, NAMA, AB, RAYON, KELURAHAN, PCEZ, ALAMAT, TARIF, HP, WA, LAT, LONG.
-    """
-    if 'file' not in request.files:
-        return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
+    file = request.files.get('file')
+    if not file: return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
     
-    file = request.files['file']
     try:
-        # Baca semua kolom sebagai string untuk keamanan data Nomen & PCEZ
-        df = pd.read_excel(file, dtype=str)
-        df.columns = df.columns.str.strip().str.upper() # Standarisasi Header
-
+        df = read_any_file(file)
+        df.columns = df.columns.str.strip().str.upper()
         count = 0
         for _, row in df.iterrows():
-            nomen_bersih = clean_nomen(row.get('NOMEN'))
-            if not nomen_bersih: continue
+            nomen = row.get('NOMEN')
+            if not nomen: continue
 
-            # Gunakan db.session.merge agar data lama ter-update otomatis
+            # Mapping khusus format file Bos (PCEZBK -> pcez)
             pelanggan = MasterPelanggan(
-                nomen=nomen_bersih,
-                nama=row.get('NAMA'),
-                ab=row.get('AB', 'AB Sunter'),
-                rayon=row.get('RAYON'),
-                kelurahan=row.get('KELURAHAN') or row.get('KEL'),
-                pcez=row.get('PCEZ'),
-                alamat=row.get('ALAMAT'),
+                nomen=str(nomen).strip()[:8],
+                nama=row.get('JENIS_PELANGGAN', 'Pelanggan'),
+                pcez=row.get('PCEZBK'),
+                ab=row.get('CC', 'AB Sunter'),
                 tarif=row.get('TARIF'),
-                hp=row.get('HP'),
-                wa=row.get('WA'),
-                latitude=float(row['LATITUDE']) if row.get('LATITUDE') else None,
-                longitude=float(row['LONGITUDE']) if row.get('LONGITUDE') else None
+                kelurahan=row.get('KELURAHAN') or row.get('KEL')
             )
             db.session.merge(pelanggan)
             count += 1
         
         db.session.commit()
         return jsonify({"status": "success", "message": f"{count} Data CID berhasil disinkronisasi"}), 200
-
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @importer_bp.route('/petugas', methods=['POST'])
 def import_petugas():
-    """
-    Fungsi Import Master Petugas Berdasarkan Peran.
-    Menghubungkan Kode PCEZ ke Nama Petugas (Tagihan/Catat/Anomali).
-    Header: PCEZ, PETUGAS.
-    """
-    if 'file' not in request.files:
-        return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
-    
-    # 1. Tangkap peran apa yang sedang di-upload oleh Admin
     peran_input = request.form.get('peran')
     if not peran_input:
-        return jsonify({"status": "error", "message": "Peran petugas (TAGIHAN/CATAT/ANOMALI) harus dipilih!"}), 400
+        return jsonify({"status": "error", "message": "Pilih peran petugas!"}), 400
 
-    file = request.files['file']
+    file = request.files.get('file')
     try:
-        df = pd.read_excel(file, dtype=str)
+        df = read_any_file(file)
         df.columns = df.columns.str.strip().str.upper()
-
         count = 0
         for _, row in df.iterrows():
-            kode_pcez = str(row.get('PCEZ', '')).strip()
-            nama_petugas = row.get('PETUGAS') or row.get('NAMA_PETUGAS')
+            kode_pcez = str(row.get('PCEZ', row.get('PCEZBK', ''))).strip()
+            nama = row.get('PETUGAS') or row.get('NAMA_PETUGAS')
             
-            if not kode_pcez or pd.isna(nama_petugas): continue
+            if not kode_pcez or not nama: continue
 
-            # 2. Cek apakah PCEZ dengan PERAN tersebut sudah ada di database
             petugas = MasterPetugas.query.filter_by(pcez=kode_pcez, peran=peran_input).first()
-            
             if petugas:
-                # Jika sudah ada, cukup update namanya (misal Wahyu diganti Budi)
-                petugas.nama_petugas = nama_petugas
+                petugas.nama_petugas = nama
             else:
-                # Jika belum ada sama sekali, buat data baru
-                petugas = MasterPetugas(
-                    pcez=kode_pcez,
-                    nama_petugas=nama_petugas,
-                    peran=peran_input
-                )
+                petugas = MasterPetugas(pcez=kode_pcez, nama_petugas=nama, peran=peran_input)
                 db.session.add(petugas)
-            
             count += 1
 
         db.session.commit()
-        return jsonify({"status": "success", "message": f"{count} Data Petugas {peran_input} berhasil diperbarui"}), 200
-
+        return jsonify({"status": "success", "message": f"{count} Petugas {peran_input} diperbarui"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @importer_bp.route('/tagihan', methods=['POST'])
 def import_tagihan():
-    """
-    Fungsi Import File Tagihan (MC atau ARDEBT).
-    Header: NOMEN, NOMINAL, PERIODE.
-    """
-    if 'file' not in request.files:
-        return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
-    
-    sumber = request.form.get('sumber', 'MC') # Default MC jika tidak dipilih
-    file = request.files['file']
+    """Import untuk MC (Berjalan) dan MB (Ekor/Tunggakan)"""
+    file = request.files.get('file')
+    sumber = request.form.get('sumber', 'MC')
     
     try:
-        df = pd.read_excel(file, dtype={'NOMEN': str})
+        df = read_any_file(file)
         df.columns = df.columns.str.strip().str.upper()
-
         count = 0
         for _, row in df.iterrows():
-            nomen_bersih = clean_nomen(row.get('NOMEN'))
-            if not nomen_bersih: continue
+            nomen = row.get('NOMEN')
+            if not nomen: continue
 
+            # Ambil nominal dari TOTAL_TAGIHAN (format file Bos)
             tagihan = TransaksiTagihan(
-                nomen=nomen_bersih,
-                nominal=float(row.get('NOMINAL', 0)),
-                periode=str(row.get('PERIODE', '')),
-                sumber=sumber,
-                status_lunas=0
+                nomen=str(nomen).strip()[:8],
+                nominal=float(row.get('TOTAL_TAGIHAN', 0)),
+                periode=extract_periode(row.get('PERIODE_DTTM')),
+                sumber=sumber
             )
             db.session.add(tagihan)
             count += 1
 
         db.session.commit()
-        return jsonify({"status": "success", "message": f"{count} Data Tagihan {sumber} berhasil masuk"}), 200
+        return jsonify({"status": "success", "message": f"{count} Tagihan {sumber} berhasil masuk"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
+@importer_bp.route('/sbrs', methods=['POST'])
+def import_sbrs():
+    """Import untuk Analisa SBRS"""
+    file = request.files.get('file')
+    try:
+        df = read_any_file(file)
+        df.columns = df.columns.str.strip().str.upper()
+        count = 0
+        for _, row in df.iterrows():
+            nomen = row.get('NOMEN')
+            if not nomen: continue
+
+            m3_ini = int(row.get('KONSUMSI', 0))
+            rata = 15 # Default rata-rata, bisa diganti sesuai file
+
+            kat = "NORMAL"
+            if m3_ini == 0: kat = "ZERO"
+            elif m3_ini > (rata * 2): kat = "EKSTREM"
+            elif m3_ini < (rata * 0.5): kat = "TURUN"
+
+            sbrs = DataSBRS(
+                nomen=str(nomen).strip()[:8],
+                bulan_ini=m3_ini,
+                rata_rata=rata,
+                stand_meter=int(row.get('END_READ_STAN', 0)),
+                kategori_anomali=kat
+            )
+            db.session.add(sbrs)
+            count += 1
+
+        db.session.commit()
+        return jsonify({"status": "success", "message": f"{count} Data SBRS berhasil dianalisa"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
