@@ -188,6 +188,33 @@ def sbrs_analisa():
                            current_kat=kat,
                            periode_aktif=periode_filter)
 
+@sbrs_bp.route('/api-stats')
+def get_sbrs_api_stats():
+    """API untuk pembaruan widget angka secara real-time di frontend."""
+    ab = request.args.get('ab', 'AB Sunter')
+    periode_raw = request.args.get('periode')
+    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+
+    res = db.session.query(
+        func.count(DataSBRS.id).label('total'),
+        func.sum(case((DataSBRS.kategori_anomali == 'ZERO', 1), else_=0)).label('zero'),
+        func.sum(case((DataSBRS.kategori_anomali == 'EKSTREM', 1), else_=0)).label('ekstrem'),
+        func.sum(case((DataSBRS.kategori_anomali == 'TURUN', 1), else_=0)).label('turun')
+    ).select_from(DataSBRS).filter(DataSBRS.periode == periode_filter)
+
+    if ab != 'all':
+        res = res.filter(DataSBRS.ab == ab)
+
+    stats = res.first()
+
+    return jsonify({
+        "total": stats.total or 0,
+        "zero": int(stats.zero or 0),
+        "ekstrem": int(stats.ekstrem or 0),
+        "turun": int(stats.turun or 0),
+        "periode_text": periode_filter
+    })
+
 # ==========================================
 # FITUR BARU: MESIN EXPORT DATA KE EXCEL
 # ==========================================
@@ -207,7 +234,6 @@ def export_summary():
     except:
         prev_periode = periode_filter
 
-    # Tarik Data Identik dengan Summary
     base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
     if ab != 'all': base_q = base_q.filter(DataSBRS.ab == ab)
     if cycle != 'all': base_q = base_q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
@@ -232,7 +258,6 @@ def export_summary():
     if cycle != 'all': skip_stats = skip_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
     skip_final = [{"Kode": c, "Keterangan": SKIP_LABELS.get(c, 'Lainnya'), "Total": count} for c, count in skip_stats.group_by('code').all() if c and c != 'None']
 
-    # Pembentukan File Excel
     df_utama = pd.DataFrame([
         {"Indikator": "Total Data Nomen", "Jumlah": total_nomen},
         {"Indikator": "Zero Baru (Macet)", "Jumlah": zero_baru},
@@ -254,13 +279,14 @@ def export_summary():
 
 @sbrs_bp.route('/export/analisa')
 def export_analisa():
-    """Mengunduh Hasil Append Data (Seluruh Rincian Pelanggan) ke format Excel."""
+    """Mengunduh SEMUA HEADER ASLI beserta 4 Kolom Volume Audit (Gaya Operasional Lapangan) ke Excel."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
+    # Tarik semua data dari DB, termasuk JSONB raw_data
     query = db.session.query(
         DataSBRS.nomen, DataSBRS.nama, DataSBRS.kelurahan, DataSBRS.pcez, 
         DataSBRS.stand_meter, DataSBRS.bulan_ini, DataSBRS.rata_rata, 
@@ -276,26 +302,50 @@ def export_analisa():
     data_list = []
     for r in results:
         raw = r.raw_data or {}
-        data_list.append({
-            "Nomen": r.nomen,
+        
+        # --- MESIN KALKULASI 4 VOLUME AUDIT (Safe Float) ---
+        def safe_float(val):
+            try: return float(val)
+            except: return 0.0
+
+        # Ambil variabel dari raw_data (JSONB)
+        curr_read_1 = safe_float(raw.get('CURR_READ_1'))
+        prev_read_1 = safe_float(raw.get('PREV_READ_1'))
+        sb_stand    = safe_float(raw.get('SB_STAND'))
+        cmr_reading = safe_float(raw.get('CMR_READING'))
+        cmr_prev_read = safe_float(raw.get('CMR_PREV_READ'))
+
+        # Eksekusi Rumus Audit
+        vol_mesin_spotbill = curr_read_1 - prev_read_1         # Vol 1
+        vol_database_cid   = cmr_reading - cmr_prev_read       # Vol
+        vol_cetak_tagihan  = sb_stand - prev_read_1            # Vol 3
+        vol_validasi_siklus = cmr_reading - cmr_prev_read      # Vol 2
+
+        # 1. Siapkan kolom dengan NAMA BARU (Gaya Operasional Lapangan)
+        row_data = {
+            "Nomen Sinergi": r.nomen,
             "Nama Pelanggan": r.nama,
             "Kelurahan": r.kelurahan,
             "Wilayah PCEZ": r.pcez,
-            "Cycle": raw.get('CYCLE', '-'),
-            "Meter Bulan Ini": r.stand_meter,
-            "Pakai (m3)": r.bulan_ini,
-            "Rata-rata (m3)": r.rata_rata,
             "Kategori Anomali": r.kategori_anomali,
-            "Skip Code": raw.get('CMR_SKIP_CODE', ''),
-            "Trouble Code": raw.get('CMR_TRBL1_CODE', ''),
-            "Metode Baca": raw.get('READ_METHOD', '')
-        })
+            "Vol Lapangan (m3)": vol_mesin_spotbill,       # Audit Alat Petugas
+            "Vol Sistem Pusat (m3)": vol_database_cid,     # Audit Master CID
+            "Vol Cetak Tagihan (m3)": vol_cetak_tagihan,   # Audit Struk Final
+            "Vol Periode Lalu (m3)": vol_validasi_siklus,  # Audit Histori
+            "Rata-rata (m3)": r.rata_rata
+        }
+        
+        # 2. Gabungkan kembali dengan ratusan kolom TXT asli di belakangnya
+        row_data.update(raw)
+        
+        data_list.append(row_data)
 
+    # Bungkus menjadi file Excel
     df = pd.DataFrame(data_list)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Data_Analisa_SBRS', index=False)
+        df.to_excel(writer, sheet_name='Data_Analisa_Lengkap', index=False)
     
     output.seek(0)
-    nama_file = f"Data_SBRS_Append_{ab}_Cycle_{cycle}_{periode_filter}.xlsx"
+    nama_file = f"Data_SBRS_Append_FULL_{ab}_Cycle_{cycle}_{periode_filter}.xlsx"
     return send_file(output, download_name=nama_file, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
