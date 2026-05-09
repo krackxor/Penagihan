@@ -30,6 +30,12 @@
         border: 1px solid #dee2e6;
         border-radius: 12px;
     }
+    .indikasi-badge {
+        font-size: 0.6rem;
+        padding: 3px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+    }
 </style>
 {% endblock %}
 
@@ -67,6 +73,7 @@
                 <label class="extra-small fw-bold text-muted mb-1 d-block" style="font-size: 0.65rem;">FILTER KATEGORI:</label>
                 <select name="kategori" class="form-select form-select-sm fw-bold text-danger border-danger" onchange="this.form.submit()">
                     <option value="all" {% if not current_kat or current_kat == 'all' %}selected{% endif %}>SEMUA ANOMALI</option>
+                    <option value="MINUS" {% if current_kat == 'MINUS' %}selected{% endif %}>HANYA MINUS</option>
                     <option value="ZERO" {% if current_kat == 'ZERO' %}selected{% endif %}>HANYA ZERO</option>
                     <option value="EKSTREM" {% if current_kat == 'EKSTREM' %}selected{% endif %}>HANYA EKSTREM</option>
                     <option value="TURUN" {% if current_kat == 'TURUN' %}selected{% endif %}>HANYA TURUN</option>
@@ -100,8 +107,22 @@
                         </div>
                     </td>
                     <td class="text-center">
-                        <div class="fw-bold fs-5">{{ item.bulan_ini }}</div>
-                        <div class="badge bg-light text-muted border" style="font-size: 0.65rem;">Avg: {{ item.rata_rata }} m3</div>
+                        <div class="fw-bold fs-5 {% if item.bulan_ini < 0 %}text-danger{% endif %}">{{ item.bulan_ini }}</div>
+                        <div class="badge bg-light text-muted border mb-1" style="font-size: 0.65rem;">Avg: {{ item.rata_rata }} m3</div>
+                        
+                        {% if item.raw_data and item.raw_data.INDIKASI_SINERGI %}
+                            <div class="d-block mt-1">
+                                {% if 'FRAUD' in item.raw_data.INDIKASI_SINERGI %}
+                                    <span class="badge bg-danger indikasi-badge"><i class="fas fa-skull-crossbones me-1"></i>{{ item.raw_data.INDIKASI_SINERGI }}</span>
+                                {% elif 'TEKNIS' in item.raw_data.INDIKASI_SINERGI %}
+                                    <span class="badge bg-info text-dark indikasi-badge"><i class="fas fa-tools me-1"></i>{{ item.raw_data.INDIKASI_SINERGI }}</span>
+                                {% elif 'HUMAN' in item.raw_data.INDIKASI_SINERGI or 'WARNING' in item.raw_data.INDIKASI_SINERGI %}
+                                    <span class="badge bg-warning text-dark indikasi-badge"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.raw_data.INDIKASI_SINERGI }}</span>
+                                {% elif 'Aman' not in item.raw_data.INDIKASI_SINERGI %}
+                                    <span class="badge bg-secondary indikasi-badge">{{ item.raw_data.INDIKASI_SINERGI }}</span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
                     </td>
                     <td>
                         <div class="small fw-bold">
@@ -115,6 +136,8 @@
                             <span class="anomaly-badge bg-danger text-white shadow-sm">ZERO</span>
                         {% elif item.kategori_anomali == 'EKSTREM' %}
                             <span class="anomaly-badge bg-warning text-dark shadow-sm">EKSTREM</span>
+                        {% elif item.kategori_anomali == 'MINUS' %}
+                            <span class="anomaly-badge bg-dark text-white shadow-sm border border-danger">MINUS</span>
                         {% else %}
                             <span class="anomaly-badge bg-info text-white shadow-sm">TURUN</span>
                         {% endif %}
