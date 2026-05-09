@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  sinergi-app:
+    build: .
+    container_name: sinergi_v16_container
+    ports:
+      - "5000:5000"
+    volumes:
+      # PENTING: Menghubungkan folder di laptop Bos ke dalam Docker
+      # Agar kalau Docker dimatikan, data database dan foto tidak hilang (Persistent)
+      - ./instance:/app/instance
+      - ./static/uploads:/app/static/uploads
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: always
