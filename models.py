@@ -43,22 +43,22 @@ class TransaksiTagihan(db.Model):
 
 class DataSBRS(db.Model):
     """
-    Tabel Analisa SBRS: Dilengkapi kolom audit lengkap sesuai schema V5.5.
-    Mampu menampung hasil gabungan file Customer + Spotbill.
+    Tabel Analisa SBRS: Dilengkapi kolom audit lengkap sesuai Stability Patch V5.5.
+    Menampung hasil gabungan file Customer + Spotbill.
     """
     __tablename__ = 'data_sbrs'
     id = db.Column(db.Integer, primary_key=True)
     nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
     periode = db.Column(db.String(10), nullable=False, index=True) # YYYYMM
     
-    # Data dari Customer.txt (Denormalisasi untuk kecepatan query)
+    # Data dari Customer.txt (Denormalisasi untuk kecepatan query dashboard)
     nama = db.Column(db.String(150))
     alamat = db.Column(db.Text)
     pcez = db.Column(db.String(20), index=True)
     rayon = db.Column(db.String(10))
     tarif = db.Column(db.String(10))
     
-    # PERBAIKAN: Kolom wilayah agar Dashboard Summary tidak Error
+    # Kolom Wilayah: Kunci utama agar Dashboard Summary tidak AttributeError
     ab = db.Column(db.String(50), default='AB Sunter', index=True)
     kelurahan = db.Column(db.String(100), index=True)
     
