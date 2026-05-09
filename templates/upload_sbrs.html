@@ -22,6 +22,7 @@
             background: var(--sbrs-dark); color: white; padding: 25px; 
             height: 100vh; position: fixed; width: 260px; 
             box-shadow: 4px 0 10px rgba(0,0,0,0.1); 
+            z-index: 1000;
         }
         
         .main-content { margin-left: 260px; padding: 60px 40px; }
@@ -47,7 +48,6 @@
         }
 
         .btn-sbrs:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.3); }
-
         .file-info { font-size: 0.85rem; color: #64748b; margin-top: 10px; }
     </style>
 </head>
@@ -61,17 +61,17 @@
     </div>
     <hr class="opacity-10">
     <div class="nav flex-column nav-pills">
-        <a class="nav-link text-white mb-2" href="/summary-sbrs"><i class="fa-solid fa-chart-line me-2"></i> Ringkasan Lengkap</a>
+        <a class="nav-link text-white mb-2" href="/summary-sbrs"><i class="fa-solid fa-chart-line me-2"></i> Ringkasan Analisa</a>
         <a class="nav-link text-white active mb-2" href="#"><i class="fa-solid fa-file-import me-2"></i> Upload File</a>
-        <a class="nav-link text-white mb-2" href="#"><i class="fa-solid fa-database me-2"></i> Data Master SBRS</a>
     </div>
 </div>
 
 <div class="main-content">
     <div class="text-center mb-5">
-        <span class="badge bg-primary rounded-pill px-3 py-2 mb-3"><i class="fa-solid fa-wand-magic-sparkles me-2"></i>Fitur Auto-Detect Aktif</span>
-        <h3 class="fw-800">Proses Data SBRS</h3>
-        <p class="text-muted">Sistem akan membaca Cycle & Periode secara otomatis dari file.</p>
+        <span class="badge bg-success rounded-pill px-3 py-2 mb-3 shadow-sm"><i class="fa-solid fa-shield-halved me-2"></i>Proteksi Anti-Double Data (V15.0) Aktif</span>
+        <h3 class="fw-800">Proses Data LNP SBRS</h3>
+        <p class="text-muted mb-1">Sistem akan secara otomatis membaca Cycle & Periode dari file TXT.</p>
+        <p class="text-muted" style="font-size: 0.85rem;"><i class="fa-solid fa-circle-info text-info me-1"></i> Jangan khawatir, Nomen ganda dalam file akan dibersihkan otomatis oleh sistem.</p>
     </div>
 
     <div class="upload-card">
@@ -107,10 +107,10 @@
 <script>
     // Update nama file saat dipilih
     document.getElementById('fileCust').onchange = e => {
-        if(e.target.files.length > 0) document.getElementById('nameCust').innerText = e.target.files[0].name;
+        if(e.target.files.length > 0) document.getElementById('nameCust').innerHTML = `<i class="fa-solid fa-file-lines text-primary me-1"></i> ${e.target.files[0].name}`;
     };
     document.getElementById('fileSpot').onchange = e => {
-        if(e.target.files.length > 0) document.getElementById('nameSpot').innerText = e.target.files[0].name;
+        if(e.target.files.length > 0) document.getElementById('nameSpot').innerHTML = `<i class="fa-solid fa-file-lines text-success me-1"></i> ${e.target.files[0].name}`;
     };
 
     // Proses pengiriman data ke backend (app.py)
@@ -127,8 +127,8 @@
 
         // Animasi Loading
         Swal.fire({
-            title: 'Memproses Data...',
-            html: `Mendeteksi Cycle, Periode, dan menghitung Volume LNP.<br>Mohon tunggu sebentar...`,
+            title: 'Menganalisa Data...',
+            html: `Membersihkan data ganda, mendeteksi Cycle, dan menghitung Volume.<br><br><b>Mohon tunggu...</b>`,
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
@@ -137,7 +137,6 @@
         let formData = new FormData();
         formData.append('fileCust', fileCust);
         formData.append('fileSpot', fileSpot);
-        // Note: Tidak perlu ngirim nilai Cycle karena backend yang akan nyari sendiri
 
         try {
             // Tembak ke rute API di app.py
@@ -152,9 +151,10 @@
             if(response.ok && result.status === 'success') {
                 Swal.fire({
                     icon: 'success',
-                    title: 'LNP Berhasil!',
-                    text: result.message, // Pesan ini dikirim dari Python (contoh: "Data Cycle 15 berhasil masuk...")
-                    confirmButtonColor: '#2563eb'
+                    title: 'Upload Sukses!',
+                    text: result.message, 
+                    confirmButtonColor: '#0f172a',
+                    confirmButtonText: 'Lihat Hasil Audit'
                 }).then(() => {
                     window.location.href = '/summary-sbrs'; // Redirect ke dashboard summary
                 });
