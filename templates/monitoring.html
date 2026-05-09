@@ -114,9 +114,13 @@
                     </td>
                     <td>
                         <div class="badge badge-pcez mb-1">{{ item.pcez }}</div>
+                        
                         <div class="fw-bold small text-dark">
                             <i class="fas fa-user-check me-1 text-success"></i>
-                            {{ item.nama_petugas if item.nama_petugas else 'Belum Ada Petugas' }}
+                            {{ item.nama_petugas_tagihan if item.nama_petugas_tagihan else 'Belum Ada Petugas' }}
+                        </div>
+                        <div class="text-muted mt-1" style="font-size: 0.70rem;">
+                            (Tim Penagihan)
                         </div>
                     </td>
                     <td class="text-end fw-bold text-danger">
