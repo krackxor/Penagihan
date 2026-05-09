@@ -10,38 +10,116 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
-        .navbar { background-color: #0056b3; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
-        .navbar-brand { font-weight: 700; letter-spacing: 1px; }
-        .nav-link { font-weight: 500; margin-right: 15px; transition: all 0.3s; }
-        .nav-link:hover, .nav-link.active { color: #ffc107 !important; }
-        .dropdown-menu { border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border-radius: 12px; }
-        .main-container { min-height: 85vh; padding-top: 30px; padding-bottom: 50px; }
-        .footer { background: #ffffff; border-top: 1px solid #dee2e6; padding: 20px 0; color: #6c757d; font-size: 0.9rem; }
+        :root {
+            --sinergi-blue: #0056b3;
+            --sinergi-gold: #ffc107;
+            --bg-light: #f8f9fa;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-light); 
+            color: #333;
+        }
+
+        /* Navbar Sinergi: Sticky & Glassmorphism */
+        .navbar { 
+            background: linear-gradient(135deg, #004494 0%, #0056b3 100%);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+            padding: 0.8rem 0;
+        }
+        .navbar-brand { 
+            font-weight: 800; 
+            letter-spacing: 1.5px; 
+            font-size: 1.4rem;
+        }
+        .nav-link { 
+            font-weight: 600; 
+            margin-right: 12px; 
+            transition: all 0.3s ease;
+            opacity: 0.85;
+            font-size: 0.95rem;
+        }
+        .nav-link:hover, .nav-link.active { 
+            color: var(--sinergi-gold) !important; 
+            opacity: 1;
+            transform: translateY(-1px);
+        }
+
+        /* Dropdown Customization */
+        .dropdown-menu { 
+            border: none; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15); 
+            border-radius: 12px; 
+            padding: 10px;
+        }
+        .dropdown-item {
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-weight: 500;
+        }
+        .dropdown-item:hover {
+            background-color: #f0f7ff;
+            color: var(--sinergi-blue);
+        }
+
+        .main-container { 
+            min-height: 85vh; 
+            padding-top: 2rem; 
+            padding-bottom: 4rem; 
+        }
+
+        /* Global Footer */
+        .footer { 
+            background: #ffffff; 
+            border-top: 1px solid #e9ecef; 
+            padding: 25px 0; 
+            color: #6c757d; 
+            font-size: 0.85rem; 
+        }
+
+        /* Turbo Loader Overlay */
+        #turbo-loader {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: none;
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
 
+    <div id="turbo-loader">
+        <div class="text-center">
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+            <p class="mt-3 fw-bold text-primary">Sinkronisasi Data Sinergi...</p>
+        </div>
+    </div>
+
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="fas fa-droplet me-2"></i>1 SINERGI
+                <i class="fas fa-droplet-slash me-2"></i>1 SINERGI
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="/monitoring?ab=AB Sunter">
+                        <a class="nav-link" href="/monitoring/">
                             <i class="fas fa-chart-line me-1"></i> Monitoring
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/monitoring/top-500">
-                            <i class="fas fa-trophy me-1"></i> Top 500
+                            <i class="fas fa-crown me-1"></i> Top 500
                         </a>
                     </li>
                     
@@ -49,20 +127,21 @@
                         <a class="nav-link dropdown-toggle" href="#" id="sbrsMenu" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-microscope me-1"></i> SBRS
                         </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/sbrs/summary"><i class="fas fa-tachometer-alt me-2 text-primary"></i>Summary SBRS</a></li>
-                            <li><a class="dropdown-item" href="/sbrs/analisa"><i class="fas fa-search-dollar me-2 text-danger"></i>Analisa Anomali</a></li>
+                        <ul class="dropdown-menu dropdown-menu-end animate slideIn">
+                            <li><a class="dropdown-item" href="/sbrs/summary"><i class="fas fa-tachometer-alt me-2 text-primary"></i>Summary Anomali</a></li>
+                            <li><a class="dropdown-item" href="/sbrs/analisa"><i class="fas fa-search-plus me-2 text-danger"></i>Detail Analisa</a></li>
                         </ul>
                     </li>
 
                     <li class="nav-item">
                         <a class="nav-link" href="/lapor">
-                            <i class="fas fa-camera me-1"></i> Lapor Lapangan
+                            <i class="fas fa-camera-retro me-1"></i> Lapor Petugas
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/upload">
-                            <i class="fas fa-cloud-upload-alt me-1"></i> Admin Upload
+                    
+                    <li class="nav-item ms-lg-3">
+                        <a class="btn btn-warning btn-sm fw-bold px-3 shadow-sm" href="/upload" style="border-radius: 20px;">
+                            <i class="fas fa-cloud-arrow-up me-1"></i> Admin Upload
                         </a>
                     </li>
                 </ul>
@@ -76,7 +155,14 @@
 
     <footer class="footer text-center">
         <div class="container">
-            <p class="mb-0">© 2026 <strong>Sinergi Area Service</strong> - PAM Jaya.</p>
+            <div class="row align-items-center">
+                <div class="col-md-6 text-md-start">
+                    <p class="mb-0">© 2026 <strong>PAM Jaya</strong> - Area Service Sunter.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <span class="badge bg-light text-muted border">V5.5 Sinergi Core</span>
+                </div>
+            </div>
         </div>
     </footer>
 
@@ -84,12 +170,19 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
-        // Auto-active Link
+        // 1. Auto-active Link: Menandai menu mana yang sedang dibuka
         document.querySelectorAll('.nav-link').forEach(link => {
-            if (window.location.href.includes(link.getAttribute('href')) && link.getAttribute('href') !== "#") {
+            const currentPath = window.location.pathname;
+            const linkPath = link.getAttribute('href');
+            if (currentPath === linkPath || (linkPath !== '/' && currentPath.startsWith(linkPath))) {
                 link.classList.add('active');
             }
         });
+
+        // 2. Global Loader: Menunjukkan aktivitas saat pindah halaman atau submit form raksasa
+        window.onbeforeunload = function() {
+            document.getElementById('turbo-loader').style.display = 'flex';
+        };
     </script>
     {% block extra_js %}{% endblock %}
 </body>
