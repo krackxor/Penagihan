@@ -29,7 +29,8 @@
     .extra-small-label { font-size: 0.65rem; letter-spacing: 0.5px; }
     .hover-item { transition: background-color 0.2s; text-decoration: none !important; color: inherit; display: block; }
     .hover-item:hover { background-color: #f1f3f5 !important; cursor: pointer; }
-    .nav-tabs .nav-link { font-weight: bold; color: #495057; border-radius: 10px 10px 0 0; }
+    
+    .nav-tabs .nav-link { font-weight: bold; color: #495057; border-radius: 10px 10px 0 0; padding: 10px 15px; font-size: 0.85rem; }
     .nav-tabs .nav-link.active { color: #0d6efd; background-color: #fff; border-bottom-color: transparent; }
 </style>
 {% endblock %}
@@ -199,28 +200,147 @@
 
 <div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
     <div class="card-header bg-white py-3 border-bottom-0 pb-0">
-        <h5 class="fw-bold mb-3"><i class="fas fa-map-marked-alt text-danger me-2"></i>Sebaran Anomali per Wilayah (Metadata)</h5>
+        <h5 class="fw-bold mb-3"><i class="fas fa-map-marked-alt text-danger me-2"></i>Sebaran Anomali per Wilayah (Metadata CID)</h5>
+        
         <ul class="nav nav-tabs" id="wilayahTab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="kel-tab" data-bs-toggle="tab" data-bs-target="#kel-content" type="button" role="tab">Berdasarkan Kelurahan</button>
+                <button class="nav-link active" id="cc-tab" data-bs-toggle="tab" data-bs-target="#cc-content" type="button" role="tab">CC</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pcez-tab" data-bs-toggle="tab" data-bs-target="#pcez-content" type="button" role="tab">Berdasarkan PCEZ</button>
+                <button class="nav-link" id="pc-tab" data-bs-toggle="tab" data-bs-target="#pc-content" type="button" role="tab">KODE PA/PC</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="cc-tab" data-bs-toggle="tab" data-bs-target="#cc-content" type="button" role="tab">Berdasarkan CC / AB</button>
+                <button class="nav-link" id="pcez-tab" data-bs-toggle="tab" data-bs-target="#pcez-content" type="button" role="tab">PCEZ</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="ab-tab" data-bs-toggle="tab" data-bs-target="#ab-content" type="button" role="tab">AB</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="kel-tab" data-bs-toggle="tab" data-bs-target="#kel-content" type="button" role="tab">KELURAHAN</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="kec-tab" data-bs-toggle="tab" data-bs-target="#kec-content" type="button" role="tab">KECAMATAN</button>
             </li>
         </ul>
     </div>
     
     <div class="card-body p-0">
         <div class="tab-content" id="wilayahTabContent">
-            <div class="tab-pane fade show active" id="kel-content" role="tabpanel">
+            
+            <div class="tab-pane fade show active" id="cc-content" role="tabpanel">
                 <div class="table-responsive sekat-item" style="max-height: 400px;">
                     <table class="table table-hover align-middle mb-0 table-sbrs">
                         <thead style="position: sticky; top: 0; z-index: 1;">
                             <tr>
-                                <th class="ps-4">NAMA KELURAHAN</th>
+                                <th class="ps-4">CC</th>
+                                <th class="text-center">JUMLAH KASUS</th>
+                                <th class="text-center pe-4">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cc, total in cc_data %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">{{ cc }}</td>
+                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
+                                <td class="text-center pe-4">
+                                    <a href="/sbrs/analisa?ab={{ current_ab }}&cc={{ cc }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="pc-content" role="tabpanel">
+                <div class="table-responsive sekat-item" style="max-height: 400px;">
+                    <table class="table table-hover align-middle mb-0 table-sbrs">
+                        <thead style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th class="ps-4">KODE PA/PC</th>
+                                <th class="text-center">JUMLAH KASUS</th>
+                                <th class="text-center pe-4">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pc, total in pc_data %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">{{ pc }}</td>
+                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
+                                <td class="text-center pe-4">
+                                    <a href="/sbrs/analisa?ab={{ current_ab }}&pc={{ pc }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="pcez-content" role="tabpanel">
+                <div class="table-responsive sekat-item" style="max-height: 400px;">
+                    <table class="table table-hover align-middle mb-0 table-sbrs">
+                        <thead style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th class="ps-4">PCEZ</th>
+                                <th class="text-center">JUMLAH KASUS</th>
+                                <th class="text-center pe-4">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pcez, total in pcez_data %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">{{ pcez }}</td>
+                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
+                                <td class="text-center pe-4">
+                                    <a href="/sbrs/analisa?ab={{ current_ab }}&pcez={{ pcez }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="ab-content" role="tabpanel">
+                <div class="table-responsive sekat-item" style="max-height: 400px;">
+                    <table class="table table-hover align-middle mb-0 table-sbrs">
+                        <thead style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th class="ps-4">AB</th>
+                                <th class="text-center">JUMLAH KASUS</th>
+                                <th class="text-center pe-4">AKSI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ab_val, total in ab_data %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">{{ ab_val }}</td>
+                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
+                                <td class="text-center pe-4">
+                                    <a href="/sbrs/analisa?ab={{ current_ab }}&ab_tab={{ ab_val }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="kel-content" role="tabpanel">
+                <div class="table-responsive sekat-item" style="max-height: 400px;">
+                    <table class="table table-hover align-middle mb-0 table-sbrs">
+                        <thead style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th class="ps-4">KELURAHAN</th>
                                 <th class="text-center">JUMLAH KASUS</th>
                                 <th class="text-center pe-4">AKSI</th>
                             </tr>
@@ -241,51 +361,24 @@
                     </table>
                 </div>
             </div>
-            
-            <div class="tab-pane fade" id="pcez-content" role="tabpanel">
-                <div class="table-responsive sekat-item" style="max-height: 400px;">
-                    <table class="table table-hover align-middle mb-0 table-sbrs">
-                        <thead style="position: sticky; top: 0; z-index: 1;">
-                            <tr>
-                                <th class="ps-4">KODE PCEZ / PC</th>
-                                <th class="text-center">JUMLAH KASUS</th>
-                                <th class="text-center pe-4">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for pcez, total in pcez_data %}
-                            <tr>
-                                <td class="ps-4 fw-bold text-primary">{{ pcez }}</td>
-                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
-                                <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&pcez={{ pcez }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
-            <div class="tab-pane fade" id="cc-content" role="tabpanel">
+            <div class="tab-pane fade" id="kec-content" role="tabpanel">
                 <div class="table-responsive sekat-item" style="max-height: 400px;">
                     <table class="table table-hover align-middle mb-0 table-sbrs">
                         <thead style="position: sticky; top: 0; z-index: 1;">
                             <tr>
-                                <th class="ps-4">KODE CC / AREA (AB)</th>
+                                <th class="ps-4">KECAMATAN</th>
                                 <th class="text-center">JUMLAH KASUS</th>
                                 <th class="text-center pe-4">AKSI</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for cc, total in cc_data %}
+                            {% for kec, total in kecamatan_data %}
                             <tr>
-                                <td class="ps-4 fw-bold text-success">{{ cc }}</td>
+                                <td class="ps-4 fw-bold text-dark">{{ kec }}</td>
                                 <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
                                 <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&cc={{ cc }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
+                                    <a href="/sbrs/analisa?ab={{ current_ab }}&kecamatan={{ kec }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
                                 </td>
                             </tr>
                             {% else %}
@@ -295,6 +388,7 @@
                     </table>
                 </div>
             </div>
+            
         </div>
     </div>
 </div>
