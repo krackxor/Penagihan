@@ -27,49 +27,62 @@
         background-color: #dee2e6;
         border-radius: 4px;
     }
-    /* Animasi ringan untuk angka total */
-    .stat-box { transition: all 0.3s ease; }
-    .stat-box:hover { background-color: #f8f9fa !important; transform: scale(1.02); }
+    /* Animasi dan layout stat box */
+    .stat-box { 
+        transition: all 0.3s ease; 
+        min-height: 85px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .stat-box:hover { 
+        background-color: #f8f9fa !important; 
+        transform: scale(1.02); 
+        z-index: 10; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+    }
+    .extra-small-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.5px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row align-items-center mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <h2 class="fw-bold text-dark mb-1">
             <i class="fas fa-chart-pie text-primary me-2"></i>Dashboard SBRS
         </h2>
         <p class="text-muted mb-0">Ringkasan Anomali <b>{{ current_ab }}</b></p>
     </div>
     
-    <div class="col-md-8 d-flex justify-content-md-end align-items-end">
-        <form method="GET" action="/sbrs/summary" class="d-flex gap-3 align-items-end bg-white p-2 rounded shadow-sm border">
+    <div class="col-md-9 d-flex justify-content-md-end align-items-end">
+        <form method="GET" action="/sbrs/summary" class="d-flex gap-2 align-items-end bg-white p-2 rounded shadow-sm border">
             <div>
-                <label class="extra-small fw-bold text-muted mb-1 d-block">Pilih Periode:</label>
+                <label class="extra-small-label fw-bold text-muted mb-1 d-block text-uppercase">Periode:</label>
                 <input type="month" name="periode" class="form-control form-control-sm calendar-filter" 
                        value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
             </div>
             <div>
-                <label class="extra-small fw-bold text-muted mb-1 d-block">Filter Cycle:</label>
+                <label class="extra-small-label fw-bold text-muted mb-1 d-block text-uppercase">Cycle:</label>
                 <select name="cycle" class="form-select form-select-sm cycle-filter" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
-                    <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>ALL CYCLE</option>
+                    <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>ALL</option>
                     {% for c in cycles %}
-                    <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>Cycle {{ c }}</option>
+                    <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>{{ c }}</option>
                     {% endfor %}
                 </select>
             </div>
             
-            <div class="d-flex gap-2 h-100">
-                <button type="button" onclick="window.print()" class="btn btn-sm btn-dark px-3" title="Print Halaman">
+            <div class="d-flex gap-2 h-100 ms-2">
+                <button type="button" onclick="window.print()" class="btn btn-sm btn-dark px-3" title="Print Laporan">
                     <i class="fas fa-print"></i>
                 </button>
-                
                 <button type="submit" formaction="/sbrs/export/summary" class="btn btn-sm btn-success px-3 fw-bold" title="Download Excel Ringkasan">
-                    <i class="fas fa-file-excel me-1"></i> Excel
+                    <i class="fas fa-file-excel me-1"></i> Excel Summary
                 </button>
-                
                 <button type="submit" formaction="/sbrs/export/analisa" class="btn btn-sm btn-outline-success px-3 fw-bold" title="Download Data Mentah">
-                    <i class="fas fa-download me-1"></i> Data Detail
+                    <i class="fas fa-download me-1"></i> Data Mentah
                 </button>
             </div>
         </form>
@@ -79,33 +92,41 @@
 <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; overflow: hidden;">
     <div class="card-body p-0">
         <div class="row g-0 text-center">
-            <div class="col p-3 border-end stat-box bg-white">
-                <h6 class="extra-small fw-bold text-muted mb-1">TOTAL DATA</h6>
-                <h3 class="fw-bold mb-0 text-dark">{{ totals.total_nomen }}</h3>
+            <div class="col p-2 border-end stat-box bg-white">
+                <h6 class="extra-small-label fw-bold text-muted mb-1 text-uppercase">Total Nomen</h6>
+                <h5 class="fw-bold mb-0 text-dark">{{ totals.total_nomen }}</h5>
             </div>
-            <div class="col p-3 border-end stat-box bg-danger text-white">
-                <h6 class="extra-small fw-bold mb-1">ZERO BARU</h6>
-                <h3 class="fw-bold mb-0">{{ totals.zero_baru }}</h3>
+            <div class="col p-2 border-end stat-box bg-success text-white">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Nominal Tagihan</h6>
+                <h5 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ totals.total_nominal }}</h5>
             </div>
-            <div class="col p-3 border-end stat-box bg-dark text-white">
-                <h6 class="extra-small fw-bold mb-1">ZERO LAMA</h6>
-                <h3 class="fw-bold mb-0">{{ totals.zero_lama }}</h3>
+            <div class="col p-2 border-end stat-box bg-secondary text-white">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Hari Baca</h6>
+                <h5 class="fw-bold mb-0">{{ totals.total_hb }} <small style="font-size: 0.6rem;">Hari</small></h5>
             </div>
-            <div class="col p-3 border-end stat-box bg-primary text-white">
-                <h6 class="extra-small fw-bold mb-1">TOTAL SKIP</h6>
-                <h3 class="fw-bold mb-0">{{ totals.total_skip }}</h3>
+            <div class="col p-2 border-end stat-box bg-danger text-white">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Baru</h6>
+                <h5 class="fw-bold mb-0">{{ totals.zero_baru }}</h5>
             </div>
-            <div class="col p-3 border-end stat-box bg-warning text-dark">
-                <h6 class="extra-small fw-bold mb-1">TOTAL TRBL</h6>
-                <h3 class="fw-bold mb-0">{{ totals.total_trbl }}</h3>
+            <div class="col p-2 border-end stat-box bg-dark text-white">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Lama</h6>
+                <h5 class="fw-bold mb-0">{{ totals.zero_lama }}</h5>
             </div>
-            <div class="col p-3 border-end stat-box bg-danger-subtle text-danger">
-                <h6 class="extra-small fw-bold mb-1">EKSTREM</h6>
-                <h3 class="fw-bold mb-0">{{ totals.ekstrem }}</h3>
+            <div class="col p-2 border-end stat-box bg-primary text-white">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Skip</h6>
+                <h5 class="fw-bold mb-0">{{ totals.total_skip }}</h5>
             </div>
-            <div class="col p-3 stat-box bg-info text-white">
-                <h6 class="extra-small fw-bold mb-1">TURUN</h6>
-                <h3 class="fw-bold mb-0">{{ totals.turun }}</h3>
+            <div class="col p-2 border-end stat-box bg-warning text-dark">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Trbl</h6>
+                <h5 class="fw-bold mb-0">{{ totals.total_trbl }}</h5>
+            </div>
+            <div class="col p-2 border-end stat-box bg-danger-subtle text-danger border-danger-subtle">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase">Ekstrem</h6>
+                <h5 class="fw-bold mb-0">{{ totals.ekstrem }}</h5>
+            </div>
+            <div class="col p-2 stat-box bg-info text-white">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Turun</h6>
+                <h5 class="fw-bold mb-0">{{ totals.turun }}</h5>
             </div>
         </div>
     </div>
@@ -113,63 +134,63 @@
 
 <div class="card border-0 shadow-sm mb-5 master-card-sekatan">
     <div class="card-header bg-secondary text-white py-2">
-        <h6 class="mb-0 fw-bold"><i class="fas fa-microscope text-warning me-2"></i>Rincian Teknis Lapangan (Detail JSON)</h6>
+        <h6 class="mb-0 fw-bold small"><i class="fas fa-microscope text-warning me-2"></i>RINCIAN TEKNIS LAPANGAN (MAPPING KODE)</h6>
     </div>
     <div class="card-body p-0">
         <div class="row g-0">
             <div class="col-md-4 p-4 border-end bg-white">
-                <h6 class="text-primary fw-bold mb-3"><i class="fas fa-forward me-2"></i>KATEGORI SKIP</h6>
+                <h6 class="text-primary fw-bold mb-3 small text-uppercase"><i class="fas fa-forward me-2"></i>Kategori Skip</h6>
                 <div class="list-group list-group-flush sekat-item">
                     {% for item in skip_data %}
                     <div class="list-group-item px-0 py-2 border-bottom">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div class="pe-3">
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-2">{{ item.code }}</span>
-                                <span class="small text-dark fw-semibold">{{ item.desc }}</span>
+                            <div class="pe-2">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1" style="font-size: 0.7rem;">{{ item.code }}</span>
+                                <span class="small text-dark fw-semibold" style="font-size: 0.75rem;">{{ item.desc }}</span>
                             </div>
-                            <span class="badge bg-secondary rounded-pill">{{ item.count }}</span>
+                            <span class="badge bg-secondary rounded-pill" style="font-size: 0.7rem;">{{ item.count }}</span>
                         </div>
                     </div>
                     {% else %}
-                    <p class="text-muted small mb-0 mt-2">Tidak ada data skip bulan ini.</p>
+                    <p class="text-muted small mb-0 mt-2">Tidak ada data skip.</p>
                     {% endfor %}
                 </div>
             </div>
 
             <div class="col-md-4 p-4 border-end bg-light">
-                <h6 class="text-warning fw-bold mb-3"><i class="fas fa-triangle-exclamation me-2"></i>KATEGORI TROUBLE</h6>
+                <h6 class="text-warning fw-bold mb-3 small text-uppercase"><i class="fas fa-triangle-exclamation me-2"></i>Kategori Trouble</h6>
                 <div class="list-group list-group-flush sekat-item bg-transparent">
                     {% for item in trbl_data %}
                     <div class="list-group-item px-0 py-2 border-bottom bg-transparent">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div class="pe-3">
-                                <span class="badge bg-warning-subtle text-dark border border-warning me-2">{{ item.code }}</span>
-                                <span class="small text-dark fw-semibold">{{ item.desc }}</span>
+                            <div class="pe-2">
+                                <span class="badge bg-warning-subtle text-dark border border-warning me-1" style="font-size: 0.7rem;">{{ item.code }}</span>
+                                <span class="small text-dark fw-semibold" style="font-size: 0.75rem;">{{ item.desc }}</span>
                             </div>
-                            <span class="badge bg-dark rounded-pill">{{ item.count }}</span>
+                            <span class="badge bg-dark rounded-pill" style="font-size: 0.7rem;">{{ item.count }}</span>
                         </div>
                     </div>
                     {% else %}
-                    <p class="text-muted small mb-0 mt-2">Tidak ada data trouble bulan ini.</p>
+                    <p class="text-muted small mb-0 mt-2">Tidak ada data trouble.</p>
                     {% endfor %}
                 </div>
             </div>
 
             <div class="col-md-4 p-4 bg-white">
-                <h6 class="text-success fw-bold mb-3"><i class="fas fa-fingerprint me-2"></i>METODE BACA (READ METHOD)</h6>
+                <h6 class="text-success fw-bold mb-3 small text-uppercase"><i class="fas fa-fingerprint me-2"></i>Read Method</h6>
                 <div class="sekat-item pe-2">
                     {% for item in read_data %}
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="small fw-bold text-dark">{{ item.code }} <span class="text-muted fw-normal">- {{ item.desc }}</span></span>
-                            <span class="badge bg-success-subtle text-success">{{ item.count }}</span>
+                            <span class="fw-bold text-dark" style="font-size: 0.75rem;">{{ item.code }} <span class="text-muted fw-normal">- {{ item.desc }}</span></span>
+                            <span class="badge bg-success-subtle text-success" style="font-size: 0.7rem;">{{ item.count }}</span>
                         </div>
-                        <div class="progress" style="height: 6px; background-color: #e9ecef;">
+                        <div class="progress" style="height: 5px; background-color: #e9ecef;">
                             <div class="progress-bar bg-success" style="width: 100%"></div>
                         </div>
                     </div>
                     {% else %}
-                    <p class="text-muted small mb-0 mt-2">Data method kosong.</p>
+                    <p class="text-muted small mb-0 mt-2">Data kosong.</p>
                     {% endfor %}
                 </div>
             </div>
@@ -187,7 +208,6 @@
                 <tr>
                     <th class="ps-4">KELURAHAN</th>
                     <th class="text-center">JUMLAH KASUS</th>
-                    <th class="text-center">TREN KASAR</th>
                     <th class="text-center pe-4">AKSI</th>
                 </tr>
             </thead>
@@ -196,24 +216,19 @@
                 <tr>
                     <td class="ps-4 fw-bold text-dark">{{ kel }}</td>
                     <td class="text-center">
-                        <span class="badge bg-light text-primary border px-3 py-2" style="font-size: 1rem;">{{ total }}</span>
-                    </td>
-                    <td class="text-center">
-                        <div class="progress" style="height: 8px; width: 100px; margin: 0 auto;">
-                            <div class="progress-bar bg-primary opacity-75" style="width: 100%"></div>
-                        </div>
+                        <span class="badge bg-light text-primary border px-3 py-2" style="font-size: 0.9rem;">{{ total }}</span>
                     </td>
                     <td class="text-center pe-4">
-                        <a href="/sbrs/analisa?ab={{ current_ab }}&kelurahan={{ kel }}&periode={{ periode_aktif }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;">
-                            <i class="fas fa-search me-1"></i>Lihat Detail
+                        <a href="/sbrs/analisa?ab={{ current_ab }}&kelurahan={{ kel }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;">
+                            <i class="fas fa-search me-1"></i>Detail
                         </a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="text-center py-5">
+                    <td colspan="3" class="text-center py-5">
                         <i class="fas fa-folder-open fa-3x text-muted opacity-25 mb-3"></i>
-                        <p class="text-muted">Tidak ada data anomali ditemukan untuk periode <b>{{ periode_aktif }}</b>.</p>
+                        <p class="text-muted">Tidak ada data untuk periode ini.</p>
                     </td>
                 </tr>
                 {% endfor %}
