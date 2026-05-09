@@ -1,4 +1,4 @@
-import pd
+import pandas as pd  # <-- DIPERBAIKI: Harus lengkap agar tidak ModuleNotFoundError
 import os
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
@@ -8,6 +8,7 @@ from models import db, MasterPelanggan, TransaksiTagihan, DataSBRS
 importer_bp = Blueprint('importer', __name__)
 
 def extract_periode(val):
+    """Konversi format tanggal sistem ke YYYYMM."""
     try:
         if not val or pd.isna(val): return "202601"
         return pd.to_datetime(val).strftime('%Y%m')
@@ -15,12 +16,15 @@ def extract_periode(val):
         return str(val)[:6]
 
 def process_mega_file(file, logic_func):
+    """
+    Mesin Turbo untuk memproses file raksasa (1GB+) dengan teknik Chunking.
+    """
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     file.save(temp_path)
 
     try:
-        # 1. Chunksize ditingkatkan ke 50.000 agar lebih cepat (sesuaikan RAM VPS)
+        # 1. Chunksize 50.000: Memproses 50rb baris sekaligus per putaran
         reader = pd.read_csv(
             temp_path, 
             sep=';', 
@@ -36,7 +40,7 @@ def process_mega_file(file, logic_func):
             processed_count = logic_func(chunk)
             total_processed += processed_count
             
-            # Commit per kloter besar
+            # 2. Kirim ke database dan kosongkan RAM
             db.session.commit()
             db.session.expunge_all() 
 
@@ -52,7 +56,6 @@ def import_cid():
     
     try:
         def cid_logic(df):
-            # 2. Teknik Bulk: Ubah ke list of dicts
             data_list = []
             for _, row in df.iterrows():
                 nomen = row.get('NOMEN')
@@ -67,7 +70,7 @@ def import_cid():
                 })
 
             if data_list:
-                # 3. PostgreSQL UPSERT: Update otomatis jika Nomen sudah ada
+                # 3. PostgreSQL UPSERT: Update data lama, masukkan data baru (Turbo)
                 stmt = insert(MasterPelanggan).values(data_list)
                 upsert_stmt = stmt.on_conflict_do_update(
                     index_elements=['nomen'],
@@ -84,7 +87,7 @@ def import_cid():
             return 0
 
         total = process_mega_file(file, cid_logic)
-        return jsonify({"status": "success", "message": f"{total} Pelanggan Masuk (Turbo Mode)"})
+        return jsonify({"status": "success", "message": f"{total} Pelanggan Disinkronkan (Turbo Mode)"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -108,7 +111,7 @@ def import_tagihan():
                 })
             
             if data_list:
-                # 4. Bulk Insert Tanpa Cek (Sangat Cepat)
+                # 4. Bulk Insert: Masukkan data dalam jumlah besar sekaligus
                 db.session.bulk_insert_mappings(TransaksiTagihan, data_list)
                 return len(data_list)
             return 0
