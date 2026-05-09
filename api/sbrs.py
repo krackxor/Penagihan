@@ -13,13 +13,14 @@ def get_current_periode():
 def sbrs_summary():
     """
     Dashboard Ringkasan SBRS.
-    Menampilkan statistik anomali per Periode dan Kelurahan.
+    Menampilkan statistik anomali (Zero, Ekstrem, Turun) per Periode dan Kelurahan.
     """
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
+    # Sinkronisasi format periode kalender ke format database (202605)
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # 1. Hitung total per kategori anomali (Explicit select_from)
+    # 1. Hitung total per kategori anomali (Explicit select_from untuk mencegah InvalidRequestError)
     stats_query = db.session.query(
         DataSBRS.kategori_anomali, 
         func.count(DataSBRS.id)
@@ -33,7 +34,7 @@ def sbrs_summary():
     stats = stats_query.group_by(DataSBRS.kategori_anomali).all()
     summary_data = {k: v for k, v in stats if k}
     
-    # 2. Hitung sebaran anomali per Kelurahan (Explicit select_from)
+    # 2. Hitung sebaran anomali per Kelurahan (Menggunakan kolom kelurahan di DataSBRS)
     kelurahan_stats = db.session.query(
         DataSBRS.kelurahan, 
         func.count(DataSBRS.id)
@@ -47,7 +48,7 @@ def sbrs_summary():
     kelurahan_results = kelurahan_stats.group_by(DataSBRS.kelurahan)\
                                       .order_by(func.count(DataSBRS.id).desc()).all()
 
-    # PERBAIKAN: Menggunakan nama template sbrs_summary.html
+    # PERBAIKAN: Nama template disamakan dengan file Bos (sbrs_summary.html)
     return render_template('sbrs_summary.html', 
                            summary=summary_data, 
                            kelurahan_data=kelurahan_results,
@@ -58,14 +59,14 @@ def sbrs_summary():
 def sbrs_analisa():
     """
     Detail Analisa Kasus SBRS.
-    Daftar pelanggan yang butuh audit lapangan.
+    Daftar pelanggan yang butuh audit lapangan karena pemakaian tidak wajar.
     """
     ab = request.args.get('ab', 'AB Sunter')
     kat = request.args.get('kategori')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # PERBAIKAN: Gunakan select_from untuk menghindari ambiguitas
+    # PERBAIKAN: Gunakan select_from dan join eksplisit untuk performa PostgreSQL
     query = db.session.query(
         DataSBRS.nomen,
         DataSBRS.nama,
@@ -79,7 +80,7 @@ def sbrs_analisa():
     ).select_from(DataSBRS)\
      .outerjoin(MasterPetugas, and_(
          DataSBRS.pcez == MasterPetugas.pcez, 
-         MasterPetugas.peran == 'SBRS'
+         MasterPetugas.peran == 'SBRS' # Filter peran petugas khusus anomali
      )).filter(DataSBRS.periode == periode_filter)
 
     if ab != 'all':
@@ -88,9 +89,10 @@ def sbrs_analisa():
     if kat and kat != 'all':
         query = query.filter(DataSBRS.kategori_anomali == kat)
 
+    # Batasi hasil untuk menjaga kecepatan loading browser
     results = query.order_by(DataSBRS.bulan_ini.desc()).limit(1000).all()
     
-    # PERBAIKAN: Menggunakan nama template sbrs_analisa.html
+    # PERBAIKAN: Nama template disamakan dengan file Bos (sbrs_analisa.html)
     return render_template('sbrs_analisa.html', 
                            data=results, 
                            current_ab=ab, 
@@ -99,12 +101,11 @@ def sbrs_analisa():
 
 @sbrs_bp.route('/api-stats')
 def get_sbrs_api_stats():
-    """API untuk pembaruan widget angka real-time."""
+    """API untuk pembaruan widget angka secara real-time."""
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # Perbaikan: Explicit select_from
     res = db.session.query(
         func.count(DataSBRS.id).label('total'),
         func.sum(case((DataSBRS.kategori_anomali == 'ZERO', 1), else_=0)).label('zero'),
