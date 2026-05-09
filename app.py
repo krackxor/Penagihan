@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V13.9 Converter & SBRS Engine)
+Flask Application - Area Service Integrated System (V15.0 Full Anti-Double & Audit Engine)
 Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -18,6 +18,7 @@ Fixes Log:
 13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
 14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP dengan Auto-Detect Cycle & Periode.
 15. ✅ API SBRS: Tambahan API Get-Summary (Bulletproof) & Download Excel LNP.
+16. ✅ V15.0 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid).
 """
 
 import os
@@ -26,7 +27,8 @@ import pandas as pd
 from datetime import timedelta, datetime
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, g, send_from_directory, session, redirect, url_for, request, jsonify, send_file
-import sqlite3 # Tambahan untuk query manual
+import sqlite3 
+from sqlalchemy import create_engine, text
 
 # [IMPORT CORE]
 from config import Config
@@ -49,6 +51,31 @@ from api.premium import premium_bp
 from api.ekstrem import ekstrem_bp 
 from api.drop import drop_bp 
 from api.map_gis import map_bp 
+
+# --- MAPPING KAMUS DATA (V15.0) ---
+METHOD_MAP = {
+    "30/PE": "System Estimate", 
+    "35/PS": "Service Provider Estimate", 
+    "40/PE": "Office Estimate", 
+    "60/SE": "Regular", 
+    "80/PE": "Billing Force"
+}
+
+SKIP_MAP = {
+    "1A": "Meter Buram", "1B": "Meter Berembun", "1C": "Meter Rusak", 
+    "2A": "Meter Tidak Ada (Air Tidak Dipakai)", "2B": "Meter Tidak Ada (Air Dipakai)", 
+    "3A": "Rumah Kosong", "4A": "Rumah Dibongkar", "4B": "Meter Terendam", 
+    "4C": "Alamat Tak Ketemu", "5A": "Tutup Bak Berat", "5B": "Meter Tertimbun", 
+    "5C": "Terhalang Barang", "5D": "Meter Dicor", "5E": "Bak Dikunci"
+}
+
+TROUBLE_MAP = {
+    "1A": "Meter Berembun", "1B": "Meter Mati", "1C": "Meter Buram", 
+    "1D": "Segel Pabrik Putus", "2A": "Meter Terbalik", "2B": "Meter Dipindah", 
+    "2C": "Meter Lepas", "2D": "By Pass Meter", "2E": "Meter Dicolok", 
+    "2F": "Meter Tak Normal", "2G": "Meter Rusak/Kaca Pecah", 
+    "3A": "Air Kecil/Mati", "4A": "Pipa Dinas Bocor"
+}
 
 def create_app():
     app = Flask(__name__)
@@ -371,7 +398,7 @@ def create_app():
     def peta_sebaran_page():
         return render_template('peta_sebaran.html')
 
-    # --- MODUL BARU: SBRS MEGA-MERGE LNP ---
+    # --- MODUL BARU: SBRS MEGA-MERGE LNP (V15.0 ANTI-DOUBLE) ---
     @app.route('/upload-sbrs')
     def upload_sbrs_page():
         return render_template('upload_sbrs.html')
@@ -389,19 +416,20 @@ def create_app():
             file_cust = request.files['fileCust']
             file_spot = request.files['fileSpot']
 
-            # 1. BACA FILE & BERSIHKAN HEADER
             df_cust = pd.read_csv(file_cust, sep=';', dtype=str, on_bad_lines='skip')
             df_spot = pd.read_csv(file_spot, sep=';', dtype=str, on_bad_lines='skip')
 
             df_cust.columns = df_cust.columns.str.strip()
             df_spot.columns = df_spot.columns.str.strip()
 
-            # 2. MEGA-MERGE BERDASARKAN ID
+            # 1. MEGA-MERGE BERDASARKAN ID
             df_final = pd.merge(df_cust, df_spot, left_on='cmr_account', right_on='Nomen', how='inner')
 
-            # ---------------------------------------------------------
-            # 🌟 AUTO-DETECT CYCLE & PERIODE DARI FILE
-            # ---------------------------------------------------------
+            # 2. ANTI-DOUBLE (CLEANING DUPLIKAT DI FILE CSV)
+            if 'cmr_account' in df_final.columns:
+                df_final.drop_duplicates(subset=['cmr_account'], keep='last', inplace=True)
+
+            # 3. AUTO-DETECT CYCLE & PERIODE DARI FILE
             if 'cmr_cycle' in df_final.columns:
                 cycle_terdeteksi = str(df_final['cmr_cycle'].mode()[0]).strip()
                 cycle_input = cycle_terdeteksi.zfill(2)
@@ -421,15 +449,14 @@ def create_app():
             
             df_final['cmr_cycle'] = cycle_input
             df_final['periode_sbrs'] = periode_otomatis
-            # ---------------------------------------------------------
 
-            # 3. KONVERSI TIPE DATA
+            # 4. KONVERSI TIPE DATA
             kolom_numerik = ['cmr_reading', 'cmr_prev_read', 'Curr_Read_1', 'Prev_Read_1', 'SB_Stand']
             for col in kolom_numerik:
                 if col in df_final.columns:
                     df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0)
 
-            # 4. TERAPKAN PENAMAAN LNP & PERHITUNGAN
+            # 5. TERAPKAN PENAMAAN LNP & PERHITUNGAN
             if 'cmr_reading' in df_final.columns and 'cmr_prev_read' in df_final.columns:
                 df_final['Vol_Lap'] = df_final['cmr_reading'] - df_final['cmr_prev_read']
             
@@ -443,9 +470,7 @@ def create_app():
                 df_final['Vol_Riil'] = df_final['Vol_Lap'] 
             df_final['Selisih_HB'] = 31 
 
-            # 5. SIMPAN HASIL KE DATABASE SQLITE (APPEND & ANTI-DOUBLE)
-            from sqlalchemy import create_engine, text
-            
+            # 6. SIMPAN HASIL KE DATABASE SQLITE (HAPUS CYCLE LAMA SEBELUM INSERT)
             os.makedirs(os.path.join(app.root_path, 'instance'), exist_ok=True)
             db_path = os.path.join(app.root_path, 'instance', 'database.db')
             engine = create_engine(f'sqlite:///{db_path}')
@@ -460,24 +485,26 @@ def create_app():
 
             return jsonify({
                 "status": "success", 
-                "message": f"Data Periode {periode_otomatis} Cycle {cycle_input} berhasil digabung & masuk database!",
+                "message": f"Data Periode {periode_otomatis} Cycle {cycle_input} berhasil digabung & bersih dari duplikat!",
                 "total_rows": len(df_final)
             })
 
         except Exception as e:
             return jsonify({"status": "error", "message": f"Gagal memproses file: {str(e)}"}), 500
 
-    # --- API BARU: AMBIL DATA SUMMARY SBRS (VERSI BULLETPROOF) ---
+    # --- API SBRS: GET SUMMARY (INTELLIGENCE AUDIT) ---
     @app.route('/api/get-summary-sbrs', methods=['GET'])
     def get_summary_sbrs():
         cycle = request.args.get('cycle', 'all')
+        sort_by = request.args.get('sort_by', 'ROWID')
+        order = request.args.get('order', 'DESC')
+        status_filter = request.args.get('filter', 'all')
         
         db_path = os.path.join(app.root_path, 'instance', 'database.db')
         if not os.path.exists(db_path):
             return jsonify({"status": "error", "message": "Database tidak ditemukan."})
 
         try:
-            import sqlite3
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -485,105 +512,125 @@ def create_app():
             # Pastikan tabel sudah ada
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history_lnp'")
             if not cursor.fetchone():
-                return jsonify({"status": "success", "summary": {"total_objek": 0, "total_vol_riil": 0, "total_hb": 0, "total_kendala": 0}, "skip": [], "trouble": [], "master": []})
+                return jsonify({
+                    "status": "success", "summary": {"total_objek": 0, "total_vol_sb": 0}, 
+                    "stats": {"zero_baru":0,"zero_lama":0,"ekstrim":0,"turun":0,"anomali":0},
+                    "skip": [], "trouble": [], "methods": [], "master": []
+                })
 
-            # AUTO-DETECT KOLOM (Mencegah Error Jika Kolom Tidak Ada)
-            cursor.execute("PRAGMA table_info(history_lnp)")
-            kolom_db = [row[1] for row in cursor.fetchall()]
-
-            col_nomen = 'Nomen' if 'Nomen' in kolom_db else ('nomen' if 'nomen' in kolom_db else ('cmr_account' if 'cmr_account' in kolom_db else kolom_db[0]))
-            col_nama = 'cmr_nama' if 'cmr_nama' in kolom_db else ('Nama' if 'Nama' in kolom_db else ('nama_pelanggan' if 'nama_pelanggan' in kolom_db else kolom_db[1]))
-            col_skip = 'cmr_skip_code' if 'cmr_skip_code' in kolom_db else None
-            col_trbl = 'cmr_trbl1_code' if 'cmr_trbl1_code' in kolom_db else None
-
-            # Filter Query
-            where_clause = ""
+            query = "SELECT ROWID as rowid, * FROM history_lnp"
             params = []
             if cycle != 'all':
-                where_clause = "WHERE cmr_cycle = ?"
+                query += " WHERE cmr_cycle = ?"
                 params.append(cycle)
-
-            # 1. Hitung Akumulasi Atas
-            cursor.execute(f"SELECT COUNT(*) as tot_obj, SUM(Vol_Riil) as tot_vol, SUM(Selisih_HB) as tot_hb FROM history_lnp {where_clause}", params)
-            row_sum = cursor.fetchone()
+            query += f" ORDER BY {sort_by} {order}"
             
-            # Hitung Kendala
-            tot_kendala = 0
-            if col_skip or col_trbl:
-                kondisi_kendala = []
-                if col_skip: kondisi_kendala.append(f"({col_skip} IS NOT NULL AND {col_skip} != '0' AND {col_skip} != 'nan')")
-                if col_trbl: kondisi_kendala.append(f"({col_trbl} IS NOT NULL AND {col_trbl} != '0' AND {col_trbl} != 'nan')")
-                
-                if kondisi_kendala:
-                    query_kendala = f"SELECT COUNT(*) as tot FROM history_lnp {where_clause} {'AND' if where_clause else 'WHERE'} ({' OR '.join(kondisi_kendala)})"
-                    cursor.execute(query_kendala, params)
-                    tot_kendala = cursor.fetchone()['tot']
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
 
-            summary = {
-                "total_objek": row_sum['tot_obj'] or 0,
-                "total_vol_riil": row_sum['tot_vol'] or 0,
-                "total_hb": row_sum['tot_hb'] or 0,
-                "total_kendala": tot_kendala
-            }
-
-            # 2. Rekap Skip
-            skip_data = []
-            if col_skip:
-                cursor.execute(f"SELECT {col_skip} as kode, COUNT(*) as jumlah FROM history_lnp {where_clause} {'AND' if where_clause else 'WHERE'} {col_skip} IS NOT NULL GROUP BY {col_skip}", params)
-                for r in cursor.fetchall():
-                    if str(r['kode']).strip() not in ['0', 'None', 'nan', '']:
-                        skip_data.append({"kode": r['kode'], "alasan": "Masalah Lapangan", "jumlah": r['jumlah']})
-
-            # 3. Rekap Trouble
-            trouble_data = []
-            if col_trbl:
-                cursor.execute(f"SELECT {col_trbl} as kode, COUNT(*) as jumlah FROM history_lnp {where_clause} {'AND' if where_clause else 'WHERE'} {col_trbl} IS NOT NULL GROUP BY {col_trbl}", params)
-                for r in cursor.fetchall():
-                    if str(r['kode']).strip() not in ['0', 'None', 'nan', '']:
-                        trouble_data.append({"kode": r['kode'], "alasan": "Kendala Teknis", "jumlah": r['jumlah']})
-
-            # 4. Ambil 100 Data Terakhir
-            cursor.execute(f"SELECT * FROM history_lnp {where_clause} ORDER BY id DESC LIMIT 100", params)
-            
             master_data = []
-            for r in cursor.fetchall():
-                dict_row = dict(r)
-                master_data.append({
-                    "nomen": dict_row.get(col_nomen, '-'),
-                    "nama": dict_row.get(col_nama, 'Pelanggan'),
-                    "vol_lap": dict_row.get('Vol_Lap', 0),
-                    "vol_bill": dict_row.get('Vol_Bill', 0),
-                    "vol_riil": dict_row.get('Vol_Riil', 0),
-                    "vol_sb": dict_row.get('Vol_SB', 0),
-                    "hb": dict_row.get('Selisih_HB', 0),
-                    "skip": dict_row.get(col_skip, '-') if col_skip else '-',
-                    "trouble": dict_row.get(col_trbl, '-') if col_trbl else '-'
-                })
+            stats = {"zero_baru": 0, "zero_lama": 0, "ekstrim": 0, "anomali": 0, "turun": 0}
+            skip_count, trbl_count, meth_count = {}, {}, {}
+            total_vol_sb = 0
+
+            for r in rows:
+                d = dict(r)
+                # Tangkap kolom fleksibel
+                col_nomen = d.get('Nomen', d.get('cmr_account', '-'))
+                col_nama = d.get('cmr_nama', d.get('Nama', 'Pelanggan'))
+
+                # Ambil Kode Analisa
+                s_raw = str(d.get('cmr_skip_code', '0')).strip().upper()
+                t_raw = str(d.get('cmr_trbl1_code', '0')).strip().upper()
+                m_raw = str(d.get('cmr_read_method', '-')).strip()
+
+                if s_raw not in ['0', 'NAN', '', 'NONE']: skip_count[s_raw] = skip_count.get(s_raw, 0) + 1
+                if t_raw not in ['0', 'NAN', '', 'NONE']: trbl_count[t_raw] = trbl_count.get(t_raw, 0) + 1
+                if m_raw != '-': meth_count[m_raw] = meth_count.get(m_raw, 0) + 1
+
+                # Audit Volume Logics
+                v_lap, v_bill, v_sb = float(d.get('Vol_Lap', 0)), float(d.get('Vol_Bill', 0)), float(d.get('Vol_SB', 0))
+                v_gap, sb_gap = (v_bill - v_lap), (v_sb - v_lap)
+                selisih_naik = v_lap - v_bill
+                pct_naik = (selisih_naik / v_bill * 100) if v_bill > 0 else 0
+                
+                tags = []
+                
+                # Zero Split Logic
+                if v_lap == 0:
+                    if v_bill > 0: 
+                        tags.append("Zero Baru")
+                        stats["zero_baru"] += 1
+                    else: 
+                        tags.append("Zero Lama")
+                        stats["zero_lama"] += 1
+                
+                # Ekstrim Hybrid Logic (Naik >100% ATAU Naik >50m3 mutlak)
+                if (v_lap > 10 and pct_naik >= 100) or (selisih_naik >= 50):
+                    tags.append("Ekstrim")
+                    stats["ekstrim"] += 1
+                
+                if 0 < v_lap < (v_bill * 0.4): 
+                    tags.append("Turun")
+                    stats["turun"] += 1
+                    
+                if v_gap != 0 or sb_gap != 0: 
+                    tags.append("Anomali")
+                    stats["anomali"] += 1
+                
+                # Filter Matching
+                match = True
+                if status_filter == 'ekstrem' and "Ekstrim" not in tags and "Anomali" not in tags: match = False
+                elif status_filter == 'turun' and "Turun" not in tags: match = False
+                elif status_filter == 'zero_baru' and "Zero Baru" not in tags: match = False
+                elif status_filter == 'zero_lama' and "Zero Lama" not in tags: match = False
+
+                if match:
+                    total_vol_sb += v_sb
+                    master_data.append({
+                        "rowid": d['rowid'], "nomen": col_nomen, "nama": col_nama,
+                        "vol_lap": v_lap, "vol_bill": v_bill, "vol_sb": v_sb, "v_gap": v_gap, "sb_gap": sb_gap,
+                        "status": " / ".join(tags) if tags else "Normal",
+                        "method": m_raw, "method_full": METHOD_MAP.get(m_raw, m_raw),
+                        "hb": d.get('Selisih_HB', 31), "vol_riil": d.get('Vol_Riil', v_lap)
+                    })
 
             return jsonify({
                 "status": "success",
-                "summary": summary,
-                "skip": skip_data,
-                "trouble": trouble_data,
-                "master": master_data
+                "summary": {"total_objek": len(rows), "total_vol_sb": total_vol_sb},
+                "stats": stats,
+                "skip": [{"kode": k, "ket": SKIP_MAP.get(k, "Lain-lain"), "jml": v} for k, v in skip_count.items()],
+                "trouble": [{"kode": k, "ket": TROUBLE_MAP.get(k, "Lain-lain"), "jml": v} for k, v in trbl_count.items()],
+                "methods": [{"kode": k, "ket": METHOD_MAP.get(k, k), "jml": v} for k, v in meth_count.items()],
+                "master": master_data[:300]
             })
 
         except Exception as e:
-            return jsonify({"status": "error", "message": str(e)})
+            return jsonify({"status": "error", "message": f"Terjadi Kesalahan SQL: {str(e)}"})
         finally:
             conn.close()
 
-    # --- API BARU: DOWNLOAD EXCEL LNP ---
+    # --- API SBRS: EDIT & DOWNLOAD ---
+    @app.route('/api/edit-sbrs', methods=['POST'])
+    def edit_sbrs():
+        try:
+            d = request.json
+            conn = sqlite3.connect(os.path.join(app.root_path, 'instance', 'database.db'))
+            conn.execute("UPDATE history_lnp SET Vol_Lap=?, Vol_Bill=?, Vol_SB=?, Vol_Riil=?, Selisih_HB=? WHERE ROWID=?", 
+                         (d['vol_lap'], d['vol_bill'], d['vol_sb'], d['vol_riil'], d.get('hb', 31), d['rowid']))
+            conn.commit()
+            conn.close()
+            return jsonify({"status": "success"})
+        except Exception as e: 
+            return jsonify({"status": "error", "message": str(e)})
+
     @app.route('/api/download-sbrs-excel', methods=['GET'])
     def download_sbrs_excel():
         cycle = request.args.get('cycle', 'all')
         db_path = os.path.join(app.root_path, 'instance', 'database.db')
         
         try:
-            import sqlite3
             conn = sqlite3.connect(db_path)
-            
-            # Ambil data pakai Pandas
             query = "SELECT * FROM history_lnp"
             if cycle != 'all':
                 query += f" WHERE cmr_cycle = '{cycle}'"
@@ -594,10 +641,8 @@ def create_app():
             if df.empty:
                 return "Data tidak ditemukan untuk diekspor", 404
 
-            # Simpan ke folder temporary
             temp_dir = tempfile.mkdtemp()
             output_path = os.path.join(temp_dir, f"Laporan_SBRS_Cycle_{cycle}.xlsx")
-            
             df.to_excel(output_path, index=False)
             
             return send_file(output_path, as_attachment=True, download_name=f"Laporan_SBRS_Cycle_{cycle}.xlsx")
