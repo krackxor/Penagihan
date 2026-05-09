@@ -1,31 +1,19 @@
-# Flask Framework
-Flask>=3.0.0
-werkzeug>=3.0.0
-gunicorn>=21.2.0
+# --- Framework & Server ---
+Flask==2.3.3
+Werkzeug==2.3.7
 
-# Data Processing
-pandas>=2.1.0
-numpy>=1.24.0
-python-dateutil>=2.8.2
+# --- Database (Pondasi Sinergi) ---
+SQLAlchemy==2.0.19
+Flask-SQLAlchemy==3.0.5
 
-# Excel Support - COMPLETE
-openpyxl>=3.1.0      # For .xlsx files
-xlrd>=2.0.1          # For old .xls files (Excel 97-2003)
-xlwt>=1.3.0          # For writing .xls files
-pyexcel>=0.7.0       # Universal spreadsheet library
-pyexcel-xls>=0.7.0   # .xls support for pyexcel
-pyexcel-xlsx>=0.6.0  # .xlsx support for pyexcel
+# --- Pengolahan Data (CID, MC, Petugas) ---
+pandas==2.0.3
+openpyxl==3.1.2
+xlsxwriter==3.1.2
 
-# DBF Support
-dbfread>=2.0.7       # For reading .dbf files (dBase format)
-simpledbf>=0.2.6     # Alternative DBF reader
+# --- Pengolahan Gambar & Foto Lapangan ---
+Pillow==10.0.0
 
-# CSV/Text Support
-chardet>=5.0.0       # Auto-detect file encoding
-
-# Document Conversion & OCR Support (BARU)
-pdf2docx>=0.5.8      # Mesin konversi PDF ke Word (.docx)
-Pillow>=10.2.0       # Mesin pemroses Gambar (JPG/PNG) menjadi PDF
-docx2pdf>=0.1.8      # Mesin konversi Word ke PDF
-python-docx>=1.1.0   # Library pendukung manipulasi dokumen Word
-pytesseract>=0.3.10  # Mesin pembaca teks dari gambar (OCR)
+# --- Fitur Tambahan (Utility) ---
+pdf2docx==0.5.6
+pytesseract==0.3.10
