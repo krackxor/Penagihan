@@ -11,6 +11,21 @@ def get_current_periode():
     """Mendapatkan periode berjalan dalam format YYYYMM."""
     return datetime.now().strftime('%Y%m')
 
+def parse_date(date_str):
+    """Membaca berbagai format tanggal dengan akurat (lintas TXT)."""
+    if not date_str or str(date_str).strip() in ['None', '', 'NaN']: return pd.NaT
+    date_str = str(date_str).strip()
+    if len(date_str) == 8 and date_str.isdigit():
+        return pd.to_datetime(date_str, format='%d%m%Y', errors='coerce')
+    res = pd.to_datetime(date_str, format='%d/%m/%Y', errors='coerce')
+    if pd.notnull(res): return res
+    return pd.to_datetime(date_str, dayfirst=True, errors='coerce')
+
+def safe_f(val):
+    """Mencegah error saat kalkulasi volume."""
+    try: return float(str(val).replace(',', '.'))
+    except: return 0.0
+
 # --- KAMUS DATA SBRS (BERDASARKAN SOP PAM JAYA) ---
 SKIP_LABELS = {
     '1A': 'Meter Buram', '1B': 'Meter Berembun', '1C': 'Meter Rusak',
@@ -44,14 +59,9 @@ def sbrs_summary():
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
     try:
-        yyyy = int(periode_filter[:4])
-        mm = int(periode_filter[4:])
-        if mm == 1:
-            prev_periode = f"{yyyy-1}12"
-        else:
-            prev_periode = f"{yyyy}{mm-1:02d}"
-    except:
-        prev_periode = periode_filter
+        dt = datetime.strptime(periode_filter, '%Y%m')
+        prev_periode = (dt - timedelta(days=28)).strftime('%Y%m')
+    except: prev_periode = periode_filter
 
     base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
     if ab != 'all': base_q = base_q.filter(DataSBRS.ab == ab)
@@ -63,14 +73,21 @@ def sbrs_summary():
     if cycle != 'all': stats_query = stats_query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
     summary_dict = {k: v for k, v in stats_query.group_by(DataSBRS.kategori_anomali).all() if k}
 
-    zero_lama_q = db.session.query(func.count(DataSBRS.id)).filter(
-        DataSBRS.periode == periode_filter, DataSBRS.kategori_anomali == 'ZERO',
-        DataSBRS.nomen.in_(db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == 'ZERO'))
-    )
-    if ab != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.ab == ab)
-    if cycle != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
-    zero_lama = zero_lama_q.scalar() or 0
-    zero_baru = summary_dict.get('ZERO', 0) - zero_lama
+    def hitung_lama_baru(kategori_nama):
+        total_kategori = summary_dict.get(kategori_nama, 0)
+        q_lama = db.session.query(func.count(DataSBRS.id)).filter(
+            DataSBRS.periode == periode_filter, DataSBRS.kategori_anomali == kategori_nama,
+            DataSBRS.nomen.in_(db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == kategori_nama))
+        )
+        if ab != 'all': q_lama = q_lama.filter(DataSBRS.ab == ab)
+        if cycle != 'all': q_lama = q_lama.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+        lama = q_lama.scalar() or 0
+        baru = total_kategori - lama
+        return baru, lama
+
+    zero_baru, zero_lama = hitung_lama_baru('ZERO')
+    ekstrem_baru, ekstrem_lama = hitung_lama_baru('EKSTREM')
+    turun_baru, turun_lama = hitung_lama_baru('TURUN')
 
     skip_stats = db.session.query(DataSBRS.raw_data['CMR_SKIP_CODE'].astext.label('code'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
     trbl_stats = db.session.query(DataSBRS.raw_data['CMR_TRBL1_CODE'].astext.label('code'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
@@ -93,44 +110,42 @@ def sbrs_summary():
     trbl_final = [{"code": c, "desc": TRBL_LABELS.get(c, 'Lainnya'), "count": count} for c, count in trbl_raw if c and c != 'None']
     read_final = [{"code": c, "desc": READ_LABELS.get(c, 'Manual/Other'), "count": count} for c, count in read_raw if c and c != 'None']
 
+    # --- TARIK TANGGAL BULAN LALU DARI DATABASE (Sistem Memori) ---
+    prev_dates_q = db.session.query(DataSBRS.nomen, DataSBRS.raw_data['READ_DATE_1'].astext).filter(DataSBRS.periode == prev_periode)
+    prev_dates = {nomen: tgl for nomen, tgl in prev_dates_q.all()}
+
     # --- HITUNG TOTAL NOMINAL, HARI BACA, DAN VOL TAGIHAN UNTUK DASHBOARD ---
-    all_raw = db.session.query(DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
+    all_raw = db.session.query(DataSBRS.nomen, DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
     if ab != 'all': all_raw = all_raw.filter(DataSBRS.ab == ab)
     if cycle != 'all': all_raw = all_raw.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
-
-    def safe_f(val):
-        try: return float(val or 0)
-        except: return 0.0
 
     total_nominal = 0
     total_hb = 0
     total_vol_tagihan = 0
 
-    for (raw,) in all_raw.all():
+    for nomen, raw in all_raw.all():
         if not raw: continue
         total_nominal += safe_f(raw.get('BILL_AMOUNT'))
         total_vol_tagihan += (safe_f(raw.get('SB_STAND')) - safe_f(raw.get('PREV_READ_1')))
         
         tgl_now = raw.get('READ_DATE_1') or raw.get('CURR_READ_DATE')
-        tgl_prev = raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE') or raw.get('CMR_PREV_READ_DATE')
-        try:
-            d1 = pd.to_datetime(tgl_now, dayfirst=True, errors='coerce')
-            d2 = pd.to_datetime(tgl_prev, dayfirst=True, errors='coerce')
-            if pd.notnull(d1) and pd.notnull(d2):
-                total_hb += (d1 - d2).days
-        except: pass
+        tgl_prev = prev_dates.get(nomen) or raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE')
+        
+        d1 = parse_date(tgl_now)
+        d2 = parse_date(tgl_prev)
+        if pd.notnull(d1) and pd.notnull(d2): 
+            total_hb += (d1 - d2).days
 
     master_totals = {
         "total_nomen": f"{total_nomen:,}".replace(',', '.'),
         "total_nominal": f"Rp {total_nominal:,.0f}".replace(',', '.'),
         "total_hb": f"{total_hb:,}".replace(',', '.'),
         "total_vol_tagihan": f"{total_vol_tagihan:,.0f}".replace(',', '.'),
-        "zero_baru": zero_baru,
-        "zero_lama": zero_lama,
+        "zero_baru": zero_baru, "zero_lama": zero_lama,
+        "ekstrem_baru": ekstrem_baru, "ekstrem_lama": ekstrem_lama,
+        "turun_baru": turun_baru, "turun_lama": turun_lama,
         "total_skip": sum(i['count'] for i in skip_final),
-        "total_trbl": sum(i['count'] for i in trbl_final),
-        "ekstrem": summary_dict.get('EKSTREM', 0),
-        "turun": summary_dict.get('TURUN', 0)
+        "total_trbl": sum(i['count'] for i in trbl_final)
     }
 
     kelurahan_stats = db.session.query(DataSBRS.kelurahan, func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
@@ -176,8 +191,8 @@ def sbrs_analisa():
     # Filter Klik Kategori & Sub Kategori
     if kat != 'all' and kat is not None:
         query = query.filter(DataSBRS.kategori_anomali == kat)
-        if kat == 'ZERO' and sub_kat:
-            prev_q = db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == 'ZERO')
+        if sub_kat:
+            prev_q = db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == kat)
             if sub_kat == 'lama':
                 query = query.filter(DataSBRS.nomen.in_(prev_q))
             elif sub_kat == 'baru':
@@ -227,9 +242,8 @@ def export_summary():
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
     try:
-        yyyy = int(periode_filter[:4])
-        mm = int(periode_filter[4:])
-        prev_periode = f"{yyyy-1}12" if mm == 1 else f"{yyyy}{mm-1:02d}"
+        dt = datetime.strptime(periode_filter, '%Y%m')
+        prev_periode = (dt - timedelta(days=28)).strftime('%Y%m')
     except: prev_periode = periode_filter
 
     base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
@@ -242,55 +256,68 @@ def export_summary():
     if cycle != 'all': stats_query = stats_query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
     summary_dict = {k: v for k, v in stats_query.group_by(DataSBRS.kategori_anomali).all() if k}
 
-    zero_lama_q = db.session.query(func.count(DataSBRS.id)).filter(
-        DataSBRS.periode == periode_filter, DataSBRS.kategori_anomali == 'ZERO',
-        DataSBRS.nomen.in_(db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == 'ZERO'))
-    )
-    if ab != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.ab == ab)
-    if cycle != 'all': zero_lama_q = zero_lama_q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
-    zero_lama = zero_lama_q.scalar() or 0
-    zero_baru = summary_dict.get('ZERO', 0) - zero_lama
+    def h_baru_lama(kat):
+        tot = summary_dict.get(kat, 0)
+        q = db.session.query(func.count(DataSBRS.id)).filter(
+            DataSBRS.periode == periode_filter, DataSBRS.kategori_anomali == kat,
+            DataSBRS.nomen.in_(db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == kat))
+        )
+        if ab != 'all': q = q.filter(DataSBRS.ab == ab)
+        if cycle != 'all': q = q.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+        l = q.scalar() or 0
+        return tot - l, l
+
+    z_baru, z_lama = h_baru_lama('ZERO')
+    e_baru, e_lama = h_baru_lama('EKSTREM')
+    t_baru, t_lama = h_baru_lama('TURUN')
 
     skip_stats = db.session.query(DataSBRS.raw_data['CMR_SKIP_CODE'].astext.label('code'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
     if ab != 'all': skip_stats = skip_stats.filter(DataSBRS.ab == ab)
     if cycle != 'all': skip_stats = skip_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
     skip_final = [{"Kode": c, "Keterangan": SKIP_LABELS.get(c, 'Lainnya'), "Total": count} for c, count in skip_stats.group_by('code').all() if c and c != 'None']
+    
+    trbl_stats = db.session.query(DataSBRS.raw_data['CMR_TRBL1_CODE'].astext.label('code'), func.count(DataSBRS.id)).filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': trbl_stats = trbl_stats.filter(DataSBRS.ab == ab)
+    if cycle != 'all': trbl_stats = trbl_stats.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
+    trbl_final = [{"Kode": c, "Keterangan": TRBL_LABELS.get(c, 'Lainnya'), "Total": count} for c, count in trbl_stats.group_by('code').all() if c and c != 'None']
 
-    all_raw = db.session.query(DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
+    prev_dates_q = db.session.query(DataSBRS.nomen, DataSBRS.raw_data['READ_DATE_1'].astext).filter(DataSBRS.periode == prev_periode)
+    prev_dates = {nomen: tgl for nomen, tgl in prev_dates_q.all()}
+
+    all_raw = db.session.query(DataSBRS.nomen, DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
     if ab != 'all': all_raw = all_raw.filter(DataSBRS.ab == ab)
     if cycle != 'all': all_raw = all_raw.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
-
-    def safe_f(val):
-        try: return float(val or 0)
-        except: return 0.0
 
     total_nominal = 0
     total_hb = 0
     total_vol_tagihan = 0
 
-    for (raw,) in all_raw.all():
+    for nomen, raw in all_raw.all():
         if not raw: continue
         total_nominal += safe_f(raw.get('BILL_AMOUNT'))
         total_vol_tagihan += (safe_f(raw.get('SB_STAND')) - safe_f(raw.get('PREV_READ_1')))
         
         tgl_now = raw.get('READ_DATE_1') or raw.get('CURR_READ_DATE')
-        tgl_prev = raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE') or raw.get('CMR_PREV_READ_DATE')
-        try:
-            d1 = pd.to_datetime(tgl_now, dayfirst=True, errors='coerce')
-            d2 = pd.to_datetime(tgl_prev, dayfirst=True, errors='coerce')
-            if pd.notnull(d1) and pd.notnull(d2): total_hb += (d1 - d2).days
-        except: pass
+        tgl_prev = prev_dates.get(nomen) or raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE')
+        
+        d1 = parse_date(tgl_now)
+        d2 = parse_date(tgl_prev)
+        if pd.notnull(d1) and pd.notnull(d2): 
+            total_hb += (d1 - d2).days
 
     df_utama = pd.DataFrame([
         {"Indikator": "Total Data Nomen", "Jumlah": total_nomen},
         {"Indikator": "Total Volume Tagihan (m3)", "Jumlah": total_vol_tagihan},
         {"Indikator": "Total Nominal Tagihan (Rp)", "Jumlah": total_nominal},
         {"Indikator": "Total Akumulasi Hari Baca", "Jumlah": total_hb},
-        {"Indikator": "Zero Baru (Macet)", "Jumlah": zero_baru},
-        {"Indikator": "Zero Lama (Kronis)", "Jumlah": zero_lama},
+        {"Indikator": "Zero Baru (Macet)", "Jumlah": z_baru},
+        {"Indikator": "Zero Lama (Kronis)", "Jumlah": z_lama},
+        {"Indikator": "Ekstrem Baru", "Jumlah": e_baru},
+        {"Indikator": "Ekstrem Lama", "Jumlah": e_lama},
+        {"Indikator": "Turun Baru", "Jumlah": t_baru},
+        {"Indikator": "Turun Lama", "Jumlah": t_lama},
         {"Indikator": "Total Skip", "Jumlah": sum(i['Total'] for i in skip_final)},
-        {"Indikator": "Ekstrem", "Jumlah": summary_dict.get('EKSTREM', 0)},
-        {"Indikator": "Turun Drastis", "Jumlah": summary_dict.get('TURUN', 0)},
+        {"Indikator": "Total Trouble", "Jumlah": sum(i['Total'] for i in trbl_final)},
     ])
     df_skip = pd.DataFrame(skip_final)
 
@@ -309,8 +336,14 @@ def export_analisa():
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
+    sub_kat = request.args.get('sub_kat')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+
+    try:
+        dt = datetime.strptime(periode_filter, '%Y%m')
+        prev_periode = (dt - timedelta(days=28)).strftime('%Y%m')
+    except: prev_periode = periode_filter
 
     # Tarik semua data dari DB, termasuk JSONB raw_data
     query = db.session.query(
@@ -319,64 +352,55 @@ def export_analisa():
 
     if ab != 'all': query = query.filter(DataSBRS.ab == ab)
     if cycle != 'all': query = query.filter(DataSBRS.raw_data['CYCLE'].astext == cycle)
-    if kat != 'all': query = query.filter(DataSBRS.kategori_anomali == kat)
+    
+    # Filter agar export Excel matching dengan hasil klik Drill-Down
+    if kat != 'all' and kat is not None:
+        query = query.filter(DataSBRS.kategori_anomali == kat)
+        if sub_kat:
+            prev_q = db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == kat)
+            if sub_kat == 'lama': query = query.filter(DataSBRS.nomen.in_(prev_q))
+            elif sub_kat == 'baru': query = query.filter(DataSBRS.nomen.not_in(prev_q))
+
+    # Tarik memori tanggal bulan lalu
+    prev_dates_q = db.session.query(DataSBRS.nomen, DataSBRS.raw_data['READ_DATE_1'].astext).filter(DataSBRS.periode == prev_periode)
+    prev_dates = {nomen: tgl for nomen, tgl in prev_dates_q.all()}
 
     results = query.all()
-    
     data_list = []
+    
     for r in results:
         raw = r.raw_data or {}
         
-        # --- 1. MESIN KALKULASI 4 VOLUME AUDIT ---
-        def safe_float(val):
-            try: return float(val)
-            except: return 0.0
+        # --- MESIN KALKULASI HARI BACA (HB) ---
+        hb = 0
+        tgl_now = raw.get('READ_DATE_1') or raw.get('CURR_READ_DATE')
+        tgl_prev = prev_dates.get(r.nomen) or raw.get('PREV_READ_DATE_1') or raw.get('CMR_PREV_READ_DATE')
 
-        curr_read_1 = safe_float(raw.get('CURR_READ_1'))
-        prev_read_1 = safe_float(raw.get('PREV_READ_1'))
-        sb_stand    = safe_float(raw.get('SB_STAND'))
-        cmr_reading = safe_float(raw.get('CMR_READING'))
-        cmr_prev_read = safe_float(raw.get('CMR_PREV_READ'))
+        d1 = parse_date(tgl_now)
+        d2 = parse_date(tgl_prev)
+        if pd.notnull(d1) and pd.notnull(d2):
+            hb = (d1 - d2).days 
 
-        vol_lapangan       = curr_read_1 - prev_read_1         
-        vol_sistem_pusat   = cmr_reading - cmr_prev_read       
-        vol_cetak_tagihan  = sb_stand - prev_read_1            
-        vol_periode_lalu   = cmr_reading - cmr_prev_read       
-
-        # --- 2. MESIN KALKULASI HARI BACA (HB) ---
-        hari_baca = 0
-        tgl_baca_sekarang = raw.get('READ_DATE_1') or raw.get('CURR_READ_DATE')
-        tgl_baca_lalu = raw.get('PREV_READ_DATE_1') or raw.get('PREV_READ_DATE') or raw.get('CMR_PREV_READ_DATE')
-
-        try:
-            d1 = pd.to_datetime(tgl_baca_sekarang, dayfirst=True, errors='coerce')
-            d2 = pd.to_datetime(tgl_baca_lalu, dayfirst=True, errors='coerce')
-            if pd.notnull(d1) and pd.notnull(d2):
-                hari_baca = (d1 - d2).days
-        except:
-            hari_baca = 0 
-
-        # --- 3. SUSUN KOLOM EXCEL (KOLOM SINERGI DI DEPAN, TANPA KATEGORI ANOMALI) ---
+        # --- SUSUN KOLOM EXCEL (KOLOM SINERGI DI DEPAN, TANPA KATEGORI ANOMALI) ---
         row_data = {
             "Nomen Sinergi": r.nomen,
             "Nama Pelanggan": r.nama,
             "Kelurahan": r.kelurahan,
             "Wilayah PCEZ": r.pcez,
-            "Vol Lapangan (m3)": vol_lapangan,
-            "Vol Sistem Pusat (m3)": vol_sistem_pusat,
-            "Vol Cetak Tagihan (m3)": vol_cetak_tagihan,
-            "Vol Periode Lalu (m3)": vol_periode_lalu,
-            "Hari Baca (HB)": hari_baca
+            "Vol Lapangan (m3)": safe_f(raw.get('CURR_READ_1')) - safe_f(raw.get('PREV_READ_1')),
+            "Vol Sistem Pusat (m3)": safe_f(raw.get('CMR_READING')) - safe_f(raw.get('CMR_PREV_READ')),
+            "Vol Cetak Tagihan (m3)": safe_f(raw.get('SB_STAND')) - safe_f(raw.get('PREV_READ_1')),
+            "Vol Periode Lalu (m3)": safe_f(raw.get('CMR_READING')) - safe_f(raw.get('CMR_PREV_READ')),
+            "Hari Baca (HB)": hb
         }
         
-        # --- 4. TEMPELKAN SEMUA KOLOM ASLI TANPA DIUBAH ---
+        # --- TEMPELKAN SEMUA KOLOM ASLI TANPA DIUBAH URUTANNYA ---
         for key, value in raw.items():
             if key not in row_data:
                 row_data[key] = value
         
         data_list.append(row_data)
 
-    # Bungkus menjadi file Excel
     df = pd.DataFrame(data_list)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
