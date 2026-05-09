@@ -12,19 +12,15 @@ def get_current_periode():
 
 @monitoring_bp.route('/')
 def list_tagihan():
-    """
-    Halaman Utama Monitoring dengan Filter Wilayah dan Periode Dinamis.
-    """
+    """Halaman Utama Monitoring dengan Filter Wilayah dan Periode Dinamis."""
     ab_filter = request.args.get('ab', 'AB Sunter')
     rayon_filter = request.args.get('rayon')
     kel_filter = request.args.get('kelurahan')
     pcez_filter = request.args.get('pcez')
     
-    # Ambil Periode dari Kalender (Default: Bulan Sekarang)
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # Query Dasar: Join Pelanggan + Tagihan + Petugas
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -40,7 +36,6 @@ def list_tagihan():
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
      .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_filter)
 
-    # Filter Wilayah Dinamis
     if ab_filter != 'all':
         query = query.filter(MasterPelanggan.ab == ab_filter)
     if rayon_filter:
@@ -50,7 +45,6 @@ def list_tagihan():
     if pcez_filter:
         query = query.filter(MasterPelanggan.pcez == pcez_filter)
 
-    # PostgreSQL mewajibkan semua kolom non-agregat masuk ke group_by
     results = query.group_by(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -71,7 +65,8 @@ def list_tagihan():
 
 @monitoring_bp.route('/top-500')
 def top_500():
-    """Menarik 500 besar tunggakan berdasarkan periode yang dipilih."""
+    """Menarik 500 besar tunggakan berdasarkan periode."""
+    ab_filter = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
@@ -79,43 +74,59 @@ def top_500():
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
         MasterPelanggan.kelurahan,
+        MasterPelanggan.pcez,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode,
         func.sum(TransaksiTagihan.nominal).label('total_nominal')
     ).join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
-     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_filter)\
-     .group_by(
+     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_filter)
+    
+    if ab_filter != 'all':
+        query = query.filter(MasterPelanggan.ab == ab_filter)
+
+    results = query.group_by(
          TransaksiTagihan.nomen,
          MasterPelanggan.nama,
          MasterPelanggan.kelurahan,
+         MasterPelanggan.pcez,
          MasterPetugas.nama_petugas,
          TransaksiTagihan.periode
-     )\
-     .order_by(func.sum(TransaksiTagihan.nominal).desc())\
-     .limit(500)
+     ).order_by(func.sum(TransaksiTagihan.nominal).desc()).limit(500).all()
     
-    results = query.all()
-    return render_template('monitoring_top500.html', data=results, periode_aktif=periode_filter)
+    # PERBAIKAN: Nama file disamakan dengan 'top_500.html' agar tidak error TemplateNotFound
+    return render_template('top_500.html', 
+                           data=results, 
+                           current_ab=ab_filter, 
+                           periode_aktif=periode_filter)
 
 @monitoring_bp.route('/summary')
 def summary_stats():
-    """API Ringkasan untuk Kartu Statistik (Total Rupiah & Lembar Tagihan)."""
+    """API Ringkasan untuk Kartu Statistik (Total Rp, Lembar, & Pelanggan)."""
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
+    # Hitung Nominal & Jumlah Lembar
     stats = db.session.query(
         func.sum(TransaksiTagihan.nominal),
         func.count(TransaksiTagihan.id)
     ).join(MasterPelanggan)\
-     .filter(MasterPelanggan.ab == ab, 
+     .filter(MasterPelanggan.ab == ab if ab != 'all' else True, 
              TransaksiTagihan.periode == periode_filter, 
              TransaksiTagihan.status_lunas == 0).first()
+
+    # Hitung Jumlah Pelanggan Unik (Nomen)
+    total_plg = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
+                  .join(MasterPelanggan)\
+                  .filter(MasterPelanggan.ab == ab if ab != 'all' else True, 
+                          TransaksiTagihan.periode == periode_filter, 
+                          TransaksiTagihan.status_lunas == 0).scalar() or 0
                    
     return jsonify({
         "total_nominal": float(stats[0] or 0),
         "total_lembar": stats[1] or 0,
+        "total_pelanggan": total_plg,
         "periode_text": periode_filter
     })
 
