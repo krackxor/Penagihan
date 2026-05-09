@@ -60,13 +60,18 @@ def import_cid():
 @importer_bp.route('/petugas', methods=['POST'])
 def import_petugas():
     """
-    Fungsi Import Master Petugas.
-    Menghubungkan Kode PCEZ ke Nama Petugas (Wahyu, dll).
+    Fungsi Import Master Petugas Berdasarkan Peran.
+    Menghubungkan Kode PCEZ ke Nama Petugas (Tagihan/Catat/Anomali).
     Header: PCEZ, PETUGAS.
     """
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
     
+    # 1. Tangkap peran apa yang sedang di-upload oleh Admin
+    peran_input = request.form.get('peran')
+    if not peran_input:
+        return jsonify({"status": "error", "message": "Peran petugas (TAGIHAN/CATAT/ANOMALI) harus dipilih!"}), 400
+
     file = request.files['file']
     try:
         df = pd.read_excel(file, dtype=str)
@@ -77,17 +82,27 @@ def import_petugas():
             kode_pcez = str(row.get('PCEZ', '')).strip()
             nama_petugas = row.get('PETUGAS') or row.get('NAMA_PETUGAS')
             
-            if not kode_pcez or not nama_petugas: continue
+            if not kode_pcez or pd.isna(nama_petugas): continue
 
-            petugas = MasterPetugas(
-                pcez=kode_pcez,
-                nama_petugas=nama_petugas
-            )
-            db.session.merge(petugas)
+            # 2. Cek apakah PCEZ dengan PERAN tersebut sudah ada di database
+            petugas = MasterPetugas.query.filter_by(pcez=kode_pcez, peran=peran_input).first()
+            
+            if petugas:
+                # Jika sudah ada, cukup update namanya (misal Wahyu diganti Budi)
+                petugas.nama_petugas = nama_petugas
+            else:
+                # Jika belum ada sama sekali, buat data baru
+                petugas = MasterPetugas(
+                    pcez=kode_pcez,
+                    nama_petugas=nama_petugas,
+                    peran=peran_input
+                )
+                db.session.add(petugas)
+            
             count += 1
 
         db.session.commit()
-        return jsonify({"status": "success", "message": f"{count} Mapping Petugas diperbarui"}), 200
+        return jsonify({"status": "success", "message": f"{count} Data Petugas {peran_input} berhasil diperbarui"}), 200
 
     except Exception as e:
         db.session.rollback()
