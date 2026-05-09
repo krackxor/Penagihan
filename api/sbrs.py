@@ -212,7 +212,34 @@ def sbrs_analisa():
             filtered_data = [d for d in filtered_data if d.nomen not in prev_nomen]
 
     filtered_data.sort(key=lambda x: x.bulan_ini or 0, reverse=True)
-    results = filtered_data[:1000]
+    top_data = filtered_data[:1000]
+
+    # =========================================================================
+    # BYPASS DOSA LAMA DATABASE: TIMPA NILAI RATA-RATA DAN VOLUME SECARA LIVE
+    # =========================================================================
+    results = []
+    for d in top_data:
+        raw = d.raw_data or {}
+        
+        # 1. Tarik Rata-Rata Asli (Bypass angka 15 dari DB)
+        raw_rata = get_case_insensitive(raw, 'Estimation_Value') or get_case_insensitive(raw, 'AVG_CONSUMPTION')
+        rata_real = float(raw_rata) if raw_rata else d.rata_rata
+        
+        # 2. Tarik Volume Cetak Tagihan Asli
+        vol_tagihan = safe_f(get_case_insensitive(raw, 'SB_Stand')) - safe_f(get_case_insensitive(raw, 'Prev_Read_1'))
+        
+        results.append({
+            "nomen": d.nomen,
+            "nama": d.nama,
+            "kelurahan": d.kelurahan,
+            "pcez": d.pcez,
+            "bulan_ini": vol_tagihan,  # Pakai volume tagihan
+            "rata_rata": rata_real,    # Pakai rata-rata dari file
+            "kategori_anomali": d.kategori_anomali,
+            "status_audit": d.status_audit,
+            "raw_data": raw,
+            "nama_petugas_anomali": d.nama_petugas_anomali
+        })
     
     cycles_list = sorted(list(set(str(get_case_insensitive(d.raw_data, 'cycle') or '') for d in all_data if get_case_insensitive(d.raw_data, 'cycle'))))
     
@@ -244,7 +271,6 @@ def get_sbrs_api_stats():
 @sbrs_bp.route('/export/summary')
 def export_summary():
     """Mengunduh Dashboard Ringkasan ke format Excel."""
-    # Dipanggil ulang seluruh logic summary untuk konsistensi angka export
     return send_file(io.BytesIO(b"Data Export Sedang Disinkronisasi"), download_name="SBRS_Summary.xlsx", as_attachment=True) 
 
 @sbrs_bp.route('/export/analisa')
