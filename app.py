@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V16.2 Full Anti-Double, Audit Engine, Negative Read & Stability Patch)
+Flask Application - Area Service Integrated System (V16.3 Full Anti-Double, Audit Engine, Negative Read, Dynamic Filters)
 Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -7,7 +7,8 @@ Fixes Log:
 2.  ✅ FIX STORAGE LEAK: Otomatis hapus folder temp pada fitur Konversi & Ekspor Excel (Menggunakan io.BytesIO).
 3.  ✅ FIX DATABASE LOCK: Standarisasi penuh menggunakan SQLAlchemy Connection Pooling untuk modul SBRS.
 4.  ✅ FIX CONFIG CONFLICT: Sinkronisasi Max Upload Size dengan config.py (100MB).
-5.  ✅ V16.2 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Anomali Gap, Negative Read).
+5.  ✅ V16.3 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Anomali Gap, Negative Read).
+6.  ✅ DYNAMIC FILTERS: Tambahan API get-sbrs-filters untuk filter pills dinamis berbasis database.
 """
 
 import os
@@ -74,7 +75,6 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
 
     # --- 1. STARTUP PROTOCOL & DATABASE ENGINE ---
-    # Inisialisasi engine SBRS sekali di awal agar Connection Pooling SQLAlchemy bekerja sempurna (Mencegah Database Locked)
     os.makedirs(os.path.join(app.root_path, 'instance'), exist_ok=True)
     db_path = os.path.join(app.root_path, 'instance', 'database.db')
     engine_sbrs = create_engine(f'sqlite:///{db_path}', pool_pre_ping=True)
@@ -217,20 +217,16 @@ def create_app():
 
     # --- TOOLS PUBLIK ---
     @app.route('/repair-mainbill')
-    def repair_mainbill():
-        return render_template('repair_mainbill.html')
+    def repair_mainbill(): return render_template('repair_mainbill.html')
 
     @app.route('/merger-ardebt')
-    def merger_ardebt():
-        return render_template('merger_ardebt.html')
+    def merger_ardebt(): return render_template('merger_ardebt.html')
 
     @app.route('/converter-tool')
-    def converter_tool():
-        return render_template('converter_tool.html')
+    def converter_tool(): return render_template('converter_tool.html')
 
     @app.route('/image-to-text')
-    def image_to_txt():
-        return render_template('image_to_txt.html')
+    def image_to_txt(): return render_template('image_to_txt.html')
 
     @app.route('/api/convert', methods=['POST'])
     def api_convert():
@@ -246,11 +242,10 @@ def create_app():
 
             temp_dir = tempfile.mkdtemp()
             
-            # --- FIX STORAGE LEAK: Fungsi Helper Pengiriman File ---
             def send_and_clean(file_path, dl_name, mime=None):
                 with open(file_path, 'rb') as f:
                     file_data = f.read()
-                shutil.rmtree(temp_dir, ignore_errors=True) # Menghapus sampah konversi seketika
+                shutil.rmtree(temp_dir, ignore_errors=True) 
                 return send_file(io.BytesIO(file_data), as_attachment=True, download_name=dl_name, mimetype=mime)
 
             if conv_type == 'pdf_to_word':
@@ -380,7 +375,7 @@ def create_app():
     @app.route('/peta-sebaran')
     def peta_sebaran_page(): return render_template('peta_sebaran.html')
 
-    # --- MODUL BARU: SBRS MEGA-MERGE LNP (V16.1 SQLALCHEMY STANDARDIZED) ---
+    # --- MODUL BARU: SBRS MEGA-MERGE LNP (V16.3 SQLALCHEMY STANDARDIZED) ---
     @app.route('/upload-sbrs')
     def upload_sbrs_page(): return render_template('upload_sbrs.html')
 
@@ -389,6 +384,27 @@ def create_app():
 
     @app.route('/analisa-sbrs')
     def analisa_sbrs_page(): return render_template('analisa_sbrs.html')
+
+    # --- API UNTUK MENGAMBIL DAFTAR FILTER DINAMIS ---
+    @app.route('/api/get-sbrs-filters', methods=['GET'])
+    def get_sbrs_filters():
+        try:
+            with engine_sbrs.connect() as conn:
+                # Ambil Periode Unik
+                res_p = conn.execute(text("SELECT DISTINCT periode_sbrs FROM history_lnp WHERE periode_sbrs IS NOT NULL ORDER BY periode_sbrs DESC")).fetchall()
+                periods = [r[0] for r in res_p if r[0]]
+                
+                # Ambil Cycle Unik
+                res_c = conn.execute(text("SELECT DISTINCT cmr_cycle FROM history_lnp WHERE cmr_cycle IS NOT NULL ORDER BY cmr_cycle ASC")).fetchall()
+                cycles = [r[0] for r in res_c if r[0]]
+                
+                return jsonify({
+                    "status": "success", 
+                    "periods": periods, 
+                    "cycles": cycles
+                })
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
 
     @app.route('/api/process-sbrs', methods=['POST'])
     def api_process_sbrs():
@@ -405,14 +421,11 @@ def create_app():
             df_cust.columns = df_cust.columns.str.strip()
             df_spot.columns = df_spot.columns.str.strip()
 
-            # 1. MEGA-MERGE BERDASARKAN ID
             df_final = pd.merge(df_cust, df_spot, left_on='cmr_account', right_on='Nomen', how='inner')
 
-            # 2. ANTI-DOUBLE (CLEANING DUPLIKAT DI FILE CSV)
             if 'cmr_account' in df_final.columns:
                 df_final.drop_duplicates(subset=['cmr_account'], keep='last', inplace=True)
 
-            # 3. AUTO-DETECT CYCLE & PERIODE DARI FILE
             if 'cmr_cycle' in df_final.columns:
                 cycle_terdeteksi = str(df_final['cmr_cycle'].mode()[0]).strip()
                 cycle_input = cycle_terdeteksi.zfill(2)
@@ -433,13 +446,11 @@ def create_app():
             df_final['cmr_cycle'] = cycle_input
             df_final['periode_sbrs'] = periode_otomatis
 
-            # 4. KONVERSI TIPE DATA
             kolom_numerik = ['cmr_reading', 'cmr_prev_read', 'Curr_Read_1', 'Prev_Read_1', 'SB_Stand']
             for col in kolom_numerik:
                 if col in df_final.columns:
                     df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0)
 
-            # 5. TERAPKAN PENAMAAN LNP & PERHITUNGAN
             if 'cmr_reading' in df_final.columns and 'cmr_prev_read' in df_final.columns:
                 df_final['Vol_Lap'] = df_final['cmr_reading'] - df_final['cmr_prev_read']
             
@@ -453,7 +464,6 @@ def create_app():
                 df_final['Vol_Riil'] = df_final['Vol_Lap'] 
             df_final['Selisih_HB'] = 31 
 
-            # 6. SIMPAN HASIL KE DATABASE SQLITE MENGGUNAKAN GLOBAL ENGINE
             with engine_sbrs.begin() as conn:
                 try:
                     conn.execute(text(f"DELETE FROM history_lnp WHERE cmr_cycle = '{cycle_input}' AND periode_sbrs = '{periode_otomatis}'"))
@@ -471,17 +481,16 @@ def create_app():
         except Exception as e:
             return jsonify({"status": "error", "message": f"Gagal memproses file: {str(e)}"}), 500
 
-    # --- API SBRS: GET SUMMARY (INTELLIGENCE AUDIT) ---
     @app.route('/api/get-summary-sbrs', methods=['GET'])
     def get_summary_sbrs():
         cycle = request.args.get('cycle', 'all')
+        periode = request.args.get('periode', 'all')
         sort_by = request.args.get('sort_by', 'ROWID')
         order = request.args.get('order', 'DESC')
         status_filter = request.args.get('filter', 'all')
 
         try:
             with engine_sbrs.connect() as conn:
-                # Pastikan tabel sudah ada
                 check = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='history_lnp'")).fetchone()
                 if not check:
                     return jsonify({
@@ -490,11 +499,17 @@ def create_app():
                         "skip": [], "trouble": [], "methods": [], "master": []
                     })
 
-                query = "SELECT ROWID as rowid, * FROM history_lnp"
+                query = "SELECT ROWID as rowid, * FROM history_lnp WHERE 1=1"
                 params = {}
+                
                 if cycle != 'all':
-                    query += " WHERE cmr_cycle = :cycle"
+                    query += " AND cmr_cycle = :cycle"
                     params['cycle'] = cycle
+                    
+                if periode != 'all':
+                    query += " AND periode_sbrs = :periode"
+                    params['periode'] = periode
+                    
                 query += f" ORDER BY {sort_by} {order}"
                 
                 rows = conn.execute(text(query), params).mappings().all()
@@ -505,15 +520,12 @@ def create_app():
             total_vol_sb = 0
 
             for d in rows:
-                # Tangkap kolom fleksibel
                 col_nomen = d.get('Nomen', d.get('cmr_account', '-'))
                 col_nama = d.get('cmr_nama', d.get('Nama', 'Pelanggan'))
 
-                # Ambil Kode Analisa
                 s_raw = str(d.get('cmr_skip_code', '0')).strip().upper()
                 t_raw = str(d.get('cmr_trbl1_code', '0')).strip().upper()
                 
-                # Baca metode & pesan dari header
                 m_raw = str(d.get('Read_Method', d.get('cmr_read_method', '-'))).strip()
                 spcl_msg = str(d.get('cmr_chg_spcl_msg', '-')).strip()
 
@@ -521,7 +533,6 @@ def create_app():
                 if t_raw not in ['0', 'NAN', '', 'NONE']: trbl_count[t_raw] = trbl_count.get(t_raw, 0) + 1
                 if m_raw != '-': meth_count[m_raw] = meth_count.get(m_raw, 0) + 1
 
-                # Audit Volume Logics
                 v_lap, v_bill, v_sb = float(d.get('Vol_Lap', 0)), float(d.get('Vol_Bill', 0)), float(d.get('Vol_SB', 0))
                 v_gap, sb_gap = (v_bill - v_lap), (v_sb - v_lap)
                 selisih_naik = v_lap - v_bill
@@ -529,7 +540,6 @@ def create_app():
                 
                 tags = []
                 
-                # Zero Split Logic & Negative Read
                 if v_lap < 0:
                     tags.append("Negative Read")
                     stats["negative"] += 1
@@ -541,7 +551,6 @@ def create_app():
                         tags.append("Zero Lama")
                         stats["zero_lama"] += 1
                 
-                # Ekstrim Hybrid Logic (Naik >100% ATAU Naik >50m3 mutlak)
                 if (v_lap > 10 and pct_naik >= 100) or (selisih_naik >= 50):
                     tags.append("Ekstrim")
                     stats["ekstrim"] += 1
@@ -554,7 +563,6 @@ def create_app():
                     tags.append("Anomali")
                     stats["anomali"] += 1
                 
-                # Filter Matching
                 match = True
                 if status_filter == 'ekstrem' and "Ekstrim" not in tags and "Anomali" not in tags: match = False
                 elif status_filter == 'turun' and "Turun" not in tags: match = False
@@ -588,7 +596,6 @@ def create_app():
         except Exception as e:
             return jsonify({"status": "error", "message": f"Terjadi Kesalahan SQL: {str(e)}"})
 
-    # --- API SBRS: EDIT & DOWNLOAD (STABILITY PATCHED) ---
     @app.route('/api/edit-sbrs', methods=['POST'])
     def edit_sbrs():
         try:
@@ -603,27 +610,32 @@ def create_app():
     @app.route('/api/download-sbrs-excel', methods=['GET'])
     def download_sbrs_excel():
         cycle = request.args.get('cycle', 'all')
+        periode = request.args.get('periode', 'all')
         try:
             with engine_sbrs.connect() as conn:
-                query = "SELECT * FROM history_lnp"
+                query = "SELECT * FROM history_lnp WHERE 1=1"
+                params = {}
                 if cycle != 'all':
-                    query += f" WHERE cmr_cycle = '{cycle}'"
+                    query += " AND cmr_cycle = :cycle"
+                    params['cycle'] = cycle
+                if periode != 'all':
+                    query += " AND periode_sbrs = :periode"
+                    params['periode'] = periode
                     
-                df = pd.read_sql_query(query, conn)
+                df = pd.read_sql_query(text(query), conn, params=params)
                 
             if df.empty:
                 return "Data tidak ditemukan untuk diekspor", 404
 
-            # --- FIX STORAGE LEAK: Gunakan Memori BytesIO & Langsung Hapus Temp ---
             temp_dir = tempfile.mkdtemp()
-            output_path = os.path.join(temp_dir, f"Laporan_SBRS_Cycle_{cycle}.xlsx")
+            output_path = os.path.join(temp_dir, f"Laporan_SBRS_{periode}_Cycle_{cycle}.xlsx")
             df.to_excel(output_path, index=False)
             
             with open(output_path, 'rb') as f:
                 file_data = f.read()
-            shutil.rmtree(temp_dir, ignore_errors=True) # Hapus sampah seketika
+            shutil.rmtree(temp_dir, ignore_errors=True) 
             
-            return send_file(io.BytesIO(file_data), as_attachment=True, download_name=f"Laporan_SBRS_Cycle_{cycle}.xlsx", mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            return send_file(io.BytesIO(file_data), as_attachment=True, download_name=f"Laporan_SBRS_{periode}_Cycle_{cycle}.xlsx", mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             
         except Exception as e:
             return f"Terjadi kesalahan saat membuat Excel: {str(e)}", 500
