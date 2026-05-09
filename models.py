@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from sqlalchemy import Index, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB # Penting untuk kontainer raw_data
 
 # Inisialisasi database
 db = SQLAlchemy()
@@ -43,16 +44,15 @@ class TransaksiTagihan(db.Model):
 
 class DataSBRS(db.Model):
     """
-    Tabel Analisa SBRS: Dilengkapi kolom audit lengkap sesuai Stability Patch V5.6.
-    Mendukung Denormalisasi Turbo untuk query tanpa join berat.
+    Tabel Analisa SBRS: Mendukung Denormalisasi Turbo & Zero Data Loss.
+    Menampung semua header asli file dalam satu kolom JSONB.
     """
     __tablename__ = 'data_sbrs'
     id = db.Column(db.Integer, primary_key=True)
     nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
     periode = db.Column(db.String(10), nullable=False, index=True) # YYYYMM
     
-    # --- KOLOM TURBO (Denormalisasi) ---
-    # Memastikan dashboard kencang meski data 1 juta pelanggan
+    # --- KOLOM TURBO (Denormalisasi untuk Dashboard) ---
     nama = db.Column(db.String(150))
     alamat = db.Column(db.Text)
     pcez = db.Column(db.String(20), index=True)
@@ -61,14 +61,17 @@ class DataSBRS(db.Model):
     ab = db.Column(db.String(50), default='AB Sunter', index=True)
     kelurahan = db.Column(db.String(100), index=True)
     
+    # --- KONTAINER DATA ASLI ---
+    # Menyimpan semua kolom asli dari file TXT tanpa terbuang
+    raw_data = db.Column(JSONB) 
+    
     # --- DATA KONSUMSI ---
     stand_meter = db.Column(db.Float, default=0)
-    bulan_ini = db.Column(db.Float, default=0) # m3 terpakai
+    bulan_ini = db.Column(db.Float, default=0)
     rata_rata = db.Column(db.Float, default=15)
     kategori_anomali = db.Column(db.String(50), index=True) # ZERO, EKSTREM, TURUN
     
-    # --- FITUR AUDIT LAPANGAN (FIX ERROR) ---
-    # Kolom ini krusial untuk melacak siapa yang sudah dicek Wahyu dkk
+    # --- FITUR AUDIT LAPANGAN ---
     status_audit = db.Column(db.Integer, default=0, index=True) # 0=Belum, 1=Selesai
     tgl_audit = db.Column(db.DateTime)
     catatan_lapangan = db.Column(db.Text)
@@ -77,7 +80,6 @@ class DataSBRS(db.Model):
     longitude = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Proteksi data ganda (Nomen + Periode harus unik)
     __table_args__ = (
         UniqueConstraint('nomen', 'periode', name='uix_sbrs_nomen_periode'),
     )
