@@ -197,33 +197,46 @@
 
 <div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
     <div class="card-header bg-white py-3">
-        <h5 class="fw-bold mb-0"><i class="fas fa-map-marker-alt text-danger me-2"></i>Sebaran Anomali per Kelurahan</h5>
+        <h5 class="fw-bold mb-0"><i class="fas fa-map-marker-alt text-danger me-2"></i>Sebaran Anomali Wilayah (Metadata CID)</h5>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 table-sbrs">
             <thead>
                 <tr>
-                    <th class="ps-4">KELURAHAN</th>
+                    <th class="ps-4">AB / CC</th>
+                    <th>KODE PA/PC & PCEZ</th>
+                    <th>KELURAHAN / KECAMATAN</th>
                     <th class="text-center">JUMLAH KASUS</th>
                     <th class="text-center pe-4">AKSI</th>
                 </tr>
             </thead>
             <tbody>
-                {% for kel, total in kelurahan_data %}
+                {% for row in kelurahan_data %}
                 <tr>
-                    <td class="ps-4 fw-bold text-dark">{{ kel }}</td>
+                    <td class="ps-4">
+                        <div class="fw-bold text-dark">{{ row.ab }}</div>
+                        <div class="small text-muted"><span class="badge bg-secondary opacity-75">CC:</span> {{ row.cc }}</div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-primary">{{ row.pcez }}</div>
+                        <div class="small text-muted"><span class="badge bg-secondary opacity-75">PC:</span> {{ row.pc }}</div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-dark">{{ row.kelurahan }}</div>
+                        <div class="small text-muted">{{ row.kecamatan }}</div>
+                    </td>
                     <td class="text-center">
-                        <span class="badge bg-light text-primary border px-3 py-2" style="font-size: 0.9rem;">{{ total }}</span>
+                        <span class="badge bg-light text-primary border px-3 py-2" style="font-size: 0.9rem;">{{ row.total }}</span>
                     </td>
                     <td class="text-center pe-4">
-                        <a href="/sbrs/analisa?ab={{ current_ab }}&kelurahan={{ kel }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;">
+                        <a href="/sbrs/analisa?ab={{ current_ab }}&kelurahan={{ row.kelurahan }}&pcez={{ row.pcez }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;">
                             <i class="fas fa-search me-1"></i>Detail
                         </a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="3" class="text-center py-5">
+                    <td colspan="5" class="text-center py-5">
                         <i class="fas fa-folder-open fa-3x text-muted opacity-25 mb-3"></i>
                         <p class="text-muted">Tidak ada data untuk periode ini.</p>
                     </td>
