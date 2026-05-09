@@ -1,97 +1,70 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Data SBRS - AREA SERVICE</title>
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Styling khusus untuk area upload */
+    .upload-card { 
+        background: #ffffff; border: none; border-radius: 20px; 
+        padding: 40px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); 
+        max-width: 700px; margin: 0 auto;
+    }
+
+    .drop-zone {
+        border: 2px dashed #cbd5e1; border-radius: 16px;
+        padding: 35px; text-align: center; transition: all 0.3s ease;
+        cursor: pointer; margin-bottom: 24px; background: #f8fafc;
+        position: relative; overflow: hidden;
+    }
+
+    /* Efek saat kursor / file diseret ke atas kotak */
+    .drop-zone:hover, .drop-zone.dragover { 
+        border-color: var(--service-blue); 
+        background: #eff6ff; 
+    }
     
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    .btn-sbrs {
+        background: #0f172a; color: white; border: none;
+        padding: 16px; border-radius: 12px; font-weight: 700;
+        width: 100%; transition: all 0.3s; font-size: 1.05rem;
+    }
 
-    <style>
-        :root {
-            --sbrs-dark: #0f172a;
-            --sbrs-blue: #2563eb;
-            --sbrs-bg: #f8fafc;
-        }
+    .btn-sbrs:hover { 
+        background: #1e293b; 
+        transform: translateY(-2px); 
+        box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.2); 
+    }
+    
+    .file-info { font-size: 0.85rem; color: #64748b; margin-top: 10px; }
+</style>
 
-        body { background: var(--sbrs-bg); font-family: 'Plus Jakarta Sans', sans-serif; color: #1e293b; }
-        
-        .sidebar-sbrs { 
-            background: var(--sbrs-dark); color: white; padding: 25px; 
-            height: 100vh; position: fixed; width: 260px; 
-            box-shadow: 4px 0 10px rgba(0,0,0,0.1); 
-            z-index: 1000;
-        }
-        
-        .main-content { margin-left: 260px; padding: 60px 40px; }
-        
-        .upload-card { 
-            background: white; border: none; border-radius: 24px; 
-            padding: 40px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); 
-            max-width: 700px; margin: 0 auto;
-        }
-
-        .drop-zone {
-            border: 2px dashed #cbd5e1; border-radius: 16px;
-            padding: 35px; text-align: center; transition: 0.3s;
-            cursor: pointer; margin-bottom: 24px; background: #fdfdfd;
-        }
-
-        .drop-zone:hover { border-color: var(--sbrs-blue); background: #f0f7ff; }
-        
-        .btn-sbrs {
-            background: var(--sbrs-dark); color: white; border: none;
-            padding: 16px; border-radius: 12px; font-weight: 700;
-            width: 100%; transition: 0.3s; font-size: 1.05rem;
-        }
-
-        .btn-sbrs:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.3); }
-        .file-info { font-size: 0.85rem; color: #64748b; margin-top: 10px; }
-    </style>
-</head>
-<body>
-
-<div class="sidebar-sbrs">
-    <div class="mb-4 text-center">
-        <i class="fa-solid fa-droplet text-info fa-2xl mb-3"></i>
-        <h5 class="fw-800 mb-0">SBRS SYSTEM</h5>
-        <small class="opacity-50">Area Service Integrated</small>
-    </div>
-    <hr class="opacity-10">
-    <div class="nav flex-column nav-pills">
-        <a class="nav-link text-white mb-2" href="/summary-sbrs"><i class="fa-solid fa-chart-line me-2"></i> Ringkasan Analisa</a>
-        <a class="nav-link text-white active mb-2" href="#"><i class="fa-solid fa-file-import me-2"></i> Upload File</a>
-    </div>
-</div>
-
-<div class="main-content">
-    <div class="text-center mb-5">
-        <span class="badge bg-success rounded-pill px-3 py-2 mb-3 shadow-sm"><i class="fa-solid fa-shield-halved me-2"></i>Proteksi Anti-Double Data (V15.0) Aktif</span>
-        <h3 class="fw-800">Proses Data LNP SBRS</h3>
-        <p class="text-muted mb-1">Sistem akan secara otomatis membaca Cycle & Periode dari file TXT.</p>
-        <p class="text-muted" style="font-size: 0.85rem;"><i class="fa-solid fa-circle-info text-info me-1"></i> Jangan khawatir, Nomen ganda dalam file akan dibersihkan otomatis oleh sistem.</p>
+<div class="container-fluid mt-4">
+    <div class="text-center mb-5 animate__animated animate__fadeInDown">
+        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-2 mb-3 shadow-sm">
+            <i class="fa-solid fa-shield-halved me-2"></i>Proteksi Anti-Double Data (V16.0) Aktif
+        </span>
+        <h3 class="fw-800 text-dark">Proses Data LNP SBRS</h3>
+        <p class="text-muted mb-1">Sistem akan secara otomatis membaca Cycle & Periode dari header file CSV/TXT Anda.</p>
+        <p class="text-muted small"><i class="fa-solid fa-circle-info text-info me-1"></i> Jangan khawatir, ID pelanggan ganda di dalam file akan dibersihkan secara otomatis.</p>
     </div>
 
-    <div class="upload-card">
+    <div class="upload-card animate__animated animate__fadeInUp">
         <form id="uploadForm">
-            <div class="mb-3">
-                <label class="form-label fw-bold small text-uppercase text-secondary">1. Data Customer (.txt)</label>
-                <div class="drop-zone" onclick="document.getElementById('fileCust').click()">
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-uppercase text-secondary">1. Data Customer (.txt / .csv)</label>
+                <div class="drop-zone" id="dropCust" onclick="document.getElementById('fileCust').click()">
                     <i class="fa-solid fa-users-gear fa-2xl text-primary mb-3 mt-2"></i>
-                    <p class="mb-0 text-muted">Klik atau seret file <b>customer.txt</b></p>
-                    <input type="file" id="fileCust" hidden accept=".txt">
+                    <p class="mb-0 text-muted">Klik atau seret file <b>customer.txt</b> ke area ini</p>
+                    <input type="file" id="fileCust" hidden accept=".txt,.csv">
                     <div id="nameCust" class="file-info fw-bold">Belum ada file dipilih</div>
                 </div>
             </div>
 
             <div class="mb-4">
-                <label class="form-label fw-bold small text-uppercase text-secondary">2. Data Spot Bill (.txt)</label>
-                <div class="drop-zone" onclick="document.getElementById('fileSpot').click()">
+                <label class="form-label fw-bold small text-uppercase text-secondary">2. Data Spot Bill (.txt / .csv)</label>
+                <div class="drop-zone" id="dropSpot" onclick="document.getElementById('fileSpot').click()">
                     <i class="fa-solid fa-file-invoice-dollar fa-2xl text-success mb-3 mt-2"></i>
-                    <p class="mb-0 text-muted">Klik atau seret file <b>spot_bill.txt</b></p>
-                    <input type="file" id="fileSpot" hidden accept=".txt">
+                    <p class="mb-0 text-muted">Klik atau seret file <b>spot_bill.txt</b> ke area ini</p>
+                    <input type="file" id="fileSpot" hidden accept=".txt,.csv">
                     <div id="nameSpot" class="file-info fw-bold">Belum ada file dipilih</div>
                 </div>
             </div>
@@ -102,44 +75,87 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% block scripts %}
 <script>
-    // Update nama file saat dipilih
-    document.getElementById('fileCust').onchange = e => {
-        if(e.target.files.length > 0) document.getElementById('nameCust').innerHTML = `<i class="fa-solid fa-file-lines text-primary me-1"></i> ${e.target.files[0].name}`;
-    };
-    document.getElementById('fileSpot').onchange = e => {
-        if(e.target.files.length > 0) document.getElementById('nameSpot').innerHTML = `<i class="fa-solid fa-file-lines text-success me-1"></i> ${e.target.files[0].name}`;
-    };
+    // --- 1. Fungsi Ganti Nama Text Saat File Dipilih ---
+    const fileCust = document.getElementById('fileCust');
+    const fileSpot = document.getElementById('fileSpot');
+    const nameCust = document.getElementById('nameCust');
+    const nameSpot = document.getElementById('nameSpot');
 
-    // Proses pengiriman data ke backend (app.py)
+    fileCust.addEventListener('change', (e) => {
+        if(e.target.files.length > 0) nameCust.innerHTML = `<i class="fa-solid fa-file-lines text-primary me-1"></i> ${e.target.files[0].name}`;
+    });
+
+    fileSpot.addEventListener('change', (e) => {
+        if(e.target.files.length > 0) nameSpot.innerHTML = `<i class="fa-solid fa-file-lines text-success me-1"></i> ${e.target.files[0].name}`;
+    });
+
+    // --- 2. Fitur Visual Drag & Drop ---
+    const dropZones = [
+        { zone: document.getElementById('dropCust'), input: fileCust },
+        { zone: document.getElementById('dropSpot'), input: fileSpot }
+    ];
+
+    dropZones.forEach(({zone, input}) => {
+        // Mencegah browser membuka file saat di-drag
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            zone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Animasi CSS hover saat file ditarik
+        ['dragenter', 'dragover'].forEach(eventName => {
+            zone.addEventListener(eventName, () => zone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            zone.addEventListener(eventName, () => zone.classList.remove('dragover'), false);
+        });
+
+        // Masukkan file ke input type="file" saat dilepas
+        zone.addEventListener('drop', (e) => {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            input.files = files; // Assign file yang di-drop ke input
+            // Panggil event change secara manual agar nama file update
+            input.dispatchEvent(new Event('change'));
+        }, false);
+    });
+
+    // --- 3. Proses Pengiriman Data (Submit Form) ---
     document.getElementById('uploadForm').onsubmit = async (e) => {
         e.preventDefault();
         
-        let fileCust = document.getElementById('fileCust').files[0];
-        let fileSpot = document.getElementById('fileSpot').files[0];
+        let fCust = fileCust.files[0];
+        let fSpot = fileSpot.files[0];
 
-        if(!fileCust || !fileSpot) {
-            Swal.fire({ icon: 'error', title: 'File Tidak Lengkap', text: 'Pastikan file Customer dan Spot Bill sudah dipilih.', background: '#fff' });
+        if(!fCust || !fSpot) {
+            Swal.fire({ icon: 'error', title: 'File Tidak Lengkap', text: 'Pastikan file Customer dan Spot Bill sudah dipilih/diseret ke dalam kotak.', background: '#fff' });
             return;
         }
 
-        // Animasi Loading
+        // Animasi Loading System SBRS
         Swal.fire({
-            title: 'Menganalisa Data...',
-            html: `Membersihkan data ganda, mendeteksi Cycle, dan menghitung Volume.<br><br><b>Mohon tunggu...</b>`,
+            title: 'Menganalisa Data LNP...',
+            html: `Sedang membersihkan duplikasi ID, mendeteksi Cycle otomatis, dan menghitung anomali volume.<br><br><b class="text-primary">Mohon tunggu sistem memproses...</b>`,
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
 
-        // Siapkan paket data untuk dikirim
+        // Paketkan form
         let formData = new FormData();
-        formData.append('fileCust', fileCust);
-        formData.append('fileSpot', fileSpot);
+        formData.append('fileCust', fCust);
+        formData.append('fileSpot', fSpot);
 
         try {
-            // Tembak ke rute API di app.py
+            // Kirim ke backend app.py (Rute: /api/process-sbrs)
             let response = await fetch('/api/process-sbrs', {
                 method: 'POST',
                 body: formData
@@ -147,27 +163,23 @@
             
             let result = await response.json();
 
-            // Jika sukses diproses oleh backend
             if(response.ok && result.status === 'success') {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Upload Sukses!',
+                    title: 'Sinkronisasi Selesai!',
                     text: result.message, 
                     confirmButtonColor: '#0f172a',
-                    confirmButtonText: 'Lihat Hasil Audit'
+                    confirmButtonText: 'Lihat Hasil Audit SBRS'
                 }).then(() => {
-                    window.location.href = '/summary-sbrs'; // Redirect ke dashboard summary
+                    // Jika diklik ok, langsung arahkan ke dashboard audit
+                    window.location.href = '/summary-sbrs'; 
                 });
             } else {
-                // Jika backend menolak / error (contoh format file salah)
-                Swal.fire({ icon: 'error', title: 'Gagal Diproses', text: result.message || 'Terjadi kesalahan sistem di server.' });
+                Swal.fire({ icon: 'error', title: 'Gagal Memproses File', text: result.message || 'Format header kolom dalam file tidak sesuai standar SBRS.' });
             }
         } catch (error) {
-            // Jika server mati / internet putus
-            Swal.fire({ icon: 'error', title: 'Error Koneksi', text: 'Gagal menghubungi server APSI. Pastikan VPS berjalan.' });
+            Swal.fire({ icon: 'error', title: 'Error Koneksi Server', text: 'Gagal menghubungi server database. Pastikan koneksi dan backend menyala.' });
         }
     };
 </script>
-
-</body>
-</html>
+{% endblock %}
