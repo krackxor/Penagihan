@@ -11,59 +11,73 @@ from api.sbrs import sbrs_bp
 
 def sync_database_schema(app):
     """
-    Fungsi Sinergi Self-Healing: Otomatis sinkronisasi struktur & Gembok (Constraint) PostgreSQL.
-    Menyelesaikan error 'no unique or exclusion constraint' agar Upsert berjalan mulus.
+    Fungsi Sinergi Self-Healing V5.13: Sinkronisasi Multi-Tabel.
+    Menjamin master_pelanggan dan data_sbrs memiliki struktur fisik yang identik dengan models.py.
     """
     with app.app_context():
         inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
         
-        if 'data_sbrs' in inspector.get_table_names():
-            # 1. AMBIL DATA KOLOM & CONSTRAINT SAAT INI
-            columns = [c['name'] for c in inspector.get_columns('data_sbrs')]
-            existing_constraints = [c['name'] for c in inspector.get_unique_constraints('data_sbrs')]
-            
-            # 2. DAFTAR LENGKAP KOLOM WAJIB
-            required_columns = [
-                ('periode', 'VARCHAR(10)'),
-                ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
-                ('kelurahan', 'VARCHAR(100)'),
-                ('pcez', 'VARCHAR(20)'),
-                ('nama', 'VARCHAR(150)'),
-                ('alamat', 'TEXT'),
-                ('rayon', 'VARCHAR(20)'),
-                ('tarif', 'VARCHAR(20)'),
-                ('stand_meter', 'FLOAT DEFAULT 0'),
-                ('bulan_ini', 'FLOAT DEFAULT 0'),
-                ('rata_rata', 'FLOAT DEFAULT 15'),
-                ('kategori_anomali', 'VARCHAR(50)'),
-                ('status_audit', 'INTEGER DEFAULT 0'),
-                ('raw_data', 'JSONB'),
-                ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
-                ('tgl_audit', 'TIMESTAMP'),
-                ('catatan_lapangan', 'TEXT'),
-                ('foto_meter_path', 'VARCHAR(255)'),
-                ('latitude', 'VARCHAR(50)'),
-                ('longitude', 'VARCHAR(50)')
-            ]
-            
-            with db.engine.connect() as conn:
-                # Tambah kolom jika belum ada di fisik database
-                for col_name, col_type in required_columns:
-                    if col_name not in columns:
-                        print(f">>> [SINERGI-FIX] Menambah kolom '{col_name}' ke database...")
-                        conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col_name} {col_type}"))
+        with db.engine.connect() as conn:
+            # --- 1. HEALING: master_pelanggan (Tabel Induk) ---
+            # Menjamin kolom induk tersedia agar Auto-Provisioning tidak crash
+            if 'master_pelanggan' in tables:
+                mp_cols = [c['name'] for c in inspector.get_columns('master_pelanggan')]
+                mp_required = [
+                    ('rayon', 'VARCHAR(50)'),
+                    ('kelurahan', 'VARCHAR(50)'),
+                    ('pcez', 'VARCHAR(20)'),
+                    ('alamat', 'TEXT'),
+                    ('tarif', 'VARCHAR(20)'),
+                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP') # <-- SOLUSI ERROR created_at
+                ]
+                for col, dtype in mp_required:
+                    if col not in mp_cols:
+                        print(f">>> [SINERGI-FIX] Menambah kolom '{col}' ke master_pelanggan...")
+                        conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
+
+            # --- 2. HEALING: data_sbrs (Tabel Transaksi) ---
+            if 'data_sbrs' in tables:
+                sbrs_cols = [c['name'] for c in inspector.get_columns('data_sbrs')]
+                sbrs_constraints = [c['name'] for c in inspector.get_unique_constraints('data_sbrs')]
                 
-                # 3. PASANG GEMBOK UNIK (UNIQUE CONSTRAINT)
-                # Nama gembok: uix_sbrs_nomen_periode (Wajib untuk ON CONFLICT)
-                if 'uix_sbrs_nomen_periode' not in existing_constraints:
-                    print(">>> [SINERGI-FIX] Menciptakan Gembok Unik (Nomen + Periode)...")
+                sbrs_required = [
+                    ('periode', 'VARCHAR(10)'),
+                    ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
+                    ('kelurahan', 'VARCHAR(100)'),
+                    ('pcez', 'VARCHAR(20)'),
+                    ('nama', 'VARCHAR(150)'),
+                    ('alamat', 'TEXT'),
+                    ('rayon', 'VARCHAR(20)'),
+                    ('tarif', 'VARCHAR(20)'),
+                    ('stand_meter', 'FLOAT DEFAULT 0'),
+                    ('bulan_ini', 'FLOAT DEFAULT 0'),
+                    ('rata_rata', 'FLOAT DEFAULT 15'),
+                    ('kategori_anomali', 'VARCHAR(50)'),
+                    ('status_audit', 'INTEGER DEFAULT 0'),
+                    ('raw_data', 'JSONB'),
+                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+                    ('tgl_audit', 'TIMESTAMP'),
+                    ('catatan_lapangan', 'TEXT'),
+                    ('foto_meter_path', 'VARCHAR(255)'),
+                    ('latitude', 'VARCHAR(50)'),
+                    ('longitude', 'VARCHAR(50)')
+                ]
+                
+                for col, dtype in sbrs_required:
+                    if col not in sbrs_cols:
+                        print(f">>> [SINERGI-FIX] Menambah kolom '{col}' ke data_sbrs...")
+                        conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col} {dtype}"))
+                
+                # Pasang Gembok Unik (Wajib untuk Sinkronisasi Upsert)
+                if 'uix_sbrs_nomen_periode' not in sbrs_constraints:
+                    print(">>> [SINERGI-FIX] Menciptakan Gembok Unik SBRS...")
                     try:
-                        # Jika gagal, biasanya karena ada data duplikat yang sudah terlanjur masuk
                         conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
-                    except Exception as e:
-                        print(f"!!! Gagal pasang gembok: Mungkin ada data duplikat di DB. Kosongkan tabel dulu, Bos!")
-                
-                conn.commit()
+                    except Exception:
+                        print("!!! Gagal pasang gembok: Bersihkan data duplikat dulu, Bos!")
+            
+            conn.commit()
 
 def create_app():
     app = Flask(__name__)
@@ -106,7 +120,7 @@ def create_app():
     with app.app_context():
         db.create_all()
     
-    # Jalankan sinkronisasi kolom & gembok unik secara otomatis
+    # Jalankan audit kolom & gembok unik secara otomatis di semua tabel
     sync_database_schema(app)
 
     return app
