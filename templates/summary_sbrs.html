@@ -126,15 +126,20 @@
                 <p class="metric-value text-secondary" id="totZeroLama">0</p>
             </div>
             
-            <div class="col-md-6 metric-box border-start-0 border-bottom-0 border-top bg-danger bg-opacity-10" onclick="goToAnalisa('skip')">
+            <div class="col-md-4 metric-box border-start-0 border-bottom-0 border-top bg-danger bg-opacity-10" onclick="goToAnalisa('skip')">
                 <i class="fa-solid fa-ban metric-icon text-danger"></i>
                 <span class="metric-label text-danger">Total Skip (Kodal)</span>
                 <p class="metric-value text-danger" id="totSkip">0</p>
             </div>
-            <div class="col-md-6 metric-box border-end-0 border-bottom-0 border-top bg-warning bg-opacity-10" onclick="goToAnalisa('trouble')">
+            <div class="col-md-4 metric-box border-bottom-0 border-top bg-warning bg-opacity-10" onclick="goToAnalisa('trouble')">
                 <i class="fa-solid fa-screwdriver-wrench metric-icon text-warning"></i>
                 <span class="metric-label text-warning">Total Trouble (Teknis)</span>
                 <p class="metric-value text-warning" id="totTrouble">0</p>
+            </div>
+            <div class="col-md-4 metric-box border-end-0 border-bottom-0 border-top bg-dark bg-opacity-10" onclick="goToAnalisa('negative')">
+                <i class="fa-solid fa-rotate-left metric-icon text-dark"></i>
+                <span class="metric-label text-dark">Negative Read (Terbalik)</span>
+                <p class="metric-value text-dark" id="totNegative">0</p>
             </div>
         </div>
     </div>
@@ -218,10 +223,15 @@
                                 <td><code>Vol_Lap < (Bill * 40%)</code></td>
                                 <td class="text-muted">Pemakaian turun drastis (Potensi meter macet).</td>
                             </tr>
-                            <tr>
+                            <tr class="border-bottom">
                                 <td class="ps-4 py-3"><span class="badge bg-dark bg-opacity-10 text-dark px-2 py-1">Anomali</span></td>
                                 <td><code>Gap != 0</code></td>
                                 <td class="text-muted">Data tidak sinkron antara Petugas, Kantor, & Struk.</td>
+                            </tr>
+                            <tr>
+                                <td class="ps-4 py-3"><span class="badge bg-dark bg-opacity-10 text-dark px-2 py-1">Negative Read</span></td>
+                                <td><code>Vol_Lap < 0</code></td>
+                                <td class="text-muted">Angka meter sekarang lebih kecil dari bulan lalu. Indikasi meter terbalik atau rusak.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -265,6 +275,9 @@
                 document.getElementById('totZero').innerText = formatRibuan(zBaru + zLama);
                 
                 document.getElementById('totAnomali').innerText = formatRibuan(stats.anomali || 0);
+                
+                // Binding data Negative Read ke UI
+                document.getElementById('totNegative').innerText = formatRibuan(stats.negative || 0);
 
                 let tSkip = data.skip ? data.skip.reduce((a,b)=>a+(b.jml||b.jumlah||0), 0) : 0;
                 let tTrouble = data.trouble ? data.trouble.reduce((a,b)=>a+(b.jml||b.jumlah||0), 0) : 0;
