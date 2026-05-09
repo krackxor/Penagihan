@@ -6,6 +6,7 @@ from datetime import datetime
 monitoring_bp = Blueprint('monitoring', __name__)
 
 def get_current_periode():
+    """Fungsi pembantu untuk mendapatkan periode bulan berjalan (YYYYMM)."""
     return datetime.now().strftime('%Y%m')
 
 @monitoring_bp.route('/')
@@ -57,7 +58,8 @@ def list_tagihan():
         TransaksiTagihan.periode
     ).order_by(func.sum(TransaksiTagihan.nominal).desc()).all()
 
-    return render_template('monitoring.html', 
+    # PERBAIKAN: Nama template sesuai dengan daftar file (monitoring_collection.html)
+    return render_template('monitoring_collection.html', 
                            data=results, 
                            current_ab=ab_filter,
                            current_rayon=rayon_filter,
@@ -66,12 +68,11 @@ def list_tagihan():
 
 @monitoring_bp.route('/top-500')
 def top_500():
-    """Top 500 dengan Fix Explicit Join."""
+    """Top 500 Tunggakan dengan Fix Explicit Join."""
     ab_filter = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # Tambahkan .select_from(TransaksiTagihan)
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -97,7 +98,8 @@ def top_500():
          TransaksiTagihan.periode
      ).order_by(func.sum(TransaksiTagihan.nominal).desc()).limit(500).all()
     
-    return render_template('top_500.html', 
+    # PERBAIKAN: Nama template sesuai dengan daftar file (analisa_top500.html)
+    return render_template('analisa_top500.html', 
                            data=results, 
                            current_ab=ab_filter, 
                            periode_aktif=periode_filter)
@@ -109,7 +111,6 @@ def summary_stats():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # Gunakan select_from agar query agregat (SUM/COUNT) stabil
     stats = db.session.query(
         func.sum(TransaksiTagihan.nominal),
         func.count(TransaksiTagihan.id)
@@ -135,6 +136,7 @@ def summary_stats():
 
 @monitoring_bp.route('/get-filters')
 def get_filters():
+    """API pendukung filter dropdown wilayah."""
     ab = request.args.get('ab', 'AB Sunter')
     kelurahans = db.session.query(MasterPelanggan.kelurahan).filter(MasterPelanggan.ab == ab).distinct().all()
     rayons = db.session.query(MasterPelanggan.rayon).filter(MasterPelanggan.ab == ab).distinct().all()
