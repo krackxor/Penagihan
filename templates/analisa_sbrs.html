@@ -82,6 +82,9 @@
         <div class="filter-chip text-dark border-dark" id="chip_anomali" onclick="applyFilter('anomali')">
             <i class="fa-solid fa-triangle-exclamation"></i> Anomali Gap
         </div>
+        <div class="filter-chip text-dark border-dark bg-light" id="chip_negative" onclick="applyFilter('negative')">
+            <i class="fa-solid fa-rotate-left"></i> Negative Read
+        </div>
     </div>
 
     <div id="tabelMasterContainer" class="card card-lnp border-0 shadow-sm overflow-hidden mb-5 animate__animated animate__fadeInUp">
@@ -151,10 +154,15 @@
                                 <td><code>Vol_Lap < (Bill * 40%)</code></td>
                                 <td class="text-muted">Pemakaian turun drastis (Potensi meter macet).</td>
                             </tr>
-                            <tr>
+                            <tr class="border-bottom">
                                 <td class="ps-4 py-3"><span class="badge bg-dark bg-opacity-10 text-dark px-2 py-1">Anomali</span></td>
                                 <td><code>Gap != 0</code></td>
                                 <td class="text-muted">Data tidak sinkron antara Petugas, Kantor, & Struk.</td>
+                            </tr>
+                            <tr>
+                                <td class="ps-4 py-3"><span class="badge bg-dark bg-opacity-10 text-dark px-2 py-1">Negative Read</span></td>
+                                <td><code>Vol_Lap < 0</code></td>
+                                <td class="text-muted">Angka meter sekarang lebih kecil dari bulan lalu. Indikasi meter terbalik atau rusak.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -258,7 +266,10 @@
                         
                         // Smart Soft Badges
                         let badgeClass = 'bg-secondary bg-opacity-10 text-secondary border-secondary';
-                        if(row.status.includes('Ekstrim') || row.status.includes('Anomali')) badgeClass = 'bg-danger bg-opacity-10 text-danger border-danger';
+                        
+                        // TAMBAHAN: Logika Warna Badge "Negative Read"
+                        if(row.status.includes('Negative Read')) badgeClass = 'bg-dark bg-opacity-10 text-dark border-dark fw-bold';
+                        else if(row.status.includes('Ekstrim') || row.status.includes('Anomali')) badgeClass = 'bg-danger bg-opacity-10 text-danger border-danger';
                         else if(row.status.includes('Turun')) badgeClass = 'bg-warning bg-opacity-10 text-warning border-warning';
                         else if(row.status.includes('Zero Baru')) badgeClass = 'bg-primary bg-opacity-10 text-primary border-primary';
                         else if(row.status.includes('Zero Lama')) badgeClass = 'bg-secondary bg-opacity-10 text-secondary border-secondary';
