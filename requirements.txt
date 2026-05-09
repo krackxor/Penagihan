@@ -2,18 +2,19 @@
 Flask==2.3.3
 Werkzeug==2.3.7
 
-# --- Database (Pondasi Sinergi) ---
+# --- Database ---
 SQLAlchemy==2.0.19
 Flask-SQLAlchemy==3.0.5
 
-# --- Pengolahan Data (CID, MC, Petugas) ---
+# --- Pengolahan Data (DIPERBAIKI) ---
+numpy<2.0.0
 pandas==2.0.3
 openpyxl==3.1.2
 xlsxwriter==3.1.2
 
-# --- Pengolahan Gambar & Foto Lapangan ---
+# --- Pengolahan Gambar ---
 Pillow==10.0.0
 
-# --- Fitur Tambahan (Utility) ---
+# --- Fitur Tambahan ---
 pdf2docx==0.5.6
 pytesseract==0.3.10
