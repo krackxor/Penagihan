@@ -4,38 +4,21 @@
 
 {% block extra_css %}
 <style>
-    .calendar-filter, .cycle-filter {
-        border: 2px solid #0d6efd !important;
-        font-weight: bold;
-        color: #0d6efd;
-        border-radius: 8px;
-    }
-    .table-sbrs thead {
-        background-color: #212529;
-        color: white;
-    }
-    .master-card-sekatan {
-        border-radius: 15px;
-        overflow: hidden;
-    }
-    .sekat-item {
-        max-height: 250px; 
-        overflow-y: auto;
-    }
+    .calendar-filter, .cycle-filter { border: 2px solid #0d6efd !important; font-weight: bold; color: #0d6efd; border-radius: 8px; }
+    .table-sbrs thead { background-color: #212529; color: white; }
+    .master-card-sekatan { border-radius: 15px; overflow: hidden; }
+    .sekat-item { max-height: 250px; overflow-y: auto; }
     .sekat-item::-webkit-scrollbar { width: 6px; }
-    .sekat-item::-webkit-scrollbar-thumb {
-        background-color: #dee2e6;
-        border-radius: 4px;
-    }
-    /* Animasi dan layout stat box */
+    .sekat-item::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+    
     .stat-box { 
         transition: all 0.3s ease; 
-        min-height: 85px;
+        min-height: 80px;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        text-decoration: none !important; /* Hilangkan garis bawah link */
-        cursor: pointer; /* Ubah kursor jadi tangan agar terlihat bisa diklik */
+        text-decoration: none !important;
+        cursor: pointer;
     }
     .stat-box:hover { 
         background-color: #f8f9fa !important; 
@@ -43,29 +26,16 @@
         z-index: 10; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
     }
-    .extra-small-label {
-        font-size: 0.65rem;
-        letter-spacing: 0.5px;
-    }
-    .hover-item {
-        transition: background-color 0.2s;
-        text-decoration: none !important;
-        color: inherit;
-        display: block;
-    }
-    .hover-item:hover {
-        background-color: #f1f3f5 !important;
-        cursor: pointer;
-    }
+    .extra-small-label { font-size: 0.65rem; letter-spacing: 0.5px; }
+    .hover-item { transition: background-color 0.2s; text-decoration: none !important; color: inherit; display: block; }
+    .hover-item:hover { background-color: #f1f3f5 !important; cursor: pointer; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row align-items-center mb-4">
     <div class="col-md-3">
-        <h2 class="fw-bold text-dark mb-1">
-            <i class="fas fa-chart-pie text-primary me-2"></i>Dashboard SBRS
-        </h2>
+        <h2 class="fw-bold text-dark mb-1"><i class="fas fa-chart-pie text-primary me-2"></i>Dashboard SBRS</h2>
         <p class="text-muted mb-0">Ringkasan Anomali <b>{{ current_ab }}</b></p>
     </div>
     
@@ -87,9 +57,7 @@
             </div>
             
             <div class="d-flex gap-2 h-100 ms-2">
-                <button type="button" onclick="window.print()" class="btn btn-sm btn-dark px-3" title="Print Laporan">
-                    <i class="fas fa-print"></i>
-                </button>
+                <button type="button" onclick="window.print()" class="btn btn-sm btn-dark px-3" title="Print Laporan"><i class="fas fa-print"></i></button>
                 <button type="submit" formaction="/sbrs/export/summary" class="btn btn-sm btn-success px-3 fw-bold" title="Download Excel Ringkasan">
                     <i class="fas fa-file-excel me-1"></i> Excel Summary
                 </button>
@@ -103,11 +71,15 @@
 
 <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; overflow: hidden;">
     <div class="card-body p-0">
-        <div class="row g-0 text-center">
+        <div class="row g-0 text-center border-bottom">
             <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-white text-dark">
                 <h6 class="extra-small-label fw-bold text-muted mb-1 text-uppercase">Total Nomen</h6>
                 <h5 class="fw-bold mb-0">{{ totals.total_nomen }}</h5>
             </a>
+            <div class="col p-2 border-end stat-box bg-primary text-white" style="cursor: default; background-color: #003366 !important;">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Vol Tagihan (m3)</h6>
+                <h5 class="fw-bold mb-0">{{ totals.total_vol_tagihan }}</h5>
+            </div>
             <div class="col p-2 border-end stat-box bg-success text-white" style="cursor: default;">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Nominal Tagihan</h6>
                 <h5 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ totals.total_nominal }}</h5>
@@ -116,6 +88,17 @@
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Hari Baca</h6>
                 <h5 class="fw-bold mb-0">{{ totals.total_hb }} <small style="font-size: 0.6rem;">Hari</small></h5>
             </div>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-light text-dark">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase text-primary opacity-75">Total Skip</h6>
+                <h5 class="fw-bold mb-0">{{ totals.total_skip }}</h5>
+            </a>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 stat-box bg-light text-dark">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase text-warning opacity-75">Total Trouble</h6>
+                <h5 class="fw-bold mb-0">{{ totals.total_trbl }}</h5>
+            </a>
+        </div>
+
+        <div class="row g-0 text-center">
             <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=baru" class="col p-2 border-end stat-box bg-danger text-white">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Baru</h6>
                 <h5 class="fw-bold mb-0">{{ totals.zero_baru }}</h5>
@@ -124,21 +107,23 @@
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Lama</h6>
                 <h5 class="fw-bold mb-0">{{ totals.zero_lama }}</h5>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-primary text-white">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Skip</h6>
-                <h5 class="fw-bold mb-0">{{ totals.total_skip }}</h5>
+            
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=baru" class="col p-2 border-end stat-box text-dark" style="background-color: #ffc107;">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Ekstrem Baru</h6>
+                <h5 class="fw-bold mb-0">{{ totals.ekstrem_baru }}</h5>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-warning text-dark">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Trbl</h6>
-                <h5 class="fw-bold mb-0">{{ totals.total_trbl }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=lama" class="col p-2 border-end stat-box text-dark" style="background-color: #e0a800;">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Ekstrem Lama</h6>
+                <h5 class="fw-bold mb-0">{{ totals.ekstrem_lama }}</h5>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM" class="col p-2 border-end stat-box bg-danger-subtle text-danger border-danger-subtle">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase">Ekstrem</h6>
-                <h5 class="fw-bold mb-0">{{ totals.ekstrem }}</h5>
+
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=baru" class="col p-2 border-end stat-box bg-info text-white">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Turun Baru</h6>
+                <h5 class="fw-bold mb-0">{{ totals.turun_baru }}</h5>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN" class="col p-2 stat-box bg-info text-white">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Turun</h6>
-                <h5 class="fw-bold mb-0">{{ totals.turun }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=lama" class="col p-2 stat-box text-white" style="background-color: #0aa2c0;">
+                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Turun Lama</h6>
+                <h5 class="fw-bold mb-0">{{ totals.turun_lama }}</h5>
             </a>
         </div>
     </div>
