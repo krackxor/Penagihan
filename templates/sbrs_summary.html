@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Summary SBRS - 1 Sinergi{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="fw-bold text-dark">Dashboard SBRS</h2>
+    <p class="text-muted">Ringkasan Anomali Pembacaan Meter Wilayah {{ current_ab }}</p>
+</div>
+
+<div class="row g-3 mb-5">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-danger text-white p-3 text-center">
+            <h6 class="small fw-bold">TOTAL ZERO (MACET)</h6>
+            <h1 class="display-4 fw-bold">{{ summary.get('ZERO', 0) }}</h1>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-warning text-dark p-3 text-center">
+            <h6 class="small fw-bold">TOTAL EKSTREM</h6>
+            <h1 class="display-4 fw-bold">{{ summary.get('EKSTREM', 0) }}</h1>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-info text-white p-3 text-center">
+            <h6 class="small fw-bold">TOTAL TURUN DRASTIS</h6>
+            <h1 class="display-4 fw-bold">{{ summary.get('TURUN', 0) }}</h1>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm p-4">
+    <h5 class="fw-bold mb-4">Sebaran Anomali per Kelurahan</h5>
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="bg-light">
+                <tr>
+                    <th>Kelurahan</th>
+                    <th class="text-center">Jumlah Kasus</th>
+                    <th class="text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for kel, total in kelurahan_data %}
+                <tr>
+                    <td>{{ kel }}</td>
+                    <td class="text-center fw-bold">{{ total }}</td>
+                    <td class="text-center">
+                        <a href="/sbrs/analisa?ab={{ current_ab }}&kelurahan={{ kel }}" class="btn btn-sm btn-primary">Lihat Detail</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
