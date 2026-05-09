@@ -1,25 +1,39 @@
 version: '3.8'
 
 services:
-  # 1. Kontainer Aplikasi (Flask + Gunicorn/Python)
+  # 1. DATABASE POSTGRESQL (Gratis & Tangguh untuk 1 Juta Data)
+  db:
+    image: postgres:15-alpine
+    container_name: sinergi_v16_db
+    environment:
+      - POSTGRES_USER=admin_sinergi
+      - POSTGRES_PASSWORD=pamjaya2026
+      - POSTGRES_DB=sinergi_db
+    volumes:
+      # Data database disimpan di folder ini agar tidak hilang saat Docker mati
+      - ./postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  # 2. KONTAYNER APLIKASI (Flask)
   sinergi-app:
     build: .
     container_name: sinergi_v16_app
     expose:
       - "5000"
     volumes:
-      # JALUR TOL: Menghubungkan semua kode di folder VPS ke dalam Docker
       - .:/app 
-      # Tetap pertahankan volume untuk data agar aman
       - ./instance:/app/instance
       - ./static/uploads:/app/static/uploads
     environment:
-      # Ubah ke development agar fitur 'Auto-Reload' Flask aktif saat ada update kode
       - FLASK_ENV=development 
       - PYTHONUNBUFFERED=1
+      # ALAMAT KONEKSI: Menyambungkan Flask ke kontainer 'db' di atas
+      - DATABASE_URL=postgresql://admin_sinergi:pamjaya2026@db:5432/sinergi_db
+    depends_on:
+      - db
     restart: always
 
-  # 2. Kontainer Nginx (Si Satpam Pintu Depan)
+  # 3. NGINX (Pintu Depan)
   nginx-proxy:
     image: nginx:alpine
     container_name: sinergi_v16_nginx
