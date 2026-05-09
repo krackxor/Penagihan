@@ -4,55 +4,70 @@
 
 {% block extra_css %}
 <style>
-    .gold-row { background-color: #fffdf0 !important; }
-    .rank-badge {
-        width: 32px; height: 32px;
-        display: flex; align-items: center; justify-content: center;
-        border-radius: 50%; font-weight: bold; font-size: 0.85rem;
+    .gold-row {
+        background-color: #fffdf0 !important;
     }
-    .top-1 { background: #ffd700; color: #000; box-shadow: 0 0 10px rgba(255,215,0,0.5); }
-    .top-2 { background: #c0c0c0; color: #000; }
-    .top-3 { background: #cd7f32; color: #fff; }
+    .rank-badge {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-weight: bold;
+        font-size: 0.85rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .top-1 { background: #ffd700; color: #000; border: 2px solid #e6c200; }
+    .top-2 { background: #c0c0c0; color: #000; border: 2px solid #a9a9a9; }
+    .top-3 { background: #cd7f32; color: #fff; border: 2px solid #b87333; }
     .top-others { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
     
-    .calendar-box {
+    .calendar-filter {
         border: 2px solid #0d6efd !important;
         font-weight: bold;
         color: #0d6efd;
         border-radius: 10px;
     }
+
+    @media print {
+        .no-print { display: none !important; }
+        .card { border: none !important; box-shadow: none !important; }
+        .table-dark { background-color: #000 !important; color: #fff !important; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row align-items-center mb-4">
-    <div class="col-md-7">
+<div class="row align-items-center mb-4 no-print">
+    <div class="col-md-6">
         <h2 class="fw-bold text-dark mb-1">
-            <i class="fas fa-trophy text-warning me-2"></i>Daftar Prioritas Top 500
+            <i class="fas fa-trophy text-warning me-2"></i>Prioritas Top 500
         </h2>
-        <p class="text-muted mb-0">Pelanggan dengan nominal terbesar di <b>{{ current_ab }}</b></p>
+        <p class="text-muted">Analisa tunggakan terbesar di <b>{{ current_ab }}</b></p>
     </div>
     
-    <div class="col-md-5">
-        <form method="GET" action="/monitoring/top-500" class="d-flex gap-2 justify-content-md-end">
-            <input type="hidden" name="ab" value="{{ current_ab }}">
-            <div class="text-end">
-                <label class="extra-small fw-bold text-primary d-block mb-1">Pilih Periode:</label>
-                <input type="month" name="periode" class="form-control calendar-box shadow-sm" 
+    <div class="col-md-6 d-flex justify-content-md-end gap-2 align-items-end">
+        <form method="GET" action="/monitoring/top-500" class="d-flex flex-column">
+            <label class="extra-small fw-bold text-primary mb-1">Pilih Periode:</label>
+            <div class="d-flex gap-2">
+                <input type="month" name="periode" class="form-control calendar-filter shadow-sm" 
                        value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" 
                        onchange="this.form.submit()">
+                <button type="button" onclick="window.print()" class="btn btn-outline-dark shadow-sm">
+                    <i class="fas fa-print"></i>
+                </button>
             </div>
-            <button type="button" onclick="window.print()" class="btn btn-outline-dark align-self-end shadow-sm">
-                <i class="fas fa-print"></i>
-            </button>
         </form>
     </div>
 </div>
 
-<div class="alert alert-warning border-0 shadow-sm mb-4 d-flex align-items-center" style="border-radius: 15px;">
-    <i class="fas fa-exclamation-triangle fa-2x me-3 opacity-50"></i>
+<div class="alert alert-primary border-0 shadow-sm mb-4 d-flex align-items-center no-print" style="border-radius: 15px;">
+    <div class="bg-white rounded-circle p-2 me-3 text-primary shadow-sm">
+        <i class="fas fa-bullseye fa-lg"></i>
+    </div>
     <div>
-        <strong>Target Utama:</strong> Fokuskan kunjungan pada Rank 1-10 untuk percepatan penurunan angka piutang periode <b>{{ periode_aktif }}</b>.
+        <strong>Target Periode {{ periode_aktif }}:</strong> Fokuskan kunjungan pada pelanggan Rank 1-100 untuk efisiensi penurunan piutang.
     </div>
 </div>
 
@@ -62,10 +77,10 @@
             <thead class="table-dark">
                 <tr>
                     <th class="text-center" style="width: 80px;">RANK</th>
-                    <th>NOMEN / NAMA PELANGGAN</th>
-                    <th>KELURAHAN</th>
-                    <th>PETUGAS</th>
-                    <th class="text-end px-4">TOTAL TAGIHAN</th>
+                    <th>NOMEN / NAMA</th>
+                    <th>KELURAHAN & PCEZ</th>
+                    <th>PETUGAS LAPANGAN</th>
+                    <th class="text-end px-4">NOMINAL TAGIHAN</th>
                 </tr>
             </thead>
             <tbody>
@@ -85,22 +100,22 @@
                         <div class="small text-uppercase fw-bold text-dark">{{ item.nama }}</div>
                     </td>
                     <td>
-                        <div class="small fw-bold">{{ item.kelurahan }}</div>
-                        <div class="text-muted" style="font-size: 0.75rem;">Area: {{ current_ab }}</div>
+                        <div class="small fw-bold text-dark">{{ item.kelurahan }}</div>
+                        <div class="badge bg-light text-muted border" style="font-size: 0.7rem;">PCEZ: {{ item.pcez }}</div>
                     </td>
                     <td>
-                        <div class="fw-bold small">
-                            <i class="fas fa-user-tag me-1 text-success"></i>
+                        <div class="fw-bold small text-dark">
+                            <i class="fas fa-user-check text-success me-1"></i>
                             {{ item.nama_petugas if item.nama_petugas else 'Belum Diplot' }}
                         </div>
-                        <div class="text-muted extra-small" style="font-size: 0.65rem;">Periode: {{ item.periode }}</div>
+                        <div class="text-muted extra-small" style="font-size: 0.65rem;">Tim Penagihan</div>
                     </td>
                     <td class="text-end px-4">
                         <div class="fw-bold text-danger" style="font-size: 1.15rem;">
                             Rp {{ "{:,.0f}".format(item.total_nominal) }}
                         </div>
-                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-primary mt-1 px-3 shadow-sm" style="font-size: 0.75rem; border-radius: 8px;">
-                            <i class="fas fa-camera me-1"></i>Audit Lapangan
+                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-primary mt-1 px-3 shadow-sm no-print" style="font-size: 0.75rem; border-radius: 8px;">
+                            <i class="fas fa-camera me-1"></i>Audit
                         </a>
                     </td>
                 </tr>
@@ -108,7 +123,7 @@
                 <tr>
                     <td colspan="5" class="text-center py-5">
                         <i class="fas fa-search fa-3x mb-3 d-block text-muted opacity-25"></i>
-                        <p class="text-muted">Data untuk periode <b>{{ periode_aktif }}</b> tidak ditemukan.</p>
+                        <p class="text-muted small">Data tagihan periode <b>{{ periode_aktif }}</b> belum diupload.</p>
                     </td>
                 </tr>
                 {% endfor %}
