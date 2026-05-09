@@ -7,7 +7,7 @@
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
@@ -15,62 +15,100 @@
             --sbrs-blue: #2563eb;
             --sbrs-info: #0891b2;
             --sbrs-bg: #f8fafc;
+            --text-muted: #64748b;
         }
 
-        body { background: var(--sbrs-bg); font-family: 'Plus Jakarta Sans', sans-serif; color: #1e293b; }
+        body { 
+            background: var(--sbrs-bg); 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            color: #1e293b; 
+        }
         
         .sidebar-sbrs { 
             background: var(--sbrs-dark); color: white; padding: 25px; 
             height: 100vh; position: fixed; width: 260px; 
-            box-shadow: 4px 0 10px rgba(0,0,0,0.1); 
+            box-shadow: 4px 0 10px rgba(0,0,0,0.05); 
             z-index: 1000;
         }
         
-        .main-content { margin-left: 260px; padding: 40px; }
+        .main-content { margin-left: 260px; padding: 30px 40px; }
         
-        /* CARD CLICKABLE EFEK */
-        .card-lnp { border: none; border-radius: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); transition: 0.3s; position: relative; overflow: hidden; }
-        .card-clickable { cursor: pointer; border: 2px solid transparent; }
-        .card-clickable:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border-color: var(--sbrs-blue); }
-        .card-lnp .bg-icon { position: absolute; right: -10px; bottom: -20px; font-size: 6rem; opacity: 0.15; transition: 0.3s; }
-        .card-clickable:hover .bg-icon { transform: scale(1.1); opacity: 0.25; }
+        /* CARD MODERN & CLEAN */
+        .card-lnp { 
+            background: #ffffff;
+            border: none; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); 
+            transition: all 0.2s ease-in-out; 
+            height: 100%;
+        }
         
-        .header-sbrs { 
-            background: white; padding: 25px; border-radius: 20px; 
-            margin-bottom: 30px; display: flex; justify-content: space-between; 
-            align-items: center; border: 1px solid #e2e8f0; 
+        .card-clickable { cursor: pointer; }
+        .card-clickable:hover { 
+            transform: translateY(-4px); 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); 
         }
 
-        .table-responsive { border-radius: 15px; border: 1px solid #e2e8f0; background: white; }
+        /* Icon Box Modern */
+        .icon-box {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        /* Tipografi */
+        .card-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+        
+        .header-sbrs { 
+            background: white; padding: 20px 25px; border-radius: 16px; 
+            margin-bottom: 25px; display: flex; justify-content: space-between; 
+            align-items: center; border: 1px solid #e2e8f0; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .table-responsive { border-radius: 12px; border: 1px solid #e2e8f0; background: white; }
     </style>
 </head>
 <body>
 
 <div class="sidebar-sbrs">
-    <div class="mb-4 text-center">
+    <div class="mb-4 text-center mt-3">
         <i class="fa-solid fa-droplet text-info fa-2xl mb-3"></i>
         <h5 class="fw-800 mb-0">SBRS SYSTEM</h5>
         <small class="opacity-50">Area Service Integrated</small>
     </div>
-    <hr class="opacity-10">
+    <hr class="opacity-10 mb-4">
     <div class="nav flex-column nav-pills">
-        <a class="nav-link text-white active mb-2" href="/summary-sbrs"><i class="fa-solid fa-chart-pie me-2"></i> Ringkasan (Dashboard)</a>
-        <a class="nav-link text-white mb-2" href="/analisa-sbrs"><i class="fa-solid fa-microscope me-2"></i> Detail Analisa LNP</a>
-        <a class="nav-link text-white mb-2" href="/upload-sbrs"><i class="fa-solid fa-file-import me-2"></i> Upload File</a>
+        <a class="nav-link text-white active mb-2" href="/summary-sbrs" style="background: rgba(255,255,255,0.1); border-radius: 10px;">
+            <i class="fa-solid fa-chart-pie me-2"></i> Ringkasan (Dashboard)
+        </a>
+        <a class="nav-link text-white mb-2 opacity-75 hover-opacity-100" href="/analisa-sbrs">
+            <i class="fa-solid fa-microscope me-2"></i> Detail Analisa LNP
+        </a>
+        <a class="nav-link text-white mb-2 opacity-75 hover-opacity-100" href="/upload-sbrs">
+            <i class="fa-solid fa-file-import me-2"></i> Upload File
+        </a>
     </div>
 </div>
 
 <div class="main-content">
-    <div class="header-sbrs shadow-sm">
+    <div class="header-sbrs">
         <div>
-            <h4 class="fw-800 mb-1">Dashboard Ringkasan SBRS</h4>
-            <p class="text-muted small mb-0">Klik pada kotak (card) untuk membuka data pelanggan terkait.</p>
+            <h4 class="fw-800 mb-1 text-dark">Dashboard Ringkasan SBRS</h4>
+            <p class="text-muted small mb-0">Klik pada kotak metrik untuk melihat detail data pelanggan terkait.</p>
         </div>
-        <div class="d-flex gap-3">
-            <button class="btn btn-outline-primary fw-bold" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
-                <i class="fa-solid fa-circle-info me-2"></i> INFO ANALISA
+        <div class="d-flex gap-2">
+            <button class="btn btn-light border fw-bold text-secondary" style="border-radius: 10px;" data-bs-toggle="modal" data-bs-target="#modalMapping">
+                <i class="fa-solid fa-circle-info"></i> Info Logika
             </button>
-            <select id="filterCycle" class="form-select border-light shadow-sm fw-bold" style="width: 200px; border-radius: 12px;" onchange="loadDataSBRS(this.value)">
+            <select id="filterCycle" class="form-select border shadow-sm fw-semibold text-dark" style="width: 180px; border-radius: 10px;" onchange="loadDataSBRS(this.value)">
                 <option value="all" selected>Semua Cycle</option>
                 <option value="01">Cycle 01</option>
                 <option value="02">Cycle 02</option>
@@ -79,115 +117,156 @@
         </div>
     </div>
 
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <div class="card card-lnp card-clickable bg-primary text-white p-4 h-100" onclick="goToAnalisa('all')">
-                <small class="opacity-75 fw-bold text-uppercase">Total Objek Baca</small>
-                <h1 class="fw-800 mb-0" id="totObjek">0</h1>
-                <i class="fa-solid fa-users bg-icon text-white"></i>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card card-lnp card-clickable bg-white border-start border-success border-5 p-4 h-100" onclick="goToAnalisa('all')">
-                <small class="text-muted fw-bold text-uppercase">Total Vol_SB (Struk)</small>
-                <h1 class="fw-800 mb-0 text-success"><span id="totVolRiil">0</span> <span class="fs-6 fw-normal text-muted">m³</span></h1>
-                <i class="fa-solid fa-faucet-drip bg-icon text-success"></i>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card card-lnp card-clickable bg-dark text-white p-4 h-100" onclick="goToAnalisa('anomali')">
-                <small class="opacity-75 fw-bold text-uppercase">Total Gap Anomali ⚠️</small>
-                <h1 class="fw-800 mb-0 text-white" id="totAnomali">0</h1>
-                <i class="fa-solid fa-triangle-exclamation bg-icon text-white"></i>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <div class="card card-lnp card-clickable bg-danger text-white p-4" onclick="goToAnalisa('ekstrem')">
-                <small class="opacity-75 fw-bold text-uppercase">Total Ekstrim 🚀</small>
-                <h2 class="fw-800 mb-0" id="totEkstrim">0</h2>
-                <i class="fa-solid fa-arrow-trend-up bg-icon text-white"></i>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card card-lnp card-clickable bg-warning text-dark p-4" onclick="goToAnalisa('turun')">
-                <small class="opacity-75 fw-bold text-uppercase">Total Vol Turun 📉</small>
-                <h2 class="fw-800 mb-0" id="totTurun">0</h2>
-                <i class="fa-solid fa-arrow-trend-down bg-icon text-dark"></i>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card card-lnp card-clickable bg-info text-white p-4" onclick="goToAnalisa('zero')">
-                <small class="opacity-75 fw-bold text-uppercase">Total Zero</small>
-                <h2 class="fw-800 mb-0" id="totZero">0</h2>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card card-lnp card-clickable bg-primary text-white p-4" onclick="goToAnalisa('zero_baru')">
-                <small class="opacity-75 fw-bold text-uppercase">Zero Baru 🔵</small>
-                <h2 class="fw-800 mb-0" id="totZeroBaru">0</h2>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card card-lnp card-clickable bg-secondary text-white p-4" onclick="goToAnalisa('zero_lama')">
-                <small class="opacity-75 fw-bold text-uppercase">Zero Lama 🔘</small>
-                <h2 class="fw-800 mb-0" id="totZeroLama">0</h2>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-5">
-        <div class="col-md-6">
-            <div class="card card-lnp card-clickable bg-white border-start border-danger border-5 p-4" onclick="goToAnalisa('skip')">
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-primary p-4" onclick="goToAnalisa('all')">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <small class="text-muted fw-bold text-uppercase">Total Skip (Kodal)</small>
-                        <h2 class="fw-800 mb-0 text-danger" id="totSkip">0</h2>
+                        <div class="card-label">Total Objek Baca</div>
+                        <h2 class="fw-800 mb-0 mt-1 text-dark" id="totObjek">0</h2>
                     </div>
-                    <i class="fa-solid fa-ban fa-3x text-danger opacity-25"></i>
+                    <div class="icon-box bg-primary bg-opacity-10 text-primary">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card card-lnp card-clickable bg-white border-start border-warning border-5 p-4" onclick="goToAnalisa('trouble')">
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-success p-4" onclick="goToAnalisa('all')">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <small class="text-muted fw-bold text-uppercase">Total Trouble (Teknis)</small>
-                        <h2 class="fw-800 mb-0 text-warning" id="totTrouble">0</h2>
+                        <div class="card-label">Total Vol_SB (Struk)</div>
+                        <h2 class="fw-800 mb-0 mt-1 text-success"><span id="totVolRiil">0</span> <span class="fs-6 fw-normal text-muted">m³</span></h2>
                     </div>
-                    <i class="fa-solid fa-screwdriver-wrench fa-3x text-warning opacity-25"></i>
+                    <div class="icon-box bg-success bg-opacity-10 text-success">
+                        <i class="fa-solid fa-faucet-drip"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-dark p-4" onclick="goToAnalisa('anomali')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="card-label text-dark">Total Gap Anomali</div>
+                        <h2 class="fw-800 mb-0 mt-1 text-dark" id="totAnomali">0</h2>
+                    </div>
+                    <div class="icon-box bg-dark bg-opacity-10 text-dark">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row mb-5">
-        <div class="col-md-4">
-            <div class="card card-lnp border-0 shadow-sm overflow-hidden">
-                <div class="card-header bg-danger text-white fw-800 py-3 small border-0">RINCIAN KODAL (SKIP)</div>
-                <div class="table-responsive p-0" style="max-height: 300px; overflow-y: auto;">
+    <div class="row row-cols-1 row-cols-md-5 g-3 mb-4">
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-danger p-3" onclick="goToAnalisa('ekstrem')">
+                <div class="card-label mb-2">Pemakaian Ekstrim</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h3 class="fw-800 mb-0 text-danger" id="totEkstrim">0</h3>
+                    <i class="fa-solid fa-arrow-trend-up text-danger opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-warning p-3" onclick="goToAnalisa('turun')">
+                <div class="card-label mb-2">Volume Turun</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h3 class="fw-800 mb-0 text-warning" id="totTurun">0</h3>
+                    <i class="fa-solid fa-arrow-trend-down text-warning opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-info p-3" onclick="goToAnalisa('zero')">
+                <div class="card-label mb-2">Total Zero</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h3 class="fw-800 mb-0 text-info" id="totZero">0</h3>
+                    <i class="fa-solid fa-0 text-info opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-primary p-3" onclick="goToAnalisa('zero_baru')">
+                <div class="card-label mb-2">Zero Baru</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h3 class="fw-800 mb-0 text-primary" id="totZeroBaru">0</h3>
+                    <i class="fa-regular fa-circle-dot text-primary opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-secondary p-3" onclick="goToAnalisa('zero_lama')">
+                <div class="card-label mb-2">Zero Lama</div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h3 class="fw-800 mb-0 text-secondary" id="totZeroLama">0</h3>
+                    <i class="fa-regular fa-circle text-secondary opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 g-4 mb-4">
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-danger p-4" onclick="goToAnalisa('skip')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="card-label">Total Skip (Kodal)</div>
+                        <h2 class="fw-800 mb-0 mt-1 text-danger" id="totSkip">0</h2>
+                    </div>
+                    <div class="icon-box bg-danger bg-opacity-10 text-danger">
+                        <i class="fa-solid fa-ban"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card card-lnp card-clickable border-start border-4 border-warning p-4" onclick="goToAnalisa('trouble')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="card-label">Total Trouble (Teknis)</div>
+                        <h2 class="fw-800 mb-0 mt-1 text-warning" id="totTrouble">0</h2>
+                    </div>
+                    <div class="icon-box bg-warning bg-opacity-10 text-warning">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+        <div class="col">
+            <div class="card card-lnp border-0 overflow-hidden">
+                <div class="card-header bg-white border-bottom py-3">
+                    <span class="card-label text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i> RINCIAN KODAL (SKIP)</span>
+                </div>
+                <div class="table-responsive p-0 border-0" style="max-height: 250px; overflow-y: auto;">
                     <table class="table table-hover mb-0 align-middle">
                         <tbody id="bodySkip" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
                     </table>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card card-lnp border-0 shadow-sm overflow-hidden">
-                <div class="card-header bg-warning text-dark fw-800 py-3 small border-0">RINCIAN TROUBLE</div>
-                <div class="table-responsive p-0" style="max-height: 300px; overflow-y: auto;">
+        <div class="col">
+            <div class="card card-lnp border-0 overflow-hidden">
+                <div class="card-header bg-white border-bottom py-3">
+                    <span class="card-label text-warning"><i class="fa-solid fa-wrench me-1"></i> RINCIAN TROUBLE</span>
+                </div>
+                <div class="table-responsive p-0 border-0" style="max-height: 250px; overflow-y: auto;">
                     <table class="table table-hover mb-0 align-middle">
                         <tbody id="bodyTrouble" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
                     </table>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card card-lnp border-0 shadow-sm overflow-hidden">
-                <div class="card-header bg-dark text-white fw-800 py-3 small border-0">METODE BACA (READ METHOD)</div>
-                <div class="table-responsive p-0" style="max-height: 300px; overflow-y: auto;">
+        <div class="col">
+            <div class="card card-lnp border-0 overflow-hidden">
+                <div class="card-header bg-white border-bottom py-3">
+                    <span class="card-label text-dark"><i class="fa-solid fa-tablet-screen-button me-1"></i> METODE BACA</span>
+                </div>
+                <div class="table-responsive p-0 border-0" style="max-height: 250px; overflow-y: auto;">
                     <table class="table table-hover mb-0 align-middle">
                         <tbody id="bodyMethods" class="small"><tr><td class="text-center py-3 text-muted">Memuat...</td></tr></tbody>
                     </table>
@@ -200,46 +279,46 @@
 
 <div class="modal fade" id="modalMapping" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 25px; overflow: hidden;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
             <div class="modal-header bg-dark text-white border-0 py-4">
-                <h5 class="fw-800 mb-0"><i class="fa-solid fa-microscope text-info me-2"></i>Parameter Audit & Analisa LNP</h5>
+                <h6 class="fw-800 mb-0 text-uppercase tracking-wide"><i class="fa-solid fa-microscope text-info me-2"></i>Parameter Audit & Analisa LNP</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0">
-                <div class="table-responsive">
+                <div class="table-responsive border-0">
                     <table class="table table-borderless mb-0">
                         <thead class="bg-light small fw-bold text-muted">
                             <tr>
-                                <th class="ps-4">KATEGORI</th>
-                                <th>LOGIKA SISTEM</th>
-                                <th>DESKRIPSI ANALISA</th>
+                                <th class="ps-4 py-3">KATEGORI</th>
+                                <th class="py-3">LOGIKA SISTEM</th>
+                                <th class="py-3">DESKRIPSI ANALISA</th>
                             </tr>
                         </thead>
                         <tbody class="small align-middle">
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-primary">Zero Baru</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1">Zero Baru</span></td>
                                 <td><code>Vol_Lap == 0 & Bill > 0</code></td>
-                                <td>Bulan lalu bayar, sekarang pemakaian 0 (Indikasi meter baru macet).</td>
+                                <td class="text-muted">Bulan lalu bayar, sekarang pemakaian 0 (Indikasi meter baru macet).</td>
                             </tr>
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-secondary">Zero Lama</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-secondary bg-opacity-10 text-secondary px-2 py-1">Zero Lama</span></td>
                                 <td><code>Vol_Lap == 0 & Bill == 0</code></td>
-                                <td>Pemakaian 0 berturut-turut (Rumah kosong lama).</td>
+                                <td class="text-muted">Pemakaian 0 berturut-turut (Rumah kosong lama).</td>
                             </tr>
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-danger">Ekstrim 🚀</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1">Ekstrim 🚀</span></td>
                                 <td><code>Naik > 100% OR Selisih > 50 m³</code></td>
-                                <td>Lonjakan drastis secara persentase maupun volume mutlak.</td>
+                                <td class="text-muted">Lonjakan drastis secara persentase maupun volume mutlak.</td>
                             </tr>
                             <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-warning text-dark">Turun 📉</span></td>
+                                <td class="ps-4 py-3"><span class="badge bg-warning bg-opacity-10 text-warning px-2 py-1">Turun 📉</span></td>
                                 <td><code>Vol_Lap < (Bill * 40%)</code></td>
-                                <td>Pemakaian turun drastis (Potensi meter macet).</td>
+                                <td class="text-muted">Pemakaian turun drastis (Potensi meter macet).</td>
                             </tr>
-                            <tr class="border-bottom">
-                                <td class="ps-4 py-3"><span class="badge bg-danger">Anomali</span></td>
+                            <tr>
+                                <td class="ps-4 py-3"><span class="badge bg-dark bg-opacity-10 text-dark px-2 py-1">Anomali</span></td>
                                 <td><code>Gap != 0</code></td>
-                                <td>Data tidak sinkron antara Petugas, Kantor, & Struk.</td>
+                                <td class="text-muted">Data tidak sinkron antara Petugas, Kantor, & Struk.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -254,10 +333,8 @@
 <script>
     const formatRibuan = (angka) => new Intl.NumberFormat('id-ID').format(angka || 0);
 
-    // FUNGSI KLIK KARTU -> PINDAH KE HALAMAN ANALISA
     function goToAnalisa(filterType) {
         let cycle = document.getElementById('filterCycle').value;
-        // Pindah halaman dan bawa parameter cycle & filter
         window.location.href = `/analisa-sbrs?cycle=${cycle}&filter=${filterType}`;
     }
 
@@ -271,7 +348,6 @@
             if (data.status === 'success') {
                 let stats = data.stats || {};
                 
-                // UPDATE SEMUA CARD SUMMARY
                 document.getElementById('totObjek').innerText = formatRibuan(data.summary.total_objek);
                 document.getElementById('totVolRiil').innerText = formatRibuan(data.summary.total_vol_sb); 
                 
@@ -286,28 +362,25 @@
                 
                 document.getElementById('totAnomali').innerText = formatRibuan(stats.anomali || 0);
 
-                // Hitung Skip & Trouble
                 let tSkip = data.skip ? data.skip.reduce((a,b)=>a+(b.jml||b.jumlah||0), 0) : 0;
                 let tTrouble = data.trouble ? data.trouble.reduce((a,b)=>a+(b.jml||b.jumlah||0), 0) : 0;
                 document.getElementById('totSkip').innerText = formatRibuan(tSkip);
                 document.getElementById('totTrouble').innerText = formatRibuan(tTrouble);
 
-                // REKAP TABEL KECIL
-                let htmlSkip = data.skip ? data.skip.map(i => `<tr><td class="ps-3"><span class="badge bg-danger">${i.kode}</span></td><td class="text-muted" style="font-size:0.75rem">${i.ket || i.alasan}</td><td class="text-center fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
-                document.getElementById('bodySkip').innerHTML = htmlSkip || '<tr><td colspan="3" class="text-center py-3 text-muted">Data Kodal Kosong</td></tr>';
+                let htmlSkip = data.skip ? data.skip.map(i => `<tr><td class="ps-3"><span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">${i.kode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || i.alasan}</td><td class="text-end pe-3 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
+                document.getElementById('bodySkip').innerHTML = htmlSkip || '<tr><td colspan="3" class="text-center py-4 text-muted small"><i class="fa-solid fa-folder-open mb-2 fa-2x opacity-25 d-block"></i>Data Kodal Kosong</td></tr>';
                 
-                let htmlTrouble = data.trouble ? data.trouble.map(i => `<tr><td class="ps-3"><span class="badge bg-warning text-dark">${i.kode}</span></td><td class="text-muted" style="font-size:0.75rem">${i.ket || i.alasan}</td><td class="text-center fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
-                document.getElementById('bodyTrouble').innerHTML = htmlTrouble || '<tr><td colspan="3" class="text-center py-3 text-muted">Data Trouble Kosong</td></tr>';
+                let htmlTrouble = data.trouble ? data.trouble.map(i => `<tr><td class="ps-3"><span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">${i.kode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || i.alasan}</td><td class="text-end pe-3 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
+                document.getElementById('bodyTrouble').innerHTML = htmlTrouble || '<tr><td colspan="3" class="text-center py-4 text-muted small"><i class="fa-solid fa-folder-open mb-2 fa-2x opacity-25 d-block"></i>Data Trouble Kosong</td></tr>';
                 
-                let htmlMethods = (data.methods && data.methods.length > 0) ? data.methods.map(i => `<tr><td class="ps-3"><span class="badge bg-dark">${i.kode || i.metode}</span></td><td class="text-muted" style="font-size:0.75rem">${i.ket || '-'}</td><td class="text-center fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
-                document.getElementById('bodyMethods').innerHTML = htmlMethods || '<tr><td colspan="3" class="text-center py-3 text-muted">Data Metode Baca Tidak Ditemukan</td></tr>';
+                let htmlMethods = (data.methods && data.methods.length > 0) ? data.methods.map(i => `<tr><td class="ps-3"><span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25">${i.kode || i.metode}</span></td><td class="text-muted fw-medium" style="font-size:0.8rem">${i.ket || '-'}</td><td class="text-end pe-3 fw-bold">${i.jml || i.jumlah}</td></tr>`).join('') : '';
+                document.getElementById('bodyMethods').innerHTML = htmlMethods || '<tr><td colspan="3" class="text-center py-4 text-muted small"><i class="fa-solid fa-folder-open mb-2 fa-2x opacity-25 d-block"></i>Metode Baca Kosong</td></tr>';
             }
         } catch(e) { 
             console.error("Gagal menarik data SBRS:", e);
         }
     }
 
-    // Load data otomatis saat halaman pertama kali dibuka
     window.onload = () => loadDataSBRS('all');
 </script>
 </body>
