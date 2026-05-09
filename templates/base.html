@@ -252,24 +252,19 @@
                     </a>
                     <div class="menu-divider"></div>
 
-                    <span class="section-label text-primary"><i class="fa-solid fa-bolt me-1"></i> Modul SBRS LNP</span>
+                    <span class="section-label text-primary"><i class="fa-solid fa-droplet me-1"></i> Modul SBRS (LNP)</span>
                     
                     <a href="/upload-sbrs" class="nav-link-custom {% if request.path == '/upload-sbrs' %}active-menu{% endif %}">
-                        <i class="fa-solid fa-file-import text-primary"></i>Upload LNP
+                        <i class="fa-solid fa-cloud-arrow-up text-primary"></i>1. Upload & Mega-Merge
                     </a>
                     
                     <a href="/summary-sbrs" class="nav-link-custom {% if request.path == '/summary-sbrs' %}active-menu{% endif %}">
-                        <i class="fa-solid fa-chart-pie text-info"></i>Dashboard SBRS
+                        <i class="fa-solid fa-clipboard-check text-info"></i>2. Ringkasan & Audit
                     </a>
 
                     <a href="/analisa-sbrs" class="nav-link-custom {% if request.path == '/analisa-sbrs' %}active-menu{% endif %}">
-                        <i class="fa-solid fa-microscope text-warning"></i>Detail Analisa LNP
+                        <i class="fa-solid fa-chart-line text-warning"></i>3. Analisa & Grafik
                     </a>
-
-                    <a href="/" class="nav-link-custom mt-3 border border-secondary" style="background-color: #f8fafc;">
-                        <i class="fa-solid fa-arrow-left text-secondary"></i>Kembali ke Beranda
-                    </a>
-
                     <div class="menu-divider"></div>
                     {% endif %}
                 {% endif %}
@@ -337,5 +332,7 @@
             }
         });
     </script>
+    
+    {% block scripts %}{% endblock %}
 </body>
 </html>
