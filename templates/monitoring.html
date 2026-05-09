@@ -19,8 +19,8 @@
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     .btn-action {
-        width: 38px;
-        height: 38px;
+        width: 36px;
+        height: 36px;
         padding: 0;
         display: inline-flex;
         align-items: center;
@@ -33,24 +33,32 @@
         color: #495057;
         font-weight: 600;
     }
+    /* Style untuk input kalender agar lebih menonjol */
+    .input-periode {
+        border: 2px solid #0d6efd !important;
+        font-weight: bold;
+        color: #0d6efd;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row mb-4 g-3">
     <div class="col-md-6 col-lg-4">
-        <div class="card stats-card bg-primary text-white h-100">
+        <div class="card stats-card bg-primary text-white h-100 shadow">
             <div class="card-body">
-                <h6 class="text-uppercase small fw-bold opacity-75">Total Tagihan ({{ current_ab }})</h6>
+                <h6 class="text-uppercase small fw-bold opacity-75">Total Piutang Periode <span class="label-periode"></span></h6>
                 <h3 class="mb-0 fw-bold" id="totalNominal">Rp 0</h3>
+                <div class="small mt-2 opacity-75" id="totalLembar">0 Lembar Tagihan</div>
             </div>
         </div>
     </div>
     <div class="col-md-6 col-lg-4">
-        <div class="card stats-card bg-dark text-white h-100">
+        <div class="card stats-card bg-dark text-white h-100 shadow">
             <div class="card-body">
-                <h6 class="text-uppercase small fw-bold opacity-75">Jumlah Pelanggan Menunggak</h6>
+                <h6 class="text-uppercase small fw-bold opacity-75">Pelanggan Menunggak</h6>
                 <h3 class="mb-0 fw-bold" id="totalPlg">0</h3>
+                <div class="small mt-2 opacity-75">Area: {{ current_ab }}</div>
             </div>
         </div>
     </div>
@@ -58,30 +66,39 @@
 
 <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
     <div class="card-body p-4">
-        <form method="GET" action="/monitoring/" class="row g-3 align-items-end">
+        <form method="GET" action="/monitoring/" id="filterForm" class="row g-3 align-items-end">
             <div class="col-md-3">
                 <label class="form-label small fw-bold text-muted">Area Bisnis (AB)</label>
-                <select name="ab" id="selectAB" class="form-select border-primary fw-bold" onchange="updateFilters()">
+                <select name="ab" id="selectAB" class="form-select border-0 bg-light fw-bold" onchange="updateFilters()">
                     <option value="AB Sunter" {% if current_ab == 'AB Sunter' %}selected{% endif %}>AB Sunter</option>
                     <option value="AB Dewaruci" {% if current_ab == 'AB Dewaruci' %}selected{% endif %}>AB Dewaruci</option>
                     <option value="all">Semua Area</option>
                 </select>
             </div>
+
             <div class="col-md-3">
+                <label class="form-label small fw-bold text-primary"><i class="fas fa-calendar-alt me-1"></i>Pilih Periode</label>
+                <input type="month" name="periode" id="selectPeriode" class="form-control bg-light input-periode" 
+                       value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="col-md-2">
                 <label class="form-label small fw-bold text-muted">Rayon</label>
-                <select name="rayon" id="selectRayon" class="form-select">
-                    <option value="">-- Semua Rayon --</option>
+                <select name="rayon" id="selectRayon" class="form-select bg-light border-0">
+                    <option value="">-- Semua --</option>
                 </select>
             </div>
-            <div class="col-md-3">
+            
+            <div class="col-md-2">
                 <label class="form-label small fw-bold text-muted">Kelurahan</label>
-                <select name="kelurahan" id="selectKelurahan" class="form-select">
-                    <option value="">-- Semua Kelurahan --</option>
+                <select name="kelurahan" id="selectKelurahan" class="form-select bg-light border-0">
+                    <option value="">-- Semua --</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-primary w-100 fw-bold py-2">
-                    <i class="fas fa-filter me-2"></i>Terapkan Filter
+
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">
+                    <i class="fas fa-search me-1"></i> Cari
                 </button>
             </div>
         </form>
@@ -93,10 +110,10 @@
         <table class="table table-hover align-middle" id="tableTagihan">
             <thead class="table-light">
                 <tr>
-                    <th class="border-0">NOMEN / NAMA</th>
+                    <th class="border-0">PELANGGAN</th>
                     <th class="border-0 text-center">WILAYAH</th>
-                    <th class="border-0">PETUGAS</th>
-                    <th class="border-0 text-end">NOMINAL</th>
+                    <th class="border-0">PETUGAS TAGIHAN</th>
+                    <th class="border-0 text-end">TOTAL RUPIAH</th>
                     <th class="border-0 text-center">AKSI</th>
                 </tr>
             </thead>
@@ -105,45 +122,40 @@
                 <tr>
                     <td>
                         <div class="fw-bold text-primary">{{ item.nomen }}</div>
-                        <div class="small text-uppercase fw-semibold">{{ item.nama }}</div>
-                        <div class="text-muted extra-small" style="font-size: 0.75rem;">{{ item.alamat[:40] }}...</div>
+                        <div class="small text-uppercase fw-semibold text-dark">{{ item.nama }}</div>
+                        <div class="text-muted extra-small" style="font-size: 0.7rem;">{{ item.alamat[:45] }}...</div>
                     </td>
                     <td class="text-center">
-                        <span class="badge bg-light text-dark border">{{ item.rayon }}</span>
-                        <div class="small text-muted mt-1">{{ item.kelurahan }}</div>
+                        <span class="badge bg-info text-white">{{ item.rayon }}</span>
+                        <div class="extra-small text-muted mt-1" style="font-size: 0.7rem;">{{ item.kelurahan }}</div>
                     </td>
                     <td>
                         <div class="badge badge-pcez mb-1">{{ item.pcez }}</div>
-                        
                         <div class="fw-bold small text-dark">
                             <i class="fas fa-user-check me-1 text-success"></i>
-                            {{ item.nama_petugas_tagihan if item.nama_petugas_tagihan else 'Belum Ada Petugas' }}
-                        </div>
-                        <div class="text-muted mt-1" style="font-size: 0.70rem;">
-                            (Tim Penagihan)
+                            {{ item.nama_petugas if item.nama_petugas else 'Belum Diplot' }}
                         </div>
                     </td>
                     <td class="text-end fw-bold text-danger">
                         Rp {{ "{:,.0f}".format(item.total_nominal) }}
-                        <div class="text-muted small fw-normal">{{ item.jumlah_bulan }} Bulan</div>
+                        <div class="text-muted small fw-normal">{{ item.jumlah_lembar }} Lembar</div>
                     </td>
                     <td class="text-center">
-                        <a href="https://wa.me/{{ item.wa if item.wa else '' }}" target="_blank" class="btn btn-success btn-action" title="WhatsApp">
-                            <i class="fab fa-whatsapp"></i>
-                        </a>
-                        <a href="https://www.google.com/maps?q={{ item.latitude }},{{ item.longitude }}" target="_blank" class="btn btn-info btn-action text-white" title="Lokasi">
-                            <i class="fas fa-map-marker-alt"></i>
-                        </a>
-                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-primary btn-action" title="Input Laporan">
-                            <i class="fas fa-camera"></i>
-                        </a>
+                        <div class="d-flex justify-content-center">
+                            <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-primary btn-action shadow-sm" title="Audit Lapangan">
+                                <i class="fas fa-camera"></i>
+                            </a>
+                            <a href="https://wa.me/{{ item.wa if item.wa else '' }}" target="_blank" class="btn btn-success btn-action shadow-sm" title="WhatsApp">
+                                <i class="fab fa-whatsapp"></i>
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <td colspan="5" class="text-center py-5 text-muted">
-                        <i class="fas fa-folder-open fa-3x mb-3 d-block"></i>
-                        Data tidak ditemukan untuk filter ini.
+                        <i class="fas fa-calendar-times fa-3x mb-3 d-block opacity-25"></i>
+                        Tidak ada data tagihan untuk periode <b>{{ periode_aktif }}</b>.
                     </td>
                 </tr>
                 {% endfor %}
@@ -155,17 +167,26 @@
 
 {% block extra_js %}
 <script>
-    // 1. Update Ringkasan Angka (Summary) via API
+    // 1. Update Ringkasan Angka (Summary) via API sesuai AB dan PERIODE
     async function loadSummary() {
         const ab = document.getElementById('selectAB').value;
-        const res = await fetch(`/monitoring/summary?ab=${ab}`);
+        const periode = document.getElementById('selectPeriode').value;
+        
+        const res = await fetch(`/monitoring/summary?ab=${ab}&periode=${periode}`);
         const data = await res.json();
         
-        document.getElementById('totalNominal').innerText = 'Rp ' + data.total_nominal.toLocaleString('id-ID');
+        document.getElementById('totalNominal').innerText = new Intl.NumberFormat('id-ID', {
+            style: 'currency', currency: 'IDR', maximumFractionDigits: 0
+        }).format(data.total_nominal);
+        
         document.getElementById('totalPlg').innerText = data.total_pelanggan.toLocaleString('id-ID');
+        document.getElementById('totalLembar').innerText = data.total_lembar.toLocaleString('id-ID') + ' Lembar Tagihan';
+        
+        // Update label periode di kartu
+        document.querySelectorAll('.label-periode').forEach(el => el.innerText = data.periode_text);
     }
 
-    // 2. Update Dropdown Rayon & Kelurahan Dinamis
+    // 2. Dropdown Rayon & Kelurahan Dinamis
     async function updateFilters() {
         const ab = document.getElementById('selectAB').value;
         const res = await fetch(`/monitoring/get-filters?ab=${ab}`);
@@ -174,24 +195,24 @@
         const sRayon = document.getElementById('selectRayon');
         const sKel = document.getElementById('selectKelurahan');
 
-        // Isi Rayon
-        sRayon.innerHTML = '<option value="">-- Semua Rayon --</option>';
-        filters.rayon.forEach(r => {
-            sRayon.innerHTML += `<option value="${r}">${r}</option>`;
-        });
+        // Reset & Isi ulang
+        sRayon.innerHTML = '<option value="">-- Semua --</option>';
+        filters.rayon.forEach(r => sRayon.innerHTML += `<option value="${r}">${r}</option>`);
 
-        // Isi Kelurahan
-        sKel.innerHTML = '<option value="">-- Semua Kelurahan --</option>';
-        filters.kelurahan.forEach(k => {
-            sKel.innerHTML += `<option value="${k}">${k}</option>`;
-        });
+        sKel.innerHTML = '<option value="">-- Semua --</option>';
+        filters.kelurahan.forEach(k => sKel.innerHTML += `<option value="${k}">${k}</option>`);
         
         loadSummary();
     }
 
-    // Jalankan saat halaman pertama kali dibuka
     window.onload = function() {
-        updateFilters();
+        // Jangan jalankan updateFilters jika halaman baru submit (biar pilihan rayon tidak hilang)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.has('rayon')) {
+            updateFilters();
+        } else {
+            loadSummary();
+        }
     };
 </script>
 {% endblock %}
