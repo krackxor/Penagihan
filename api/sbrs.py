@@ -154,9 +154,29 @@ def sbrs_summary():
         "total_trbl": sum(v for k, v in trbl_counts.items())
     }
 
+    # =========================================================================
+    # FITUR BARU: SEBARAN ANOMALI DENGAN METADATA CID LENGKAP
+    # =========================================================================
     kel_counts = {}
-    for d in all_data: kel_counts[d.kelurahan] = kel_counts.get(d.kelurahan, 0) + 1
-    kelurahan_results = sorted(kel_counts.items(), key=lambda x: x[1], reverse=True)
+    for d in all_data:
+        raw = d.raw_data or {}
+        ab_val = str(get_case_insensitive(raw, 'AB') or d.ab or '-').strip()
+        cc = str(get_case_insensitive(raw, 'CC') or '-').strip()
+        pc = str(get_case_insensitive(raw, 'KODE PA/PC') or get_case_insensitive(raw, 'PC') or '-').strip()
+        pcez = str(get_case_insensitive(raw, 'PCEZ') or get_case_insensitive(raw, 'PCEZBK') or d.pcez or '-').strip()
+        kel = str(get_case_insensitive(raw, 'KELURAHAN') or get_case_insensitive(raw, 'KEL') or d.kelurahan or '-').strip()
+        kec = str(get_case_insensitive(raw, 'KECAMATAN') or get_case_insensitive(raw, 'KEC') or '-').strip()
+
+        key = (ab_val, cc, pc, pcez, kel, kec)
+        if key not in kel_counts:
+            kel_counts[key] = {
+                'ab': ab_val, 'cc': cc, 'pc': pc, 'pcez': pcez, 
+                'kelurahan': kel, 'kecamatan': kec, 'total': 0
+            }
+        kel_counts[key]['total'] += 1
+
+    # Urutkan berdasarkan total kasus terbanyak
+    kelurahan_results = sorted(kel_counts.values(), key=lambda x: x['total'], reverse=True)
 
     cycles_list = sorted(list(set(str(get_case_insensitive(d.raw_data, 'cycle') or '') for d in base_q.all() if get_case_insensitive(d.raw_data, 'cycle'))))
 
@@ -174,6 +194,8 @@ def sbrs_analisa():
     skip_code = request.args.get('skip_code')
     trbl_code = request.args.get('trbl_code')
     read_method = request.args.get('read_method')
+    kelurahan_filter = request.args.get('kelurahan') # Filter klik dari tabel wilayah
+    pcez_filter = request.args.get('pcez')           # Filter klik dari tabel wilayah
     
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
@@ -201,6 +223,11 @@ def sbrs_analisa():
         if skip_code and str(get_case_insensitive(raw, 'cmr_skip_code')) != skip_code: continue
         if trbl_code and str(get_case_insensitive(raw, 'cmr_trbl1_code')) != trbl_code: continue
         if read_method and str(get_case_insensitive(raw, 'Read_Method') or get_case_insensitive(raw, 'cmr_read_code')) != read_method: continue
+        
+        # Filter Lokasi Spesifik dari Dashboard
+        if kelurahan_filter and str(get_case_insensitive(raw, 'KELURAHAN') or get_case_insensitive(raw, 'KEL') or d.kelurahan or '').strip().lower() != kelurahan_filter.lower(): continue
+        if pcez_filter and str(get_case_insensitive(raw, 'PCEZ') or get_case_insensitive(raw, 'PCEZBK') or d.pcez or '').strip().lower() != pcez_filter.lower(): continue
+        
         filtered_data.append(d)
 
     # Filter Klik Baru / Lama
@@ -214,31 +241,18 @@ def sbrs_analisa():
     filtered_data.sort(key=lambda x: x.bulan_ini or 0, reverse=True)
     top_data = filtered_data[:1000]
 
-    # =========================================================================
-    # BYPASS DOSA LAMA DATABASE: TIMPA NILAI RATA-RATA DAN VOLUME SECARA LIVE
-    # =========================================================================
     results = []
     for d in top_data:
         raw = d.raw_data or {}
         
-        # 1. Tarik Rata-Rata Asli (Bypass angka 15 dari DB)
         raw_rata = get_case_insensitive(raw, 'Estimation_Value') or get_case_insensitive(raw, 'AVG_CONSUMPTION')
         rata_real = float(raw_rata) if raw_rata else d.rata_rata
-        
-        # 2. Tarik Volume Cetak Tagihan Asli
         vol_tagihan = safe_f(get_case_insensitive(raw, 'SB_Stand')) - safe_f(get_case_insensitive(raw, 'Prev_Read_1'))
         
         results.append({
-            "nomen": d.nomen,
-            "nama": d.nama,
-            "kelurahan": d.kelurahan,
-            "pcez": d.pcez,
-            "bulan_ini": vol_tagihan,  # Pakai volume tagihan
-            "rata_rata": rata_real,    # Pakai rata-rata dari file
-            "kategori_anomali": d.kategori_anomali,
-            "status_audit": d.status_audit,
-            "raw_data": raw,
-            "nama_petugas_anomali": d.nama_petugas_anomali
+            "nomen": d.nomen, "nama": d.nama, "kelurahan": d.kelurahan, "pcez": d.pcez,
+            "bulan_ini": vol_tagihan, "rata_rata": rata_real, "kategori_anomali": d.kategori_anomali,
+            "status_audit": d.status_audit, "raw_data": raw, "nama_petugas_anomali": d.nama_petugas_anomali
         })
     
     cycles_list = sorted(list(set(str(get_case_insensitive(d.raw_data, 'cycle') or '') for d in all_data if get_case_insensitive(d.raw_data, 'cycle'))))
@@ -315,7 +329,6 @@ def export_analisa():
     for r in filtered_data:
         raw = r.raw_data or {}
         
-        # --- MESIN KALKULASI HARI BACA (HB) ---
         hb = 0
         tgl_now = get_case_insensitive(raw, 'Read_date_1') or get_case_insensitive(raw, 'cmr_rd_date')
         tgl_prev = prev_dates.get(r.nomen)
@@ -325,7 +338,6 @@ def export_analisa():
         if pd.notnull(d1) and pd.notnull(d2):
             hb = (d1 - d2).days 
 
-        # --- SUSUN KOLOM EXCEL (KOLOM SINERGI DI DEPAN, TANPA KATEGORI ANOMALI) ---
         row_data = {
             "Nomen Sinergi": r.nomen,
             "Nama Pelanggan": r.nama,
@@ -338,7 +350,6 @@ def export_analisa():
             "Hari Baca (HB)": hb
         }
         
-        # --- TEMPELKAN SEMUA KOLOM ASLI TANPA DIUBAH URUTANNYA ---
         for key, value in raw.items():
             if key not in row_data:
                 row_data[key] = value
