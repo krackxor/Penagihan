@@ -1,91 +1,52 @@
-"""
-Konfigurasi Global - Sunter Dashboard Pro (V3 - Sinergi Edition)
-Perubahan Utama:
-1. Unified Database: Satu jalur database sbrs_sinergi.db.
-2. Stability Engine: Penambahan Connection Pooling untuk menangani data besar.
-3. Expanded File Support: Mendukung format .dbf dan .txt (MC, MB, CID, Ardebt).
-4. Logic Integrasi: Folder khusus untuk Master Analisa.
-"""
-
 import os
 
 class Config:
-    # --- 1. KEAMANAN & IDENTITAS ---
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sunter-pro-sinergi-2026-v3'
+    """
+    Konfigurasi Utama Aplikasi Sinergi V16.6
+    Didesain untuk skalabilitas dan kemudahan deployment (Docker Ready).
+    """
     
-    # --- 2. MANAJEMEN PATH (DATABASE SINERGI) ---
+    # 1. PATH DASAR
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     
-    # Satu jalur database untuk semua modul agar Sinergi (Hapus pemisahan penagihan.db vs database.db)
-    DATABASE_NAME = 'sbrs_sinergi.db'
-    DATABASE = os.path.join(BASE_DIR, 'database', DATABASE_NAME)
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE}'
+    # 2. KEAMANAN
+    # Ganti dengan string acak yang kuat jika dipasang di server publik
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sinergi-pam-jaya-secret-2026'
+    
+    # 3. DATABASE (SQLAlchemy)
+    # Database dipusatkan di folder 'instance' sesuai standar Flask modern
+    INSTANCE_PATH = os.path.join(BASE_DIR, 'instance')
+    SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(INSTANCE_PATH, 'sinergi.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # --- 3. STABILITY ENGINE (PENCEGAH DATABASE LOCKED) ---
-    # Sangat krusial saat proses Mega-Merge atau integrasi MC + CID yang volumenya besar.
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_size": 10,
-        "max_overflow": 20,
-        "pool_timeout": 30,
-        "pool_recycle": 1800,
-    }
+    # 4. PENGATURAN UPLOAD
+    # Folder pusat untuk semua file yang masuk
+    UPLOAD_BASE_PATH = os.path.join(BASE_DIR, 'static', 'uploads')
     
-    # --- 4. INFRASTRUKTUR FILE (SMART FOLDERS) ---
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
-    # Folder khusus Master Analisa (MC, CID, MB, Ardebt, Mainbill)
-    MASTER_ANALISA_FOLDER = os.path.join(UPLOAD_FOLDER, 'master_analisa')
-    TEMP_FOLDER = os.path.join(UPLOAD_FOLDER, 'temp')
-    KUNJUNGAN_FOLDER = os.path.join(UPLOAD_FOLDER, 'kunjungan')
-    LOG_FOLDER = os.path.join(BASE_DIR, 'logs')
+    # Sub-folder khusus agar file tidak berantakan
+    UPLOAD_KUNJUNGAN = os.path.join(UPLOAD_BASE_PATH, 'kunjungan')
+    UPLOAD_DATA_MASTER = os.path.join(UPLOAD_BASE_PATH, 'materi')
     
-    # --- 5. VALIDASI & BATASAN UPLOAD ---
-    MAX_CONTENT_LENGTH = 150 * 1024 * 1024  # Ditingkatkan ke 150MB untuk file DBF besar
-    
-    # Diperbarui agar bisa menerima format file yang Anda kirimkan (dbf dan txt)
-    ALLOWED_EXTENSIONS = {'xls', 'xlsx', 'csv', 'png', 'jpg', 'jpeg', 'dbf', 'txt'}
+    # Batas maksimal ukuran file (16 MB)
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'xlsx', 'xls', 'csv'}
 
-    # --- 6. WA GATEWAY CONFIG ---
-    WA_GATEWAY_URL = os.environ.get('WA_GATEWAY_URL') or ""
-    WA_GATEWAY_KEY = os.environ.get('WA_GATEWAY_KEY') or ""
-
-    # --- 7. SMART AUTOPILOT INITIALIZATION ---
+    # 5. DEFAULT OPERASIONAL
+    DEFAULT_AB = 'AB Sunter'
+    
     @staticmethod
     def init_app(app):
-        """
-        Membangun infrastruktur folder secara otomatis.
-        Menjamin Sinergi: Tidak ada error 'Path Not Found' saat proses integrasi data.
-        """
-        # Pastikan folder database ada
-        db_dir = os.path.dirname(Config.DATABASE)
-        
-        required_folders = [
-            db_dir,
-            Config.UPLOAD_FOLDER,
-            Config.MASTER_ANALISA_FOLDER,
-            Config.TEMP_FOLDER,
-            Config.KUNJUNGAN_FOLDER,
-            Config.LOG_FOLDER
+        """Memastikan semua folder yang dibutuhkan sistem tersedia saat startup."""
+        folders = [
+            Config.INSTANCE_PATH,
+            Config.UPLOAD_BASE_PATH,
+            Config.UPLOAD_KUNJUNGAN,
+            Config.UPLOAD_DATA_MASTER
         ]
-        
-        for folder in required_folders:
+        for folder in folders:
             if not os.path.exists(folder):
-                try:
-                    os.makedirs(folder, exist_ok=True)
-                    # Menambahkan file .gitkeep agar folder kosong tetap terdeteksi Git
-                    with open(os.path.join(folder, '.gitkeep'), 'w') as f:
-                        pass
-                    print(f"✅ Sinergi Sync: Folder Ready -> {folder}")
-                except Exception as e:
-                    print(f"❌ Sinergi Error: Gagal sinkronisasi folder {folder}. Detail: {e}")
+                os.makedirs(folder, exist_ok=True)
+                print(f"[*] Folder Dibuat: {folder}")
 
-        app.config.from_object(Config)
-
-# --- 8. VARIAN KONFIGURASI ---
-class ProductionConfig(Config):
-    DEBUG = False
-    SESSION_COOKIE_SECURE = True
-
-class DevelopmentConfig(Config):
-    DEBUG = True
-    SESSION_COOKIE_SECURE = False
+# Alias untuk mempermudah pemanggilan di app.py
+config = Config()
