@@ -33,7 +33,6 @@
         color: #495057;
         font-weight: 600;
     }
-    /* Style untuk input kalender agar lebih menonjol */
     .input-periode {
         border: 2px solid #0d6efd !important;
         font-weight: bold;
@@ -47,7 +46,7 @@
     <div class="col-md-6 col-lg-4">
         <div class="card stats-card bg-primary text-white h-100 shadow">
             <div class="card-body">
-                <h6 class="text-uppercase small fw-bold opacity-75">Total Piutang Periode <span class="label-periode"></span></h6>
+                <h6 class="text-uppercase small fw-bold opacity-75">Total Piutang Periode <span class="label-periode">{{ periode_aktif }}</span></h6>
                 <h3 class="mb-0 fw-bold" id="totalNominal">Rp 0</h3>
                 <div class="small mt-2 opacity-75" id="totalLembar">0 Lembar Tagihan</div>
             </div>
@@ -58,7 +57,7 @@
             <div class="card-body">
                 <h6 class="text-uppercase small fw-bold opacity-75">Pelanggan Menunggak</h6>
                 <h3 class="mb-0 fw-bold" id="totalPlg">0</h3>
-                <div class="small mt-2 opacity-75">Area: {{ current_ab }}</div>
+                <div class="small mt-2 opacity-75">Area Fokus: {{ current_ab }}</div>
             </div>
         </div>
     </div>
@@ -138,7 +137,7 @@
                     </td>
                     <td class="text-end fw-bold text-danger">
                         Rp {{ "{:,.0f}".format(item.total_nominal) }}
-                        <div class="text-muted small fw-normal">{{ item.jumlah_lembar }} Lembar</div>
+                        <div class="text-muted small fw-normal">{{ item.jumlah_lembar }} Lembar Tagihan</div>
                     </td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center">
@@ -155,7 +154,7 @@
                 <tr>
                     <td colspan="5" class="text-center py-5 text-muted">
                         <i class="fas fa-calendar-times fa-3x mb-3 d-block opacity-25"></i>
-                        Tidak ada data tagihan untuk periode <b>{{ periode_aktif }}</b>.
+                        Tidak ada data tagihan berjalan untuk periode <b>{{ periode_aktif }}</b>.
                     </td>
                 </tr>
                 {% endfor %}
@@ -167,23 +166,26 @@
 
 {% block extra_js %}
 <script>
-    // 1. Update Ringkasan Angka (Summary) via API sesuai AB dan PERIODE
+    // 1. Update Ringkasan Angka (Summary) via API
     async function loadSummary() {
         const ab = document.getElementById('selectAB').value;
         const periode = document.getElementById('selectPeriode').value;
         
-        const res = await fetch(`/monitoring/summary?ab=${ab}&periode=${periode}`);
-        const data = await res.json();
-        
-        document.getElementById('totalNominal').innerText = new Intl.NumberFormat('id-ID', {
-            style: 'currency', currency: 'IDR', maximumFractionDigits: 0
-        }).format(data.total_nominal);
-        
-        document.getElementById('totalPlg').innerText = data.total_pelanggan.toLocaleString('id-ID');
-        document.getElementById('totalLembar').innerText = data.total_lembar.toLocaleString('id-ID') + ' Lembar Tagihan';
-        
-        // Update label periode di kartu
-        document.querySelectorAll('.label-periode').forEach(el => el.innerText = data.periode_text);
+        try {
+            const res = await fetch(`/monitoring/summary?ab=${ab}&periode=${periode}`);
+            const data = await res.json();
+            
+            document.getElementById('totalNominal').innerText = new Intl.NumberFormat('id-ID', {
+                style: 'currency', currency: 'IDR', maximumFractionDigits: 0
+            }).format(data.total_nominal);
+            
+            document.getElementById('totalPlg').innerText = data.total_pelanggan.toLocaleString('id-ID');
+            document.getElementById('totalLembar').innerText = data.total_lembar.toLocaleString('id-ID') + ' Lembar Tagihan';
+            
+            document.querySelectorAll('.label-periode').forEach(el => el.innerText = data.periode_text);
+        } catch (e) {
+            console.error("Gagal memuat ringkasan piutang");
+        }
     }
 
     // 2. Dropdown Rayon & Kelurahan Dinamis
@@ -195,7 +197,6 @@
         const sRayon = document.getElementById('selectRayon');
         const sKel = document.getElementById('selectKelurahan');
 
-        // Reset & Isi ulang
         sRayon.innerHTML = '<option value="">-- Semua --</option>';
         filters.rayon.forEach(r => sRayon.innerHTML += `<option value="${r}">${r}</option>`);
 
@@ -206,7 +207,6 @@
     }
 
     window.onload = function() {
-        // Jangan jalankan updateFilters jika halaman baru submit (biar pilihan rayon tidak hilang)
         const urlParams = new URLSearchParams(window.location.search);
         if (!urlParams.has('rayon')) {
             updateFilters();
