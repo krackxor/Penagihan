@@ -47,20 +47,31 @@
             <div>
                 <label class="extra-small fw-bold text-muted mb-1 d-block">Pilih Periode:</label>
                 <input type="month" name="periode" class="form-control form-control-sm calendar-filter" 
-                       value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" onchange="this.form.submit()">
+                       value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
             </div>
             <div>
                 <label class="extra-small fw-bold text-muted mb-1 d-block">Filter Cycle:</label>
-                <select name="cycle" class="form-select form-select-sm cycle-filter" onchange="this.form.submit()">
+                <select name="cycle" class="form-select form-select-sm cycle-filter" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
                     <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>ALL CYCLE</option>
                     {% for c in cycles %}
                     <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>Cycle {{ c }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <button type="button" onclick="window.print()" class="btn btn-sm btn-dark h-100 px-3">
-                <i class="fas fa-print"></i> Print
-            </button>
+            
+            <div class="d-flex gap-2 h-100">
+                <button type="button" onclick="window.print()" class="btn btn-sm btn-dark px-3" title="Print Halaman">
+                    <i class="fas fa-print"></i>
+                </button>
+                
+                <button type="submit" formaction="/sbrs/export/summary" class="btn btn-sm btn-success px-3 fw-bold" title="Download Excel Ringkasan">
+                    <i class="fas fa-file-excel me-1"></i> Excel
+                </button>
+                
+                <button type="submit" formaction="/sbrs/export/analisa" class="btn btn-sm btn-outline-success px-3 fw-bold" title="Download Data Mentah">
+                    <i class="fas fa-download me-1"></i> Data Detail
+                </button>
+            </div>
         </form>
     </div>
 </div>
