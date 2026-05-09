@@ -4,40 +4,56 @@
 
 {% block extra_css %}
 <style>
-    .gold-row {
-        background-color: #fffdf0 !important;
-    }
+    .gold-row { background-color: #fffdf0 !important; }
     .rank-badge {
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        font-weight: bold;
-        font-size: 0.8rem;
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 50%; font-weight: bold; font-size: 0.85rem;
     }
-    .top-1 { background: #ffd700; color: #000; }
+    .top-1 { background: #ffd700; color: #000; box-shadow: 0 0 10px rgba(255,215,0,0.5); }
     .top-2 { background: #c0c0c0; color: #000; }
     .top-3 { background: #cd7f32; color: #fff; }
     .top-others { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
+    
+    .calendar-box {
+        border: 2px solid #0d6efd !important;
+        font-weight: bold;
+        color: #0d6efd;
+        border-radius: 10px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="fw-bold text-dark"><i class="fas fa-trophy text-warning me-2"></i>Daftar Prioritas Top 500</h2>
-        <p class="text-muted">Daftar pelanggan dengan nominal tunggakan terbesar di {{ current_ab }}</p>
+<div class="row align-items-center mb-4">
+    <div class="col-md-7">
+        <h2 class="fw-bold text-dark mb-1">
+            <i class="fas fa-trophy text-warning me-2"></i>Daftar Prioritas Top 500
+        </h2>
+        <p class="text-muted mb-0">Pelanggan dengan nominal terbesar di <b>{{ current_ab }}</b></p>
     </div>
-    <button onclick="window.print()" class="btn btn-outline-dark d-none d-md-block">
-        <i class="fas fa-print me-2"></i>Cetak Laporan
-    </button>
+    
+    <div class="col-md-5">
+        <form method="GET" action="/monitoring/top-500" class="d-flex gap-2 justify-content-md-end">
+            <input type="hidden" name="ab" value="{{ current_ab }}">
+            <div class="text-end">
+                <label class="extra-small fw-bold text-primary d-block mb-1">Pilih Periode:</label>
+                <input type="month" name="periode" class="form-control calendar-box shadow-sm" 
+                       value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" 
+                       onchange="this.form.submit()">
+            </div>
+            <button type="button" onclick="window.print()" class="btn btn-outline-dark align-self-end shadow-sm">
+                <i class="fas fa-print"></i>
+            </button>
+        </form>
+    </div>
 </div>
 
-<div class="alert alert-info border-0 shadow-sm mb-4" style="border-radius: 15px;">
-    <i class="fas fa-info-circle me-2"></i>
-    <strong>Instruksi:</strong> Fokuskan kunjungan auditor pada daftar ini untuk mempercepat penurunan angka piutang (AR).
+<div class="alert alert-warning border-0 shadow-sm mb-4 d-flex align-items-center" style="border-radius: 15px;">
+    <i class="fas fa-exclamation-triangle fa-2x me-3 opacity-50"></i>
+    <div>
+        <strong>Target Utama:</strong> Fokuskan kunjungan pada Rank 1-10 untuk percepatan penurunan angka piutang periode <b>{{ periode_aktif }}</b>.
+    </div>
 </div>
 
 <div class="table-container shadow-sm p-0 bg-white" style="border-radius: 15px; overflow: hidden;">
@@ -45,11 +61,11 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-dark">
                 <tr>
-                    <th class="text-center" style="width: 70px;">RANK</th>
-                    <th>NOMEN / NAMA</th>
-                    <th>WILAYAH & KELURAHAN</th>
-                    <th>PETUGAS TAGIHAN</th>
-                    <th class="text-end px-4">TOTAL TUNGGAKAN</th>
+                    <th class="text-center" style="width: 80px;">RANK</th>
+                    <th>NOMEN / NAMA PELANGGAN</th>
+                    <th>KELURAHAN</th>
+                    <th>PETUGAS</th>
+                    <th class="text-end px-4">TOTAL TAGIHAN</th>
                 </tr>
             </thead>
             <tbody>
@@ -65,24 +81,34 @@
                         </div>
                     </td>
                     <td>
-                        <div class="fw-bold">{{ item.nomen }}</div>
-                        <div class="small text-uppercase">{{ item.nama }}</div>
+                        <div class="fw-bold text-primary">{{ item.nomen }}</div>
+                        <div class="small text-uppercase fw-bold text-dark">{{ item.nama }}</div>
                     </td>
                     <td>
                         <div class="small fw-bold">{{ item.kelurahan }}</div>
-                        <div class="text-muted small">PCEZ: {{ item.pcez }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">Area: {{ current_ab }}</div>
                     </td>
                     <td>
-                        <i class="fas fa-user-check text-success me-1"></i>
-                        <span class="small fw-semibold">{{ item.nama_petugas_tagihan if item.nama_petugas_tagihan else 'Belum Ada' }}</span>
+                        <div class="fw-bold small">
+                            <i class="fas fa-user-tag me-1 text-success"></i>
+                            {{ item.nama_petugas if item.nama_petugas else 'Belum Diplot' }}
+                        </div>
+                        <div class="text-muted extra-small" style="font-size: 0.65rem;">Periode: {{ item.periode }}</div>
                     </td>
                     <td class="text-end px-4">
-                        <div class="fw-bold text-danger" style="font-size: 1.1rem;">
+                        <div class="fw-bold text-danger" style="font-size: 1.15rem;">
                             Rp {{ "{:,.0f}".format(item.total_nominal) }}
                         </div>
-                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-primary mt-1 py-0" style="font-size: 0.7rem;">
-                            <i class="fas fa-camera me-1"></i>Aksi Lapangan
+                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-primary mt-1 px-3 shadow-sm" style="font-size: 0.75rem; border-radius: 8px;">
+                            <i class="fas fa-camera me-1"></i>Audit Lapangan
                         </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <i class="fas fa-search fa-3x mb-3 d-block text-muted opacity-25"></i>
+                        <p class="text-muted">Data untuk periode <b>{{ periode_aktif }}</b> tidak ditemukan.</p>
                     </td>
                 </tr>
                 {% endfor %}
