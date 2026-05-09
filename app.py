@@ -1,5 +1,5 @@
 """
-Flask Application - Area Service Integrated System (V16.3 Full Anti-Double, Audit Engine, Negative Read, Dynamic Filters)
+Flask Application - Area Service Integrated System (V16.4 Full Anti-Double, Audit Engine, Negative Read, Dynamic Filters)
 Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
@@ -7,8 +7,8 @@ Fixes Log:
 2.  ✅ FIX STORAGE LEAK: Otomatis hapus folder temp pada fitur Konversi & Ekspor Excel (Menggunakan io.BytesIO).
 3.  ✅ FIX DATABASE LOCK: Standarisasi penuh menggunakan SQLAlchemy Connection Pooling untuk modul SBRS.
 4.  ✅ FIX CONFIG CONFLICT: Sinkronisasi Max Upload Size dengan config.py (100MB).
-5.  ✅ V16.3 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Anomali Gap, Negative Read).
-6.  ✅ DYNAMIC FILTERS: Tambahan API get-sbrs-filters untuk filter pills dinamis berbasis database.
+5.  ✅ V16.4 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Anomali Gap, Negative Read).
+6.  ✅ DYNAMIC FILTERS: Tambahan API get-sbrs-filters untuk filter Dropdown dinamis berbasis database.
 """
 
 import os
@@ -206,8 +206,7 @@ def create_app():
         return render_template('login.html')
 
     @app.route('/youtube')
-    def youtube_page():
-        return render_template('youtube.html')
+    def youtube_page(): return render_template('youtube.html')
 
     @app.route('/materi')
     def materi_page():
