@@ -83,19 +83,67 @@ def import_sbrs():
                     "pcez": row.get('PCEZBK') or (str(row.get('PC','') or '') + str(row.get('EZ','') or ''))
                 })
 
-                # 2. LOGIKA SBRS
+                # 2. LOGIKA SBRS (VERSI DETEKTIF FRAUD & CASE INSENSITIVE)
                 all_headers = row.to_dict()
+                
+                # Fungsi kebal huruf besar/kecil untuk mencari nama kolom
+                def get_val(key):
+                    key_l = key.lower()
+                    for k, v in all_headers.items():
+                        if str(k).lower() == key_l: return v
+                    return None
+
                 try:
-                    curr = float(row.get('CURR_READ_1') or row.get('END_READ_STAN') or 0)
-                    prev = float(row.get('PREV_READ_1') or row.get('CMR_PREV_READ') or 0)
-                    rata = float(row.get('AVG_CONSUMPTION') or 15)
-                except: curr, prev, rata = 0, 0, 15
+                    curr = float(get_val('CURR_READ_1') or get_val('END_READ_STAN') or 0)
+                    prev = float(get_val('PREV_READ_1') or get_val('CMR_PREV_READ') or 0)
+                    
+                    # Cari nilai rata-rata asli dari TXT, kalau kosong baru set 15.0
+                    raw_rata = get_val('Estimation_Value') or get_val('AVG_CONSUMPTION')
+                    rata = float(raw_rata) if raw_rata else 15.0
+                except: 
+                    curr, prev, rata = 0, 0, 15.0
 
                 m3 = curr - prev
+                
+                # Ekstraksi Kode Lapangan
+                skip_code = str(get_val('cmr_skip_code') or '').strip().upper()
+                trbl_code = str(get_val('cmr_trbl1_code') or '').strip().upper()
+                metode = str(get_val('Read_Method') or get_val('cmr_read_code') or '').strip().upper()
+
+                # A. TENTUKAN KATEGORI DASAR (Termasuk MINUS)
                 kat = "NORMAL"
-                if m3 == 0: kat = "ZERO"
+                if m3 < 0: kat = "MINUS"
+                elif m3 == 0: kat = "ZERO"
                 elif m3 > (rata * 2): kat = "EKSTREM"
                 elif m3 < (rata * 0.5): kat = "TURUN"
+
+                # B. TENTUKAN INDIKASI SPESIFIK (MESIN DETEKTIF)
+                indikasi = "Aman"
+                
+                # 1. Cek Kenakalan / Tembak Angka Dulu
+                if trbl_code in ['2D', '2E', '2F', '4E']:
+                    indikasi = "FRAUD: METER DICOLOK / BYPASS / SEGEL PUTUS"
+                elif metode in ['30/PE', '40/PE', '35/PS']:
+                    indikasi = "WARNING: TEMBAK ANGKA (ESTIMASI)"
+                elif skip_code in ['5G']:
+                    indikasi = "TOLAK BACA: PELANGGAN TIDAK IZINKAN"
+                
+                # 2. Cek Berdasarkan Volume Jika Tidak Ada Pelanggaran Jelas
+                elif kat == "MINUS":
+                    if m3 < -50: indikasi = "TEKNIS: GANTI METER BELUM MUTASI"
+                    else: indikasi = "HUMAN ERROR: SALAH CATAT MUNDUR"
+                elif kat == "ZERO":
+                    if skip_code == '3A': indikasi = "WAJAR: RUMAH KOSONG"
+                    elif trbl_code == '1B': indikasi = "TEKNIS: METER MATI"
+                    else: indikasi = "MENCURIGAKAN: ZERO TANPA KETERANGAN"
+                elif kat == "EKSTREM":
+                    if m3 > (rata * 5) and m3 > 500: indikasi = "HUMAN ERROR: FATAL SALAH KETIK"
+                    else: indikasi = "INDIKASI BOCOR DALAM / USAHA BARU"
+                elif kat == "TURUN":
+                    indikasi = "INDIKASI METER MELAMBAT / RUSAK"
+
+                # Simpan hasil detektif ke dalam raw_data
+                all_headers['INDIKASI_SINERGI'] = indikasi
 
                 sbrs_entries.append({
                     "nomen": nomen,
