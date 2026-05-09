@@ -1,27 +1,18 @@
 """
-Flask Application - Area Service Integrated System (V16.0 Full Anti-Double & Audit Engine)
+Flask Application - Area Service Integrated System (V16.1 Full Anti-Double, Audit Engine & Stability Patch)
 Updated: 2026-05-09
 ---------------------------------------------------------------------------
 Fixes Log:
 1.  ✅ PUBLIC ACCESS: Middleware fix for youtube/materi.
-2.  ✅ FIX 413: Max upload size 64MB.
-3.  ✅ WA SHARE LINK: Public access allowed.
-4.  ✅ ANALISA PARETO: Modul Top 500 Admin.
-5.  ✅ PREMIUM CUSTOMER: Modul Monitoring Pelanggan > 75m3 (Stabil).
-6.  ✅ PELANGGAN EKSTREM: Modul Investigasi Lonjakan > 100%.
-7.  ✅ PELANGGAN DROP: Modul Investigasi Penurunan > 50%.
-8.  ✅ GIS MAPPING: Peta Sebaran Anomali & Tagging Lokasi.
-9.  ✅ LANDING PAGE: Halaman Publik Cek Tagihan (Secure).
-10. ✅ TOOLS: Repair Mainbill Tool untuk akses publik tanpa login.
-11. ✅ TOOLS: Merger Ardebt Tool untuk penggabungan banyak file TXT.
-12. ✅ TOOLS: Konversi Dokumen (ACTIVE ENGINE) - pdf2docx, Pillow, & LibreOffice.
-13. ✅ TOOLS: OCR Gambar ke Teks Multi-Bahasa.
-14. ✅ SBRS MEGA-MERGE: Modul Upload & Summary LNP dengan Auto-Detect Cycle & Periode.
-15. ✅ API SBRS: Tambahan API Get-Summary (Bulletproof) & Download Excel LNP.
-16. ✅ V16.0 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Split Analisa).
+2.  ✅ FIX STORAGE LEAK: Otomatis hapus folder temp pada fitur Konversi & Ekspor Excel (Menggunakan io.BytesIO).
+3.  ✅ FIX DATABASE LOCK: Standarisasi penuh menggunakan SQLAlchemy Connection Pooling untuk modul SBRS.
+4.  ✅ FIX CONFIG CONFLICT: Sinkronisasi Max Upload Size dengan config.py (100MB).
+5.  ✅ V16.1 ANTI-DOUBLE & INTELLIGENCE AUDIT (Zero Baru/Lama, Ekstrim Hybrid, Split Analisa).
 """
 
 import os
+import io
+import shutil
 import tempfile
 import pandas as pd 
 from datetime import timedelta, datetime
@@ -81,11 +72,13 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)
-    
-    # --- FIX 413 ERROR: Konfigurasi Batas Unggahan (64 Megabyte) ---
-    app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024 
 
-    # --- 1. STARTUP PROTOCOL ---
+    # --- 1. STARTUP PROTOCOL & DATABASE ENGINE ---
+    # Inisialisasi engine SBRS sekali di awal agar Connection Pooling SQLAlchemy bekerja sempurna (Mencegah Database Locked)
+    os.makedirs(os.path.join(app.root_path, 'instance'), exist_ok=True)
+    db_path = os.path.join(app.root_path, 'instance', 'database.db')
+    engine_sbrs = create_engine(f'sqlite:///{db_path}', pool_pre_ping=True)
+
     with app.app_context():
         init_db(app) 
         folders = [
@@ -144,7 +137,7 @@ def create_app():
             'peta_sebaran_page',
             'upload_sbrs_page',    
             'summary_sbrs_page',
-            'analisa_sbrs_page'    # Ditambahkan agar aman
+            'analisa_sbrs_page'    
         ]
         
         user_role = str(session.get('role', 'petugas')).lower()
@@ -253,6 +246,13 @@ def create_app():
 
             temp_dir = tempfile.mkdtemp()
             
+            # --- FIX STORAGE LEAK: Fungsi Helper Pengiriman File ---
+            def send_and_clean(file_path, dl_name, mime=None):
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                shutil.rmtree(temp_dir, ignore_errors=True) # Menghapus sampah konversi seketika
+                return send_file(io.BytesIO(file_data), as_attachment=True, download_name=dl_name, mimetype=mime)
+
             if conv_type == 'pdf_to_word':
                 from pdf2docx import Converter
                 file = files[0]
@@ -262,7 +262,7 @@ def create_app():
                 cv = Converter(pdf_path)
                 cv.convert(output_path) 
                 cv.close()
-                return send_file(output_path, as_attachment=True, download_name="Hasil_PDF_ke_Word.docx")
+                return send_and_clean(output_path, "Hasil_PDF_ke_Word.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 
             elif conv_type == 'img_to_pdf':
                 from PIL import Image
@@ -277,7 +277,7 @@ def create_app():
                 if image_list:
                     output_path = os.path.join(temp_dir, "Hasil_Gabungan.pdf")
                     image_list[0].save(output_path, save_all=True, append_images=image_list[1:])
-                    return send_file(output_path, as_attachment=True, download_name="Hasil_Gambar_ke_PDF.pdf")
+                    return send_and_clean(output_path, "Hasil_Gambar_ke_PDF.pdf", "application/pdf")
 
             elif conv_type == 'word_to_pdf':
                 import subprocess
@@ -289,7 +289,7 @@ def create_app():
                     from docx2pdf import convert
                     convert(docx_path, output_path)
                     if os.path.exists(output_path):
-                        return send_file(output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
+                        return send_and_clean(output_path, "Hasil_Word_ke_PDF.pdf", "application/pdf")
                 except Exception:
                     pass 
                 try:
@@ -297,14 +297,13 @@ def create_app():
                     base_name = os.path.splitext(os.path.basename(docx_path))[0]
                     libre_output_path = os.path.join(temp_dir, f"{base_name}.pdf")
                     if os.path.exists(libre_output_path):
-                        return send_file(libre_output_path, as_attachment=True, download_name="Hasil_Word_ke_PDF.pdf")
+                        return send_and_clean(libre_output_path, "Hasil_Word_ke_PDF.pdf", "application/pdf")
                     else:
+                        shutil.rmtree(temp_dir, ignore_errors=True)
                         return jsonify({"status": "error", "message": "Gagal merender PDF dari file Word tersebut."}), 500
                 except FileNotFoundError:
-                    return jsonify({
-                        "status": "error", 
-                        "message": "Server tidak memiliki MS Word atau LibreOffice."
-                    }), 500
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    return jsonify({"status": "error", "message": "Server tidak memiliki MS Word atau LibreOffice."}), 500
 
             elif conv_type == 'img_to_txt':
                 try:
@@ -318,13 +317,12 @@ def create_app():
                     output_path = os.path.join(temp_dir, "Hasil_Ekstraksi.txt")
                     with open(output_path, "w", encoding="utf-8") as f:
                         f.write(extracted_text)
-                    return send_file(output_path, as_attachment=True, download_name="Hasil_Teks_OCR.txt")
+                    return send_and_clean(output_path, "Hasil_Teks_OCR.txt", "text/plain")
                 except Exception as e:
-                    return jsonify({
-                        "status": "error", 
-                        "message": "Pastikan bahasa yang dipilih sudah terinstal di server."
-                    }), 500
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    return jsonify({"status": "error", "message": "Pastikan bahasa yang dipilih sudah terinstal di server."}), 500
 
+            shutil.rmtree(temp_dir, ignore_errors=True)
             return jsonify({"status": "error", "message": "Tipe konversi tidak didukung."}), 400
 
         except Exception as e:
@@ -332,85 +330,65 @@ def create_app():
 
     # --- RUTE TERPROTEKSI (EXISTING) ---
     @app.route('/performa')
-    def performa_page(): 
-        return render_template('performa.html')
+    def performa_page(): return render_template('performa.html')
 
     @app.route('/monitoring-collection')
-    def monitoring_collection_page(): 
-        return render_template('monitoring_collection.html')
+    def monitoring_collection_page(): return render_template('monitoring_collection.html')
 
     @app.route('/belum-bayar')
-    def belum_bayar_page(): 
-        return render_template('belum_bayar.html')
+    def belum_bayar_page(): return render_template('belum_bayar.html')
 
     @app.route('/tagihan-berekor')
-    def ardebt_page(): 
-        return render_template('tagihan_berekor.html')
+    def ardebt_page(): return render_template('tagihan_berekor.html')
 
     @app.route('/janji-bayar')
-    def janji_bayar_page(): 
-        return render_template('janji_bayar.html')
+    def janji_bayar_page(): return render_template('janji_bayar.html')
 
     @app.route('/galeri')
-    def galeri_page():
-        return render_template('galeri.html')
+    def galeri_page(): return render_template('galeri.html')
 
     @app.route('/history-bayar')
-    def history_bayar_page(): 
-        return render_template('history_bayar.html')
+    def history_bayar_page(): return render_template('history_bayar.html')
 
     @app.route('/history-kunjungan')
-    def history_kunjungan_page(): 
-        return render_template('history_kunjungan.html')
+    def history_kunjungan_page(): return render_template('history_kunjungan.html')
 
     @app.route('/admin/dashboard')
-    def admin_dashboard(): 
-        return render_template('admin_dashboard.html')
+    def admin_dashboard(): return render_template('admin_dashboard.html')
 
     @app.route('/monitoring-lokasi')
-    def monitoring_lokasi_page():
-        return render_template('monitoring_lokasi.html')
+    def monitoring_lokasi_page(): return render_template('monitoring_lokasi.html')
 
     @app.route('/wa-blast')
-    def wa_blast_page():
-        return render_template('wa_blast.html')
+    def wa_blast_page(): return render_template('wa_blast.html')
 
     @app.route('/history')
-    def history_page(): 
-        return render_template('history.html')
+    def history_page(): return render_template('history.html')
 
     @app.route('/analisa-top500')
-    def analisa_top500_page():
-        return render_template('analisa_top500.html')
+    def analisa_top500_page(): return render_template('analisa_top500.html')
 
     @app.route('/premium-customer')
-    def premium_customer_page():
-        return render_template('premium_customer.html')
+    def premium_customer_page(): return render_template('premium_customer.html')
 
     @app.route('/pelanggan-ekstrem')
-    def pelanggan_ekstrem_page():
-        return render_template('pelanggan_ekstrem.html')
+    def pelanggan_ekstrem_page(): return render_template('pelanggan_ekstrem.html')
 
     @app.route('/pelanggan-drop')
-    def pelanggan_drop_page():
-        return render_template('pelanggan_drop.html')
+    def pelanggan_drop_page(): return render_template('pelanggan_drop.html')
 
     @app.route('/peta-sebaran')
-    def peta_sebaran_page():
-        return render_template('peta_sebaran.html')
+    def peta_sebaran_page(): return render_template('peta_sebaran.html')
 
-    # --- MODUL BARU: SBRS MEGA-MERGE LNP (V16.0) ---
+    # --- MODUL BARU: SBRS MEGA-MERGE LNP (V16.1 SQLALCHEMY STANDARDIZED) ---
     @app.route('/upload-sbrs')
-    def upload_sbrs_page():
-        return render_template('upload_sbrs.html')
+    def upload_sbrs_page(): return render_template('upload_sbrs.html')
 
     @app.route('/summary-sbrs')
-    def summary_sbrs_page():
-        return render_template('summary_sbrs.html')
+    def summary_sbrs_page(): return render_template('summary_sbrs.html')
 
     @app.route('/analisa-sbrs')
-    def analisa_sbrs_page():
-        return render_template('analisa_sbrs.html')
+    def analisa_sbrs_page(): return render_template('analisa_sbrs.html')
 
     @app.route('/api/process-sbrs', methods=['POST'])
     def api_process_sbrs():
@@ -475,18 +453,14 @@ def create_app():
                 df_final['Vol_Riil'] = df_final['Vol_Lap'] 
             df_final['Selisih_HB'] = 31 
 
-            # 6. SIMPAN HASIL KE DATABASE SQLITE (HAPUS CYCLE LAMA SEBELUM INSERT)
-            os.makedirs(os.path.join(app.root_path, 'instance'), exist_ok=True)
-            db_path = os.path.join(app.root_path, 'instance', 'database.db')
-            engine = create_engine(f'sqlite:///{db_path}')
-
-            with engine.begin() as conn:
+            # 6. SIMPAN HASIL KE DATABASE SQLITE MENGGUNAKAN GLOBAL ENGINE
+            with engine_sbrs.begin() as conn:
                 try:
                     conn.execute(text(f"DELETE FROM history_lnp WHERE cmr_cycle = '{cycle_input}' AND periode_sbrs = '{periode_otomatis}'"))
                 except Exception:
                     pass 
 
-            df_final.to_sql('history_lnp', con=engine, if_exists='append', index=False)
+            df_final.to_sql('history_lnp', con=engine_sbrs, if_exists='append', index=False)
 
             return jsonify({
                 "status": "success", 
@@ -504,42 +478,33 @@ def create_app():
         sort_by = request.args.get('sort_by', 'ROWID')
         order = request.args.get('order', 'DESC')
         status_filter = request.args.get('filter', 'all')
-        
-        db_path = os.path.join(app.root_path, 'instance', 'database.db')
-        if not os.path.exists(db_path):
-            return jsonify({"status": "error", "message": "Database tidak ditemukan."})
 
         try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            with engine_sbrs.connect() as conn:
+                # Pastikan tabel sudah ada
+                check = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='history_lnp'")).fetchone()
+                if not check:
+                    return jsonify({
+                        "status": "success", "summary": {"total_objek": 0, "total_vol_sb": 0}, 
+                        "stats": {"zero_baru":0,"zero_lama":0,"ekstrim":0,"turun":0,"anomali":0},
+                        "skip": [], "trouble": [], "methods": [], "master": []
+                    })
 
-            # Pastikan tabel sudah ada
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history_lnp'")
-            if not cursor.fetchone():
-                return jsonify({
-                    "status": "success", "summary": {"total_objek": 0, "total_vol_sb": 0}, 
-                    "stats": {"zero_baru":0,"zero_lama":0,"ekstrim":0,"turun":0,"anomali":0},
-                    "skip": [], "trouble": [], "methods": [], "master": []
-                })
-
-            query = "SELECT ROWID as rowid, * FROM history_lnp"
-            params = []
-            if cycle != 'all':
-                query += " WHERE cmr_cycle = ?"
-                params.append(cycle)
-            query += f" ORDER BY {sort_by} {order}"
-            
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
+                query = "SELECT ROWID as rowid, * FROM history_lnp"
+                params = {}
+                if cycle != 'all':
+                    query += " WHERE cmr_cycle = :cycle"
+                    params['cycle'] = cycle
+                query += f" ORDER BY {sort_by} {order}"
+                
+                rows = conn.execute(text(query), params).mappings().all()
 
             master_data = []
             stats = {"zero_baru": 0, "zero_lama": 0, "ekstrim": 0, "anomali": 0, "turun": 0}
             skip_count, trbl_count, meth_count = {}, {}, {}
             total_vol_sb = 0
 
-            for r in rows:
-                d = dict(r)
+            for d in rows:
                 # Tangkap kolom fleksibel
                 col_nomen = d.get('Nomen', d.get('cmr_account', '-'))
                 col_nama = d.get('cmr_nama', d.get('Nama', 'Pelanggan'))
@@ -613,24 +578,20 @@ def create_app():
                 "skip": [{"kode": k, "ket": SKIP_MAP.get(k, "Lain-lain"), "jml": v} for k, v in skip_count.items()],
                 "trouble": [{"kode": k, "ket": TROUBLE_MAP.get(k, "Lain-lain"), "jml": v} for k, v in trbl_count.items()],
                 "methods": [{"kode": k, "ket": METHOD_MAP.get(k, k), "jml": v} for k, v in meth_count.items()],
-                "master": master_data[:1000] # Limit diubah jadi 1000 agar data analisa lebih lengkap
+                "master": master_data[:1000] 
             })
 
         except Exception as e:
             return jsonify({"status": "error", "message": f"Terjadi Kesalahan SQL: {str(e)}"})
-        finally:
-            conn.close()
 
-    # --- API SBRS: EDIT & DOWNLOAD ---
+    # --- API SBRS: EDIT & DOWNLOAD (STABILITY PATCHED) ---
     @app.route('/api/edit-sbrs', methods=['POST'])
     def edit_sbrs():
         try:
             d = request.json
-            conn = sqlite3.connect(os.path.join(app.root_path, 'instance', 'database.db'))
-            conn.execute("UPDATE history_lnp SET Vol_Lap=?, Vol_Bill=?, Vol_SB=?, Vol_Riil=?, Selisih_HB=? WHERE ROWID=?", 
-                         (d['vol_lap'], d['vol_bill'], d['vol_sb'], d['vol_riil'], d.get('hb', 31), d['rowid']))
-            conn.commit()
-            conn.close()
+            with engine_sbrs.begin() as conn:
+                conn.execute(text("UPDATE history_lnp SET Vol_Lap=:lap, Vol_Bill=:bill, Vol_SB=:sb, Vol_Riil=:riil, Selisih_HB=:hb WHERE ROWID=:rowid"),
+                             {"lap": d['vol_lap'], "bill": d['vol_bill'], "sb": d['vol_sb'], "riil": d['vol_riil'], "hb": d.get('hb', 31), "rowid": d['rowid']})
             return jsonify({"status": "success"})
         except Exception as e: 
             return jsonify({"status": "error", "message": str(e)})
@@ -638,25 +599,27 @@ def create_app():
     @app.route('/api/download-sbrs-excel', methods=['GET'])
     def download_sbrs_excel():
         cycle = request.args.get('cycle', 'all')
-        db_path = os.path.join(app.root_path, 'instance', 'database.db')
-        
         try:
-            conn = sqlite3.connect(db_path)
-            query = "SELECT * FROM history_lnp"
-            if cycle != 'all':
-                query += f" WHERE cmr_cycle = '{cycle}'"
+            with engine_sbrs.connect() as conn:
+                query = "SELECT * FROM history_lnp"
+                if cycle != 'all':
+                    query += f" WHERE cmr_cycle = '{cycle}'"
+                    
+                df = pd.read_sql_query(query, conn)
                 
-            df = pd.read_sql_query(query, conn)
-            conn.close()
-            
             if df.empty:
                 return "Data tidak ditemukan untuk diekspor", 404
 
+            # --- FIX STORAGE LEAK: Gunakan Memori BytesIO & Langsung Hapus Temp ---
             temp_dir = tempfile.mkdtemp()
             output_path = os.path.join(temp_dir, f"Laporan_SBRS_Cycle_{cycle}.xlsx")
             df.to_excel(output_path, index=False)
             
-            return send_file(output_path, as_attachment=True, download_name=f"Laporan_SBRS_Cycle_{cycle}.xlsx")
+            with open(output_path, 'rb') as f:
+                file_data = f.read()
+            shutil.rmtree(temp_dir, ignore_errors=True) # Hapus sampah seketika
+            
+            return send_file(io.BytesIO(file_data), as_attachment=True, download_name=f"Laporan_SBRS_Cycle_{cycle}.xlsx", mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             
         except Exception as e:
             return f"Terjadi kesalahan saat membuat Excel: {str(e)}", 500
