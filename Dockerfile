@@ -11,10 +11,11 @@ WORKDIR /app
 
 # 4. Instal dependensi sistem (PENTING untuk OCR dan Pengolahan Gambar)
 # - tesseract-ocr: Mesin pembaca teks dari foto
-# - libgl1: Dibutuhkan untuk library pengolahan gambar
+# - libgl1: Versi terbaru pengganti libgl1-mesa-glx (untuk library OpenCV/Pillow)
+# - libglib2.0-0: Library pendukung pengolahan data
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,7 +28,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 7. Pastikan folder data dan upload sudah ada di dalam kontainer
-# Folder ini nantinya akan dihubungkan ke komputer Bos lewat docker-compose (Volumes)
+# Folder ini nantinya akan dihubungkan ke komputer/server Bos lewat docker-compose (Volumes)
 RUN mkdir -p /app/instance /app/static/uploads/kunjungan /app/static/uploads/materi
 
 # 8. Buka port 5000 (Port standar Flask)
