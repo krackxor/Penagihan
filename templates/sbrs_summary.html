@@ -34,6 +34,8 @@
         display: flex;
         flex-direction: column;
         justify-content: center;
+        text-decoration: none !important; /* Hilangkan garis bawah link */
+        cursor: pointer; /* Ubah kursor jadi tangan agar terlihat bisa diklik */
     }
     .stat-box:hover { 
         background-color: #f8f9fa !important; 
@@ -44,6 +46,16 @@
     .extra-small-label {
         font-size: 0.65rem;
         letter-spacing: 0.5px;
+    }
+    .hover-item {
+        transition: background-color 0.2s;
+        text-decoration: none !important;
+        color: inherit;
+        display: block;
+    }
+    .hover-item:hover {
+        background-color: #f1f3f5 !important;
+        cursor: pointer;
     }
 </style>
 {% endblock %}
@@ -92,42 +104,42 @@
 <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; overflow: hidden;">
     <div class="card-body p-0">
         <div class="row g-0 text-center">
-            <div class="col p-2 border-end stat-box bg-white">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-white text-dark">
                 <h6 class="extra-small-label fw-bold text-muted mb-1 text-uppercase">Total Nomen</h6>
-                <h5 class="fw-bold mb-0 text-dark">{{ totals.total_nomen }}</h5>
-            </div>
-            <div class="col p-2 border-end stat-box bg-success text-white">
+                <h5 class="fw-bold mb-0">{{ totals.total_nomen }}</h5>
+            </a>
+            <div class="col p-2 border-end stat-box bg-success text-white" style="cursor: default;">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Nominal Tagihan</h6>
                 <h5 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ totals.total_nominal }}</h5>
             </div>
-            <div class="col p-2 border-end stat-box bg-secondary text-white">
+            <div class="col p-2 border-end stat-box bg-secondary text-white" style="cursor: default;">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Hari Baca</h6>
                 <h5 class="fw-bold mb-0">{{ totals.total_hb }} <small style="font-size: 0.6rem;">Hari</small></h5>
             </div>
-            <div class="col p-2 border-end stat-box bg-danger text-white">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=baru" class="col p-2 border-end stat-box bg-danger text-white">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Baru</h6>
                 <h5 class="fw-bold mb-0">{{ totals.zero_baru }}</h5>
-            </div>
-            <div class="col p-2 border-end stat-box bg-dark text-white">
+            </a>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=lama" class="col p-2 border-end stat-box bg-dark text-white">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Lama</h6>
                 <h5 class="fw-bold mb-0">{{ totals.zero_lama }}</h5>
-            </div>
-            <div class="col p-2 border-end stat-box bg-primary text-white">
+            </a>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-primary text-white">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Skip</h6>
                 <h5 class="fw-bold mb-0">{{ totals.total_skip }}</h5>
-            </div>
-            <div class="col p-2 border-end stat-box bg-warning text-dark">
+            </a>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-warning text-dark">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Trbl</h6>
                 <h5 class="fw-bold mb-0">{{ totals.total_trbl }}</h5>
-            </div>
-            <div class="col p-2 border-end stat-box bg-danger-subtle text-danger border-danger-subtle">
+            </a>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM" class="col p-2 border-end stat-box bg-danger-subtle text-danger border-danger-subtle">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase">Ekstrem</h6>
                 <h5 class="fw-bold mb-0">{{ totals.ekstrem }}</h5>
-            </div>
-            <div class="col p-2 stat-box bg-info text-white">
+            </a>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN" class="col p-2 stat-box bg-info text-white">
                 <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Turun</h6>
                 <h5 class="fw-bold mb-0">{{ totals.turun }}</h5>
-            </div>
+            </a>
         </div>
     </div>
 </div>
@@ -142,7 +154,7 @@
                 <h6 class="text-primary fw-bold mb-3 small text-uppercase"><i class="fas fa-forward me-2"></i>Kategori Skip</h6>
                 <div class="list-group list-group-flush sekat-item">
                     {% for item in skip_data %}
-                    <div class="list-group-item px-0 py-2 border-bottom">
+                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&skip_code={{ item.code }}" class="list-group-item list-group-item-action hover-item px-2 py-2 border-bottom border-0 rounded">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="pe-2">
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1" style="font-size: 0.7rem;">{{ item.code }}</span>
@@ -150,9 +162,9 @@
                             </div>
                             <span class="badge bg-secondary rounded-pill" style="font-size: 0.7rem;">{{ item.count }}</span>
                         </div>
-                    </div>
+                    </a>
                     {% else %}
-                    <p class="text-muted small mb-0 mt-2">Tidak ada data skip.</p>
+                    <p class="text-muted small mb-0 mt-2 px-2">Tidak ada data skip.</p>
                     {% endfor %}
                 </div>
             </div>
@@ -161,7 +173,7 @@
                 <h6 class="text-warning fw-bold mb-3 small text-uppercase"><i class="fas fa-triangle-exclamation me-2"></i>Kategori Trouble</h6>
                 <div class="list-group list-group-flush sekat-item bg-transparent">
                     {% for item in trbl_data %}
-                    <div class="list-group-item px-0 py-2 border-bottom bg-transparent">
+                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&trbl_code={{ item.code }}" class="list-group-item list-group-item-action hover-item px-2 py-2 border-bottom border-0 bg-transparent rounded">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="pe-2">
                                 <span class="badge bg-warning-subtle text-dark border border-warning me-1" style="font-size: 0.7rem;">{{ item.code }}</span>
@@ -169,9 +181,9 @@
                             </div>
                             <span class="badge bg-dark rounded-pill" style="font-size: 0.7rem;">{{ item.count }}</span>
                         </div>
-                    </div>
+                    </a>
                     {% else %}
-                    <p class="text-muted small mb-0 mt-2">Tidak ada data trouble.</p>
+                    <p class="text-muted small mb-0 mt-2 px-2">Tidak ada data trouble.</p>
                     {% endfor %}
                 </div>
             </div>
@@ -180,7 +192,7 @@
                 <h6 class="text-success fw-bold mb-3 small text-uppercase"><i class="fas fa-fingerprint me-2"></i>Read Method</h6>
                 <div class="sekat-item pe-2">
                     {% for item in read_data %}
-                    <div class="mb-3">
+                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&read_method={{ item.code }}" class="mb-3 hover-item p-2 rounded">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="fw-bold text-dark" style="font-size: 0.75rem;">{{ item.code }} <span class="text-muted fw-normal">- {{ item.desc }}</span></span>
                             <span class="badge bg-success-subtle text-success" style="font-size: 0.7rem;">{{ item.count }}</span>
@@ -188,9 +200,9 @@
                         <div class="progress" style="height: 5px; background-color: #e9ecef;">
                             <div class="progress-bar bg-success" style="width: 100%"></div>
                         </div>
-                    </div>
+                    </a>
                     {% else %}
-                    <p class="text-muted small mb-0 mt-2">Data kosong.</p>
+                    <p class="text-muted small mb-0 mt-2 px-2">Data kosong.</p>
                     {% endfor %}
                 </div>
             </div>
