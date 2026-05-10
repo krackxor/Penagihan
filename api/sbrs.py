@@ -112,7 +112,7 @@ def save_catatan():
             raw = record.raw_data or {}
             raw['catatan_desktop'] = catatan
             record.raw_data = raw
-            flag_modified(record, "raw_data") # Memicu update kolom JSONB di SQLAlchemy
+            flag_modified(record, "raw_data")
             db.session.commit()
             return jsonify({"status": "success", "message": "Catatan berhasil disimpan!"})
         return jsonify({"status": "error", "message": "Data tidak ditemukan."}), 404
@@ -309,7 +309,7 @@ def sbrs_analisa():
     filtered_data.sort(key=lambda x: x.bulan_ini or 0, reverse=True)
     top_data = filtered_data[:1000]
 
-    # Ambil Data Histori Penuh (Raw Data) 2 Bulan Ke Belakang
+    # Ambil Data Histori Penuh (Raw Data) 2 Bulan Ke Belakang dari Database
     nomen_list = [d.nomen for d in top_data]
     hist_1_records = db.session.query(DataSBRS).filter(DataSBRS.periode == prev_periode_1, DataSBRS.nomen.in_(nomen_list)).all()
     hist_1 = {r.nomen: r for r in hist_1_records}
@@ -320,7 +320,14 @@ def sbrs_analisa():
     # Fungsi Ekstraksi 20 Field Sekaligus
     def extract_all_fields(raw_dict):
         if not raw_dict:
-            return {k: "-" for k in ["cmr_prev_read", "cmr_loc_code", "read_method", "prev_read_1", "curr_read_1", "cmr_reading", "cmr_mtr_num", "bill_amount", "tariff", "hari_baca", "cmr_trbl1_code", "payment_amount", "cmr_chg_spcl_msg", "cmr_cycle", "sb_stand", "vol_lapangan", "vol_pusat", "vol_cetak"]}
+            return {
+                "cmr_prev_read": 0, "cmr_loc_code": "-", "read_method": "-", 
+                "prev_read_1": 0, "curr_read_1": 0, "cmr_reading": 0, 
+                "cmr_mtr_num": "-", "bill_amount": "0", "tariff": "-", 
+                "hari_baca": "0", "cmr_trbl1_code": "-", "payment_amount": "0", 
+                "cmr_chg_spcl_msg": "-", "cmr_cycle": "-", "sb_stand": 0, 
+                "vol_lapangan": 0, "vol_pusat": 0, "vol_cetak": 0
+            }
         
         prev1 = safe_f(get_raw_val(raw_dict, ['PREV_READ_1', 'START_READ_STAN', 'cmr_prev_read']))
         curr1 = safe_f(get_raw_val(raw_dict, ['CURR_READ_1', 'END_READ_STAN', 'cmr_reading']))
@@ -329,7 +336,7 @@ def sbrs_analisa():
         sb_st = safe_f(get_raw_val(raw_dict, ['SB_STAND', 'SB_Stand']))
         
         return {
-            "cmr_prev_read": get_raw_val(raw_dict, ['CMR_PREV_READ']),
+            "cmr_prev_read": cmr_prev,
             "cmr_loc_code": get_raw_val(raw_dict, ['CMR_LOC_CODE', 'LOC_CODE']),
             "read_method": get_raw_val(raw_dict, ['READ_METHOD', 'Read_Method', 'cmr_read_code']),
             "prev_read_1": prev1,
@@ -360,7 +367,7 @@ def sbrs_analisa():
         raw_rata = get_case_insensitive(raw_kini, 'Estimation_Value') or get_case_insensitive(raw_kini, 'AVG_CONSUMPTION')
         rata_real = float(raw_rata) if raw_rata else d.rata_rata
         
-        # Eksekusi Ekstraksi 3 Bulan Berturut-turut
+        # Eksekusi Ekstraksi 3 Bulan Berturut-turut untuk SEMUA FIELD (kecuali statis)
         data_kini = extract_all_fields(raw_kini)
         data_lalu_1 = extract_all_fields(raw_lalu_1)
         data_lalu_2 = extract_all_fields(raw_lalu_2)
@@ -376,8 +383,8 @@ def sbrs_analisa():
             # Data Utama untuk Tabel Depan
             "bulan_ini": data_kini['vol_cetak'], 
             "vol_kini": data_kini['vol_cetak'],
-            "vol_lalu_1": data_lalu_1['vol_cetak'] if data_lalu_1['vol_cetak'] != '-' else rata_real,
-            "vol_lalu_2": data_lalu_2['vol_cetak'] if data_lalu_2['vol_cetak'] != '-' else rata_real,
+            "vol_lalu_1": data_lalu_1['vol_cetak'] if data_lalu_1['vol_cetak'] != 0 else rata_real,
+            "vol_lalu_2": data_lalu_2['vol_cetak'] if data_lalu_2['vol_cetak'] != 0 else rata_real,
             "stand_awal": data_kini['prev_read_1'],
             "stand_akhir": data_kini['sb_stand'],
             "catatan": raw_kini.get('catatan_desktop', ''),
@@ -388,13 +395,13 @@ def sbrs_analisa():
             "nama_petugas_anomali": d.nama_petugas_anomali,
             "raw_data": raw_kini,
             
-            # Modal Info yang Menampung Seluruh 3 Bulan
+            # Modal Info yang Menampung Seluruh 3 Bulan Secara Terpisah
             "modal_info": { 
                 "kini": data_kini,
                 "lalu_1": data_lalu_1,
                 "lalu_2": data_lalu_2,
                 
-                # Single Data Request (Kecuali)
+                # Single Data Request (Sesuai Permintaan Bos: 1 Bulan Saja)
                 "cmr_mrid": get_raw_val(raw_kini, ['CMR_MRID', 'MRID']),
                 "rayon": get_raw_val(raw_kini, ['RAYON', 'PCEZ', 'PCEZBK']),
                 
