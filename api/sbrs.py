@@ -8,6 +8,12 @@ from datetime import datetime, timedelta
 
 sbrs_bp = Blueprint('sbrs', __name__)
 
+# --- KAMUS TRANSLATOR BULAN ---
+BULAN_ID = {
+    '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'Mei', '06': 'Jun',
+    '07': 'Jul', '08': 'Ags', '09': 'Sep', '10': 'Okt', '11': 'Nov', '12': 'Des'
+}
+
 def get_current_periode():
     """Mendapatkan periode berjalan dalam format YYYYMM."""
     return datetime.now().strftime('%Y%m')
@@ -22,6 +28,11 @@ def get_prev_month(yyyymm, step=1):
             m = 12
             y -= 1
     return f"{y}{m:02d}"
+
+def format_periode(yyyymm):
+    """Menerjemahkan 202604 menjadi 'Apr 2026'."""
+    if not yyyymm or len(yyyymm) != 6: return yyyymm
+    return f"{BULAN_ID.get(yyyymm[4:], yyyymm[4:])} {yyyymm[:4]}"
 
 def parse_date(date_str):
     """Membaca berbagai format tanggal dengan akurat (lintas TXT)."""
@@ -232,7 +243,7 @@ def sbrs_summary():
 
 @sbrs_bp.route('/analisa')
 def sbrs_analisa():
-    """Detail Verifikasi: Mendukung Filter, Modal CID Ekstensi Penuh, dan Catatan Desktop."""
+    """Detail Verifikasi: Menggabungkan Data 3 Bulan Berturut-turut untuk Semua Field yang Di-request."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
@@ -252,9 +263,13 @@ def sbrs_analisa():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # Eksekusi Mundur 2 Bulan untuk Tren
+    # Eksekusi Mundur 2 Bulan untuk Tren dan Format Bulan
     prev_periode_1 = get_prev_month(periode_filter, 1)
     prev_periode_2 = get_prev_month(periode_filter, 2)
+    
+    label_kini = format_periode(periode_filter)
+    label_lalu_1 = format_periode(prev_periode_1)
+    label_lalu_2 = format_periode(prev_periode_2)
 
     query = db.session.query(
         DataSBRS.nomen, DataSBRS.nama, DataSBRS.kelurahan, DataSBRS.pcez, DataSBRS.bulan_ini,
@@ -294,106 +309,109 @@ def sbrs_analisa():
     filtered_data.sort(key=lambda x: x.bulan_ini or 0, reverse=True)
     top_data = filtered_data[:1000]
 
-    # Ambil Data Histori 2 Bulan Ke Belakang Langsung Dari Database
+    # Ambil Data Histori Penuh (Raw Data) 2 Bulan Ke Belakang
     nomen_list = [d.nomen for d in top_data]
-    hist_1 = {n: vol for n, vol in db.session.query(DataSBRS.nomen, DataSBRS.bulan_ini).filter(DataSBRS.periode == prev_periode_1, DataSBRS.nomen.in_(nomen_list)).all()}
-    hist_2 = {n: vol for n, vol in db.session.query(DataSBRS.nomen, DataSBRS.bulan_ini).filter(DataSBRS.periode == prev_periode_2, DataSBRS.nomen.in_(nomen_list)).all()}
+    hist_1_records = db.session.query(DataSBRS).filter(DataSBRS.periode == prev_periode_1, DataSBRS.nomen.in_(nomen_list)).all()
+    hist_1 = {r.nomen: r for r in hist_1_records}
+    
+    hist_2_records = db.session.query(DataSBRS).filter(DataSBRS.periode == prev_periode_2, DataSBRS.nomen.in_(nomen_list)).all()
+    hist_2 = {r.nomen: r for r in hist_2_records}
+
+    # Fungsi Ekstraksi 20 Field Sekaligus
+    def extract_all_fields(raw_dict):
+        if not raw_dict:
+            return {k: "-" for k in ["cmr_prev_read", "cmr_loc_code", "read_method", "prev_read_1", "curr_read_1", "cmr_reading", "cmr_mtr_num", "bill_amount", "tariff", "hari_baca", "cmr_trbl1_code", "payment_amount", "cmr_chg_spcl_msg", "cmr_cycle", "sb_stand", "vol_lapangan", "vol_pusat", "vol_cetak"]}
+        
+        prev1 = safe_f(get_raw_val(raw_dict, ['PREV_READ_1', 'START_READ_STAN', 'cmr_prev_read']))
+        curr1 = safe_f(get_raw_val(raw_dict, ['CURR_READ_1', 'END_READ_STAN', 'cmr_reading']))
+        cmr_read = safe_f(get_raw_val(raw_dict, ['CMR_READING']))
+        cmr_prev = safe_f(get_raw_val(raw_dict, ['CMR_PREV_READ']))
+        sb_st = safe_f(get_raw_val(raw_dict, ['SB_STAND', 'SB_Stand']))
+        
+        return {
+            "cmr_prev_read": get_raw_val(raw_dict, ['CMR_PREV_READ']),
+            "cmr_loc_code": get_raw_val(raw_dict, ['CMR_LOC_CODE', 'LOC_CODE']),
+            "read_method": get_raw_val(raw_dict, ['READ_METHOD', 'Read_Method', 'cmr_read_code']),
+            "prev_read_1": prev1,
+            "curr_read_1": curr1,
+            "cmr_reading": cmr_read,
+            "cmr_mtr_num": get_raw_val(raw_dict, ['CMR_MTR_NUM', 'METER_SERIAL_1', 'METER_SERIAL']),
+            "bill_amount": get_raw_val(raw_dict, ['BILL_AMOUNT', 'TOTAL_TAGIHAN']),
+            "tariff": get_raw_val(raw_dict, ['TARIFF', 'TARIF', 'cmr_tarif']),
+            "hari_baca": get_raw_val(raw_dict, ['HARI_BACA', 'DAYS']),
+            "cmr_trbl1_code": get_raw_val(raw_dict, ['CMR_TRBL1_CODE', 'TRBL1_CODE']),
+            "payment_amount": get_raw_val(raw_dict, ['PAYMENT_AMOUNT']),
+            "cmr_chg_spcl_msg": get_raw_val(raw_dict, ['CMR_CHG_SPCL_MSG', 'REMARK']),
+            "cmr_cycle": get_raw_val(raw_dict, ['CMR_CYCLE', 'CYCLE', 'BILL_CYCLE']),
+            "sb_stand": sb_st,
+            "vol_lapangan": curr1 - prev1,
+            "vol_pusat": cmr_read - cmr_prev,
+            "vol_cetak": sb_st - prev1
+        }
 
     results = []
     for d in top_data:
-        raw = d.raw_data or {}
+        raw_kini = d.raw_data or {}
+        r1 = hist_1.get(d.nomen)
+        raw_lalu_1 = r1.raw_data if r1 else {}
+        r2 = hist_2.get(d.nomen)
+        raw_lalu_2 = r2.raw_data if r2 else {}
         
-        raw_rata = get_case_insensitive(raw, 'Estimation_Value') or get_case_insensitive(raw, 'AVG_CONSUMPTION')
+        raw_rata = get_case_insensitive(raw_kini, 'Estimation_Value') or get_case_insensitive(raw_kini, 'AVG_CONSUMPTION')
         rata_real = float(raw_rata) if raw_rata else d.rata_rata
         
-        # Ekstraksi Semua Field Sesuai Request Terbaru Bos
-        cmr_mrid = get_raw_val(raw, ['CMR_MRID', 'MRID'])
-        cmr_prev_read = safe_f(get_raw_val(raw, ['CMR_PREV_READ']))
-        cmr_reading = safe_f(get_raw_val(raw, ['CMR_READING']))
-        cmr_loc_code = get_raw_val(raw, ['CMR_LOC_CODE', 'LOC_CODE'])
-        read_method = get_raw_val(raw, ['READ_METHOD', 'Read_Method', 'cmr_read_code'])
-        prev_read_1 = safe_f(get_raw_val(raw, ['PREV_READ_1', 'START_READ_STAN']))
-        curr_read_1 = safe_f(get_raw_val(raw, ['CURR_READ_1', 'END_READ_STAN']))
-        cmr_mtr_num = get_raw_val(raw, ['CMR_MTR_NUM', 'METER_SERIAL_1', 'METER_SERIAL'])
-        bill_amount = get_raw_val(raw, ['BILL_AMOUNT', 'TOTAL_TAGIHAN'])
-        payment_amount = get_raw_val(raw, ['PAYMENT_AMOUNT'])
-        cmr_chg_spcl_msg = get_raw_val(raw, ['CMR_CHG_SPCL_MSG', 'REMARK'])
-        cmr_cycle = get_raw_val(raw, ['CMR_CYCLE', 'CYCLE', 'BILL_CYCLE'])
-        sb_stand = safe_f(get_raw_val(raw, ['SB_STAND', 'SB_Stand']))
-        cmr_trbl1_code = get_raw_val(raw, ['CMR_TRBL1_CODE', 'TRBL1_CODE'])
-        hari_baca = get_raw_val(raw, ['HARI_BACA', 'DAYS'])
-        tarif = get_raw_val(raw, ['TARIFF', 'TARIF', 'cmr_tarif'])
-        rayon = get_raw_val(raw, ['RAYON', 'PCEZ', 'PCEZBK'])
-
-        # Rumus 4 Volume Pembanding Utama
-        vol_lapangan = curr_read_1 - prev_read_1
-        vol_pusat = cmr_reading - cmr_prev_read
-        vol_cetak = sb_stand - prev_read_1
-        vol_periode_lalu = hist_1.get(d.nomen, 0)
-        vol_periode_lalu_2 = hist_2.get(d.nomen, 0) # Tarik Memori 2 Bulan Lalu
-        
-        # Ekstraksi Kontak Dasar
-        alamat = get_raw_val(raw, ['cmr_address', 'ALAMAT'])
-        wa = get_raw_val(raw, ['WA_NUMBER', 'MOBILE', 'cmr_phone', 'NO_HP']) 
-        telp = get_raw_val(raw, ['PHONE', 'TELEPON'])
-        email = get_raw_val(raw, ['EMAIL', 'SUREL'])
-        
-        catatan = raw.get('catatan_desktop', '')
+        # Eksekusi Ekstraksi 3 Bulan Berturut-turut
+        data_kini = extract_all_fields(raw_kini)
+        data_lalu_1 = extract_all_fields(raw_lalu_1)
+        data_lalu_2 = extract_all_fields(raw_lalu_2)
 
         results.append({
             "nomen": d.nomen,
             "nama": d.nama,
             "kelurahan": d.kelurahan,
             "pcez": d.pcez,
-            "bulan_ini": vol_cetak, # Tampilan di UI default
-            "vol_kini": vol_cetak,
-            "vol_lalu_1": vol_periode_lalu,
-            "vol_lalu_2": vol_periode_lalu_2,
-            "stand_awal": prev_read_1,
-            "stand_akhir": sb_stand,
-            "catatan": catatan,
-            "rata_rata": rata_real,
-            "cmr_mrid": cmr_mrid,
-            "cmr_trbl1_code": cmr_trbl1_code,
-            "read_method": read_method,
             "kategori_anomali": d.kategori_anomali,
             "status_audit": d.status_audit,
+            
+            # Data Utama untuk Tabel Depan
+            "bulan_ini": data_kini['vol_cetak'], 
+            "vol_kini": data_kini['vol_cetak'],
+            "vol_lalu_1": data_lalu_1['vol_cetak'] if data_lalu_1['vol_cetak'] != '-' else rata_real,
+            "vol_lalu_2": data_lalu_2['vol_cetak'] if data_lalu_2['vol_cetak'] != '-' else rata_real,
+            "stand_awal": data_kini['prev_read_1'],
+            "stand_akhir": data_kini['sb_stand'],
+            "catatan": raw_kini.get('catatan_desktop', ''),
+            "rata_rata": rata_real,
+            "cmr_mrid": get_raw_val(raw_kini, ['CMR_MRID', 'MRID']),
+            "cmr_trbl1_code": data_kini['cmr_trbl1_code'],
+            "read_method": data_kini['read_method'],
             "nama_petugas_anomali": d.nama_petugas_anomali,
-            "raw_data": raw,
-            "modal_info": { # Object ini berisi semua 20+ field lengkap untuk Pop-up Modal
-                "alamat": alamat,
-                "wa": wa,
-                "telp": telp,
-                "email": email,
-                "cmr_mrid": cmr_mrid,
-                "cmr_prev_read": cmr_prev_read,
-                "cmr_loc_code": cmr_loc_code,
-                "read_method": read_method,
-                "prev_read_1": prev_read_1,
-                "curr_read_1": curr_read_1,
-                "cmr_reading": cmr_reading,
-                "cmr_mtr_num": cmr_mtr_num,
-                "bill_amount": bill_amount,
-                "payment_amount": payment_amount,
-                "cmr_chg_spcl_msg": cmr_chg_spcl_msg,
-                "cmr_cycle": cmr_cycle,
-                "sb_stand": sb_stand,
-                "cmr_trbl1_code": cmr_trbl1_code,
-                "hari_baca": hari_baca,
-                "tarif": tarif,
-                "rayon": rayon,
-                "vol_lapangan": vol_lapangan,
-                "vol_pusat": vol_pusat,
-                "vol_cetak": vol_cetak,
-                "vol_periode_lalu": vol_periode_lalu,
-                "indikasi": raw.get('INDIKASI_SINERGI', 'Aman')
+            "raw_data": raw_kini,
+            
+            # Modal Info yang Menampung Seluruh 3 Bulan
+            "modal_info": { 
+                "kini": data_kini,
+                "lalu_1": data_lalu_1,
+                "lalu_2": data_lalu_2,
+                
+                # Single Data Request (Kecuali)
+                "cmr_mrid": get_raw_val(raw_kini, ['CMR_MRID', 'MRID']),
+                "rayon": get_raw_val(raw_kini, ['RAYON', 'PCEZ', 'PCEZBK']),
+                
+                "alamat": get_raw_val(raw_kini, ['cmr_address', 'ALAMAT']),
+                "wa": get_raw_val(raw_kini, ['WA_NUMBER', 'MOBILE', 'cmr_phone', 'NO_HP']),
+                "telp": get_raw_val(raw_kini, ['PHONE', 'TELEPON']),
+                "email": get_raw_val(raw_kini, ['EMAIL', 'SUREL']),
+                "indikasi": raw_kini.get('INDIKASI_SINERGI', 'Aman')
             }
         })
     
     cycles_list = sorted(list(set(str(get_case_insensitive(d.raw_data, 'cycle') or '') for d in all_data if get_case_insensitive(d.raw_data, 'cycle'))))
     
     return render_template('sbrs_analisa.html', data=results, current_ab=ab, current_cycle=cycle, 
-                           current_kat=kat, cycles=cycles_list, periode_aktif=periode_filter)
+                           current_kat=kat, cycles=cycles_list, 
+                           periode_aktif=periode_filter, label_kini=label_kini, 
+                           label_lalu_1=label_lalu_1, label_lalu_2=label_lalu_2)
 
 @sbrs_bp.route('/api-stats')
 def get_sbrs_api_stats():
