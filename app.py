@@ -12,7 +12,7 @@ from api.top_500 import top_500_bp # Blueprint Top 500
 
 def sync_database_schema(app):
     """
-    Fungsi Sinergi Self-Healing V5.17: Sinkronisasi Multi-Tabel Ekstrem.
+    Fungsi Sinergi Self-Healing V5.18: Sinkronisasi Multi-Tabel Ekstrem (Anti-Crash).
     Menjamin tabel CID, SBRS, MC, MB, Arrdebt, dan MainBill 
     memiliki struktur dan gembok unik yang siap menelan format JSONB.
     """
@@ -28,7 +28,10 @@ def sync_database_schema(app):
                 # Tambahkan JSONB untuk menampung 50 Header Master CID
                 if 'raw_data' not in mp_cols:
                     print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' (JSONB) ke master_pelanggan...")
-                    conn.execute(text("ALTER TABLE master_pelanggan ADD COLUMN raw_data JSONB"))
+                    try:
+                        conn.execute(text("ALTER TABLE master_pelanggan ADD COLUMN raw_data JSONB"))
+                    except Exception as e:
+                        print(f"!!! Gagal menambah raw_data master_pelanggan: {e}")
 
                 mp_required = [
                     ('rayon', 'VARCHAR(50)'), ('kelurahan', 'VARCHAR(100)'),
@@ -38,7 +41,9 @@ def sync_database_schema(app):
                 ]
                 for col, dtype in mp_required:
                     if col not in mp_cols:
-                        conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
+                        try:
+                            conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
+                        except Exception: pass
 
             # --- 2. HEALING: data_sbrs (Tabel Transaksi Lapangan) ---
             if 'data_sbrs' in tables:
@@ -59,7 +64,9 @@ def sync_database_schema(app):
                 ]
                 for col, dtype in sbrs_required:
                     if col not in sbrs_cols:
-                        conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col} {dtype}"))
+                        try:
+                            conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col} {dtype}"))
+                        except Exception: pass
                 
                 if 'uix_sbrs_nomen_periode' not in sbrs_constraints:
                     try: conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
@@ -73,7 +80,9 @@ def sync_database_schema(app):
                 # Tambahkan JSONB untuk menampung semua header MC
                 if 'raw_data' not in tagihan_cols:
                     print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' (JSONB) ke transaksi_tagihan...")
-                    conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN raw_data JSONB"))
+                    try:
+                        conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN raw_data JSONB"))
+                    except Exception: pass
                 
                 if 'uix_tagihan_nomen_periode' not in tagihan_constraints:
                     try:
@@ -87,51 +96,57 @@ def sync_database_schema(app):
             # --- 4. CREATE: data_mb (Tabel Master Bayar / Daily) ---
             if 'data_mb' not in tables:
                 print(">>> [SINERGI-FIX] Menciptakan Tabel data_mb (Master Bayar)...")
-                conn.execute(text("""
-                    CREATE TABLE data_mb (
-                        id SERIAL PRIMARY KEY,
-                        nomen VARCHAR(50),
-                        periode VARCHAR(10),
-                        tgl_bayar VARCHAR(50),
-                        nominal FLOAT,
-                        denda FLOAT,
-                        lks_bayar VARCHAR(100),
-                        raw_data JSONB,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        CONSTRAINT uix_mb_nomen_periode UNIQUE (nomen, periode)
-                    )
-                """))
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE data_mb (
+                            id SERIAL PRIMARY KEY,
+                            nomen VARCHAR(50),
+                            periode VARCHAR(10),
+                            tgl_bayar VARCHAR(50),
+                            nominal FLOAT,
+                            denda FLOAT,
+                            lks_bayar VARCHAR(100),
+                            raw_data JSONB,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uix_mb_nomen_periode UNIQUE (nomen, periode)
+                        )
+                    """))
+                except Exception: pass
 
             # --- 5. CREATE: data_arrdebt (Tabel Tunggakan) ---
             if 'data_arrdebt' not in tables:
                 print(">>> [SINERGI-FIX] Menciptakan Tabel data_arrdebt (Tunggakan)...")
-                conn.execute(text("""
-                    CREATE TABLE data_arrdebt (
-                        id SERIAL PRIMARY KEY,
-                        nomen VARCHAR(50),
-                        periode VARCHAR(10),
-                        nominal FLOAT,
-                        raw_data JSONB,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        CONSTRAINT uix_arrdebt_nomen_periode UNIQUE (nomen, periode)
-                    )
-                """))
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE data_arrdebt (
+                            id SERIAL PRIMARY KEY,
+                            nomen VARCHAR(50),
+                            periode VARCHAR(10),
+                            nominal FLOAT,
+                            raw_data JSONB,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uix_arrdebt_nomen_periode UNIQUE (nomen, periode)
+                        )
+                    """))
+                except Exception: pass
 
             # --- 6. CREATE: data_mainbill (Tabel Data Fix SBRS) ---
             if 'data_mainbill' not in tables:
                 print(">>> [SINERGI-FIX] Menciptakan Tabel data_mainbill (Data Fix)...")
-                conn.execute(text("""
-                    CREATE TABLE data_mainbill (
-                        id SERIAL PRIMARY KEY,
-                        nomen VARCHAR(50),
-                        periode VARCHAR(10),
-                        total_tagihan FLOAT,
-                        konsumsi FLOAT,
-                        raw_data JSONB,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        CONSTRAINT uix_mainbill_nomen_periode UNIQUE (nomen, periode)
-                    )
-                """))
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE data_mainbill (
+                            id SERIAL PRIMARY KEY,
+                            nomen VARCHAR(50),
+                            periode VARCHAR(10),
+                            total_tagihan FLOAT,
+                            konsumsi FLOAT,
+                            raw_data JSONB,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uix_mainbill_nomen_periode UNIQUE (nomen, periode)
+                        )
+                    """))
+                except Exception: pass
             
             conn.commit()
 
