@@ -13,9 +13,8 @@ def get_current_periode():
 @top_500_bp.route('/')
 def index():
     """
-    Rute Utama Top 500 Tunggakan.
-    Menggunakan teknik Explicit Join agar bisa menarik nama wilayah (ab) dari MasterPelanggan,
-    dan nilai nominal tagihan dari TransaksiTagihan (File MC).
+    Rute Utama Top 500 Tunggakan (Terintegrasi dengan Sinergi V18).
+    Menggunakan Explicit Join murni, tanpa menarik raw_data (JSONB) agar loading super cepat.
     """
     # 1. Ambil Parameter Filter dari URL
     ab_filter = request.args.get('ab', 'AB Sunter')
@@ -42,8 +41,7 @@ def index():
     if ab_filter != 'all':
         query = query.filter(MasterPelanggan.ab == ab_filter)
 
-    # 5. Group By & Order By
-    # Group By wajib mencakup semua kolom yang bukan agregat (sum/count) agar tidak error di PostgreSQL
+    # 5. Group By & Order By (Wajib di PostgreSQL untuk fungsi agregat SUM)
     results = query.group_by(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -65,7 +63,7 @@ def index():
 def api_stats():
     """
     Rute tambahan (API JSON) untuk widget summary Top 500.
-    Menghitung total tunggakan dan total pelanggan di bulan tersebut.
+    Menghitung total uang tunggakan dan jumlah pelanggan yang belum lunas.
     """
     ab_filter = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
