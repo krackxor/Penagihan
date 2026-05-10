@@ -2,51 +2,53 @@ import pandas as pd
 import numpy as np  
 import os
 import gc
+import json
+import re
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import text
 from models import db, MasterPelanggan, TransaksiTagihan, DataSBRS
 
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================
-# FUNGSI HELPER UMUM
+# FUNGSI HELPER UMUM (SANGAT KRUSIAL)
 # ==========================================
 def clean_nomen(val):
+    """Pembersih Nomen Sakti: Buang huruf 'K', buang spasi, ambil tepat 8 digit angka"""
     if not val or pd.isna(val): return None
-    s = str(val).strip().split('.')[0]
+    s = str(val).strip().upper().split('.')[0]
+    s = s.replace('K', '')
+    s = re.sub(r'[^0-9]', '', s) # Bersihkan karakter aneh
+    if not s: return None
     return s[-8:].zfill(8)
 
 def extract_periode(val):
+    """Pintar membaca format: 012026 (Bulan/Tahun) -> 202601 (Format Database)"""
     try:
         val = str(val).strip()
         if len(val) == 6 and val[2:].startswith('20'):
             return val[2:] + val[:2]
         return val[:6]
-    except:
-        return "202605"
+    except: return "202605"
 
 def parse_float(val):
-    """Konversi string ber-koma (1.660,00) menjadi float murni (1660.00) dari file MC"""
+    """Pintar mengubah 1.660,00 (Koma Indonesia) menjadi 1660.00 (Standar Database)"""
     try:
         if pd.isna(val) or val is None: return 0.0
         v_str = str(val).strip().replace('.', '').replace(',', '.')
         return float(v_str)
-    except:
-        return 0.0
+    except: return 0.0
 
 def process_mega_file(file, logic_func, chunk_size=20000):
-    """Mesin Turbo Chunking: Hemat RAM untuk file raksasa."""
+    """Mesin Turbo Chunking: Membaca jutaan baris tanpa bikin RAM Server jebol"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
-    
-    if not os.path.exists('instance'):
-        os.makedirs('instance')
-        
+    if not os.path.exists('instance'): os.makedirs('instance')
     file.save(temp_path)
 
     try:
-        # quotechar='"' penting untuk MC karena datanya diapit kutip ganda ("REG";"34")
         reader = pd.read_csv(
             temp_path, sep=';', dtype=str, chunksize=chunk_size, 
             low_memory=False, memory_map=True, quotechar='"'
@@ -57,47 +59,44 @@ def process_mega_file(file, logic_func, chunk_size=20000):
             chunk = chunk.replace({np.nan: None})
             
             added_count = logic_func(chunk)
-            if added_count:
-                total += added_count
-                
+            if added_count: total += added_count
+            
             db.session.commit()
             db.session.expunge_all() 
-            gc.collect() # Bersihkan sisa RAM Pandas
-            
+            gc.collect() 
         return total
     finally:
         if os.path.exists(temp_path): os.remove(temp_path)
 
 # ==========================================
-# RUTE UTAMA (AUTO-DETECT SBRS / MC)
+# RUTE UTAMA (RADAR DETEKSI 6 JENIS FILE)
 # ==========================================
 @importer_bp.route('/tagihan', methods=['POST'])
 def import_tagihan():
-    """Rute Utama: Menerima upload, deteksi SBRS vs MC, lempar ke fungsi yang benar."""
     file_cust = request.files.get('file_customer')
     file_spot = request.files.get('file_spotbill')
-    file_mc = request.files.get('file_mc') or request.files.get('file')
+    file_mc = request.files.get('file_mc')
+    file_daily = request.files.get('file_daily')
+    file_cid = request.files.get('file_cid')
+    file_arrdebt = request.files.get('file_arrdebt')
+    file_mainbill = request.files.get('file_mainbill') or request.files.get('file')
 
     try:
-        if file_cust and file_spot:
-            # 1. JIKA UPLOAD SBRS (Customer + Spotbill) -> Ke tabel DataSBRS
-            return handle_sbrs_upload(file_cust, file_spot)
-            
-        elif file_mc:
-            # 2. JIKA UPLOAD MC / BILLING (1 File) -> Ke tabel TransaksiTagihan (TOP 500)
-            return handle_mc_upload(file_mc)
-            
-        else:
-            return jsonify({"status": "error", "message": "File tidak lengkap! Masukkan 2 file untuk SBRS atau 1 file untuk MC."}), 400
-
+        if file_cust and file_spot: return handle_sbrs_upload(file_cust, file_spot) # 1. SBRS
+        elif file_mc: return handle_mc_upload(file_mc) # 2. Master Cetak (Top 500)
+        elif file_daily: return handle_daily_collection(file_daily) # 3. Master Bayar
+        elif file_cid: return handle_cid_upload(file_cid) # 4. Master CID Pelanggan
+        elif file_arrdebt: return handle_arrdebt_upload(file_arrdebt) # 5. Tunggakan
+        elif file_mainbill: return handle_mainbill_upload(file_mainbill) # 6. Data Fix
+        else: return jsonify({"status": "error", "message": "Format file tidak dikenali!"}), 400
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": f"Terjadi Kesalahan Sistem: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# ==========================================
-# 1. LOGIKA KHUSUS SBRS (2 FILE)
-# ==========================================
+# =========================================================================
+# 1. LOGIKA SBRS (ANALISA LAPANGAN - SPOTBILL & CUSTOMER)
+# =========================================================================
 def handle_sbrs_upload(file_cust, file_spot):
     cust_filename = secure_filename(file_cust.filename)
     cust_temp_path = os.path.join('instance', cust_filename)
@@ -110,7 +109,6 @@ def handle_sbrs_upload(file_cust, file_spot):
         c_chunk = c_chunk.replace({np.nan: None})
         col_key_c = 'CMR_ACCOUNT' if 'CMR_ACCOUNT' in c_chunk.columns else 'NOMEN'
         if col_key_c not in c_chunk.columns: continue
-        
         for _, row in c_chunk.iterrows():
             nk = clean_nomen(row.get(col_key_c))
             if nk: lookup_cust[nk] = row.to_dict()
@@ -149,11 +147,9 @@ def handle_sbrs_upload(file_cust, file_spot):
                 prev = float(get_val('PREV_READ_1') or get_val('CMR_PREV_READ') or 0)
                 raw_rata = get_val('Estimation_Value') or get_val('AVG_CONSUMPTION')
                 rata = float(raw_rata) if raw_rata else 15.0
-            except: 
-                curr, prev, rata = 0, 0, 15.0
+            except: curr, prev, rata = 0, 0, 15.0
 
             m3 = curr - prev
-            
             skip_code = str(get_val('cmr_skip_code') or '').strip().upper()
             trbl_code = str(get_val('cmr_trbl1_code') or '').strip().upper()
             metode = str(get_val('Read_Method') or get_val('cmr_read_code') or '').strip().upper()
@@ -165,21 +161,9 @@ def handle_sbrs_upload(file_cust, file_spot):
             elif m3 < (rata * 0.5): kat = "TURUN"
 
             indikasi = "Aman"
-            if trbl_code in ['2D', '2E', '2F', '4E']: indikasi = "FRAUD: METER DICOLOK / BYPASS / SEGEL PUTUS"
-            elif metode in ['30/PE', '40/PE', '35/PS']: indikasi = "WARNING: TEMBAK ANGKA (ESTIMASI)"
-            elif skip_code in ['5G']: indikasi = "TOLAK BACA: PELANGGAN TIDAK IZINKAN"
-            elif kat == "MINUS":
-                if m3 < -50: indikasi = "TEKNIS: GANTI METER BELUM MUTASI"
-                else: indikasi = "HUMAN ERROR: SALAH CATAT MUNDUR"
-            elif kat == "ZERO":
-                if skip_code == '3A': indikasi = "WAJAR: RUMAH KOSONG"
-                elif trbl_code == '1B': indikasi = "TEKNIS: METER MATI"
-                else: indikasi = "MENCURIGAKAN: ZERO TANPA KETERANGAN"
-            elif kat == "EKSTREM":
-                if m3 > (rata * 5) and m3 > 500: indikasi = "HUMAN ERROR: FATAL SALAH KETIK"
-                else: indikasi = "INDIKASI BOCOR DALAM / USAHA BARU"
-            elif kat == "TURUN":
-                indikasi = "INDIKASI METER MELAMBAT / RUSAK"
+            if trbl_code in ['2D', '2E', '2F', '4E']: indikasi = "FRAUD"
+            elif metode in ['30/PE', '40/PE', '35/PS']: indikasi = "WARNING"
+            elif skip_code in ['5G']: indikasi = "TOLAK BACA"
 
             merged_row['INDIKASI_SINERGI'] = indikasi
 
@@ -204,18 +188,17 @@ def handle_sbrs_upload(file_cust, file_spot):
             )
             db.session.execute(upsert_sbrs)
             return len(sbrs_entries)
-            
         return 0
 
     total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=20000)
     lookup_cust.clear()
     gc.collect()
-    return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} data masuk."})
+    return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
 
 
-# ==========================================
-# 2. LOGIKA KHUSUS MC / BILLING (TOP 500)
-# ==========================================
+# =========================================================================
+# 2. LOGIKA MC (MASTER CETAK) -> SUMBER UTAMA TOP 500
+# =========================================================================
 def handle_mc_upload(file_mc):
     def mc_logic(df_chunk):
         master_provision = []
@@ -225,36 +208,30 @@ def handle_mc_upload(file_mc):
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
-            # PENGAMBILAN DATA MC UNTUK MASTER
             nama_pel = str(row.get('NAMA_PEL', 'Pelanggan')).strip()
-            ab_pel = str(row.get('AB', 'AB Sunter')).strip()
-            pc_ez = str(row.get('PCEZ', '')).strip()
-            kelurahan = str(row.get('KELURAHAN', '')).strip()
+            kelurahan = str(row.get('KELURAHAN') or row.get('ALM3_PEL') or '').strip()
+            pcez_raw = str(row.get('PCEZ') or row.get('ZONA_NOVAK') or '').strip()
+            pcez = pcez_raw[-5:] if len(pcez_raw) > 5 else pcez_raw
+            cc_raw = str(row.get('CC') or (pcez_raw[:2] if len(pcez_raw) >= 2 else '')).strip()
+            ab_pel = 'AB Sunter' if cc_raw in ['34', '35'] else str(row.get('AB', 'AB Sunter')).strip()
             alamat = str(row.get('ALM1_PEL', '')).strip()
-            rayon = str(row.get('RAYON', '')).strip()
+            rayon = str(row.get('RAYON') or pcez[:2] or '').strip()
             
-            # Penggabungan TAHUN dan MASA jadi YYYYMM (ex: 2026 + 03 -> 202603)
             tahun = str(row.get('TAHUN1', ''))
             masa = str(row.get('MASA', '')).zfill(2)
-            periode = f"{tahun}{masa}" if len(tahun)==4 and len(masa)==2 else "202604"
-            
-            # AMBIL NOMINAL UNTUK TOP 500
-            nominal = parse_float(row.get('NOMINAL') or row.get('REK_AIR') or 0)
+            periode = f"{tahun}{masa}" if len(tahun)==4 else "202604"
+            nominal = parse_float(row.get('NOMINAL') or row.get('REK_AIR'))
             
             master_provision.append({
-                "nomen": nomen, "nama": nama_pel, "ab": ab_pel, "pcez": pc_ez,
+                "nomen": nomen, "nama": nama_pel, "ab": ab_pel, "pcez": pcez,
                 "kelurahan": kelurahan, "alamat": alamat, "rayon": rayon
             })
             
-            # SIMPAN KE RUMAH YANG BENAR: TransaksiTagihan
             mc_entries.append({
-                "nomen": nomen,
-                "periode": periode,
-                "nominal": nominal,
-                "status_lunas": 0
+                "nomen": nomen, "periode": periode, "nominal": nominal, 
+                "status_lunas": 0, "raw_data": row.to_dict() # Simpan JSONB utuh
             })
             
-        # SINKRONISASI DATABASE
         if master_provision:
             unique_master = {m['nomen']: m for m in master_provision}.values()
             stmt_master = insert(MasterPelanggan).values(list(unique_master))
@@ -263,15 +240,180 @@ def handle_mc_upload(file_mc):
 
         if mc_entries:
             stmt_mc = insert(TransaksiTagihan).values(mc_entries)
-            # Update data jika pelanggan & periode sudah ada
             upsert_mc = stmt_mc.on_conflict_do_update(
                 index_elements=['nomen', 'periode'],
-                set_={"nominal": stmt_mc.excluded.nominal, "status_lunas": 0}
+                set_={"nominal": stmt_mc.excluded.nominal, "status_lunas": 0, "raw_data": stmt_mc.excluded.raw_data}
             )
             db.session.execute(upsert_mc)
             return len(mc_entries)
-            
         return 0
 
-    total_mc = process_mega_file(file_mc, mc_logic, chunk_size=20000)
-    return jsonify({"status": "success", "message": f"Sinergi (MC) Sukses! {total_mc} data Tagihan (Top 500) berhasil disinkronisasi."})
+    total = process_mega_file(file_mc, mc_logic)
+    return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data berhasil masuk ke daftar Top 500."})
+
+
+# =========================================================================
+# 3. LOGIKA MASTER BAYAR (MB) -> PENYAPU BERSIH TOP 500
+# =========================================================================
+def handle_daily_collection(file_daily):
+    def mb_logic(df_chunk):
+        mb_entries = []
+        lunas_entries = []
+        
+        for _, row in df_chunk.iterrows():
+            nomen_raw = row.get('NOMEN') or row.get('CMR_ACCOUNT')
+            nomen = clean_nomen(nomen_raw) 
+            if not nomen: continue
+            
+            bulan_rek = str(row.get('BULAN_REK') or '')
+            periode = extract_periode(bulan_rek) if len(bulan_rek) == 6 else "000000"
+            tgl_bayar = str(row.get('TGL_BAYAR', '')).strip()
+            nominal = parse_float(row.get('NOMINAL'))
+            denda = parse_float(row.get('DENDA'))
+            lks_bayar = str(row.get('LKS_BAYAR', '')).strip()
+            
+            mb_entries.append({
+                "nomen": nomen, "periode": periode, "tgl_bayar": tgl_bayar,
+                "nominal": nominal, "denda": denda, "lks_bayar": lks_bayar,
+                "raw_data": json.dumps(row.to_dict())
+            })
+            lunas_entries.append({"n": nomen, "p": periode})
+            
+        if mb_entries:
+            sql_mb = text("""
+                INSERT INTO data_mb (nomen, periode, tgl_bayar, nominal, denda, lks_bayar, raw_data)
+                VALUES (:nomen, :periode, :tgl_bayar, :nominal, :denda, :lks_bayar, :raw_data::jsonb)
+                ON CONFLICT (nomen, periode) DO UPDATE SET 
+                    tgl_bayar = EXCLUDED.tgl_bayar,
+                    nominal = EXCLUDED.nominal,
+                    denda = EXCLUDED.denda,
+                    lks_bayar = EXCLUDED.lks_bayar,
+                    raw_data = EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_mb, mb_entries)
+            
+            # Tendang dari Top 500
+            sql_lunas = text("UPDATE transaksi_tagihan SET status_lunas = 1 WHERE nomen = :n AND periode = :p")
+            db.session.execute(sql_lunas, lunas_entries)
+            
+        return len(mb_entries)
+
+    total_bayar = process_mega_file(file_daily, mb_logic)
+    return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} data dilunaskan dari Top 500."})
+
+
+# =========================================================================
+# 4. LOGIKA MASTER CID -> BUKU INDUK PELANGGAN
+# =========================================================================
+def handle_cid_upload(file_cid):
+    def cid_logic(df_chunk):
+        cid_entries = []
+        for _, row in df_chunk.iterrows():
+            nomen = clean_nomen(row.get('NOMEN'))
+            if not nomen: continue
+            
+            nama = str(row.get('NAMA', 'Pelanggan')).strip()
+            ab = str(row.get('AB', 'AB Sunter')).strip()
+            pcez = str(row.get('PCEZ', '')).strip()
+            kelurahan = str(row.get('KELURAHAN', '')).strip()
+            alamat = str(row.get('ALAMAT', '')).strip()
+            tarif = str(row.get('TARIFF') or row.get('TARIF', '')).strip()
+            rayon = str(row.get('KODE PA/PC') or pcez[:2] or '').strip()
+            
+            cid_entries.append({
+                "nomen": nomen, "nama": nama, "ab": ab, "pcez": pcez,
+                "kelurahan": kelurahan, "alamat": alamat, "rayon": rayon,
+                "tarif": tarif, "raw_data": row.to_dict()
+            })
+            
+        if cid_entries:
+            stmt = insert(MasterPelanggan).values(cid_entries)
+            upsert_stmt = stmt.on_conflict_do_update(
+                index_elements=['nomen'],
+                set_={k: getattr(stmt.excluded, k) for k in cid_entries[0].keys() if k != 'nomen'}
+            )
+            db.session.execute(upsert_stmt)
+            return len(cid_entries)
+        return 0
+
+    total = process_mega_file(file_cid, cid_logic)
+    return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui (Full JSONB)."})
+
+
+# =========================================================================
+# 5. LOGIKA ARRDEBT -> DATA TUNGGAKAN LAMA
+# =========================================================================
+def handle_arrdebt_upload(file_arrdebt):
+    def arrdebt_logic(df_chunk):
+        arr_entries = []
+        tagihan_entries = []
+        
+        for _, row in df_chunk.iterrows():
+            nomen = clean_nomen(row.get('NOMEN'))
+            if not nomen: continue
+            
+            periode = str(row.get('BILL_PERIODE', '')).strip()
+            if not periode: periode = "000000"
+            nominal = parse_float(row.get('BILL_AMT') or row.get('WATER'))
+            
+            arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": json.dumps(row.to_dict())})
+            tagihan_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "status_lunas": 0})
+
+        if arr_entries:
+            sql_arr = text("""
+                INSERT INTO data_arrdebt (nomen, periode, nominal, raw_data)
+                VALUES (:nomen, :periode, :nominal, :raw_data::jsonb)
+                ON CONFLICT (nomen, periode) DO UPDATE SET nominal = EXCLUDED.nominal, raw_data = EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_arr, arr_entries)
+            
+            sql_tagihan = text("""
+                INSERT INTO transaksi_tagihan (nomen, periode, nominal, status_lunas)
+                VALUES (:nomen, :periode, :nominal, 0)
+                ON CONFLICT (nomen, periode) DO UPDATE SET nominal = EXCLUDED.nominal, status_lunas = 0
+            """)
+            db.session.execute(sql_tagihan, tagihan_entries)
+            
+        return len(arr_entries)
+
+    total_arr = process_mega_file(file_arrdebt, arrdebt_logic)
+    return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan ke Top 500."})
+
+
+# =========================================================================
+# 6. LOGIKA MAINBILL -> DATA FIX SBRS
+# =========================================================================
+def handle_mainbill_upload(file_mainbill):
+    def mainbill_logic(df_chunk):
+        mb_entries = []
+        for _, row in df_chunk.iterrows():
+            nomen = clean_nomen(row.get('NOMEN'))
+            if not nomen: continue
+            
+            p_raw = str(row.get('PERIODE_DTTM', ''))
+            try:
+                date_parts = p_raw.split('-')
+                months = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}
+                periode = f"20{date_parts[2][:2]}{months.get(date_parts[1])}"
+            except: periode = "202604"
+
+            total_tagihan = parse_float(row.get('TOTAL_TAGIHAN'))
+            konsumsi = parse_float(row.get('KONSUMSI'))
+            
+            mb_entries.append({
+                "nomen": nomen, "periode": periode, "total_tagihan": total_tagihan,
+                "konsumsi": konsumsi, "raw_data": json.dumps(row.to_dict())
+            })
+            
+        if mb_entries:
+            sql = text("""
+                INSERT INTO data_mainbill (nomen, periode, total_tagihan, konsumsi, raw_data)
+                VALUES (:nomen, :periode, :total_tagihan, :konsumsi, :raw_data::jsonb)
+                ON CONFLICT (nomen, periode) DO UPDATE SET total_tagihan = EXCLUDED.total_tagihan, konsumsi = EXCLUDED.konsumsi, raw_data = EXCLUDED.raw_data
+            """)
+            db.session.execute(sql, mb_entries)
+            return len(mb_entries)
+        return 0
+
+    total = process_mega_file(file_mainbill, mainbill_logic)
+    return jsonify({"status": "success", "message": f"MainBill Sukses! {total} data fix berhasil disimpan di database."})
