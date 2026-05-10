@@ -3,6 +3,7 @@ import pandas as pd
 from flask import Blueprint, render_template, request, jsonify, send_file
 from models import db, MasterPelanggan, MasterPetugas, DataSBRS
 from sqlalchemy import func, and_, case
+from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime, timedelta
 
 sbrs_bp = Blueprint('sbrs', __name__)
@@ -74,6 +75,28 @@ READ_LABELS = {
     '30/PE': 'System Estimate', '35/PS': 'Service Provider Estimate',
     '40/PE': 'Office Estimate', '60/SE': 'Regular', '80/PE': 'Billing Force'
 }
+
+@sbrs_bp.route('/save-catatan', methods=['POST'])
+def save_catatan():
+    """Menyimpan Catatan Analisa Desktop langsung ke dalam JSON raw_data."""
+    try:
+        data = request.json
+        nomen = data.get('nomen')
+        periode = data.get('periode')
+        catatan = data.get('catatan')
+        
+        record = DataSBRS.query.filter_by(nomen=nomen, periode=periode).first()
+        if record:
+            raw = record.raw_data or {}
+            raw['catatan_desktop'] = catatan
+            record.raw_data = raw
+            flag_modified(record, "raw_data") # Memicu update kolom JSONB di SQLAlchemy
+            db.session.commit()
+            return jsonify({"status": "success", "message": "Catatan berhasil disimpan!"})
+        return jsonify({"status": "error", "message": "Data tidak ditemukan."}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @sbrs_bp.route('/summary')
 def sbrs_summary():
@@ -159,9 +182,6 @@ def sbrs_summary():
         "total_trbl": sum(v for k, v in trbl_counts.items())
     }
 
-    # =========================================================================
-    # FITUR 6 TAB WILAYAH MURNI DARI HEADER CID
-    # =========================================================================
     cc_counts, pc_counts, pcez_counts, ab_counts, kel_counts, kec_counts = {}, {}, {}, {}, {}, {}
     for d in all_data:
         raw = d.raw_data or {}
@@ -201,7 +221,7 @@ def sbrs_summary():
 
 @sbrs_bp.route('/analisa')
 def sbrs_analisa():
-    """Detail Verifikasi: Mendukung Filter Drill-Down dan Penyiapan Data Modal."""
+    """Detail Verifikasi: Mendukung Filter, Modal CID, dan Input Catatan Desktop."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
@@ -210,7 +230,7 @@ def sbrs_analisa():
     trbl_code = request.args.get('trbl_code')
     read_method = request.args.get('read_method')
     
-    # 6 Parameter Filter Wilayah
+    # 6 Parameter Filter Wilayah Murni
     cc_filter = request.args.get('cc')
     pc_filter = request.args.get('pc')
     pcez_filter = request.args.get('pcez')
@@ -244,7 +264,7 @@ def sbrs_analisa():
         if trbl_code and str(get_case_insensitive(raw, 'cmr_trbl1_code')) != trbl_code: continue
         if read_method and str(get_case_insensitive(raw, 'Read_Method') or get_case_insensitive(raw, 'cmr_read_code')) != read_method: continue
         
-        # Eksekusi Filter Wilayah
+        # Eksekusi Filter 6 Tab Wilayah
         if cc_filter and get_valid_str(get_case_insensitive(raw, 'CC')).lower() != cc_filter.lower(): continue
         if pc_filter and get_valid_str(get_case_insensitive(raw, 'KODE PA/PC') or get_case_insensitive(raw, 'PC')).lower() != pc_filter.lower(): continue
         if pcez_filter and get_valid_str(get_case_insensitive(raw, 'PCEZ') or get_case_insensitive(raw, 'PCEZBK') or d.pcez).lower() != pcez_filter.lower(): continue
@@ -268,24 +288,37 @@ def sbrs_analisa():
     for d in top_data:
         raw = d.raw_data or {}
         
-        # 1. Rata-rata dan Volume (Bypass dari Database)
+        # Kalkulasi Data Bulan Ini (Kini)
         raw_rata = get_case_insensitive(raw, 'Estimation_Value') or get_case_insensitive(raw, 'AVG_CONSUMPTION')
         rata_real = float(raw_rata) if raw_rata else d.rata_rata
         vol_tagihan = safe_f(get_case_insensitive(raw, 'SB_Stand')) - safe_f(get_case_insensitive(raw, 'Prev_Read_1'))
         
-        # 2. Persiapan Data Dinamis untuk Pop-up (Multi-Header Tracking)
+        # Kalkulasi Data Bulan Lalu (Prev_Read_1 - Prev_Read_2)
+        try:
+            prev1 = safe_f(get_raw_val(raw, ['Prev_Read_1', 'cmr_prev_read']))
+            prev2 = safe_f(get_raw_val(raw, ['Prev_Read_2', 'cmr_lo1_rdg']))
+            vol_lalu = prev1 - prev2 if prev1 >= prev2 else rata_real
+        except:
+            vol_lalu = rata_real
+
+        # MAPPING DINAMIS SESUAI FILE BOS (Untuk Modal & Tabel)
         alamat = get_raw_val(raw, ['cmr_address', 'ALAMAT'])
-        mtr_info = get_raw_val(raw, ['cmr_mtr_info', 'REMARK', 'cmr_spcl_msg'])
-        wa = get_raw_val(raw, ['WA_NUMBER', 'MOBILE', 'cmr_phone', 'NO_HP'])
-        telp = get_raw_val(raw, ['PHONE', 'TELEPON', 'TELP'])
+        mtr_info = get_raw_val(raw, ['cmr_mtr_info', 'REMARK'])
+        wa = get_raw_val(raw, ['WA_NUMBER', 'MOBILE', 'cmr_phone', 'NO_HP']) 
+        telp = get_raw_val(raw, ['PHONE', 'TELEPON'])
         email = get_raw_val(raw, ['EMAIL', 'SUREL'])
         tarif = get_raw_val(raw, ['Tariff', 'TARIF', 'cmr_tarif'])
         meter = get_raw_val(raw, ['cmr_mtr_num', 'Meter_Serial_1', 'METER_SERIAL'])
         metode = get_raw_val(raw, ['Read_Method', 'READ_METHOD', 'cmr_read_code'])
         bill_id = get_raw_val(raw, ['BILL_ID', 'Bill_No', 'BILL_NO'])
-        s_awal = get_raw_val(raw, ['Prev_Read_1', 'START_READ_STAN', 'cmr_prev_read', 'START_READ'])
+        
+        # Stand Meter
+        s_awal = get_raw_val(raw, ['Prev_Read_1', 'START_READ_STAN', 'cmr_prev_read'])
         s_akhir = get_raw_val(raw, ['SB_Stand', 'END_READ_STAN', 'cmr_reading', 'Curr_Read_1'])
         hari = get_raw_val(raw, ['HARI_BACA', 'DAYS'])
+
+        # Ambil Catatan Desktop
+        catatan = raw.get('catatan_desktop', '')
 
         results.append({
             "nomen": d.nomen,
@@ -293,12 +326,16 @@ def sbrs_analisa():
             "kelurahan": d.kelurahan,
             "pcez": d.pcez,
             "bulan_ini": vol_tagihan,
+            "vol_lalu": vol_lalu,
+            "stand_awal": s_awal,
+            "stand_akhir": s_akhir,
+            "catatan": catatan,
             "rata_rata": rata_real,
             "kategori_anomali": d.kategori_anomali,
             "status_audit": d.status_audit,
             "nama_petugas_anomali": d.nama_petugas_anomali,
             "raw_data": raw,
-            "modal_info": { # Disuntikkan langsung ke Frontend
+            "modal_info": {
                 "alamat": alamat,
                 "mtr_info": mtr_info,
                 "wa": wa,
