@@ -1,79 +1,113 @@
 {% extends "base.html" %}
 
-{% block title %}Lapor Lapangan - 1 Sinergi{% endblock %}
+{% block title %}Field Audit - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
+    /* Styling Laporan Lapangan BAAE */
     .lapor-card {
-        border-radius: 20px;
-        border: none;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        background: rgba(15, 23, 42, 0.4) !important;
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 2rem !important;
     }
+
     #photoPreview {
         width: 100%;
-        border-radius: 15px;
+        border-radius: 1.5rem;
         display: none;
-        margin-bottom: 15px;
-        border: 3px solid #dee2e6;
+        margin-bottom: 20px;
+        border: 2px solid rgba(56, 189, 248, 0.3);
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
     }
-    .gps-badge {
-        font-size: 0.8rem;
-        padding: 10px 15px;
-        border-radius: 12px;
-        transition: 0.3s;
+
+    /* Status Radar GPS */
+    .gps-status-box {
+        background: rgba(2, 6, 23, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 1rem;
+        padding: 15px;
+        transition: all 0.5s ease;
     }
-    .input-nomen-focus {
-        border: 2px solid #0d6efd !important;
-        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    
+    .radar-active {
+        border-color: #38bdf8;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+    }
+
+    .label-tech {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        color: #38bdf8;
+        text-transform: uppercase;
+    }
+
+    /* Detail Pelanggan Readout */
+    #infoPelanggan {
+        background: rgba(56, 189, 248, 0.05);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        border-left: 4px solid #38bdf8;
+        border-radius: 1rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center mt-2 animate-fade-in">
     <div class="col-lg-6 col-md-8">
-        <div class="card lapor-card mb-5">
-            <div class="card-body p-4">
-                <div class="text-center mb-4">
-                    <div class="bg-primary text-white rounded-circle d-inline-flex p-3 mb-3">
-                        <i class="fas fa-camera-retro fa-2x"></i>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-3">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-info">Home</a></li>
+                <li class="breadcrumb-item active fw-bold text-light" aria-current="page">Field Intelligence Audit</li>
+            </ol>
+        </nav>
+
+        <div class="card lapor-card mb-5 border-0 shadow-2xl">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-5">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-3" 
+                         style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); box-shadow: 0 0 30px rgba(56, 189, 248, 0.2); width: 80px; height: 80px;">
+                        <i class="fa-solid fa-crosshairs fa-2x text-info animate-pulse"></i>
                     </div>
-                    <h3 class="fw-bold mb-1">Input Laporan Kunjungan</h3>
-                    <p class="text-muted small">Pastikan GPS aktif untuk verifikasi lokasi</p>
+                    <h3 class="fw-800 text-white mb-1 uppercase tracking-tight">Input Laporan Kunjungan</h3>
+                    <p class="text-slate-400 small mb-0">Verifikasi lokasi via BAAE Global Satellite</p>
                 </div>
 
                 <form id="formLapor" enctype="multipart/form-data">
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-primary">NOMOR PELANGGAN (NOMEN)</label>
+                        <label class="label-tech mb-2 d-block">Identitas Target (NOMEN)</label>
                         <div class="input-group">
                             <input type="number" name="nomen" id="inputNomen" 
                                    class="form-control form-control-lg" 
-                                   placeholder="Input 8 Digit Nomen" 
+                                   placeholder="8 Digit Nomor Pelanggan" 
                                    value="{{ request.args.get('nomen', '') }}" required>
-                            <button class="btn btn-primary px-3" type="button" id="btnCek" onclick="cekDataPelanggan()">
+                            <button class="btn btn-info px-4" type="button" id="btnCek" onclick="cekDataPelanggan()">
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
                         
-                        <div id="infoPelanggan" class="mt-3 p-3 bg-light rounded-3 d-none border">
+                        <div id="infoPelanggan" class="mt-4 p-3 d-none">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 class="fw-bold text-dark mb-0" id="dispNama">Nama Pelanggan</h6>
-                                    <div class="small text-muted" id="dispKel">Kelurahan</div>
+                                    <h6 class="fw-800 text-white mb-1" id="dispNama" style="letter-spacing: 0.5px;">DATA LOADING...</h6>
+                                    <div class="small text-info opacity-75" id="dispKel">Kelurahan</div>
                                 </div>
-                                <span class="badge bg-primary px-2 py-2" id="dispPcez" style="border-radius: 8px;">PCEZ</span>
+                                <span class="badge bg-info bg-opacity-20 text-info border border-info border-opacity-30 px-3 py-2 rounded-pill" id="dispPcez" style="font-size: 0.65rem;">PCEZ</span>
                             </div>
-                            <hr class="my-2 opacity-10">
-                            <div class="small">
-                                <i class="fas fa-user-tie text-primary me-1"></i> Petugas Tagihan: <strong id="dispPetugas">-</strong>
+                            <hr class="my-3 border-secondary border-opacity-20">
+                            <div class="small text-slate-300">
+                                <i class="fa-solid fa-user-shield text-emerald-400 me-2"></i>
+                                <span class="opacity-50">Field Engineer:</span> <strong id="dispPetugas" class="text-white">-</strong>
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-primary">HASIL KUNJUNGAN LAPANGAN</label>
+                        <label class="label-tech mb-2 d-block">Hasil Investigasi Lapangan</label>
                         <select name="hasil_kunjungan" id="hasilKunjungan" class="form-select form-select-lg" onchange="toggleJanjiBayar()" required>
-                            <option value="">-- Pilih Hasil Kunjungan --</option>
+                            <option value="">-- Pilih Hasil Temuan --</option>
                             <option value="JANJI BAYAR">📝 Janji Bayar</option>
                             <option value="RUMAH KOSONG">🏠 Rumah Kosong / Tutup</option>
                             <option value="METER TERTIMBUN">🚧 Meter Tertimbun / Rusak</option>
@@ -83,31 +117,43 @@
                     </div>
 
                     <div class="mb-4 d-none" id="groupJanji">
-                        <label class="form-label fw-bold small text-danger">TANGGAL JANJI BAYAR</label>
-                        <input type="date" name="tgl_janji_bayar" class="form-control form-control-lg border-danger">
+                        <label class="label-tech mb-2 d-block text-rose-400">Jadwal Janji Bayar</label>
+                        <input type="date" name="tgl_janji_bayar" class="form-control form-control-lg border-danger" style="background: rgba(244, 63, 94, 0.05) !important;">
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-primary">FOTO BUKTI (OPEN CAMERA)</label>
-                        <input type="file" name="foto" id="inputFoto" class="form-control" 
-                               accept="image/*" capture="environment" onchange="previewImage(this)" required>
-                        <div class="form-text extra-small mt-2">Ambil foto rumah/meteran dengan jelas.</div>
-                        <img id="photoPreview" src="" alt="Preview" class="mt-3 shadow-sm">
+                        <label class="label-tech mb-2 d-block">Bukti Visual (Neural Capture)</label>
+                        <div class="p-3 gps-status-box mb-3">
+                             <input type="file" name="foto" id="inputFoto" class="form-control mb-1" 
+                                   accept="image/*" capture="environment" onchange="previewImage(this)" required>
+                             <div class="extra-small text-slate-500 mt-2"><i class="fa-solid fa-info-circle me-1 text-info"></i> Ambil foto objek atau meteran dengan pencahayaan cukup.</div>
+                        </div>
+                        <img id="photoPreview" src="" alt="Capture Preview">
                     </div>
 
-                    <div class="mb-4">
-                        <div id="gpsStatus" class="alert alert-warning gps-badge d-flex align-items-center mb-0">
-                            <i class="fas fa-spinner fa-spin me-2" id="gpsIcon"></i>
-                            <span id="gpsText">Menunggu GPS Terkunci...</span>
+                    <div class="mb-5">
+                        <div id="gpsStatus" class="gps-status-box d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-satellite-dish fa-spin me-3 text-warning" id="gpsIcon" style="font-size: 1.2rem;"></i>
+                                <div>
+                                    <div class="label-tech" style="color: #94a3b8; font-size: 0.6rem;">GEO-LOCATION STATUS</div>
+                                    <span id="gpsText" class="small fw-bold text-white">Menghubungkan Satelit...</span>
+                                </div>
+                            </div>
+                            <div id="gpsPulse" class="rounded-circle bg-warning animate-pulse" style="width: 10px; height: 10px; box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);"></div>
                         </div>
                         <input type="hidden" name="lat" id="lat">
                         <input type="hidden" name="lng" id="lng">
                     </div>
 
-                    <button type="submit" id="btnSubmit" class="btn btn-primary btn-lg w-100 py-3 fw-bold shadow" disabled>
-                        <i class="fas fa-paper-plane me-2"></i>Kirim Laporan Sinergi
+                    <button type="submit" id="btnSubmit" class="btn btn-info btn-lg w-100 py-3 fw-800 rounded-pill shadow-lg" disabled>
+                        <i class="fas fa-cloud-arrow-up me-2"></i>KIRIM LAPORAN AUDIT
                     </button>
                 </form>
+
+                <div class="mt-5 pt-4 border-top border-secondary border-opacity-10 text-center">
+                    <p class="extra-small text-slate-600 mb-0">BAAE Engine v14.0 | System Integrity: Secured</p>
+                </div>
             </div>
         </div>
     </div>
@@ -116,7 +162,15 @@
 
 {% block extra_js %}
 <script>
-    // 1. Ambil Lokasi GPS (Verifikasi Lapangan)
+    // Config SWAL Dark Mode
+    const swalDark = {
+        background: '#0f172a',
+        color: '#f8fafc',
+        confirmButtonColor: '#38bdf8',
+        cancelButtonColor: '#334155'
+    };
+
+    // 1. Ambil Lokasi GPS (Radar System)
     function getGPS() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function(position) {
@@ -126,26 +180,34 @@
                 document.getElementById('lng').value = lng;
                 
                 const statusBox = document.getElementById('gpsStatus');
-                statusBox.classList.replace('alert-warning', 'alert-success');
-                document.getElementById('gpsIcon').classList.replace('fa-spinner', 'fa-location-dot');
-                document.getElementById('gpsIcon').classList.remove('fa-spin');
-                document.getElementById('gpsText').innerText = `Lokasi Terkunci: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                const gpsIcon = document.getElementById('gpsIcon');
+                const gpsPulse = document.getElementById('gpsPulse');
                 
-                // Aktifkan tombol submit hanya jika GPS sudah terkunci
+                statusBox.classList.add('radar-active');
+                gpsIcon.classList.replace('fa-satellite-dish', 'fa-location-dot');
+                gpsIcon.classList.replace('text-warning', 'text-info');
+                gpsIcon.classList.remove('fa-spin');
+                
+                gpsPulse.classList.replace('bg-warning', 'bg-info');
+                gpsPulse.style.boxShadow = "0 0 15px #38bdf8";
+                
+                document.getElementById('gpsText').innerHTML = `<span class="text-info">LOKASI TERKUNCI:</span> ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                
                 document.getElementById('btnSubmit').disabled = false;
             }, function(error) {
-                document.getElementById('gpsText').innerText = "GPS Error: Aktifkan Lokasi di HP Bos!";
-                Swal.fire('GPS Mati', 'Laporan tidak bisa dikirim tanpa koordinat GPS.', 'warning');
+                document.getElementById('gpsText').innerText = "GPS ERROR: Izinkan Lokasi di Browser!";
+                Swal.fire({ ...swalDark, icon: 'warning', title: 'Radar Offline', text: 'Sistem membutuhkan koordinat GPS untuk validasi data lapangan.' });
             }, { enableHighAccuracy: true });
         }
     }
 
-    // 2. Auto-Lookup Nomen (Sinkronisasi Petugas)
+    // 2. Auto-Lookup Nomen (Analytic Check)
     async function cekDataPelanggan() {
         const nomen = document.getElementById('inputNomen').value;
         if (!nomen || nomen.length < 5) return;
 
         const btn = document.getElementById('btnCek');
+        const originalContent = btn.innerHTML;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
         
         try {
@@ -155,22 +217,21 @@
             if (data.status === 'success') {
                 document.getElementById('infoPelanggan').classList.remove('d-none');
                 document.getElementById('dispNama').innerText = data.nama_pelanggan;
-                document.getElementById('dispPcez').innerText = data.pcez;
-                document.getElementById('dispKel').innerText = data.kelurahan;
+                document.getElementById('dispPcez').innerText = `CLUSTER: ${data.pcez}`;
+                document.getElementById('dispKel').innerText = `REGION: ${data.kelurahan}`;
                 document.getElementById('dispPetugas').innerText = data.petugas;
-                document.getElementById('inputNomen').classList.add('is-valid');
             } else {
-                Swal.fire('Nomen Tidak Ada', 'Pastikan data CID sudah di-upload.', 'info');
+                Swal.fire({ ...swalDark, icon: 'info', title: 'Record Void', text: 'Nomor Pelanggan tidak terdaftar dalam database BAAE.' });
                 document.getElementById('infoPelanggan').classList.add('d-none');
             }
         } catch (e) {
-            console.error("Gagal Lookup Nomen");
+            console.error("Lookup Failed");
         } finally {
-            btn.innerHTML = '<i class="fas fa-search"></i>';
+            btn.innerHTML = originalContent;
         }
     }
 
-    // 3. Preview Gambar
+    // 3. Image Preview
     function previewImage(input) {
         const preview = document.getElementById('photoPreview');
         if (input.files && input.files[0]) {
@@ -188,19 +249,19 @@
         document.getElementById('groupJanji').classList.toggle('d-none', hasil !== 'JANJI BAYAR');
     }
 
-    // 4. Submit Sinergi AJAX
+    // 4. Submit Laporan
     document.getElementById('formLapor').onsubmit = async function(e) {
         e.preventDefault();
         
-        // Cek ulang koordinat
         if (!document.getElementById('lat').value) {
-            return Swal.fire('GPS Belum Siap', 'Tunggu sampai lokasi terkunci (Warna Hijau).', 'error');
+            return Swal.fire({ ...swalDark, icon: 'error', title: 'GPS Not Found', text: 'Tunggu hingga radar satelit mengunci lokasi Anda.' });
         }
 
         const formData = new FormData(this);
         Swal.fire({
-            title: 'Sinkronisasi Laporan...',
-            html: 'Sedang mengirim data ke server PAM JAYA',
+            ...swalDark,
+            title: 'SINKRONISASI DATA...',
+            html: '<p class="text-info">Mengirimkan laporan intelijen ke BAAE Central Server</p>',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
@@ -211,20 +272,19 @@
 
             if (result.status === 'success') {
                 Swal.fire({
+                    ...swalDark,
                     icon: 'success',
-                    title: 'Sinergi Berhasil!',
-                    text: result.message,
-                    confirmButtonText: 'Mantap!'
+                    title: 'Sinkronisasi Berhasil',
+                    text: result.message
                 }).then(() => { window.location.href = '/monitoring/'; });
             } else {
-                Swal.fire('Gagal Simpan', result.message, 'error');
+                Swal.fire({ ...swalDark, icon: 'error', title: 'Gagal Simpan', text: result.message });
             }
         } catch (err) {
-            Swal.fire('Koneksi Error', 'Cek sinyal internet di lokasi kunjungan, Bos!', 'error');
+            Swal.fire({ ...swalDark, icon: 'error', title: 'Network Fatal', text: 'Koneksi terputus. Pastikan sinyal di lapangan stabil.' });
         }
     };
 
-    // Jalankan Lookup otomatis jika Nomen dikirim via URL
     window.onload = function() {
         getGPS();
         if (document.getElementById('inputNomen').value) {
