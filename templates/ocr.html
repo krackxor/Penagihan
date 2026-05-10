@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}OCR - Gambar ke Teks - 1 Sinergi{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ocr-card {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .upload-box {
+        border: 2px dashed #0d6efd;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .upload-box:hover {
+        background-color: #e9ecef;
+        border-color: #0a58ca;
+    }
+    #imagePreview {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 10px;
+        display: none;
+        margin: 0 auto;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8 col-lg-6">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-3">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+                <li class="breadcrumb-item active fw-bold" aria-current="page">Tools OCR</li>
+            </ol>
+        </nav>
+
+        <div class="card ocr-card mb-5">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-3 shadow-sm" style="width: 70px; height: 70px;">
+                        <i class="fas fa-file-invoice fa-2x"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1">OCR: Gambar ke Teks</h3>
+                    <p class="text-muted small">Ubah foto dokumen, struk, atau meteran air menjadi file <b>.txt</b> secara otomatis menggunakan Tesseract AI.</p>
+                </div>
+                
+                <form action="/tools/ocr/extract" method="POST" enctype="multipart/form-data" id="formOCR">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-primary">UPLOAD GAMBAR</label>
+                        <div class="upload-box">
+                            <input type="file" name="file" id="inputFile" class="form-control form-control-lg mb-3" accept="image/png, image/jpeg, image/jpg" onchange="previewImage(this)" required>
+                            
+                            <img id="imagePreview" src="" alt="Preview Gambar" class="mt-3 border">
+                            
+                            <div class="form-text mt-2">
+                                <i class="fas fa-info-circle me-1"></i>Format didukung: JPG, PNG, JPEG. Pastikan teks terlihat jelas, terang, dan tidak blur.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" id="btnSubmit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-pill py-3">
+                        <i class="fas fa-magic me-2"></i>Ekstrak Teks Sekarang
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Fitur Menampilkan Preview Gambar Sebelum di-Upload
+    function previewImage(input) {
+        const preview = document.getElementById('imagePreview');
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            }
+            reader.readAsDataURL(input.files[0]);
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+
+    // Efek Loading pada Tombol saat Form di-Submit
+    document.getElementById('formOCR').onsubmit = function() {
+        const btn = document.getElementById('btnSubmit');
+        
+        // Ubah tombol menjadi loading
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengekstrak Teks...';
+        
+        // Kembalikan tombol ke kondisi semula setelah 3 detik 
+        // (Waktu yang cukup agar file .txt mulai terunduh di browser pengguna)
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic me-2"></i>Ekstrak Teks Sekarang';
+            
+            // Opsional: Reset form dan sembunyikan preview setelah sukses download
+            // document.getElementById('formOCR').reset();
+            // document.getElementById('imagePreview').style.display = 'none';
+        }, 3000);
+    };
+</script>
+{% endblock %}
