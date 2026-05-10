@@ -1,75 +1,111 @@
 {% extends "base.html" %}
 
-{% block title %}OCR - Gambar ke Teks - 1 Sinergi{% endblock %}
+{% block title %}Intelligence OCR - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
-    .ocr-card {
-        border-radius: 20px;
-        border: none;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
+    /* Desain Kotak Upload BAAE Intelligence */
     .upload-box {
-        border: 2px dashed #0d6efd;
-        border-radius: 15px;
-        padding: 30px;
+        border: 2px dashed rgba(56, 189, 248, 0.4);
+        border-radius: 1.5rem;
+        padding: 40px 20px;
         text-align: center;
-        background-color: #f8f9fa;
-        transition: all 0.3s ease;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(10px);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
     }
     .upload-box:hover {
-        background-color: #e9ecef;
-        border-color: #0a58ca;
+        background: rgba(56, 189, 248, 0.1);
+        border-color: #38bdf8;
+        box-shadow: 0 0 25px rgba(56, 189, 248, 0.2);
+        transform: translateY(-3px);
     }
+
     #imagePreview {
         max-width: 100%;
-        max-height: 300px;
-        border-radius: 10px;
+        max-height: 320px;
+        border-radius: 1rem;
         display: none;
-        margin: 0 auto;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin: 20px auto 0;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .label-tech {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: #38bdf8;
+        text-transform: uppercase;
+    }
+
+    /* Tombol Ekstrak Neon */
+    .btn-extract-nexus {
+        background: rgba(56, 189, 248, 0.1);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        font-weight: 800;
+        letter-spacing: 1px;
+        transition: all 0.3s;
+        text-transform: uppercase;
+    }
+    .btn-extract-nexus:hover {
+        background: #38bdf8;
+        color: #020617;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-4">
-    <div class="col-md-8 col-lg-6">
+<div class="row justify-content-center mt-3 animate-fade-in">
+    <div class="col-md-9 col-lg-7">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-3">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
-                <li class="breadcrumb-item active fw-bold" aria-current="page">Tools OCR</li>
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-info">Home</a></li>
+                <li class="breadcrumb-item active fw-bold text-light" aria-current="page">Intelligence OCR</li>
             </ol>
         </nav>
 
-        <div class="card ocr-card mb-5">
+        <div class="card border-0 mb-5">
             <div class="card-body p-4 p-md-5">
-                <div class="text-center mb-4">
-                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-3 shadow-sm" style="width: 70px; height: 70px;">
-                        <i class="fas fa-file-invoice fa-2x"></i>
+                <div class="text-center mb-5">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-3" 
+                         style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); box-shadow: 0 0 30px rgba(56, 189, 248, 0.2); width: 80px; height: 80px;">
+                        <i class="fa-solid fa-font fa-2x text-info"></i>
                     </div>
-                    <h3 class="fw-bold mb-1">OCR: Gambar ke Teks</h3>
-                    <p class="text-muted small">Ubah foto dokumen, struk, atau meteran air menjadi file <b>.txt</b> secara otomatis menggunakan Tesseract AI.</p>
+                    <h3 class="fw-bold mb-1 text-white">OCR: Gambar ke Teks</h3>
+                    <p class="text-slate-400 small">Ubah foto dokumen, struk, atau angka meteran menjadi data teks digital secara otomatis menggunakan <b>BAAE Tesseract Engine</b>.</p>
                 </div>
                 
                 <form action="/tools/ocr/extract" method="POST" enctype="multipart/form-data" id="formOCR">
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-primary">UPLOAD GAMBAR</label>
+                    <div class="mb-5">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="label-tech">SCANNER INPUT SOURCE</label>
+                            <span class="badge rounded-pill bg-info bg-opacity-10 text-info border border-info border-opacity-20" style="font-size: 0.6rem;">AI READY</span>
+                        </div>
+                        
                         <div class="upload-box">
-                            <input type="file" name="file" id="inputFile" class="form-control form-control-lg mb-3" accept="image/png, image/jpeg, image/jpg" onchange="previewImage(this)" required>
+                            <input type="file" name="file" id="inputFile" class="form-control mb-2" accept="image/png, image/jpeg, image/jpg" onchange="previewImage(this)" required>
                             
-                            <img id="imagePreview" src="" alt="Preview Gambar" class="mt-3 border">
+                            <img id="imagePreview" src="" alt="Neural Scan Preview">
                             
-                            <div class="form-text mt-2">
-                                <i class="fas fa-info-circle me-1"></i>Format didukung: JPG, PNG, JPEG. Pastikan teks terlihat jelas, terang, dan tidak blur.
+                            <div class="mt-4 text-slate-500" id="upload-hint">
+                                <i class="fas fa-info-circle me-1 text-info"></i>
+                                <span style="font-size: 0.75rem;">Mendukung JPG & PNG. Pastikan gambar memiliki pencahayaan cukup dan teks tidak buram.</span>
                             </div>
                         </div>
                     </div>
                     
-                    <button type="submit" id="btnSubmit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-pill py-3">
-                        <i class="fas fa-magic me-2"></i>Ekstrak Teks Sekarang
+                    <button type="submit" id="btnSubmit" class="btn btn-extract-nexus btn-lg w-100 rounded-pill py-3">
+                        <i class="fa-solid fa-microchip me-2"></i>Jalankan Ekstraksi Teks
                     </button>
                 </form>
+
+                <div class="mt-5 pt-4 border-top border-secondary border-opacity-10 text-center">
+                    <p class="extra-small text-slate-600 mb-0">Powered by <b>BAAE Engine v14.0</b> | Developer: Khoirul Anwar</p>
+                </div>
             </div>
         </div>
     </div>
@@ -78,39 +114,48 @@
 
 {% block extra_js %}
 <script>
-    // Fitur Menampilkan Preview Gambar Sebelum di-Upload
+    // Preview Gambar dengan Efek Scan
     function previewImage(input) {
         const preview = document.getElementById('imagePreview');
+        const hint = document.getElementById('upload-hint');
+        
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 preview.src = e.target.result;
                 preview.style.display = 'block';
+                hint.classList.add('opacity-50');
             }
             reader.readAsDataURL(input.files[0]);
         } else {
             preview.style.display = 'none';
+            hint.classList.remove('opacity-50');
         }
     }
 
-    // Efek Loading pada Tombol saat Form di-Submit
+    // Handle Submission & Loading State
     document.getElementById('formOCR').onsubmit = function() {
         const btn = document.getElementById('btnSubmit');
         
-        // Ubah tombol menjadi loading
+        // Disable tombol dan ganti teks
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengekstrak Teks...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menganalisa Struktur Teks...';
         
-        // Kembalikan tombol ke kondisi semula setelah 3 detik 
-        // (Waktu yang cukup agar file .txt mulai terunduh di browser pengguna)
+        // Timer pemulihan tombol (sesuaikan dengan proses unduhan file .txt)
         setTimeout(() => {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-magic me-2"></i>Ekstrak Teks Sekarang';
+            btn.innerHTML = '<i class="fa-solid fa-microchip me-2"></i>Jalankan Ekstraksi Teks';
             
-            // Opsional: Reset form dan sembunyikan preview setelah sukses download
-            // document.getElementById('formOCR').reset();
-            // document.getElementById('imagePreview').style.display = 'none';
-        }, 3000);
+            // Opsional: Tampilkan notifikasi sukses dari SweetAlert (selaras dengan base.html)
+            Swal.fire({
+                background: '#0f172a',
+                color: '#f1f5f9',
+                icon: 'success',
+                title: 'Analisa Selesai',
+                text: 'Hasil ekstraksi teks sedang diunduh ke perangkat Anda.',
+                confirmButtonColor: '#38bdf8'
+            });
+        }, 4000);
     };
 </script>
 {% endblock %}
