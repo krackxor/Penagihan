@@ -6,9 +6,8 @@ import json
 import re
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
-from models import db, MasterPelanggan, TransaksiTagihan, DataSBRS
+from models import db, DataSBRS # Kita impor DataSBRS karena dia sudah lengkap di models.py
 
 importer_bp = Blueprint('importer', __name__)
 
@@ -25,13 +24,27 @@ def clean_nomen(val):
     return s[-8:].zfill(8)
 
 def extract_periode(val):
-    """Pintar membaca format: 012026 (Bulan/Tahun) -> 202601 (Format Database)"""
+    """Pintar membaca format MMYYYY (012026) atau Format Daily (1/4/26 0:00:00) -> 202601"""
     try:
         val = str(val).strip()
+        if not val or val == 'None' or val == 'nan': return "000000"
+        
+        # Tangkap format Daily Collection: "1/4/26 0:00:00"
+        if '/' in val:
+            date_part = val.split(' ')[0]
+            parts = date_part.split('/')
+            if len(parts) == 3:
+                m = parts[1].zfill(2)
+                y = parts[2]
+                if len(y) == 2: y = "20" + y
+                return f"{y}{m}"
+                
+        # Tangkap format Master Bayar lama: "012026"
         if len(val) == 6 and val[2:].startswith('20'):
             return val[2:] + val[:2]
-        return val[:6]
-    except: return "202605"
+            
+        return val[:6].replace('-', '')
+    except: return "000000"
 
 def parse_float(val):
     """Pintar mengubah 1.660,00 (Koma Indonesia) menjadi 1660.00 (Standar Database)"""
@@ -57,7 +70,6 @@ def process_mega_file(file, logic_func, chunk_size=20000):
         for chunk in reader:
             chunk.columns = chunk.columns.str.strip().str.upper()
             chunk = chunk.replace({np.nan: None})
-            
             added_count = logic_func(chunk)
             if added_count: total += added_count
             
@@ -92,7 +104,6 @@ def import_tagihan():
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # =========================================================================
 # 1. LOGIKA SBRS (ANALISA LAPANGAN - SPOTBILL & CUSTOMER)
@@ -166,27 +177,31 @@ def handle_sbrs_upload(file_cust, file_spot):
             elif skip_code in ['5G']: indikasi = "TOLAK BACA"
 
             merged_row['INDIKASI_SINERGI'] = indikasi
-
+            
             sbrs_entries.append({
                 "nomen": nomen, "periode": extract_periode(merged_row.get('BILL_PERIOD') or '202605'),
                 "nama": nama_pel, "ab": ab_pel, "kelurahan": merged_row.get('KEL') or merged_row.get('KELURAHAN', ''),
                 "pcez": pc_ez, "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
-                "kategori_anomali": kat, "raw_data": merged_row, "status_audit": 0
+                "kategori_anomali": kat, "raw_data": json.dumps(merged_row), "status_audit": 0
             })
 
         if master_provision:
             unique_master = {m['nomen']: m for m in master_provision}.values()
-            stmt_master = insert(MasterPelanggan).values(list(unique_master))
-            db.session.execute(stmt_master.on_conflict_do_nothing(index_elements=['nomen']))
-            db.session.flush() 
+            sql_master = text("""
+                INSERT INTO master_pelanggan (nomen, nama, ab, pcez) 
+                VALUES (:nomen, :nama, :ab, :pcez) ON CONFLICT DO NOTHING
+            """)
+            db.session.execute(sql_master, list(unique_master))
 
         if sbrs_entries:
-            stmt_sbrs = insert(DataSBRS).values(sbrs_entries)
-            upsert_sbrs = stmt_sbrs.on_conflict_do_update(
-                index_elements=['nomen', 'periode'],
-                set_={k: getattr(stmt_sbrs.excluded, k) for k in sbrs_entries[0].keys() if k not in ['nomen', 'periode']}
-            )
-            db.session.execute(upsert_sbrs)
+            sql_sbrs = text("""
+                INSERT INTO data_sbrs (nomen, periode, nama, ab, kelurahan, pcez, bulan_ini, rata_rata, stand_meter, kategori_anomali, raw_data, status_audit)
+                VALUES (:nomen, :periode, :nama, :ab, :kelurahan, :pcez, :bulan_ini, :rata_rata, :stand_meter, :kategori_anomali, :raw_data::jsonb, :status_audit)
+                ON CONFLICT (nomen, periode) DO UPDATE SET 
+                    kategori_anomali = EXCLUDED.kategori_anomali, bulan_ini = EXCLUDED.bulan_ini, 
+                    stand_meter = EXCLUDED.stand_meter, raw_data = EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_sbrs, sbrs_entries)
             return len(sbrs_entries)
         return 0
 
@@ -194,7 +209,6 @@ def handle_sbrs_upload(file_cust, file_spot):
     lookup_cust.clear()
     gc.collect()
     return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
-
 
 # =========================================================================
 # 2. LOGIKA MC (MASTER CETAK) -> SUMBER UTAMA TOP 500
@@ -224,33 +238,39 @@ def handle_mc_upload(file_mc):
             
             master_provision.append({
                 "nomen": nomen, "nama": nama_pel, "ab": ab_pel, "pcez": pcez,
-                "kelurahan": kelurahan, "alamat": alamat, "rayon": rayon
+                "kelurahan": kelurahan, "alamat": alamat, "rayon": rayon,
+                "raw_data": json.dumps(row.to_dict())
             })
             
             mc_entries.append({
                 "nomen": nomen, "periode": periode, "nominal": nominal, 
-                "status_lunas": 0, "raw_data": row.to_dict() # Simpan JSONB utuh
+                "raw_data": json.dumps(row.to_dict())
             })
             
         if master_provision:
             unique_master = {m['nomen']: m for m in master_provision}.values()
-            stmt_master = insert(MasterPelanggan).values(list(unique_master))
-            db.session.execute(stmt_master.on_conflict_do_nothing(index_elements=['nomen']))
-            db.session.flush()
+            sql_master = text("""
+                INSERT INTO master_pelanggan (nomen, nama, ab, pcez, kelurahan, alamat, rayon, raw_data)
+                VALUES (:nomen, :nama, :ab, :pcez, :kelurahan, :alamat, :rayon, :raw_data::jsonb)
+                ON CONFLICT (nomen) DO UPDATE SET 
+                    nama=EXCLUDED.nama, ab=EXCLUDED.ab, pcez=EXCLUDED.pcez, 
+                    kelurahan=EXCLUDED.kelurahan, alamat=EXCLUDED.alamat, rayon=EXCLUDED.rayon, raw_data=EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_master, list(unique_master))
 
         if mc_entries:
-            stmt_mc = insert(TransaksiTagihan).values(mc_entries)
-            upsert_mc = stmt_mc.on_conflict_do_update(
-                index_elements=['nomen', 'periode'],
-                set_={"nominal": stmt_mc.excluded.nominal, "status_lunas": 0, "raw_data": stmt_mc.excluded.raw_data}
-            )
-            db.session.execute(upsert_mc)
+            sql_mc = text("""
+                INSERT INTO transaksi_tagihan (nomen, periode, nominal, status_lunas, raw_data)
+                VALUES (:nomen, :periode, :nominal, 0, :raw_data::jsonb)
+                ON CONFLICT (nomen, periode) DO UPDATE SET 
+                    nominal=EXCLUDED.nominal, status_lunas=0, raw_data=EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_mc, mc_entries)
             return len(mc_entries)
         return 0
 
     total = process_mega_file(file_mc, mc_logic)
     return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data berhasil masuk ke daftar Top 500."})
-
 
 # =========================================================================
 # 3. LOGIKA MASTER BAYAR (MB) -> PENYAPU BERSIH TOP 500
@@ -265,12 +285,12 @@ def handle_daily_collection(file_daily):
             nomen = clean_nomen(nomen_raw) 
             if not nomen: continue
             
-            bulan_rek = str(row.get('BULAN_REK') or '')
-            periode = extract_periode(bulan_rek) if len(bulan_rek) == 6 else "000000"
-            tgl_bayar = str(row.get('TGL_BAYAR', '')).strip()
-            nominal = parse_float(row.get('NOMINAL'))
+            raw_periode = str(row.get('BULAN_REK') or row.get('BILL_PERIOD') or '')
+            periode = extract_periode(raw_periode)
+            tgl_bayar = str(row.get('TGL_BAYAR') or row.get('PAY_DT') or '').strip()
+            nominal = parse_float(row.get('NOMINAL') or row.get('PAY_AMT'))
             denda = parse_float(row.get('DENDA'))
-            lks_bayar = str(row.get('LKS_BAYAR', '')).strip()
+            lks_bayar = str(row.get('LKS_BAYAR') or row.get('PAY_LOC') or '').strip()
             
             mb_entries.append({
                 "nomen": nomen, "periode": periode, "tgl_bayar": tgl_bayar,
@@ -284,23 +304,18 @@ def handle_daily_collection(file_daily):
                 INSERT INTO data_mb (nomen, periode, tgl_bayar, nominal, denda, lks_bayar, raw_data)
                 VALUES (:nomen, :periode, :tgl_bayar, :nominal, :denda, :lks_bayar, :raw_data::jsonb)
                 ON CONFLICT (nomen, periode) DO UPDATE SET 
-                    tgl_bayar = EXCLUDED.tgl_bayar,
-                    nominal = EXCLUDED.nominal,
-                    denda = EXCLUDED.denda,
-                    lks_bayar = EXCLUDED.lks_bayar,
-                    raw_data = EXCLUDED.raw_data
+                    tgl_bayar = EXCLUDED.tgl_bayar, nominal = EXCLUDED.nominal,
+                    denda = EXCLUDED.denda, lks_bayar = EXCLUDED.lks_bayar, raw_data = EXCLUDED.raw_data
             """)
             db.session.execute(sql_mb, mb_entries)
             
-            # Tendang dari Top 500
             sql_lunas = text("UPDATE transaksi_tagihan SET status_lunas = 1 WHERE nomen = :n AND periode = :p")
             db.session.execute(sql_lunas, lunas_entries)
             
         return len(mb_entries)
 
     total_bayar = process_mega_file(file_daily, mb_logic)
-    return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} data dilunaskan dari Top 500."})
-
+    return jsonify({"status": "success", "message": f"Daily Collection Sukses! {total_bayar} data dilunaskan dari Top 500."})
 
 # =========================================================================
 # 4. LOGIKA MASTER CID -> BUKU INDUK PELANGGAN
@@ -323,22 +338,24 @@ def handle_cid_upload(file_cid):
             cid_entries.append({
                 "nomen": nomen, "nama": nama, "ab": ab, "pcez": pcez,
                 "kelurahan": kelurahan, "alamat": alamat, "rayon": rayon,
-                "tarif": tarif, "raw_data": row.to_dict()
+                "tarif": tarif, "raw_data": json.dumps(row.to_dict())
             })
             
         if cid_entries:
-            stmt = insert(MasterPelanggan).values(cid_entries)
-            upsert_stmt = stmt.on_conflict_do_update(
-                index_elements=['nomen'],
-                set_={k: getattr(stmt.excluded, k) for k in cid_entries[0].keys() if k != 'nomen'}
-            )
-            db.session.execute(upsert_stmt)
+            sql_cid = text("""
+                INSERT INTO master_pelanggan (nomen, nama, ab, pcez, kelurahan, alamat, rayon, tarif, raw_data)
+                VALUES (:nomen, :nama, :ab, :pcez, :kelurahan, :alamat, :rayon, :tarif, :raw_data::jsonb)
+                ON CONFLICT (nomen) DO UPDATE SET 
+                    nama=EXCLUDED.nama, ab=EXCLUDED.ab, pcez=EXCLUDED.pcez, 
+                    kelurahan=EXCLUDED.kelurahan, alamat=EXCLUDED.alamat, 
+                    rayon=EXCLUDED.rayon, tarif=EXCLUDED.tarif, raw_data=EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_cid, cid_entries)
             return len(cid_entries)
         return 0
 
     total = process_mega_file(file_cid, cid_logic)
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui (Full JSONB)."})
-
 
 # =========================================================================
 # 5. LOGIKA ARRDEBT -> DATA TUNGGAKAN LAMA
@@ -378,7 +395,6 @@ def handle_arrdebt_upload(file_arrdebt):
 
     total_arr = process_mega_file(file_arrdebt, arrdebt_logic)
     return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan ke Top 500."})
-
 
 # =========================================================================
 # 6. LOGIKA MAINBILL -> DATA FIX SBRS
