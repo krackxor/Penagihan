@@ -4,182 +4,161 @@
 
 {% block extra_css %}
 <style>
-    /* Badge & Utilities */
-    .anomaly-badge { font-size: 0.75rem; padding: 6px 12px; border-radius: 6px; font-weight: bold; letter-spacing: 0.5px; }
-    .status-badge { font-size: 0.7rem; text-transform: uppercase; font-weight: 600; }
-    .table-hover tbody tr:hover { background-color: #f4f7f6; }
-    .btn-audit { border-radius: 8px; font-size: 0.8rem; transition: 0.3s; font-weight: 600; }
-    .btn-audit:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    .filter-card { background-color: #ffffff; border: 1px solid #e9ecef; border-radius: 12px; }
-    .indikasi-badge { font-size: 0.65rem; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.5px; font-weight: 600; }
+    .anomaly-badge { font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: bold; }
+    .status-badge { font-size: 0.7rem; text-transform: uppercase; }
+    .table-hover tbody tr:hover { background-color: #f8f9fa; }
+    .btn-audit { border-radius: 8px; font-size: 0.8rem; transition: 0.3s; }
+    .btn-audit:hover { transform: scale(1.05); }
+    .filter-card { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 12px; }
+    .indikasi-badge { font-size: 0.6rem; padding: 3px 6px; border-radius: 4px; letter-spacing: 0.5px; }
+    .nomen-link { cursor: pointer; text-decoration: underline dotted; transition: 0.2s; }
+    .nomen-link:hover { color: #0056b3 !important; background-color: #e7f1ff; }
     
-    /* Nomen Link */
-    .nomen-link { cursor: pointer; text-decoration: underline dotted; transition: 0.2s; font-size: 1.1rem; }
-    .nomen-link:hover { color: #0056b3 !important; background-color: #e7f1ff; border-radius: 4px; padding: 0 4px; }
-    
-    /* Tabel Tren 3 Bulan (Clean UI) */
-    .trend-box { display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 8px 12px; border-radius: 8px; border: 1px solid #dee2e6; }
-    .trend-item { text-align: center; flex: 1; }
-    .trend-label { font-size: 0.6rem; color: #6c757d; display: block; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
-    .trend-val { font-size: 0.95rem; font-weight: 800; color: #495057; }
-    .trend-kini { background: #fff3cd; color: #856404; padding: 4px; border-radius: 6px; border: 1px solid #ffeeba; }
-    .trend-arrow { font-size: 0.7rem; color: #ced4da; margin: 0 5px; }
+    /* Tabel Tren 3 Bulan Mini (Depan) */
+    .trend-box { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .trend-item { text-align: center; min-width: 45px; }
+    .trend-label { font-size: 0.55rem; color: #6c757d; display: block; font-weight: bold; text-transform: uppercase; }
+    .trend-val { font-size: 0.9rem; font-weight: bold; }
+    .trend-arrow { font-size: 0.6rem; color: #adb5bd; }
 
-    /* Modal Tabs UI */
-    .modal-tabs .nav-link { font-weight: 600; color: #6c757d; border: none; padding: 12px 20px; font-size: 0.9rem; position: relative; }
-    .modal-tabs .nav-link.active { color: #0d6efd; background: transparent; }
-    .modal-tabs .nav-link.active::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #0d6efd; border-radius: 3px 3px 0 0; }
-    .data-label { font-size: 0.7rem; color: #6c757d; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; display: block; }
-    .data-value { font-size: 0.95rem; font-weight: 700; color: #212529; margin-bottom: 15px; display: block; }
-    
-    /* Highlight Box */
-    .highlight-box { background: #f8f9fa; border-left: 4px solid #0d6efd; padding: 12px; border-radius: 0 8px 8px 0; margin-bottom: 15px; }
+    /* Tabel Master 3 Bulan (Dalam Pop-up) */
+    .master-table th { background-color: #212529 !important; color: white !important; font-size: 0.85rem; letter-spacing: 0.5px; vertical-align: middle; }
+    .master-table td { font-size: 0.85rem; vertical-align: middle; }
+    .col-header { font-weight: bold; color: #495057; background-color: #f8f9fa !important; width: 25%; border-right: 2px solid #dee2e6; }
+    .static-info-label { font-size: 0.7rem; color: #6c757d; text-transform: uppercase; font-weight: 700; margin-bottom: 0;}
+    .static-info-val { font-size: 0.9rem; font-weight: 700; color: #212529; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row align-items-center mb-4">
-    <div class="col-md-5">
+    <div class="col-md-6">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="/sbrs/summary?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="text-decoration-none">Summary SBRS</a></li>
-                <li class="breadcrumb-item active fw-bold" aria-current="page">Detail Analisa</li>
+                <li class="breadcrumb-item"><a href="/sbrs/summary?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}">Summary SBRS</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Detail Kasus</li>
             </ol>
         </nav>
-        <h3 class="fw-bold mb-0 text-dark"><i class="fas fa-search-chart text-primary me-2"></i>Verifikasi SBRS Desktop</h3>
-        <p class="text-muted small mb-0 mt-1">Periode: <span class="badge bg-primary-subtle text-primary">{{ label_kini|default(periode_aktif) }}</span> | Wilayah: <b>{{ current_ab }}</b></p>
+        <h3 class="fw-bold mb-0"><i class="fas fa-microscope text-primary me-2"></i>Detail Verifikasi SBRS (Desktop)</h3>
+        <p class="text-muted small mb-0">Periode: <b class="text-primary">{{ label_kini }}</b> | Wilayah: <b>{{ current_ab }}</b></p>
     </div>
     
-    <div class="col-md-7 d-flex justify-content-md-end align-items-center">
-        <form method="GET" action="/sbrs/analisa" class="d-flex gap-2 align-items-end filter-card p-3 shadow-sm">
+    <div class="col-md-6 d-flex justify-content-md-end align-items-center">
+        <form method="GET" action="/sbrs/analisa" class="d-flex gap-2 align-items-end filter-card p-2 shadow-sm">
             <input type="hidden" name="ab" value="{{ current_ab }}">
             <input type="hidden" name="periode" value="{{ periode_aktif }}">
             
-            <div style="min-width: 130px;">
-                <label class="data-label">FILTER CYCLE</label>
-                <select name="cycle" class="form-select form-select-sm fw-bold border-secondary" onchange="this.form.submit()">
-                    <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>Semua Cycle</option>
+            <div style="min-width: 120px;">
+                <label class="extra-small fw-bold text-muted mb-1 d-block" style="font-size: 0.65rem;">FILTER CYCLE:</label>
+                <select name="cycle" class="form-select form-select-sm fw-bold text-primary border-primary" onchange="this.form.submit()">
+                    <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>SEMUA CYCLE</option>
                     {% for c in cycles %}
                     <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>Cycle {{ c }}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <div style="min-width: 150px;">
-                <label class="data-label">FILTER KATEGORI</label>
-                <select name="kategori" class="form-select form-select-sm fw-bold border-secondary text-danger" onchange="this.form.submit()">
-                    <option value="all" class="text-dark" {% if not current_kat or current_kat == 'all' %}selected{% endif %}>Semua Anomali</option>
-                    <option value="MINUS" {% if current_kat == 'MINUS' %}selected{% endif %}>Hanya MINUS</option>
-                    <option value="ZERO" {% if current_kat == 'ZERO' %}selected{% endif %}>Hanya ZERO</option>
-                    <option value="EKSTREM" {% if current_kat == 'EKSTREM' %}selected{% endif %}>Hanya EKSTREM</option>
-                    <option value="TURUN" {% if current_kat == 'TURUN' %}selected{% endif %}>Hanya TURUN</option>
+            <div style="min-width: 140px;">
+                <label class="extra-small fw-bold text-muted mb-1 d-block" style="font-size: 0.65rem;">FILTER KATEGORI:</label>
+                <select name="kategori" class="form-select form-select-sm fw-bold text-danger border-danger" onchange="this.form.submit()">
+                    <option value="all" {% if not current_kat or current_kat == 'all' %}selected{% endif %}>SEMUA ANOMALI</option>
+                    <option value="MINUS" {% if current_kat == 'MINUS' %}selected{% endif %}>HANYA MINUS</option>
+                    <option value="ZERO" {% if current_kat == 'ZERO' %}selected{% endif %}>HANYA ZERO</option>
+                    <option value="EKSTREM" {% if current_kat == 'EKSTREM' %}selected{% endif %}>HANYA EKSTREM</option>
+                    <option value="TURUN" {% if current_kat == 'TURUN' %}selected{% endif %}>HANYA TURUN</option>
                 </select>
             </div>
         </form>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-5" style="border-radius: 12px; overflow: hidden;">
+<div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
     <div class="table-responsive" style="min-height: 500px;">
         <table class="table table-hover align-middle mb-0">
-            <thead style="background: #212529; color: #fff; font-size: 0.8rem; letter-spacing: 0.5px;">
+            <thead class="bg-dark text-white">
                 <tr>
-                    <th class="ps-4 py-3" style="width: 25%;">DATA PELANGGAN</th>
-                    <th class="text-center py-3" style="width: 28%;">TREN KONSUMSI (3 BLN)</th>
-                    <th class="py-3" style="width: 17%;">INFO PETUGAS</th>
-                    <th class="py-3" style="width: 20%;">CATATAN DESKTOP</th>
-                    <th class="text-center pe-4 py-3" style="width: 10%;">AKSI</th>
+                    <th class="ps-4" style="width: 25%;">DATA PELANGGAN</th>
+                    <th class="text-center" style="width: 25%;">HISTORI KONSUMSI (3 BULAN)</th>
+                    <th style="width: 20%;">INFO BACA & PETUGAS</th>
+                    <th style="width: 20%;">ANALISA DESKTOP</th>
+                    <th class="text-center pe-4" style="width: 10%;">AKSI</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in data %}
                 <tr>
-                    <td class="ps-4 py-3">
-                        <div class="fw-bold text-primary nomen-link mb-1" onclick='openCidDetail({{ item.modal_info|tojson }})' title="Buka Detail CID Lengkap">
-                            {{ item.nomen }} <i class="fas fa-expand-alt ms-1 text-muted" style="font-size: 0.7rem;"></i>
+                    <td class="ps-4">
+                        <div class="fw-bold text-primary nomen-link fs-6" onclick='openCidDetail({{ item.modal_info|tojson }})' title="Klik untuk lihat Detail Master 3 Bulan">
+                            {{ item.nomen }} <i class="fas fa-search-plus ms-1" style="font-size: 0.7rem;"></i>
                         </div>
-                        <div class="fw-bold text-dark text-uppercase small" style="line-height: 1.2;">{{ item.nama }}</div>
-                        <div class="text-muted mt-1" style="font-size: 0.7rem;">
-                            <i class="fas fa-map-marker-alt me-1 text-danger"></i>{{ item.kelurahan }} <span class="mx-1">|</span> PCEZ: <b>{{ item.pcez }}</b>
+                        <div class="small fw-bold text-dark text-uppercase">{{ item.nama }}</div>
+                        <div class="text-muted extra-small" style="font-size: 0.7rem;">
+                            <i class="fas fa-map-marker-alt me-1"></i> {{ item.kelurahan }} | PCEZ: {{ item.pcez }}
                         </div>
                         {% if item.modal_info.indikasi and item.modal_info.indikasi != 'Aman' %}
-                            <div class="mt-2">
-                                <span class="badge {% if 'FRAUD' in item.modal_info.indikasi %}bg-danger{% elif 'TEKNIS' in item.modal_info.indikasi %}bg-info text-dark{% else %}bg-warning text-dark{% endif %} indikasi-badge">
-                                    <i class="fas fa-exclamation-circle me-1"></i>{{ item.modal_info.indikasi }}
-                                </span>
-                            </div>
+                            <div class="mt-2"><span class="badge bg-danger indikasi-badge"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.modal_info.indikasi }}</span></div>
                         {% endif %}
                     </td>
                     
-                    <td class="text-center px-3">
-                        <div class="trend-box mb-2 shadow-sm">
+                    <td class="text-center">
+                        <div class="trend-box mb-2">
                             <div class="trend-item">
-                                <span class="trend-label" title="Dua Bulan Lalu">{{ label_lalu_2|default('H-2') }}</span>
-                                <span class="trend-val">{{ item.vol_lalu_2 }}</span>
+                                <span class="trend-label" title="Dua Bulan Lalu">{{ label_lalu_2 }}</span>
+                                <span class="trend-val text-secondary">{{ item.vol_lalu_2 }}</span>
                             </div>
-                            <i class="fas fa-angle-right trend-arrow"></i>
+                            <i class="fas fa-chevron-right trend-arrow"></i>
                             <div class="trend-item">
-                                <span class="trend-label" title="Bulan Lalu">{{ label_lalu_1|default('H-1') }}</span>
+                                <span class="trend-label" title="Bulan Lalu">{{ label_lalu_1 }}</span>
                                 <span class="trend-val text-primary">{{ item.vol_lalu_1 }}</span>
                             </div>
-                            <i class="fas fa-angle-right trend-arrow"></i>
-                            <div class="trend-item trend-kini">
-                                <span class="trend-label text-dark" title="Bulan Ini">{{ label_kini|default('KINI') }}</span>
-                                <span class="trend-val {% if item.vol_kini < 0 %}text-danger{% endif %}">{{ item.vol_kini }}</span>
+                            <i class="fas fa-chevron-right trend-arrow"></i>
+                            <div class="trend-item bg-warning-subtle rounded px-2 pb-1 border border-warning">
+                                <span class="trend-label text-dark" title="Bulan Ini">{{ label_kini }}</span>
+                                <span class="trend-val {% if item.vol_kini < 0 %}text-danger{% else %}text-dark{% endif %} fs-5">{{ item.vol_kini }}</span>
                             </div>
                         </div>
-                        <div class="text-muted" style="font-size: 0.7rem; background: #fff; border: 1px dashed #dee2e6; padding: 4px; border-radius: 6px;">
-                            Stand: <b class="text-dark">{{ item.stand_awal }}</b> <i class="fas fa-long-arrow-alt-right mx-1"></i> <b class="text-primary">{{ item.stand_akhir }}</b>
+                        <div class="badge bg-light text-dark border w-100" style="font-size: 0.7rem;">
+                            Stand: <b>{{ item.stand_awal }}</b> - <b>{{ item.stand_akhir }}</b>
                         </div>
                     </td>
                     
                     <td>
-                        <div class="d-flex align-items-center mb-1">
-                            <span class="badge bg-light text-dark border me-2" style="width: 50px;">MRID</span>
-                            <span class="fw-bold text-primary small">{{ item.cmr_mrid }}</span>
-                        </div>
-                        <div class="d-flex align-items-center mb-1">
-                            <span class="badge bg-light text-dark border me-2" style="width: 50px;">TRBL</span>
-                            <span class="fw-bold text-danger small">{{ item.cmr_trbl1_code }}</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-light text-dark border me-2" style="width: 50px;">MODE</span>
-                            <span class="fw-bold text-secondary small">{{ item.read_method }}</span>
-                        </div>
+                        <div class="small mb-1"><span class="text-muted">MRID:</span> <span class="fw-bold text-primary">{{ item.cmr_mrid }}</span></div>
+                        <div class="small mb-1"><span class="text-muted">Metode:</span> <span class="badge bg-secondary text-white" style="font-size: 0.6rem;">{{ item.read_method }}</span></div>
+                        <div class="small"><span class="text-muted">Trbl:</span> <span class="fw-bold text-danger">{{ item.cmr_trbl1_code }}</span></div>
                     </td>
                     
                     <td>
                         <div class="mb-2">
-                            {% if item.kategori_anomali == 'ZERO' %}<span class="anomaly-badge bg-danger text-white border border-danger">KASUS: ZERO</span>
-                            {% elif item.kategori_anomali == 'EKSTREM' %}<span class="anomaly-badge bg-warning text-dark border border-warning">KASUS: EKSTREM</span>
-                            {% elif item.kategori_anomali == 'MINUS' %}<span class="anomaly-badge bg-dark text-white border border-secondary">KASUS: MINUS</span>
-                            {% else %}<span class="anomaly-badge bg-info text-white border border-info">KASUS: TURUN</span>{% endif %}
+                            {% if item.kategori_anomali == 'ZERO' %}<span class="anomaly-badge bg-danger text-white">ZERO</span>
+                            {% elif item.kategori_anomali == 'EKSTREM' %}<span class="anomaly-badge bg-warning text-dark">EKSTREM</span>
+                            {% elif item.kategori_anomali == 'MINUS' %}<span class="anomaly-badge bg-dark text-white">MINUS</span>
+                            {% else %}<span class="anomaly-badge bg-info text-white">TURUN</span>{% endif %}
                         </div>
-                        <div class="input-group input-group-sm">
-                            <input type="text" class="form-control border-secondary" id="catatan_{{ item.nomen }}" value="{{ item.catatan }}" placeholder="Input analisa..." style="border-radius: 6px 0 0 6px;">
-                            <button class="btn btn-secondary" onclick="simpanCatatan('{{ item.nomen }}', '{{ periode_aktif }}')" title="Simpan" style="border-radius: 0 6px 6px 0;"><i class="fas fa-save"></i></button>
+                        <div class="input-group input-group-sm shadow-sm">
+                            <input type="text" class="form-control border-primary-subtle" id="catatan_{{ item.nomen }}" value="{{ item.catatan }}" placeholder="Ketik analisa Anda...">
+                            <button class="btn btn-primary" onclick="simpanCatatan('{{ item.nomen }}', '{{ periode_aktif }}')" title="Simpan Catatan"><i class="fas fa-save"></i></button>
                         </div>
-                        <small id="alert_{{ item.nomen }}" class="text-success d-none fw-bold mt-1 d-block" style="font-size: 0.65rem;"><i class="fas fa-check-circle me-1"></i>Tersimpan</small>
+                        <small id="alert_{{ item.nomen }}" class="text-success d-none" style="font-size: 0.65rem;"><i class="fas fa-check me-1"></i>Tersimpan!</small>
                     </td>
 
                     <td class="text-center pe-4">
                         {% if item.status_audit == 1 %}
-                            <span class="badge bg-success status-badge mb-2 w-100 py-2"><i class="fas fa-check-circle me-1"></i>Selesai</span>
+                            <span class="badge bg-success status-badge mb-2 d-block"><i class="fas fa-check-circle me-1"></i>Selesai</span>
                         {% else %}
-                            <span class="badge bg-light text-muted status-badge border mb-2 w-100 py-2">Blm Audit</span>
+                            <span class="badge bg-secondary status-badge opacity-50 border mb-2 d-block">Belum Audit</span>
                         {% endif %}
-                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-outline-primary btn-audit w-100">
-                            <i class="fas fa-search me-1"></i> Lapangan
+                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-dark btn-audit w-100 shadow-sm">
+                            <i class="fas fa-camera me-1"></i> Verifikasi
                         </a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <td colspan="5" class="text-center py-5">
-                        <img src="https://cdn-icons-png.flaticon.com/512/7486/7486754.png" alt="No Data" style="width: 80px; opacity: 0.3;" class="mb-3">
-                        <h6 class="text-muted fw-bold">Data Tidak Ditemukan</h6>
-                        <p class="text-muted small">Coba ubah filter Cycle atau Kategori.</p>
-                        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}" class="btn btn-sm btn-primary px-4 rounded-pill">Reset Filter</a>
+                        <i class="fas fa-search fa-3x text-muted opacity-25 mb-3"></i>
+                        <p class="text-muted">Tidak ada data detail anomali untuk filter ini.</p>
+                        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}" class="btn btn-sm btn-link">Reset Filter</a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -189,291 +168,310 @@
 </div>
 
 <div class="modal fade" id="modalCid" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; background-color: #f4f7f6;">
             
-            <div class="modal-header bg-dark text-white p-4 border-0">
+            <div class="modal-header bg-dark text-white p-3 border-0" style="border-radius: 12px 12px 0 0;">
                 <div>
-                    <span class="badge bg-primary mb-2" style="letter-spacing: 1px;">AUDIT SISTEM PUSAT (CID)</span>
-                    <h4 class="modal-title fw-bold mb-0" id="m_nomen_title"></h4>
-                    <div class="text-light opacity-75 small mt-1" id="m_alamat_header"></div>
+                    <h5 class="modal-title fw-bold mb-0 text-uppercase">
+                        <i class="fas fa-database text-warning me-2"></i>DATA MASTER 3 BULAN: <span id="m_nomen" class="text-info"></span>
+                    </h5>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
-            <div class="bg-light border-bottom px-4">
-                <ul class="nav nav-tabs modal-tabs" id="cidTab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-kalkulasi" type="button" role="tab">
-                            <i class="fas fa-calculator me-2"></i>Audit Volume & Tagihan
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-teknis" type="button" role="tab">
-                            <i class="fas fa-tachometer-alt me-2"></i>Histori Stand & Teknis
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-kontak" type="button" role="tab">
-                            <i class="fas fa-address-book me-2"></i>Kontak Pelanggan
-                        </button>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="modal-body p-4 bg-white">
-                <div class="tab-content" id="cidTabContent">
+            <div class="modal-body p-3">
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-md-7">
+                        <div class="bg-white p-3 rounded shadow-sm h-100 border">
+                            <div class="row align-items-center">
+                                <div class="col-sm-2 text-center border-end">
+                                    <i class="fas fa-map-marked-alt text-primary" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                                </div>
+                                <div class="col-sm-10">
+                                    <p class="static-info-label">Alamat Pelanggan</p>
+                                    <p class="static-info-val mb-2" id="m_alamat" style="line-height: 1.2;"></p>
+                                    <div class="d-flex gap-3 small">
+                                        <div><i class="fab fa-whatsapp text-success me-1"></i> <span id="m_wa" class="fw-bold"></span></div>
+                                        <div><i class="fas fa-phone text-primary me-1"></i> <span id="m_telp" class="fw-bold"></span></div>
+                                        <div><i class="fas fa-envelope text-danger me-1"></i> <span id="m_email" class="fw-bold"></span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
-                    <div class="tab-pane fade show active" id="tab-kalkulasi" role="tabpanel">
-                        <div class="row g-4">
-                            <div class="col-md-7">
-                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Kalkulasi 4 Volume Pembacaan</h6>
-                                <div class="row g-3">
-                                    <div class="col-6">
-                                        <div class="highlight-box h-100" style="border-color: #ffc107;">
-                                            <span class="data-label">Volume Lapangan (Kini)</span>
-                                            <span class="data-value fs-4 text-warning" id="md_vol_lap"></span>
-                                            <small class="text-muted">CURR_READ_1 - PREV_READ_1</small>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="highlight-box h-100" style="border-color: #17a2b8;">
-                                            <span class="data-label">Volume Sistem Pusat</span>
-                                            <span class="data-value fs-4 text-info" id="md_vol_pusat"></span>
-                                            <small class="text-muted">CMR_READING - CMR_PREV</small>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="highlight-box h-100" style="border-color: #28a745;">
-                                            <span class="data-label">Volume Cetak Tagihan</span>
-                                            <span class="data-value fs-4 text-success" id="md_vol_cetak"></span>
-                                            <small class="text-muted">SB_STAND - PREV_READ_1</small>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="highlight-box h-100" style="border-color: #6c757d;">
-                                            <span class="data-label">Volume Periode Lalu</span>
-                                            <span class="data-value fs-4 text-secondary" id="md_vol_lalu"></span>
-                                            <small class="text-muted">Referensi SBRS</small>
-                                        </div>
-                                    </div>
+                    <div class="col-md-5">
+                        <div class="bg-white p-3 rounded shadow-sm h-100 border">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <p class="static-info-label">Petugas (MRID)</p>
+                                    <p class="static-info-val text-primary mb-1" id="m_mrid"></p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="static-info-label">Kode Rayon</p>
+                                    <p class="static-info-val text-success mb-1" id="m_rayon"></p>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <p class="static-info-label text-danger">Indikasi Sinergi</p>
+                                    <div id="m_indikasi" class="fw-bold text-dark bg-danger-subtle px-2 py-1 rounded d-inline-block small"></div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded shadow-sm border overflow-hidden">
+                    <table class="table table-bordered table-striped master-table mb-0">
+                        <thead class="text-center">
+                            <tr>
+                                <th style="width: 25%; background: #343a40 !important;" class="text-start ps-3">PARAMETER SBRS</th>
+                                <th style="width: 25%;">H-2 ({{ label_lalu_2|default('2 Bulan Lalu') }})</th>
+                                <th style="width: 25%;">H-1 ({{ label_lalu_1|default('1 Bulan Lalu') }})</th>
+                                <th style="width: 25%; background: #0056b3 !important;">KINI ({{ label_kini|default('Bulan Ini') }})</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="col-header ps-3 text-primary"><i class="fas fa-cog me-1"></i> TEKNIS METER</td>
+                                <td colspan="3" class="bg-light"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">TARIF (GOLONGAN)</td>
+                                <td class="text-center" id="t_tarif_h2"></td>
+                                <td class="text-center" id="t_tarif_h1"></td>
+                                <td class="text-center fw-bold text-dark bg-primary-subtle" id="t_tarif_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">NO SERI METER</td>
+                                <td class="text-center" id="t_mtrnum_h2"></td>
+                                <td class="text-center" id="t_mtrnum_h1"></td>
+                                <td class="text-center fw-bold text-dark bg-primary-subtle" id="t_mtrnum_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">CYCLE TAGIHAN</td>
+                                <td class="text-center" id="t_cycle_h2"></td>
+                                <td class="text-center" id="t_cycle_h1"></td>
+                                <td class="text-center fw-bold text-dark bg-primary-subtle" id="t_cycle_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">READ METHOD</td>
+                                <td class="text-center" id="t_method_h2"></td>
+                                <td class="text-center" id="t_method_h1"></td>
+                                <td class="text-center fw-bold text-primary bg-primary-subtle" id="t_method_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">CMR TRBL1 CODE</td>
+                                <td class="text-center text-danger fw-bold" id="t_trbl_h2"></td>
+                                <td class="text-center text-danger fw-bold" id="t_trbl_h1"></td>
+                                <td class="text-center fw-bold text-danger bg-primary-subtle" id="t_trbl_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">CMR CHG SPCL MSG</td>
+                                <td class="text-center text-warning" id="t_spcl_h2"></td>
+                                <td class="text-center text-warning" id="t_spcl_h1"></td>
+                                <td class="text-center fw-bold text-warning bg-primary-subtle" id="t_spcl_kini"></td>
+                            </tr>
                             
-                            <div class="col-md-5">
-                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Keuangan & Info Dasar</h6>
-                                <div class="row g-3">
-                                    <div class="col-6">
-                                        <span class="data-label">TOTAL TAGIHAN (BILL AMOUNT)</span>
-                                        <span class="data-value text-danger fs-5" id="md_bill"></span>
-                                    </div>
-                                    <div class="col-6">
-                                        <span class="data-label">YANG DIBAYAR (PAYMENT)</span>
-                                        <span class="data-value text-success fs-5" id="md_pay"></span>
-                                    </div>
-                                    <div class="col-6">
-                                        <span class="data-label">TARIF (GOLONGAN)</span>
-                                        <span class="data-value" id="md_tarif"></span>
-                                    </div>
-                                    <div class="col-6">
-                                        <span class="data-label">KODE RAYON / PCEZ</span>
-                                        <span class="data-value text-primary" id="md_rayon"></span>
-                                    </div>
-                                    <div class="col-6">
-                                        <span class="data-label">CYCLE TAGIHAN</span>
-                                        <span class="data-value" id="md_cycle"></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tab-pane fade" id="tab-teknis" role="tabpanel">
-                        <div class="row g-4">
-                            <div class="col-md-8">
-                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Histori Pembacaan Meter</h6>
-                                <div class="table-responsive border rounded">
-                                    <table class="table table-striped table-borderless mb-0">
-                                        <thead class="bg-light">
-                                            <tr>
-                                                <th>Parameter Stand</th>
-                                                <th class="text-center text-primary">KINI</th>
-                                                <th class="text-center">H-1</th>
-                                                <th class="text-center">H-2</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td class="fw-bold text-muted small">PREV_READ_1 (Stand Awal)</td>
-                                                <td class="text-center fw-bold" id="t_prev_kini"></td>
-                                                <td class="text-center text-muted" id="t_prev_h1"></td>
-                                                <td class="text-center text-muted" id="t_prev_h2"></td>
-                                            </tr>
-                                            <tr>
-                                                <td class="fw-bold text-muted small">CURR_READ_1 (Stand Lapangan)</td>
-                                                <td class="text-center fw-bold text-primary" id="t_curr_kini"></td>
-                                                <td class="text-center text-muted" id="t_curr_h1"></td>
-                                                <td class="text-center text-muted" id="t_curr_h2"></td>
-                                            </tr>
-                                            <tr>
-                                                <td class="fw-bold text-muted small">SB_STAND (Stand Cetak)</td>
-                                                <td class="text-center fw-bold text-success" id="t_sb_kini"></td>
-                                                <td class="text-center text-muted" id="t_sb_h1"></td>
-                                                <td class="text-center text-muted" id="t_sb_h2"></td>
-                                            </tr>
-                                            <tr>
-                                                <td class="fw-bold text-muted small">HARI BACA</td>
-                                                <td class="text-center fw-bold" id="t_hari_kini"></td>
-                                                <td class="text-center text-muted" id="t_hari_h1"></td>
-                                                <td class="text-center text-muted" id="t_hari_h2"></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            <tr>
+                                <td class="col-header ps-3 text-success"><i class="fas fa-tachometer-alt me-1"></i> STAND METER & DURASI</td>
+                                <td colspan="3" class="bg-light"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">CMR LOC CODE</td>
+                                <td class="text-center" id="t_loc_h2"></td>
+                                <td class="text-center" id="t_loc_h1"></td>
+                                <td class="text-center fw-bold bg-primary-subtle" id="t_loc_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">HARI BACA (Durasi)</td>
+                                <td class="text-center" id="t_hb_h2"></td>
+                                <td class="text-center" id="t_hb_h1"></td>
+                                <td class="text-center fw-bold bg-primary-subtle" id="t_hb_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">PREV READ 1 (Awal Lapangan)</td>
+                                <td class="text-center" id="t_pr1_h2"></td>
+                                <td class="text-center" id="t_pr1_h1"></td>
+                                <td class="text-center fw-bold bg-primary-subtle" id="t_pr1_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">CURR READ 1 (Akhir Lapangan)</td>
+                                <td class="text-center" id="t_cr1_h2"></td>
+                                <td class="text-center" id="t_cr1_h1"></td>
+                                <td class="text-center fw-bold text-success bg-primary-subtle" id="t_cr1_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">CMR PREV READ (Awal Pusat)</td>
+                                <td class="text-center text-muted" id="t_cpr_h2"></td>
+                                <td class="text-center text-muted" id="t_cpr_h1"></td>
+                                <td class="text-center fw-bold text-muted bg-primary-subtle" id="t_cpr_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">CMR READING (Akhir Pusat)</td>
+                                <td class="text-center text-muted" id="t_cr_h2"></td>
+                                <td class="text-center text-muted" id="t_cr_h1"></td>
+                                <td class="text-center fw-bold text-muted bg-primary-subtle" id="t_cr_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">SB STAND (Stand Tagihan)</td>
+                                <td class="text-center" id="t_sb_h2"></td>
+                                <td class="text-center" id="t_sb_h1"></td>
+                                <td class="text-center fw-bold text-primary bg-primary-subtle fs-6" id="t_sb_kini"></td>
+                            </tr>
                             
-                            <div class="col-md-4">
-                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Info Petugas (Kini)</h6>
-                                <div class="mb-3">
-                                    <span class="data-label">METODE BACA (READ_METHOD)</span>
-                                    <span class="data-value"><span class="badge bg-dark" id="md_method"></span></span>
-                                </div>
-                                <div class="mb-3">
-                                    <span class="data-label">PETUGAS (CMR_MRID)</span>
-                                    <span class="data-value text-primary" id="md_mrid"></span>
-                                </div>
-                                <div class="mb-3">
-                                    <span class="data-label">KODE TROUBLE (CMR_TRBL1)</span>
-                                    <span class="data-value text-danger" id="md_trbl"></span>
-                                </div>
-                                <div class="mb-3">
-                                    <span class="data-label">NO SERI METER</span>
-                                    <span class="data-value" id="md_mtrnum"></span>
-                                </div>
-                                <div>
-                                    <span class="data-label">SPECIAL MESSAGE / REMARK</span>
-                                    <span class="data-value text-warning fw-normal fst-italic" id="md_spcl"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="tab-pane fade" id="tab-kontak" role="tabpanel">
-                        <div class="row justify-content-center">
-                            <div class="col-md-8 text-center py-4">
-                                <i class="fas fa-map-marked-alt text-muted mb-3" style="font-size: 3rem; opacity: 0.3;"></i>
-                                <h5 class="fw-bold text-dark" id="k_nomen"></h5>
-                                <p class="text-muted mb-4 fs-5" id="k_alamat"></p>
-                                
-                                <div class="d-flex justify-content-center gap-4 mb-4">
-                                    <div class="text-start">
-                                        <span class="data-label"><i class="fab fa-whatsapp text-success me-1"></i>WhatsApp</span>
-                                        <span class="data-value fs-5" id="k_wa"></span>
-                                    </div>
-                                    <div class="border-start"></div>
-                                    <div class="text-start">
-                                        <span class="data-label"><i class="fas fa-phone-alt text-primary me-1"></i>Telepon</span>
-                                        <span class="data-value fs-5" id="k_telp"></span>
-                                    </div>
-                                </div>
-                                
-                                <a id="btn_gmaps" href="#" target="_blank" class="btn btn-danger btn-lg px-5 rounded-pill shadow-sm">
-                                    <i class="fas fa-directions me-2"></i>BUKA DI GOOGLE MAPS
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
+                            <tr>
+                                <td class="col-header ps-3 text-danger"><i class="fas fa-file-invoice-dollar me-1"></i> KALKULASI VOLUME & KEUANGAN</td>
+                                <td colspan="3" class="bg-light"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4 text-dark">VOL LAPANGAN (m3)</td>
+                                <td class="text-center fw-bold" id="v_lap_h2"></td>
+                                <td class="text-center fw-bold" id="v_lap_h1"></td>
+                                <td class="text-center fw-bold text-dark bg-warning-subtle fs-6" id="v_lap_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4 text-dark">VOL SISTEM PUSAT (m3)</td>
+                                <td class="text-center fw-bold" id="v_pus_h2"></td>
+                                <td class="text-center fw-bold" id="v_pus_h1"></td>
+                                <td class="text-center fw-bold text-dark bg-warning-subtle fs-6" id="v_pus_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4 text-success">VOL CETAK TAGIHAN (m3)</td>
+                                <td class="text-center fw-bold text-success" id="v_cet_h2"></td>
+                                <td class="text-center fw-bold text-success" id="v_cet_h1"></td>
+                                <td class="text-center fw-bold text-success bg-warning-subtle fs-5" id="v_cet_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">BILL AMOUNT (Total Tagihan)</td>
+                                <td class="text-end pe-4 text-danger" id="t_bill_h2"></td>
+                                <td class="text-end pe-4 text-danger" id="t_bill_h1"></td>
+                                <td class="text-end pe-4 fw-bold text-danger bg-primary-subtle" id="t_bill_kini"></td>
+                            </tr>
+                            <tr>
+                                <td class="col-header ps-4">PAYMENT AMOUNT (Yg Dibayar)</td>
+                                <td class="text-end pe-4 text-success" id="t_pay_h2"></td>
+                                <td class="text-end pe-4 text-success" id="t_pay_h1"></td>
+                                <td class="text-end pe-4 fw-bold text-success bg-primary-subtle" id="t_pay_kini"></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
             
+            <div class="modal-footer bg-dark border-0 p-2 d-flex justify-content-center">
+                <button type="button" class="btn btn-outline-light fw-bold px-5" data-bs-dismiss="modal">TUTUP DATA MASTER</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-// Fungsi Format Mata Uang IDR (Anti-Pusing)
+// Auto format Rupiah
 function formatRupiah(angka) {
     let number = parseFloat(angka);
     if(isNaN(number)) return "Rp 0";
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(number);
 }
 
-// Fungsi Load Data ke dalam Modal Berbasis TABS
+// INJEKSI DATA KE TABEL RAKSASA 3 BULAN
 function openCidDetail(info) {
     const kini = info.kini || {};
     const lalu1 = info.lalu_1 || {};
     const lalu2 = info.lalu_2 || {};
     
-    // --- SET HEADER ---
-    document.getElementById('m_nomen_title').innerText = `${info.nomen || '-'} - ${info.nama || '-'}`;
-    document.getElementById('m_alamat_header').innerText = info.alamat !== '-' ? info.alamat : 'Alamat tidak terdaftar di sistem';
-
-    // --- TAB 1: KALKULASI & KEUANGAN ---
-    document.getElementById('md_vol_lap').innerText = (kini.vol_lapangan ?? 0) + " m³";
-    document.getElementById('md_vol_pusat').innerText = (kini.vol_pusat ?? 0) + " m³";
-    document.getElementById('md_vol_cetak').innerText = (kini.vol_cetak ?? 0) + " m³";
-    document.getElementById('md_vol_lalu').innerText = (info.vol_periode_lalu ?? 0) + " m³";
+    // --- STATIC INFO ---
+    document.getElementById('m_nomen').innerText = info.nomen || '-';
+    document.getElementById('m_alamat').innerText = info.alamat !== '-' ? info.alamat : 'Tidak Ada Data Alamat';
+    document.getElementById('m_wa').innerText = info.wa !== '-' ? info.wa : '-';
+    document.getElementById('m_telp').innerText = info.telp !== '-' ? info.telp : '-';
+    document.getElementById('m_email').innerText = info.email !== '-' ? info.email : '-';
     
-    document.getElementById('md_bill').innerText = formatRupiah(kini.bill_amount);
-    document.getElementById('md_pay').innerText = formatRupiah(kini.payment_amount);
-    document.getElementById('md_tarif').innerText = kini.tariff || '-';
-    document.getElementById('md_rayon').innerText = info.rayon || '-';
-    document.getElementById('md_cycle').innerText = kini.cmr_cycle || '-';
+    document.getElementById('m_mrid').innerText = info.cmr_mrid || '-';
+    document.getElementById('m_rayon').innerText = info.rayon || '-';
+    document.getElementById('m_indikasi').innerText = info.indikasi || '-';
 
-    // --- TAB 2: HISTORI STAND (Tabel 3 Bulan) ---
-    // Kini
-    document.getElementById('t_prev_kini').innerText = kini.prev_read_1 ?? 0;
-    document.getElementById('t_curr_kini').innerText = kini.curr_read_1 ?? 0;
-    document.getElementById('t_sb_kini').innerText = kini.sb_stand ?? 0;
-    document.getElementById('t_hari_kini').innerText = kini.hari_baca ?? 0;
-    // H-1
-    document.getElementById('t_prev_h1').innerText = lalu1.prev_read_1 ?? '-';
-    document.getElementById('t_curr_h1').innerText = lalu1.curr_read_1 ?? '-';
+    // --- TABEL 3 BULAN: BARIS DEMI BARIS ---
+    // BLOK 1: TEKNIS
+    document.getElementById('t_tarif_kini').innerText = kini.tariff || '-';
+    document.getElementById('t_tarif_h1').innerText = lalu1.tariff || '-';
+    document.getElementById('t_tarif_h2').innerText = lalu2.tariff || '-';
+
+    document.getElementById('t_mtrnum_kini').innerText = kini.cmr_mtr_num || '-';
+    document.getElementById('t_mtrnum_h1').innerText = lalu1.cmr_mtr_num || '-';
+    document.getElementById('t_mtrnum_h2').innerText = lalu2.cmr_mtr_num || '-';
+
+    document.getElementById('t_cycle_kini').innerText = kini.cmr_cycle || '-';
+    document.getElementById('t_cycle_h1').innerText = lalu1.cmr_cycle || '-';
+    document.getElementById('t_cycle_h2').innerText = lalu2.cmr_cycle || '-';
+
+    document.getElementById('t_method_kini').innerText = kini.read_method || '-';
+    document.getElementById('t_method_h1').innerText = lalu1.read_method || '-';
+    document.getElementById('t_method_h2').innerText = lalu2.read_method || '-';
+
+    document.getElementById('t_trbl_kini').innerText = kini.cmr_trbl1_code || '-';
+    document.getElementById('t_trbl_h1').innerText = lalu1.cmr_trbl1_code || '-';
+    document.getElementById('t_trbl_h2').innerText = lalu2.cmr_trbl1_code || '-';
+
+    document.getElementById('t_spcl_kini').innerText = kini.cmr_chg_spcl_msg || '-';
+    document.getElementById('t_spcl_h1').innerText = lalu1.cmr_chg_spcl_msg || '-';
+    document.getElementById('t_spcl_h2').innerText = lalu2.cmr_chg_spcl_msg || '-';
+
+    // BLOK 2: STAND METER
+    document.getElementById('t_loc_kini').innerText = kini.cmr_loc_code || '-';
+    document.getElementById('t_loc_h1').innerText = lalu1.cmr_loc_code || '-';
+    document.getElementById('t_loc_h2').innerText = lalu2.cmr_loc_code || '-';
+
+    document.getElementById('t_hb_kini').innerText = kini.hari_baca || '-';
+    document.getElementById('t_hb_h1').innerText = lalu1.hari_baca || '-';
+    document.getElementById('t_hb_h2').innerText = lalu2.hari_baca || '-';
+
+    document.getElementById('t_pr1_kini').innerText = kini.prev_read_1 ?? '-';
+    document.getElementById('t_pr1_h1').innerText = lalu1.prev_read_1 ?? '-';
+    document.getElementById('t_pr1_h2').innerText = lalu2.prev_read_1 ?? '-';
+
+    document.getElementById('t_cr1_kini').innerText = kini.curr_read_1 ?? '-';
+    document.getElementById('t_cr1_h1').innerText = lalu1.curr_read_1 ?? '-';
+    document.getElementById('t_cr1_h2').innerText = lalu2.curr_read_1 ?? '-';
+
+    document.getElementById('t_cpr_kini').innerText = kini.cmr_prev_read ?? '-';
+    document.getElementById('t_cpr_h1').innerText = lalu1.cmr_prev_read ?? '-';
+    document.getElementById('t_cpr_h2').innerText = lalu2.cmr_prev_read ?? '-';
+
+    document.getElementById('t_cr_kini').innerText = kini.cmr_reading ?? '-';
+    document.getElementById('t_cr_h1').innerText = lalu1.cmr_reading ?? '-';
+    document.getElementById('t_cr_h2').innerText = lalu2.cmr_reading ?? '-';
+
+    document.getElementById('t_sb_kini').innerText = kini.sb_stand ?? '-';
     document.getElementById('t_sb_h1').innerText = lalu1.sb_stand ?? '-';
-    document.getElementById('t_hari_h1').innerText = lalu1.hari_baca ?? '-';
-    // H-2
-    document.getElementById('t_prev_h2').innerText = lalu2.prev_read_1 ?? '-';
-    document.getElementById('t_curr_h2').innerText = lalu2.curr_read_1 ?? '-';
     document.getElementById('t_sb_h2').innerText = lalu2.sb_stand ?? '-';
-    document.getElementById('t_hari_h2').innerText = lalu2.hari_baca ?? '-';
 
-    // --- TAB 2: TEKNIS LAPANGAN ---
-    document.getElementById('md_method').innerText = kini.read_method || '-';
-    document.getElementById('md_mrid').innerText = info.cmr_mrid || '-';
-    document.getElementById('md_trbl').innerText = kini.cmr_trbl1_code || '-';
-    document.getElementById('md_mtrnum').innerText = kini.cmr_mtr_num || '-';
-    document.getElementById('md_spcl').innerText = kini.cmr_chg_spcl_msg || 'Tidak ada catatan';
+    // BLOK 3: VOLUME & KEUANGAN
+    document.getElementById('v_lap_kini').innerText = kini.vol_lapangan ?? '-';
+    document.getElementById('v_lap_h1').innerText = lalu1.vol_lapangan ?? '-';
+    document.getElementById('v_lap_h2').innerText = lalu2.vol_lapangan ?? '-';
 
-    // --- TAB 3: KONTAK & LOKASI ---
-    document.getElementById('k_nomen').innerText = info.nomen || '-';
-    document.getElementById('k_alamat').innerText = info.alamat !== '-' ? info.alamat : 'Alamat tidak ditemukan.';
-    document.getElementById('k_wa').innerText = info.wa !== '-' ? info.wa : 'Tidak Ada';
-    document.getElementById('k_telp').innerText = info.telp !== '-' ? info.telp : 'Tidak Ada';
-    
-    // Gmaps Link
-    const gmapsBtn = document.getElementById('btn_gmaps');
-    if(info.alamat && info.alamat !== '-') {
-        gmapsBtn.href = `http://googleusercontent.com/maps.google.com/search?q=${encodeURIComponent(info.alamat)}`;
-        gmapsBtn.classList.remove('disabled', 'btn-secondary');
-        gmapsBtn.classList.add('btn-danger');
-    } else {
-        gmapsBtn.href = '#';
-        gmapsBtn.classList.add('disabled', 'btn-secondary');
-        gmapsBtn.classList.remove('btn-danger');
-    }
+    document.getElementById('v_pus_kini').innerText = kini.vol_pusat ?? '-';
+    document.getElementById('v_pus_h1').innerText = lalu1.vol_pusat ?? '-';
+    document.getElementById('v_pus_h2').innerText = lalu2.vol_pusat ?? '-';
 
-    // Reset tab to first when opened
-    var firstTabEl = document.querySelector('#cidTab li:first-child button')
-    var firstTab = new bootstrap.Tab(firstTabEl)
-    firstTab.show()
+    document.getElementById('v_cet_kini').innerText = kini.vol_cetak ?? '-';
+    document.getElementById('v_cet_h1').innerText = lalu1.vol_cetak ?? '-';
+    document.getElementById('v_cet_h2').innerText = lalu2.vol_cetak ?? '-';
 
-    // Tampilkan Modal
+    document.getElementById('t_bill_kini').innerText = formatRupiah(kini.bill_amount);
+    document.getElementById('t_bill_h1').innerText = formatRupiah(lalu1.bill_amount);
+    document.getElementById('t_bill_h2').innerText = formatRupiah(lalu2.bill_amount);
+
+    document.getElementById('t_pay_kini').innerText = formatRupiah(kini.payment_amount);
+    document.getElementById('t_pay_h1').innerText = formatRupiah(lalu1.payment_amount);
+    document.getElementById('t_pay_h2').innerText = formatRupiah(lalu2.payment_amount);
+
     var myModal = new bootstrap.Modal(document.getElementById('modalCid'));
     myModal.show();
 }
 
-// Fungsi Simpan Catatan Desktop Tanpa Reload
 function simpanCatatan(nomen, periode) {
     const catatan = document.getElementById('catatan_' + nomen).value;
     const alertMsg = document.getElementById('alert_' + nomen);
@@ -495,5 +493,4 @@ function simpanCatatan(nomen, periode) {
     .catch(error => console.error('Error:', error));
 }
 </script>
-
 {% endblock %}
