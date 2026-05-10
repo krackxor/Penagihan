@@ -122,16 +122,16 @@
                         <div class="fw-bold fs-5 {% if item.bulan_ini < 0 %}text-danger{% endif %}">{{ item.bulan_ini }}</div>
                         <div class="badge bg-light text-muted border mb-1" style="font-size: 0.65rem;">Avg: {{ item.rata_rata }} m3</div>
                         
-                        {% if item.raw_data and item.raw_data.INDIKASI_SINERGI %}
+                        {% if item.modal_info and item.modal_info.indikasi %}
                             <div class="d-block mt-1">
-                                {% if 'FRAUD' in item.raw_data.INDIKASI_SINERGI %}
-                                    <span class="badge bg-danger indikasi-badge"><i class="fas fa-skull-crossbones me-1"></i>{{ item.raw_data.INDIKASI_SINERGI }}</span>
-                                {% elif 'TEKNIS' in item.raw_data.INDIKASI_SINERGI %}
-                                    <span class="badge bg-info text-dark indikasi-badge"><i class="fas fa-tools me-1"></i>{{ item.raw_data.INDIKASI_SINERGI }}</span>
-                                {% elif 'HUMAN' in item.raw_data.INDIKASI_SINERGI or 'WARNING' in item.raw_data.INDIKASI_SINERGI %}
-                                    <span class="badge bg-warning text-dark indikasi-badge"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.raw_data.INDIKASI_SINERGI }}</span>
-                                {% elif 'Aman' not in item.raw_data.INDIKASI_SINERGI %}
-                                    <span class="badge bg-secondary indikasi-badge">{{ item.raw_data.INDIKASI_SINERGI }}</span>
+                                {% if 'FRAUD' in item.modal_info.indikasi %}
+                                    <span class="badge bg-danger indikasi-badge"><i class="fas fa-skull-crossbones me-1"></i>{{ item.modal_info.indikasi }}</span>
+                                {% elif 'TEKNIS' in item.modal_info.indikasi %}
+                                    <span class="badge bg-info text-dark indikasi-badge"><i class="fas fa-tools me-1"></i>{{ item.modal_info.indikasi }}</span>
+                                {% elif 'HUMAN' in item.modal_info.indikasi or 'WARNING' in item.modal_info.indikasi %}
+                                    <span class="badge bg-warning text-dark indikasi-badge"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.modal_info.indikasi }}</span>
+                                {% elif 'Aman' not in item.modal_info.indikasi %}
+                                    <span class="badge bg-secondary indikasi-badge">{{ item.modal_info.indikasi }}</span>
                                 {% endif %}
                             </div>
                         {% endif %}
@@ -251,33 +251,34 @@
 
 <script>
 function openCidDetail(item) {
-    const raw = item.raw_data || {};
+    // Ambil data yang sudah diparsing dari backend Python
+    const info = item.modal_info || {};
     
     // 1. Set Identitas
     document.getElementById('m_nomen').innerText = item.nomen;
     document.getElementById('m_nama').innerText = item.nama || '-';
     
     // 2. Set Kontak & Alamat
-    document.getElementById('m_alamat').innerText = raw.cmr_address || raw.ALAMAT || 'Alamat tidak ditemukan di sistem.';
-    document.getElementById('m_mtr_info').innerText = "Info Meter: " + (raw.cmr_mtr_info || 'Tidak ada catatan lokasi meter.');
-    document.getElementById('m_wa').innerText = raw.WA_NUMBER || raw.MOBILE_PHONE || '-';
-    document.getElementById('m_telp').innerText = raw.PHONE || '-';
-    document.getElementById('m_email').innerText = raw.EMAIL || '-';
+    document.getElementById('m_alamat').innerText = (info.alamat !== '-') ? info.alamat : 'Alamat tidak ditemukan di sistem.';
+    document.getElementById('m_mtr_info').innerText = "Info Meter: " + ((info.mtr_info !== '-') ? info.mtr_info : 'Tidak ada catatan khusus.');
+    document.getElementById('m_wa').innerText = info.wa;
+    document.getElementById('m_telp').innerText = info.telp;
+    document.getElementById('m_email').innerText = info.email;
     
     // Google Maps Link
-    const address = raw.cmr_address || raw.ALAMAT || '';
-    document.getElementById('m_gmaps').href = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : '#';
+    const addr = info.alamat;
+    document.getElementById('m_gmaps').href = (addr && addr !== '-') ? `https://maps.google.com/?q=${encodeURIComponent(addr)}` : '#';
     
     // 3. Set Teknis
-    document.getElementById('m_tarif').innerText = raw.TARIF || raw.cmr_tarif || '-';
-    document.getElementById('m_meter').innerText = raw.cmr_mtr_num || raw.METER_SERIAL || '-';
-    document.getElementById('m_metode').innerText = raw.READ_METHOD || raw.cmr_read_code || '-';
-    document.getElementById('m_bill').innerText = raw.BILL_ID || '-';
+    document.getElementById('m_tarif').innerText = info.tarif;
+    document.getElementById('m_meter').innerText = info.meter;
+    document.getElementById('m_metode').innerText = info.metode;
+    document.getElementById('m_bill').innerText = info.bill_id;
     
-    // 4. Set Volume (Gunakan hasil bypass Python jika tersedia)
+    // 4. Set Volume
     document.getElementById('m_konsumsi').innerText = item.bulan_ini;
-    document.getElementById('m_stand').innerText = `Stand: ${raw.START_READ_STAN || '-'} s/d ${raw.END_READ_STAN || '-'}`;
-    document.getElementById('m_hari').innerText = `${raw.HARI_BACA || '0'} Hari Baca`;
+    document.getElementById('m_stand').innerText = `Stand: ${info.s_awal} s/d ${info.s_akhir}`;
+    document.getElementById('m_hari').innerText = `${info.hari} Hari Baca`;
 
     // Tampilkan Modal
     var myModal = new bootstrap.Modal(document.getElementById('modalCid'));
