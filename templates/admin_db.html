@@ -1,63 +1,131 @@
 {% extends "base.html" %}
 
-{% block title %}Database Control - Sinergi V18{% endblock %}
+{% block title %}Database Control - BAAE Nexus{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Danger Glow Effects */
+    .card-danger-nexus {
+        background: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid rgba(244, 63, 94, 0.2) !important;
+        border-top: 1px solid rgba(244, 63, 94, 0.4) !important;
+        box-shadow: 0 0 30px rgba(244, 63, 94, 0.1);
+    }
+    
+    .danger-zone-box {
+        background: rgba(244, 63, 94, 0.05);
+        border: 1px solid rgba(244, 63, 94, 0.2);
+        border-radius: 1.5rem;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .danger-zone-box:hover {
+        background: rgba(244, 63, 94, 0.1);
+        border-color: #f43f5e;
+        box-shadow: 0 0 25px rgba(244, 63, 94, 0.2);
+        transform: translateY(-3px);
+    }
+
+    .btn-neon-danger {
+        background: rgba(244, 63, 94, 0.1);
+        color: #f43f5e;
+        border: 1px solid rgba(244, 63, 94, 0.4);
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: all 0.3s;
+    }
+    .btn-neon-danger:hover {
+        background: #f43f5e;
+        color: #fff;
+        box-shadow: 0 0 20px rgba(244, 63, 94, 0.5);
+    }
+
+    .alert-nexus {
+        background: rgba(2, 6, 23, 0.8);
+        border-left: 4px solid #f43f5e;
+        border-radius: 1rem;
+        color: #f1f5f9;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-9">
-            <div class="card border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
-                <div class="bg-dark p-4 text-center text-white">
-                    <i class="fas fa-database fa-3x mb-3 text-warning"></i>
-                    <h2 class="fw-bold mb-0">Database Control Center</h2>
-                    <p class="mb-0 opacity-75">Manajemen Pemeliharaan Data Area Service</p>
+<div class="row justify-content-center mt-3">
+    <div class="col-md-10 col-lg-8">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-3">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-info">Home</a></li>
+                <li class="breadcrumb-item active fw-bold text-light" aria-current="page">Admin Control</li>
+            </ol>
+        </nav>
+
+        <div class="card card-danger-nexus border-0 mb-5">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-5">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-3" 
+                         style="background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); box-shadow: 0 0 30px rgba(244, 63, 94, 0.2); width: 80px; height: 80px;">
+                        <i class="fas fa-database fa-2x text-rose-500"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-white uppercase tracking-widest">Database Control Center</h3>
+                    <p class="text-muted small">Manajemen Pemeliharaan Data BAAE Auto Analytic Engineer</p>
                 </div>
-                
-                <div class="card-body p-5">
-                    <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center mb-5" style="border-radius: 12px;">
-                        <i class="fas fa-exclamation-circle fa-2x me-3"></i>
+
+                <div class="alert alert-nexus p-4 mb-5 shadow-lg">
+                    <div class="d-flex gap-3">
+                        <i class="fas fa-triangle-exclamation fa-2x text-rose-500 animate-pulse"></i>
                         <div>
-                            <h6 class="fw-bold mb-1">Peringatan Keamanan Kritis!</h6>
-                            <p class="small mb-0">Tindakan di bawah ini bersifat permanen dan akan menghapus ribuan baris data. Pastikan Bos Anwar sudah melakukan backup data operasional sebelum melanjutkan.</p>
+                            <h6 class="fw-bold text-rose-500 mb-1">Peringatan Keamanan Kritis!</h6>
+                            <p class="small mb-0 text-slate-300">
+                                Tindakan di bawah ini bersifat permanen dan akan menghapus ribuan baris data operasional. 
+                                Pastikan <strong>Pak Khoirul Anwar</strong> sudah melakukan backup data sebelum melanjutkan.
+                            </p>
                         </div>
                     </div>
+                </div>
 
-                    <div class="row g-4">
-                        <div class="col-12">
-                            <div class="p-4 border border-2 rounded-4 bg-light transition-hover">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                                    <div style="flex: 1; min-width: 300px;">
-                                        <h5 class="fw-bold text-dark mb-1"><i class="fas fa-eraser me-2 text-primary"></i>Pembersihan Transaksi Bulanan</h5>
-                                        <p class="small text-muted mb-0">Menghapus data MC, SBRS, MB, dan Laporan Lapangan. <br>
-                                        <span class="text-success fw-bold"><i class="fas fa-shield-alt me-1"></i>Master CID & Mapping Petugas tetap AMAN.</span></p>
-                                    </div>
-                                    <button onclick="confirmAction('transaksi')" class="btn btn-outline-danger px-4 py-2 fw-bold rounded-pill">
-                                        Bersihkan Data
-                                    </button>
+                <div class="row g-4">
+                    <div class="col-12">
+                        <div class="danger-zone-box p-4">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-4">
+                                <div style="flex: 1; min-width: 280px;">
+                                    <h5 class="fw-bold text-white mb-2">
+                                        <i class="fas fa-eraser me-2 text-info"></i>Pembersihan Transaksi Bulanan
+                                    </h5>
+                                    <p class="small text-slate-400 mb-0">
+                                        Menghapus data MC, SBRS, MB, dan Laporan Lapangan. <br>
+                                        <span class="text-emerald-400 fw-bold"><i class="fas fa-shield-halved me-1"></i>Master CID & Mapping Petugas tetap AMAN.</span>
+                                    </p>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12">
-                            <div class="p-4 border border-2 border-danger rounded-4 bg-danger-subtle">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                                    <div style="flex: 1; min-width: 300px;">
-                                        <h5 class="fw-bold text-danger mb-1"><i class="fas fa-bomb me-2"></i>Reset Total (Factory Reset)</h5>
-                                        <p class="small text-danger mb-0">Menghapus 100% isi database tanpa sisa. Digunakan jika ingin pindah area atau mengganti seluruh database pelanggan dari nol.</p>
-                                    </div>
-                                    <button onclick="confirmAction('total')" class="btn btn-danger px-4 py-2 fw-bold shadow rounded-pill">
-                                        Gusur Semua Data
-                                    </button>
-                                </div>
+                                <button onclick="confirmAction('transaksi')" class="btn btn-outline-info px-4 py-2 fw-bold rounded-pill shadow-sm">
+                                    BERSIHKAN DATA
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <div class="text-center mt-5">
-                        <a href="/upload" class="btn btn-link text-decoration-none text-muted">
-                            <i class="fas fa-chevron-left me-2"></i>Kembali ke Dashboard Utama
-                        </a>
+                    <div class="col-12">
+                        <div class="danger-zone-box p-4" style="border-style: dashed;">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-4">
+                                <div style="flex: 1; min-width: 280px;">
+                                    <h5 class="fw-bold text-rose-500 mb-2">
+                                        <i class="fas fa-biohazard me-2"></i>Reset Total (Factory Reset)
+                                    </h5>
+                                    <p class="small text-slate-400 mb-0">
+                                        Menghapus 100% isi database tanpa sisa. Digunakan jika ingin pindah area operasional atau mengganti seluruh database pelanggan dari nol.
+                                    </p>
+                                </div>
+                                <button onclick="confirmAction('total')" class="btn btn-neon-danger px-4 py-2 rounded-pill">
+                                    GUSUR SEMUA DATA
+                                </button>
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                <div class="text-center mt-5">
+                    <a href="/upload" class="text-decoration-none text-slate-500 small hover:text-info transition">
+                        <i class="fas fa-chevron-left me-2"></i>Kembali ke Pusat Sinkronisasi
+                    </a>
                 </div>
             </div>
         </div>
@@ -66,11 +134,18 @@
 
 <script>
 async function confirmAction(mode) {
+    const swalDark = {
+        background: '#0f172a',
+        color: '#f1f5f9',
+        confirmButtonColor: mode === 'total' ? '#f43f5e' : '#38bdf8',
+        cancelButtonColor: '#334155'
+    };
+
     const config = {
         transaksi: { 
             title: 'Hapus Data Transaksi?', 
-            text: 'Data tagihan dan SBRS akan dikosongkan. Gunakan ini untuk persiapan data bulan baru.', 
-            confirmText: 'Ya, Bersihkan!',
+            text: 'Data tagihan dan SBRS akan dikosongkan untuk persiapan bulan baru.', 
+            confirmText: 'YA, BERSIHKAN!',
             icon: 'warning'
         },
         total: { 
@@ -82,21 +157,21 @@ async function confirmAction(mode) {
     };
 
     const result = await Swal.fire({
+        ...swalDark,
         title: config[mode].title,
         text: config[mode].text,
         icon: config[mode].icon,
         showCancelButton: true,
-        confirmButtonColor: mode === 'total' ? '#d33' : '#3085d6',
-        cancelButtonColor: '#6e7881',
         confirmButtonText: config[mode].confirmText,
-        cancelButtonText: 'Batal'
+        cancelButtonText: 'BATAL'
     });
 
     if (result.isConfirmed) {
         // Tampilkan loading state
         Swal.fire({
-            title: 'Sedang Memproses Database...',
-            html: 'Mohon tunggu sebentar, sistem sedang melakukan sinkronisasi ulang.',
+            ...swalDark,
+            title: 'SINKRONISASI DATABASE...',
+            html: '<p class="text-info">Sedang memproses instruksi penghapusan data raksasa...</p>',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
@@ -110,22 +185,31 @@ async function confirmAction(mode) {
             const data = await response.json();
 
             if (data.status === 'success') {
-                Swal.fire('Berhasil!', data.message, 'success').then(() => {
+                Swal.fire({
+                    ...swalDark,
+                    icon: 'success',
+                    title: 'BERHASIL!',
+                    text: data.message
+                }).then(() => {
                     window.location.href = '/upload';
                 });
             } else {
-                Swal.fire('Gagal!', data.message, 'error');
+                Swal.fire({
+                    ...swalDark,
+                    icon: 'error',
+                    title: 'GAGAL!',
+                    text: data.message
+                });
             }
         } catch (e) {
-            Swal.fire('Error', 'Koneksi ke server terputus!', 'error');
+            Swal.fire({
+                ...swalDark,
+                icon: 'error',
+                title: 'KONEKSI ERROR',
+                text: 'Terputus dari Core Analytic Server!'
+            });
         }
     }
 }
 </script>
-
-<style>
-    .transition-hover { transition: all 0.3s ease; }
-    .transition-hover:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-    .bg-danger-subtle { background-color: #fff5f5 !important; }
-</style>
 {% endblock %}
