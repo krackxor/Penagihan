@@ -165,6 +165,15 @@
                         </a>
                     </li>
                     
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="toolMenu" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-wrench me-1"></i> Tools
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="/tools/ocr/"><i class="fas fa-font me-2 text-primary"></i>Gambar ke Teks (OCR)</a></li>
+                        </ul>
+                    </li>
+                    
                     <li class="nav-item dropdown ms-lg-3">
                         <a class="btn btn-sinergi dropdown-toggle shadow-sm" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user-gear me-1"></i> Admin Tool
@@ -205,7 +214,8 @@
         document.querySelectorAll('.nav-link, .dropdown-item').forEach(link => {
             const currentPath = window.location.pathname;
             const linkPath = link.getAttribute('href');
-            if (currentPath === linkPath) {
+            // Mencegah error jika linkPath kosong/anchor link (#)
+            if (linkPath && linkPath !== '#' && currentPath === linkPath) {
                 link.classList.add('active');
                 // Jika item di dalam dropdown, tandai juga parent dropdown-nya
                 const parentDropdown = link.closest('.dropdown');
