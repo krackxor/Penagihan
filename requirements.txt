@@ -18,5 +18,5 @@ xlsxwriter==3.1.2
 Pillow==10.0.0
 pytesseract==0.3.10
 
-# --- Fitur Tambahan ---
+# --- Fitur Tambahan (Konversi Dokumen) ---
 pdf2docx==0.5.6
