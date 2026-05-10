@@ -112,7 +112,7 @@ def save_catatan():
             raw = record.raw_data or {}
             raw['catatan_desktop'] = catatan
             record.raw_data = raw
-            flag_modified(record, "raw_data")
+            flag_modified(record, "raw_data") # Memberitahu SQLAlchemy bahwa JSON berubah
             db.session.commit()
             return jsonify({"status": "success", "message": "Catatan berhasil disimpan!"})
         return jsonify({"status": "error", "message": "Data tidak ditemukan."}), 404
@@ -163,9 +163,10 @@ def sbrs_summary():
 
     skip_counts, trbl_counts, read_counts = {}, {}, {}
     for d in all_data:
-        sc = get_case_insensitive(d.raw_data, 'cmr_skip_code')
-        tc = get_case_insensitive(d.raw_data, 'cmr_trbl1_code')
-        rm = get_case_insensitive(d.raw_data, 'Read_Method') or get_case_insensitive(d.raw_data, 'cmr_read_code')
+        raw = d.raw_data or {}
+        sc = get_case_insensitive(raw, 'cmr_skip_code')
+        tc = get_case_insensitive(raw, 'cmr_trbl1_code')
+        rm = get_case_insensitive(raw, 'Read_Method') or get_case_insensitive(raw, 'cmr_read_code')
         
         if sc and str(sc).strip() != 'None': skip_counts[sc] = skip_counts.get(sc, 0) + 1
         if tc and str(tc).strip() != 'None': trbl_counts[tc] = trbl_counts.get(tc, 0) + 1
@@ -309,10 +310,9 @@ def sbrs_analisa():
     filtered_data.sort(key=lambda x: x.bulan_ini or 0, reverse=True)
     top_data = filtered_data[:1000]
 
-    # [PERBAIKAN KRITIS]: Ambil Data Histori 3 Bulan (Bebas dari Bug Format YYYY-MM atau Spasi)
+    # [PERBAIKAN KRITIS]: Ambil Data Histori 3 Bulan
     nomen_list = [str(d.nomen).strip() for d in top_data]
     
-    # Deteksi Format DB (202604 atau 2026-04) agar data masa lalu BISA PASTI terbaca!
     p1_dash = f"{prev_periode_1[:4]}-{prev_periode_1[4:]}"
     p2_dash = f"{prev_periode_2[:4]}-{prev_periode_2[4:]}"
 
@@ -352,14 +352,12 @@ def sbrs_analisa():
         cr  = safe_f(cr_raw)
         sb  = safe_f(sb_raw)
         
-        # Mencegah logic error jika salah satu kolom tagihan tidak ada tapi field yang lain ada
         if sb == 0 and cr1 > 0: sb = cr1
         
         def c_vol(a, b, ra, rb):
             if ra == '-' and rb == '-': return '-'
             return max(0, a - b)
         
-        # Ekstrak kolom KONSUMSI / TAGIHAN_AIR (Prioritas dari CID)
         konsumsi_raw = get_raw_val(raw_dict, ['KONSUMSI', 'KONSUMSI_OFFTAKE'])
         vol_cetak = safe_f(konsumsi_raw) if konsumsi_raw != '-' else c_vol(sb, pr1, sb_raw, pr1_raw)
 
@@ -398,7 +396,6 @@ def sbrs_analisa():
         raw_rata = get_case_insensitive(raw_kini, 'Estimation_Value') or get_case_insensitive(raw_kini, 'AVG_CONSUMPTION')
         rata_real = float(raw_rata) if raw_rata else d.rata_rata
         
-        # Eksekusi Ekstraksi 3 Bulan Berturut-turut untuk SEMUA FIELD (Akurat 100%)
         data_kini = extract_all_fields(raw_kini)
         data_lalu_1 = extract_all_fields(raw_lalu_1)
         data_lalu_2 = extract_all_fields(raw_lalu_2)
@@ -411,7 +408,6 @@ def sbrs_analisa():
             "kategori_anomali": d.kategori_anomali,
             "status_audit": d.status_audit,
             
-            # Data Utama untuk Tabel Depan
             "bulan_ini": data_kini['vol_cetak'], 
             "vol_kini": data_kini['vol_cetak'],
             "vol_lalu_1": data_lalu_1['vol_cetak'] if data_lalu_1['vol_cetak'] != '-' else rata_real,
@@ -426,16 +422,13 @@ def sbrs_analisa():
             "nama_petugas_anomali": d.nama_petugas_anomali,
             "raw_data": raw_kini,
             
-            # Modal Info yang Menampung Seluruh 3 Bulan Secara Terpisah
             "modal_info": { 
                 "kini": data_kini,
                 "lalu_1": data_lalu_1,
                 "lalu_2": data_lalu_2,
                 
-                # Single Data Request (Sesuai Permintaan Bos: 1 Bulan Saja)
                 "cmr_mrid": get_raw_val(raw_kini, ['CMR_MRID', 'MRID']),
                 "rayon": get_raw_val(raw_kini, ['RAYON', 'PCEZ', 'PCEZBK']),
-                
                 "alamat": get_raw_val(raw_kini, ['cmr_address', 'ALAMAT']),
                 "wa": get_raw_val(raw_kini, ['WA_NUMBER', 'MOBILE', 'cmr_phone', 'NO_HP']),
                 "telp": get_raw_val(raw_kini, ['PHONE', 'TELEPON']),
@@ -464,13 +457,14 @@ def get_sbrs_api_stats():
         func.sum(case((DataSBRS.kategori_anomali == 'EKSTREM', 1), else_=0)).label('ekstrem'),
         func.sum(case((DataSBRS.kategori_anomali == 'TURUN', 1), else_=0)).label('turun')
     ).select_from(DataSBRS).filter(DataSBRS.periode == periode_filter)
+    
     if ab != 'all': res = res.filter(DataSBRS.ab == ab)
 
     stats = res.first()
     return jsonify({"total": stats.total or 0, "zero": int(stats.zero or 0), "ekstrem": int(stats.ekstrem or 0), "turun": int(stats.turun or 0), "periode_text": periode_filter})
 
 # ==========================================
-# FITUR BARU: MESIN EXPORT DATA KE EXCEL
+# FITUR EXPORT EXCEL
 # ==========================================
 
 @sbrs_bp.route('/export/summary')
@@ -480,7 +474,7 @@ def export_summary():
 
 @sbrs_bp.route('/export/analisa')
 def export_analisa():
-    """Mengunduh SEMUA HEADER ASLI TANPA UBAH URUTAN + Kolom Sinergi (Tanpa Kategori Anomali)."""
+    """Mengunduh SEMUA HEADER ASLI TANPA UBAH URUTAN + Kolom Sinergi."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
