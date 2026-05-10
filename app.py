@@ -9,25 +9,25 @@ from api.importer import importer_bp
 from api.kunjungan import kunjungan_bp
 from api.sbrs import sbrs_bp 
 from api.top_500 import top_500_bp # Blueprint Top 500
+from api.admin import admin_bp # Blueprint Database Control Center (V18)
 
 def sync_database_schema(app):
     """
     Fungsi Sinergi Self-Healing V5.18: Sinkronisasi Multi-Tabel Ekstrem (Anti-Crash).
-    Menjamin tabel CID, SBRS, MC, MB, Arrdebt, dan MainBill 
-    memiliki struktur dan gembok unik yang siap menelan format JSONB.
+    Fokus pada 'Healing' atau perbaikan struktur kolom tanpa menghapus data.
     """
     with app.app_context():
         inspector = inspect(db.engine)
         tables = inspector.get_table_names()
         
         with db.engine.connect() as conn:
-            # --- 1. HEALING: master_pelanggan (Tabel Induk & CID) ---
+            # --- 1. HEALING: master_pelanggan ---
             if 'master_pelanggan' in tables:
                 mp_cols = [c['name'] for c in inspector.get_columns('master_pelanggan')]
                 
                 # Tambahkan JSONB untuk menampung 50 Header Master CID
                 if 'raw_data' not in mp_cols:
-                    print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' (JSONB) ke master_pelanggan...")
+                    print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' ke master_pelanggan...")
                     try:
                         conn.execute(text("ALTER TABLE master_pelanggan ADD COLUMN raw_data JSONB"))
                     except Exception as e:
@@ -45,7 +45,7 @@ def sync_database_schema(app):
                             conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
                         except Exception: pass
 
-            # --- 2. HEALING: data_sbrs (Tabel Transaksi Lapangan) ---
+            # --- 2. HEALING: data_sbrs ---
             if 'data_sbrs' in tables:
                 sbrs_cols = [c['name'] for c in inspector.get_columns('data_sbrs')]
                 sbrs_constraints = [c['name'] for c in inspector.get_unique_constraints('data_sbrs')]
@@ -72,14 +72,13 @@ def sync_database_schema(app):
                     try: conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
                     except Exception: pass
 
-            # --- 3. HEALING: transaksi_tagihan (Tabel MC & Top 500) ---
+            # --- 3. HEALING: transaksi_tagihan ---
             if 'transaksi_tagihan' in tables:
                 tagihan_cols = [c['name'] for c in inspector.get_columns('transaksi_tagihan')]
                 tagihan_constraints = [c['name'] for c in inspector.get_unique_constraints('transaksi_tagihan')]
                 
-                # Tambahkan JSONB untuk menampung semua header MC
                 if 'raw_data' not in tagihan_cols:
-                    print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' (JSONB) ke transaksi_tagihan...")
+                    print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' ke transaksi_tagihan...")
                     try:
                         conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN raw_data JSONB"))
                     except Exception: pass
@@ -92,61 +91,6 @@ def sync_database_schema(app):
                         """))
                         conn.execute(text("ALTER TABLE transaksi_tagihan ADD CONSTRAINT uix_tagihan_nomen_periode UNIQUE (nomen, periode)"))
                     except Exception: pass
-
-            # --- 4. CREATE: data_mb (Tabel Master Bayar / Daily) ---
-            if 'data_mb' not in tables:
-                print(">>> [SINERGI-FIX] Menciptakan Tabel data_mb (Master Bayar)...")
-                try:
-                    conn.execute(text("""
-                        CREATE TABLE data_mb (
-                            id SERIAL PRIMARY KEY,
-                            nomen VARCHAR(50),
-                            periode VARCHAR(10),
-                            tgl_bayar VARCHAR(50),
-                            nominal FLOAT,
-                            denda FLOAT,
-                            lks_bayar VARCHAR(100),
-                            raw_data JSONB,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            CONSTRAINT uix_mb_nomen_periode UNIQUE (nomen, periode)
-                        )
-                    """))
-                except Exception: pass
-
-            # --- 5. CREATE: data_arrdebt (Tabel Tunggakan) ---
-            if 'data_arrdebt' not in tables:
-                print(">>> [SINERGI-FIX] Menciptakan Tabel data_arrdebt (Tunggakan)...")
-                try:
-                    conn.execute(text("""
-                        CREATE TABLE data_arrdebt (
-                            id SERIAL PRIMARY KEY,
-                            nomen VARCHAR(50),
-                            periode VARCHAR(10),
-                            nominal FLOAT,
-                            raw_data JSONB,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            CONSTRAINT uix_arrdebt_nomen_periode UNIQUE (nomen, periode)
-                        )
-                    """))
-                except Exception: pass
-
-            # --- 6. CREATE: data_mainbill (Tabel Data Fix SBRS) ---
-            if 'data_mainbill' not in tables:
-                print(">>> [SINERGI-FIX] Menciptakan Tabel data_mainbill (Data Fix)...")
-                try:
-                    conn.execute(text("""
-                        CREATE TABLE data_mainbill (
-                            id SERIAL PRIMARY KEY,
-                            nomen VARCHAR(50),
-                            periode VARCHAR(10),
-                            total_tagihan FLOAT,
-                            konsumsi FLOAT,
-                            raw_data JSONB,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            CONSTRAINT uix_mainbill_nomen_periode UNIQUE (nomen, periode)
-                        )
-                    """))
-                except Exception: pass
             
             conn.commit()
 
@@ -160,7 +104,7 @@ def create_app():
     app.config['SECRET_KEY'] = 'sinergi-pam-jaya-2026'
     
     app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'kunjungan')
-    app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # 1 GB untuk file raksasa
+    app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # 1 GB
 
     # --- 3. INISIALISASI & FOLDER AUTO-CREATE ---
     db.init_app(app)
@@ -174,6 +118,7 @@ def create_app():
     app.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
     app.register_blueprint(sbrs_bp, url_prefix='/sbrs') 
     app.register_blueprint(top_500_bp, url_prefix='/monitoring/top-500') 
+    app.register_blueprint(admin_bp, url_prefix='/admin') # Menambahkan Admin Blueprint
 
     # --- 5. NAVIGASI UTAMA ---
     @app.route('/')
@@ -190,13 +135,18 @@ def create_app():
 
     # --- 6. STARTUP PROTOCOL ---
     with app.app_context():
+        # db.create_all() sekarang secara otomatis menciptakan 
+        # data_mb, data_arrdebt, dan data_mainbill sesuai models.py tanpa tabrakan.
         db.create_all()
     
-    # Jalankan audit kolom & gembok unik secara otomatis di semua tabel
+    # Jalankan fungsi healing untuk tabel lama yang butuh kolom JSONB
     sync_database_schema(app)
 
     return app
-    
+
+# =================================================================
+# KUNCI SAKTI GUNICORN: Harus ada di level global agar executable
+# =================================================================
 app = create_app()
 
 if __name__ == '__main__':
