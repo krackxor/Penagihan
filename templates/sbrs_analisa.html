@@ -4,48 +4,15 @@
 
 {% block extra_css %}
 <style>
-    .anomaly-badge {
-        font-size: 0.75rem;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-weight: bold;
-    }
-    .status-badge {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-    }
-    .table-hover tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-    .btn-audit {
-        border-radius: 8px;
-        font-size: 0.8rem;
-        transition: 0.3s;
-    }
-    .btn-audit:hover {
-        transform: scale(1.05);
-    }
-    .filter-card {
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 12px;
-    }
-    .indikasi-badge {
-        font-size: 0.6rem;
-        padding: 3px 6px;
-        border-radius: 4px;
-        letter-spacing: 0.5px;
-    }
-    /* Style untuk link Nomen */
-    .nomen-link {
-        cursor: pointer;
-        text-decoration: underline dotted;
-        transition: 0.2s;
-    }
-    .nomen-link:hover {
-        color: #0056b3 !important;
-        background-color: #e7f1ff;
-    }
+    .anomaly-badge { font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: bold; }
+    .status-badge { font-size: 0.7rem; text-transform: uppercase; }
+    .table-hover tbody tr:hover { background-color: #f8f9fa; }
+    .btn-audit { border-radius: 8px; font-size: 0.8rem; transition: 0.3s; }
+    .btn-audit:hover { transform: scale(1.05); }
+    .filter-card { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 12px; }
+    .indikasi-badge { font-size: 0.6rem; padding: 3px 6px; border-radius: 4px; letter-spacing: 0.5px; }
+    .nomen-link { cursor: pointer; text-decoration: underline dotted; transition: 0.2s; }
+    .nomen-link:hover { color: #0056b3 !important; background-color: #e7f1ff; }
 </style>
 {% endblock %}
 
@@ -99,31 +66,26 @@
             <thead class="bg-dark text-white">
                 <tr>
                     <th class="ps-4">DATA PELANGGAN</th>
-                    <th class="text-center">KONSUMSI (M3)</th>
-                    <th>ANALIS LAPANGAN</th>
+                    <th class="text-center" style="min-width: 180px;">HISTORI KONSUMSI & STAND</th>
                     <th class="text-center">KATEGORI</th>
-                    <th class="text-center">STATUS AUDIT</th>
-                    <th class="text-center pe-4">AKSI</th>
+                    <th style="min-width: 200px;">CATATAN DESKTOP</th>
+                    <th class="text-center pe-4">STATUS & AKSI</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in data %}
                 <tr>
                     <td class="ps-4">
-                        <div class="fw-bold text-primary nomen-link" onclick='openCidDetail({{ item|tojson }})'>
+                        <div class="fw-bold text-primary nomen-link fs-6" onclick='openCidDetail({{ item|tojson }})'>
                             {{ item.nomen }}
                         </div>
                         <div class="small fw-bold text-dark text-uppercase">{{ item.nama }}</div>
                         <div class="text-muted extra-small" style="font-size: 0.7rem;">
                             <i class="fas fa-map-marker-alt me-1"></i> {{ item.kelurahan }} | PCEZ: {{ item.pcez }}
                         </div>
-                    </td>
-                    <td class="text-center">
-                        <div class="fw-bold fs-5 {% if item.bulan_ini < 0 %}text-danger{% endif %}">{{ item.bulan_ini }}</div>
-                        <div class="badge bg-light text-muted border mb-1" style="font-size: 0.65rem;">Avg: {{ item.rata_rata }} m3</div>
                         
                         {% if item.modal_info and item.modal_info.indikasi %}
-                            <div class="d-block mt-1">
+                            <div class="mt-2">
                                 {% if 'FRAUD' in item.modal_info.indikasi %}
                                     <span class="badge bg-danger indikasi-badge"><i class="fas fa-skull-crossbones me-1"></i>{{ item.modal_info.indikasi }}</span>
                                 {% elif 'TEKNIS' in item.modal_info.indikasi %}
@@ -136,13 +98,23 @@
                             </div>
                         {% endif %}
                     </td>
-                    <td>
-                        <div class="small fw-bold">
-                            <i class="fas fa-user-tag text-info me-1"></i>
-                            {{ item.nama_petugas_anomali if item.nama_petugas_anomali else 'Belum Diplot' }}
+                    
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-3 mb-1">
+                            <div class="text-center">
+                                <span class="d-block text-muted" style="font-size: 0.65rem;">LALU / AVG</span>
+                                <span class="fw-bold text-secondary">{{ item.vol_lalu }}</span>
+                            </div>
+                            <div class="text-center border-start border-2 ps-3">
+                                <span class="d-block text-primary fw-bold" style="font-size: 0.65rem;">KINI</span>
+                                <span class="fw-bold fs-5 {% if item.bulan_ini < 0 %}text-danger{% else %}text-primary{% endif %}">{{ item.bulan_ini }}</span>
+                            </div>
                         </div>
-                        <div class="text-muted extra-small" style="font-size: 0.65rem;">Petugas SBRS Sunter</div>
+                        <div class="badge bg-light text-dark border w-100" style="font-size: 0.7rem;">
+                            S. Awal: <b>{{ item.stand_awal }}</b> <i class="fas fa-arrow-right mx-1 text-muted"></i> S. Akhir: <b>{{ item.stand_akhir }}</b>
+                        </div>
                     </td>
+                    
                     <td class="text-center">
                         {% if item.kategori_anomali == 'ZERO' %}
                             <span class="anomaly-badge bg-danger text-white shadow-sm">ZERO</span>
@@ -154,22 +126,31 @@
                             <span class="anomaly-badge bg-info text-white shadow-sm">TURUN</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
-                        {% if item.status_audit == 1 %}
-                            <span class="badge bg-success status-badge"><i class="fas fa-check-circle me-1"></i>Selesai</span>
-                        {% else %}
-                            <span class="badge bg-secondary status-badge opacity-50 border">Belum Audit</span>
-                        {% endif %}
+                    
+                    <td>
+                        <div class="input-group input-group-sm shadow-sm">
+                            <input type="text" class="form-control border-primary-subtle" id="catatan_{{ item.nomen }}" value="{{ item.catatan }}" placeholder="Ketik analisa Anda...">
+                            <button class="btn btn-primary" onclick="simpanCatatan('{{ item.nomen }}', '{{ periode_aktif }}')" title="Simpan Catatan">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        </div>
+                        <small id="alert_{{ item.nomen }}" class="text-success d-none" style="font-size: 0.65rem;"><i class="fas fa-check me-1"></i>Tersimpan!</small>
                     </td>
+
                     <td class="text-center pe-4">
-                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-dark btn-audit px-3 shadow-sm">
-                            <i class="fas fa-camera me-1"></i> Verifikasi
+                        {% if item.status_audit == 1 %}
+                            <span class="badge bg-success status-badge mb-2 d-block"><i class="fas fa-check-circle me-1"></i>Selesai</span>
+                        {% else %}
+                            <span class="badge bg-secondary status-badge opacity-50 border mb-2 d-block">Belum Audit</span>
+                        {% endif %}
+                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-dark btn-audit w-100 shadow-sm">
+                            <i class="fas fa-camera me-1"></i> Verifikasi Lapangan
                         </a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center py-5">
+                    <td colspan="5" class="text-center py-5">
                         <i class="fas fa-search fa-3x text-muted opacity-25 mb-3"></i>
                         <p class="text-muted">Tidak ada data detail anomali untuk filter <b>Cycle {{ current_cycle }}</b> dan <b>{{ current_kat }}</b>.</p>
                         <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}" class="btn btn-sm btn-link">Reset Filter</a>
@@ -231,7 +212,7 @@
                                 </table>
                                 
                                 <div class="mt-4 p-3 bg-primary-subtle border border-primary-subtle rounded text-center">
-                                    <span class="d-block small text-primary fw-bold mb-1">DATA VOLUME CID</span>
+                                    <span class="d-block small text-primary fw-bold mb-1">DATA KONSUMSI</span>
                                     <h2 class="fw-bold text-dark mb-0"><span id="m_konsumsi"></span> <small class="fs-6">m³</small></h2>
                                     <div class="text-muted small mt-1" id="m_stand"></div>
                                     <div class="badge bg-white text-primary border border-primary-subtle mt-2" id="m_hari"></div>
@@ -250,39 +231,55 @@
 </div>
 
 <script>
+// Fungsi Menampilkan Modal CID
 function openCidDetail(item) {
-    // Ambil data yang sudah diparsing dari backend Python
     const info = item.modal_info || {};
     
-    // 1. Set Identitas
     document.getElementById('m_nomen').innerText = item.nomen;
     document.getElementById('m_nama').innerText = item.nama || '-';
     
-    // 2. Set Kontak & Alamat
     document.getElementById('m_alamat').innerText = (info.alamat !== '-') ? info.alamat : 'Alamat tidak ditemukan di sistem.';
     document.getElementById('m_mtr_info').innerText = "Info Meter: " + ((info.mtr_info !== '-') ? info.mtr_info : 'Tidak ada catatan khusus.');
     document.getElementById('m_wa').innerText = info.wa;
     document.getElementById('m_telp').innerText = info.telp;
     document.getElementById('m_email').innerText = info.email;
     
-    // Google Maps Link
     const addr = info.alamat;
-    document.getElementById('m_gmaps').href = (addr && addr !== '-') ? `https://maps.google.com/?q=${encodeURIComponent(addr)}` : '#';
+    document.getElementById('m_gmaps').href = (addr && addr !== '-') ? `http://googleusercontent.com/maps.google.com/?q=${encodeURIComponent(addr)}` : '#';
     
-    // 3. Set Teknis
     document.getElementById('m_tarif').innerText = info.tarif;
     document.getElementById('m_meter').innerText = info.meter;
     document.getElementById('m_metode').innerText = info.metode;
     document.getElementById('m_bill').innerText = info.bill_id;
     
-    // 4. Set Volume
     document.getElementById('m_konsumsi').innerText = item.bulan_ini;
     document.getElementById('m_stand').innerText = `Stand: ${info.s_awal} s/d ${info.s_akhir}`;
     document.getElementById('m_hari').innerText = `${info.hari} Hari Baca`;
 
-    // Tampilkan Modal
     var myModal = new bootstrap.Modal(document.getElementById('modalCid'));
     myModal.show();
+}
+
+// Fungsi Simpan Catatan Desktop Tanpa Reload (AJAX)
+function simpanCatatan(nomen, periode) {
+    const catatan = document.getElementById('catatan_' + nomen).value;
+    const alertMsg = document.getElementById('alert_' + nomen);
+    
+    fetch('/sbrs/save-catatan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nomen: nomen, periode: periode, catatan: catatan })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alertMsg.classList.remove('d-none');
+            setTimeout(() => { alertMsg.classList.add('d-none'); }, 3000);
+        } else {
+            alert("Gagal menyimpan: " + data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
 }
 </script>
 
