@@ -1,397 +1,538 @@
 {% extends "base.html" %}
 
-{% block title %}Summary SBRS - 1 Sinergi{% endblock %}
+{% block title %}SBRS Hub - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
-    .calendar-filter, .cycle-filter { border: 2px solid #0d6efd !important; font-weight: bold; color: #0d6efd; border-radius: 8px; }
-    .table-sbrs thead { background-color: #212529; color: white; }
-    .master-card-sekatan { border-radius: 15px; overflow: hidden; }
-    .sekat-item { max-height: 250px; overflow-y: auto; }
-    .sekat-item::-webkit-scrollbar { width: 6px; }
-    .sekat-item::-webkit-scrollbar-thumb { background-color: #dee2e6; border-radius: 4px; }
+    /* Filter Bar Glass Style */
+    .nexus-filter-box {
+        background: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 1rem;
+    }
     
+    .calendar-nexus, .cycle-nexus {
+        background: rgba(2, 6, 23, 0.5) !important;
+        border: 1px solid rgba(56, 189, 248, 0.2) !important;
+        color: #38bdf8 !important;
+        font-weight: 700;
+        border-radius: 8px;
+    }
+
+    /* Stat Box BAAE Style */
     .stat-box { 
-        transition: all 0.3s ease; 
-        min-height: 80px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        min-height: 90px;
         display: flex;
         flex-direction: column;
         justify-content: center;
         text-decoration: none !important;
+        border: 1px solid rgba(255,255,255,0.02) !important;
         cursor: pointer;
     }
     .stat-box:hover { 
-        background-color: #f8f9fa !important; 
-        transform: scale(1.02); 
-        z-index: 10; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+        background: rgba(255, 255, 255, 0.05) !important; 
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        border-color: rgba(56, 189, 248, 0.3) !important;
+        z-index: 10;
     }
-    .extra-small-label { font-size: 0.65rem; letter-spacing: 0.5px; }
-    .hover-item { transition: background-color 0.2s; text-decoration: none !important; color: inherit; display: block; }
-    .hover-item:hover { background-color: #f1f3f5 !important; cursor: pointer; }
-    
-    .nav-tabs .nav-link { font-weight: bold; color: #495057; border-radius: 10px 10px 0 0; padding: 10px 15px; font-size: 0.85rem; }
-    .nav-tabs .nav-link.active { color: #0d6efd; background-color: #fff; border-bottom-color: transparent; }
+
+    .label-tech {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: #94a3b8;
+    }
+
+    /* Technical List Customization */
+    .sekat-item { max-height: 350px; overflow-y: auto; }
+    .sekat-item::-webkit-scrollbar { width: 5px; }
+    .sekat-item::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 10px; }
+
+    .hover-item { 
+        transition: all 0.2s; 
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.05) !important;
+        margin-bottom: 8px;
+        text-decoration: none !important;
+        display: block;
+    }
+    .hover-item:hover { 
+        background: rgba(56, 189, 248, 0.1) !important; 
+        border-color: rgba(56, 189, 248, 0.3) !important;
+    }
+
+    /* Tab Customization */
+    .nav-tabs { border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .nav-tabs .nav-link { 
+        color: #64748b; 
+        font-weight: 800; 
+        font-size: 0.75rem; 
+        border: none; 
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 12px 20px;
+    }
+    .nav-tabs .nav-link:hover { color: #cbd5e1; }
+    .nav-tabs .nav-link.active { 
+        background: transparent; 
+        color: #38bdf8; 
+        border-bottom: 2px solid #38bdf8; 
+    }
+
+    .table-nexus thead th {
+        font-size: 0.7rem;
+        color: #38bdf8 !important;
+        background: rgba(15, 23, 42, 0.95) !important;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(56, 189, 248, 0.2) !important;
+    }
+    .table-nexus td { border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
+
+    /* Dark Command Modal */
+    .modal-nexus {
+        background: rgba(2, 6, 23, 0.95) !important;
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .master-table th { 
+        background: rgba(15, 23, 42, 0.9) !important; 
+        color: #38bdf8 !important; 
+        font-size: 0.65rem; 
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        border-bottom: 2px solid rgba(56, 189, 248, 0.2) !important;
+    }
+    .col-header { 
+        font-weight: 800; 
+        color: #94a3b8; 
+        background: rgba(255,255,255,0.02) !important; 
+        font-size: 0.65rem; 
+        text-transform: uppercase;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row align-items-center mb-4">
-    <div class="col-md-3">
-        <h2 class="fw-bold text-dark mb-1"><i class="fas fa-chart-pie text-primary me-2"></i>Dashboard SBRS</h2>
-        <p class="text-muted mb-0">Ringkasan Anomali <b>{{ current_ab }}</b></p>
+<div class="row align-items-center mb-4 animate-fade-in">
+    <div class="col-md-4">
+        <h2 class="hero-gradient mb-1"><i class="fa-solid fa-chart-pie me-2"></i>SBRS Intelligence</h2>
+        <p class="text-slate-400 small mb-0">Core Analysis Hub: <b class="text-white">{{ current_ab }}</b></p>
     </div>
     
-    <div class="col-md-9 d-flex justify-content-md-end align-items-end">
-        <form method="GET" action="/sbrs/summary" class="d-flex gap-2 align-items-end bg-white p-2 rounded shadow-sm border">
+    <div class="col-md-8 d-flex justify-content-md-end align-items-end mt-3 mt-md-0">
+        <form method="GET" action="/sbrs/summary" class="nexus-filter-box p-3 shadow-lg d-flex flex-wrap gap-3 align-items-end">
             <div>
-                <label class="extra-small-label fw-bold text-muted mb-1 d-block text-uppercase">Periode:</label>
-                <input type="month" name="periode" class="form-control form-control-sm calendar-filter" 
+                <label class="label-tech mb-1 d-block">Periode Analytic</label>
+                <input type="month" name="periode" class="form-control form-control-sm calendar-nexus px-3 py-2" 
                        value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
             </div>
             <div>
-                <label class="extra-small-label fw-bold text-muted mb-1 d-block text-uppercase">Cycle:</label>
-                <select name="cycle" class="form-select form-select-sm cycle-filter" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
-                    <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>ALL</option>
+                <label class="label-tech mb-1 d-block">Target Cycle</label>
+                <select name="cycle" class="form-select form-select-sm cycle-nexus px-3 py-2" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
+                    <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>ALL CYCLE</option>
                     {% for c in cycles %}
-                    <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>{{ c }}</option>
+                    <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>CYCLE {{ c }}</option>
                     {% endfor %}
                 </select>
             </div>
             
-            <div class="d-flex gap-2 h-100 ms-2">
-                <button type="button" onclick="window.print()" class="btn btn-sm btn-dark px-3" title="Print Laporan"><i class="fas fa-print"></i></button>
-                <button type="submit" formaction="/sbrs/export/summary" class="btn btn-sm btn-success px-3 fw-bold" title="Download Excel Ringkasan">
-                    <i class="fas fa-file-excel me-1"></i> Excel Summary
+            <div class="d-flex gap-2">
+                <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary rounded-pill px-3" title="Print Laporan"><i class="fas fa-print"></i></button>
+                <button type="submit" formaction="/sbrs/export/summary" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);">
+                    <i class="fas fa-file-excel me-1"></i> EXCEL SUMMARY
                 </button>
-                <button type="submit" formaction="/sbrs/export/analisa" class="btn btn-sm btn-outline-success px-3 fw-bold" title="Download Data Mentah">
-                    <i class="fas fa-download me-1"></i> Data Mentah
+                <button type="submit" formaction="/sbrs/export/analisa" class="btn btn-sm btn-info rounded-pill px-3 fw-bold shadow-sm" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">
+                    <i class="fas fa-download me-1"></i> RAW DATA
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; overflow: hidden;">
+<div class="card border-0 shadow-2xl mb-4 overflow-hidden" style="background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(20px); border-radius: 1.5rem;">
     <div class="card-body p-0">
-        <div class="row g-0 text-center border-bottom">
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-white text-dark">
-                <h6 class="extra-small-label fw-bold text-muted mb-1 text-uppercase">Total Nomen</h6>
-                <h5 class="fw-bold mb-0">{{ totals.total_nomen }}</h5>
+        <div class="row g-0 text-center border-bottom border-white border-opacity-10">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col-md-2 p-3 stat-box bg-white bg-opacity-5 border-end">
+                <div class="label-tech mb-1 text-white">Total Nomen</div>
+                <h4 class="fw-800 text-white mb-0">{{ totals.total_nomen }}</h4>
             </a>
-            <div class="col p-2 border-end stat-box bg-primary text-white" style="cursor: default; background-color: #003366 !important;">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Vol Tagihan (m3)</h6>
-                <h5 class="fw-bold mb-0">{{ totals.total_vol_tagihan }}</h5>
+            <div class="col-md-2 p-3 stat-box border-end" style="background: rgba(56, 189, 248, 0.05); cursor: default;">
+                <div class="label-tech mb-1 text-info">Vol Tagihan (m3)</div>
+                <h4 class="fw-800 text-info mb-0">{{ totals.total_vol_tagihan }}</h4>
             </div>
-            <div class="col p-2 border-end stat-box bg-success text-white" style="cursor: default;">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Nominal Tagihan</h6>
-                <h5 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ totals.total_nominal }}</h5>
+            <div class="col-md-2 p-3 stat-box border-end" style="background: rgba(16, 185, 129, 0.05); cursor: default;">
+                <div class="label-tech mb-1 text-emerald-400">Nominal Tagihan</div>
+                <div class="fw-800 text-emerald-400" style="font-size: 1rem;">{{ totals.total_nominal }}</div>
             </div>
-            <div class="col p-2 border-end stat-box bg-secondary text-white" style="cursor: default;">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Total Hari Baca</h6>
-                <h5 class="fw-bold mb-0">{{ totals.total_hb }} <small style="font-size: 0.6rem;">Hari</small></h5>
+            <div class="col-md-2 p-3 stat-box border-end" style="cursor: default;">
+                <div class="label-tech mb-1">Hari Baca (AVG)</div>
+                <h4 class="fw-800 text-slate-300 mb-0">{{ totals.total_hb }} <small class="text-slate-500 fw-normal" style="font-size: 0.7rem;">Hari</small></h4>
             </div>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 border-end stat-box bg-light text-dark">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase text-primary opacity-75">Total Skip</h6>
-                <h5 class="fw-bold mb-0">{{ totals.total_skip }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col-md-2 p-3 stat-box border-end" style="background: rgba(251, 191, 36, 0.05);">
+                <div class="label-tech mb-1 text-warning">Total Skip</div>
+                <h4 class="fw-800 text-warning mb-0">{{ totals.total_skip }}</h4>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col p-2 stat-box bg-light text-dark">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase text-warning opacity-75">Total Trouble</h6>
-                <h5 class="fw-bold mb-0">{{ totals.total_trbl }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="col-md-2 p-3 stat-box" style="background: rgba(244, 63, 94, 0.05);">
+                <div class="label-tech mb-1 text-rose-500">Total Trouble</div>
+                <h4 class="fw-800 text-rose-500 mb-0">{{ totals.total_trbl }}</h4>
             </a>
         </div>
 
         <div class="row g-0 text-center">
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=baru" class="col p-2 border-end stat-box bg-danger text-white">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Baru</h6>
-                <h5 class="fw-bold mb-0">{{ totals.zero_baru }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=baru" class="col p-3 border-end stat-box" style="background: rgba(244, 63, 94, 0.1);">
+                <div class="label-tech mb-1 text-rose-400">Zero Baru</div>
+                <h4 class="fw-800 text-rose-400 mb-0">{{ totals.zero_baru }}</h4>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=lama" class="col p-2 border-end stat-box bg-dark text-white">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Zero Lama</h6>
-                <h5 class="fw-bold mb-0">{{ totals.zero_lama }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=lama" class="col p-3 border-end stat-box bg-black bg-opacity-20">
+                <div class="label-tech mb-1 text-rose-500 opacity-50">Zero Lama</div>
+                <h4 class="fw-800 text-rose-500 opacity-50 mb-0">{{ totals.zero_lama }}</h4>
             </a>
             
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=baru" class="col p-2 border-end stat-box text-dark" style="background-color: #ffc107;">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Ekstrem Baru</h6>
-                <h5 class="fw-bold mb-0">{{ totals.ekstrem_baru }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=baru" class="col p-3 border-end stat-box" style="background: rgba(251, 191, 36, 0.1);">
+                <div class="label-tech mb-1 text-warning">Ekstrem Baru</div>
+                <h4 class="fw-800 text-warning mb-0">{{ totals.ekstrem_baru }}</h4>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=lama" class="col p-2 border-end stat-box text-dark" style="background-color: #e0a800;">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Ekstrem Lama</h6>
-                <h5 class="fw-bold mb-0">{{ totals.ekstrem_lama }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=lama" class="col p-3 border-end stat-box bg-black bg-opacity-20">
+                <div class="label-tech mb-1 text-warning opacity-50">Ekstrem Lama</div>
+                <h4 class="fw-800 text-warning opacity-50 mb-0">{{ totals.ekstrem_lama }}</h4>
             </a>
 
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=baru" class="col p-2 border-end stat-box bg-info text-white">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Turun Baru</h6>
-                <h5 class="fw-bold mb-0">{{ totals.turun_baru }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=baru" class="col p-3 border-end stat-box" style="background: rgba(56, 189, 248, 0.1);">
+                <div class="label-tech mb-1 text-info">Turun Baru</div>
+                <h4 class="fw-800 text-info mb-0">{{ totals.turun_baru }}</h4>
             </a>
-            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=lama" class="col p-2 stat-box text-white" style="background-color: #0aa2c0;">
-                <h6 class="extra-small-label fw-bold mb-1 text-uppercase opacity-75">Turun Lama</h6>
-                <h5 class="fw-bold mb-0">{{ totals.turun_lama }}</h5>
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=lama" class="col p-3 stat-box bg-black bg-opacity-20">
+                <div class="label-tech mb-1 text-info opacity-50">Turun Lama</div>
+                <h4 class="fw-800 text-info opacity-50 mb-0">{{ totals.turun_lama }}</h4>
             </a>
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-5 master-card-sekatan">
-    <div class="card-header bg-secondary text-white py-2">
-        <h6 class="mb-0 fw-bold small"><i class="fas fa-microscope text-warning me-2"></i>RINCIAN TEKNIS LAPANGAN (MAPPING KODE)</h6>
+<div class="row g-4 mb-5">
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-lg" style="background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(20px); border-radius: 1.5rem;">
+            <div class="card-header bg-white bg-opacity-5 py-3 border-0">
+                <h6 class="mb-0 fw-800 label-tech text-info"><i class="fa-solid fa-forward-step me-2"></i>Kategori Skip</h6>
+            </div>
+            <div class="card-body p-3 sekat-item">
+                {% for item in skip_data %}
+                <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&skip_code={{ item.code }}" class="hover-item p-3 rounded-xl">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20 mb-1" style="font-size: 0.6rem;">CODE {{ item.code }}</span>
+                            <div class="text-white small fw-bold">{{ item.desc }}</div>
+                        </div>
+                        <span class="badge bg-info bg-opacity-20 text-info rounded-pill px-3 py-2">{{ item.count }}</span>
+                    </div>
+                </a>
+                {% else %}
+                <p class="text-slate-500 small mb-0 mt-2 px-2 text-center">Tidak ada data skip terdeteksi.</p>
+                {% endfor %}
+            </div>
+        </div>
     </div>
-    <div class="card-body p-0">
-        <div class="row g-0">
-            <div class="col-md-4 p-4 border-end bg-white">
-                <h6 class="text-primary fw-bold mb-3 small text-uppercase"><i class="fas fa-forward me-2"></i>Kategori Skip</h6>
-                <div class="list-group list-group-flush sekat-item">
-                    {% for item in skip_data %}
-                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&skip_code={{ item.code }}" class="list-group-item list-group-item-action hover-item px-2 py-2 border-bottom border-0 rounded">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="pe-2">
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1" style="font-size: 0.7rem;">{{ item.code }}</span>
-                                <span class="small text-dark fw-semibold" style="font-size: 0.75rem;">{{ item.desc }}</span>
-                            </div>
-                            <span class="badge bg-secondary rounded-pill" style="font-size: 0.7rem;">{{ item.count }}</span>
-                        </div>
-                    </a>
-                    {% else %}
-                    <p class="text-muted small mb-0 mt-2 px-2">Tidak ada data skip.</p>
-                    {% endfor %}
-                </div>
-            </div>
 
-            <div class="col-md-4 p-4 border-end bg-light">
-                <h6 class="text-warning fw-bold mb-3 small text-uppercase"><i class="fas fa-triangle-exclamation me-2"></i>Kategori Trouble</h6>
-                <div class="list-group list-group-flush sekat-item bg-transparent">
-                    {% for item in trbl_data %}
-                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&trbl_code={{ item.code }}" class="list-group-item list-group-item-action hover-item px-2 py-2 border-bottom border-0 bg-transparent rounded">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="pe-2">
-                                <span class="badge bg-warning-subtle text-dark border border-warning me-1" style="font-size: 0.7rem;">{{ item.code }}</span>
-                                <span class="small text-dark fw-semibold" style="font-size: 0.75rem;">{{ item.desc }}</span>
-                            </div>
-                            <span class="badge bg-dark rounded-pill" style="font-size: 0.7rem;">{{ item.count }}</span>
-                        </div>
-                    </a>
-                    {% else %}
-                    <p class="text-muted small mb-0 mt-2 px-2">Tidak ada data trouble.</p>
-                    {% endfor %}
-                </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-lg" style="background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(20px); border-radius: 1.5rem;">
+            <div class="card-header bg-white bg-opacity-5 py-3 border-0">
+                <h6 class="mb-0 fw-800 label-tech text-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>Kategori Trouble</h6>
             </div>
+            <div class="card-body p-3 sekat-item">
+                {% for item in trbl_data %}
+                <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&trbl_code={{ item.code }}" class="hover-item p-3 rounded-xl">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 mb-1" style="font-size: 0.6rem;">CODE {{ item.code }}</span>
+                            <div class="text-white small fw-bold">{{ item.desc }}</div>
+                        </div>
+                        <span class="badge bg-warning bg-opacity-20 text-warning rounded-pill px-3 py-2">{{ item.count }}</span>
+                    </div>
+                </a>
+                {% else %}
+                <p class="text-slate-500 small mb-0 mt-2 px-2 text-center">Tidak ada data trouble terdeteksi.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 
-            <div class="col-md-4 p-4 bg-white">
-                <h6 class="text-success fw-bold mb-3 small text-uppercase"><i class="fas fa-fingerprint me-2"></i>Read Method</h6>
-                <div class="sekat-item pe-2">
-                    {% for item in read_data %}
-                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&read_method={{ item.code }}" class="mb-3 hover-item p-2 rounded">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="fw-bold text-dark" style="font-size: 0.75rem;">{{ item.code }} <span class="text-muted fw-normal">- {{ item.desc }}</span></span>
-                            <span class="badge bg-success-subtle text-success" style="font-size: 0.7rem;">{{ item.count }}</span>
-                        </div>
-                        <div class="progress" style="height: 5px; background-color: #e9ecef;">
-                            <div class="progress-bar bg-success" style="width: 100%"></div>
-                        </div>
-                    </a>
-                    {% else %}
-                    <p class="text-muted small mb-0 mt-2 px-2">Data kosong.</p>
-                    {% endfor %}
-                </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-lg" style="background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(20px); border-radius: 1.5rem;">
+            <div class="card-header bg-white bg-opacity-5 py-3 border-0">
+                <h6 class="mb-0 fw-800 label-tech text-emerald-400"><i class="fa-solid fa-fingerprint me-2"></i>Read Method</h6>
+            </div>
+            <div class="card-body p-3 sekat-item">
+                {% for item in read_data %}
+                <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&read_method={{ item.code }}" class="hover-item p-3 rounded-xl mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-white small fw-bold">{{ item.code }} <span class="text-slate-400 fw-normal">- {{ item.desc }}</span></span>
+                        <span class="fw-800 text-emerald-400">{{ item.count }}</span>
+                    </div>
+                    <div class="progress" style="height: 4px; background: rgba(255,255,255,0.05);">
+                        <div class="progress-bar bg-emerald-400" style="width: 100%"></div>
+                    </div>
+                </a>
+                {% else %}
+                <p class="text-slate-500 small mb-0 mt-2 px-2 text-center">Data kosong.</p>
+                {% endfor %}
             </div>
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
-    <div class="card-header bg-white py-3 border-bottom-0 pb-0">
-        <h5 class="fw-bold mb-3"><i class="fas fa-map-marked-alt text-danger me-2"></i>Sebaran Anomali per Wilayah (Metadata CID)</h5>
+<div class="card border-0 shadow-2xl overflow-hidden" style="background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(20px); border-radius: 1.5rem;">
+    <div class="card-header bg-white bg-opacity-5 py-4 px-4 border-0">
+        <h5 class="fw-800 text-white mb-1"><i class="fa-solid fa-map-location-dot text-rose-500 me-2"></i>Regional Anomaly Distribution</h5>
+        <p class="text-slate-400 small mb-3">Mapping sebaran kasus berdasarkan metadata CID pelanggan.</p>
         
         <ul class="nav nav-tabs" id="wilayahTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="cc-tab" data-bs-toggle="tab" data-bs-target="#cc-content" type="button" role="tab">CC</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pc-tab" data-bs-toggle="tab" data-bs-target="#pc-content" type="button" role="tab">KODE PA/PC</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pcez-tab" data-bs-toggle="tab" data-bs-target="#pcez-content" type="button" role="tab">PCEZ</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="ab-tab" data-bs-toggle="tab" data-bs-target="#ab-content" type="button" role="tab">AB</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="kel-tab" data-bs-toggle="tab" data-bs-target="#kel-content" type="button" role="tab">KELURAHAN</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="kec-tab" data-bs-toggle="tab" data-bs-target="#kec-content" type="button" role="tab">KECAMATAN</button>
-            </li>
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cc-content">CC Hub</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pc-content">PA/PC Code</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pcez-content">PCEZ Clusters</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ab-content">AB Zone</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#kel-content">Kelurahan</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#kec-content">Kecamatan</button></li>
         </ul>
     </div>
     
     <div class="card-body p-0">
         <div class="tab-content" id="wilayahTabContent">
-            
-            <div class="tab-pane fade show active" id="cc-content" role="tabpanel">
-                <div class="table-responsive sekat-item" style="max-height: 400px;">
-                    <table class="table table-hover align-middle mb-0 table-sbrs">
-                        <thead style="position: sticky; top: 0; z-index: 1;">
-                            <tr>
-                                <th class="ps-4">CC</th>
-                                <th class="text-center">JUMLAH KASUS</th>
-                                <th class="text-center pe-4">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for cc, total in cc_data %}
-                            <tr>
-                                <td class="ps-4 fw-bold text-dark">{{ cc }}</td>
-                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
-                                <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&cc={{ cc }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            {% set panes = [
+                ('cc-content', cc_data, 'CC', 'cc'),
+                ('pc-content', pc_data, 'PA/PC', 'pc'),
+                ('pcez-content', pcez_data, 'PCEZ', 'pcez'),
+                ('ab-content', ab_data, 'AB', 'ab_tab'),
+                ('kel-content', kelurahan_data, 'KELURAHAN', 'kelurahan'),
+                ('kec-content', kecamatan_data, 'KECAMATAN', 'kecamatan')
+            ] %}
 
-            <div class="tab-pane fade" id="pc-content" role="tabpanel">
+            {% for id, data_list, label, url_param in panes %}
+            <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="{{ id }}" role="tabpanel">
                 <div class="table-responsive sekat-item" style="max-height: 400px;">
-                    <table class="table table-hover align-middle mb-0 table-sbrs">
-                        <thead style="position: sticky; top: 0; z-index: 1;">
+                    <table class="table table-hover align-middle mb-0 table-nexus">
+                        <thead class="sticky-top">
                             <tr>
-                                <th class="ps-4">KODE PA/PC</th>
-                                <th class="text-center">JUMLAH KASUS</th>
-                                <th class="text-center pe-4">AKSI</th>
+                                <th class="ps-4">UNIT {{ label }}</th>
+                                <th class="text-center">CASE QUANTITY</th>
+                                <th class="text-center pe-4">INTEL REPORT</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for pc, total in pc_data %}
+                            {% for key, total in data_list %}
                             <tr>
-                                <td class="ps-4 fw-bold text-dark">{{ pc }}</td>
-                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
+                                <td class="ps-4 fw-bold text-white">{{ key }}</td>
+                                <td class="text-center">
+                                    <span class="badge rounded-pill bg-info bg-opacity-10 text-info border border-info border-opacity-20 px-3 py-2">
+                                        {{ total }} KASUS
+                                    </span>
+                                </td>
                                 <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&pc={{ pc }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
+                                    <a href="/sbrs/analisa?ab={{ current_ab }}&{{ url_param }}={{ key }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-info rounded-pill px-4 fw-bold" style="font-size: 0.7rem;">
+                                        <i class="fa-solid fa-magnifying-glass me-1"></i> ANALYZE
+                                    </a>
                                 </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
+                            <tr><td colspan="3" class="text-center py-5 text-slate-500"><i class="fa-solid fa-folder-open mb-2 fa-2x opacity-50"></i><br>No regional data identified.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-            
-            <div class="tab-pane fade" id="pcez-content" role="tabpanel">
-                <div class="table-responsive sekat-item" style="max-height: 400px;">
-                    <table class="table table-hover align-middle mb-0 table-sbrs">
-                        <thead style="position: sticky; top: 0; z-index: 1;">
-                            <tr>
-                                <th class="ps-4">PCEZ</th>
-                                <th class="text-center">JUMLAH KASUS</th>
-                                <th class="text-center pe-4">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for pcez, total in pcez_data %}
-                            <tr>
-                                <td class="ps-4 fw-bold text-dark">{{ pcez }}</td>
-                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
-                                <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&pcez={{ pcez }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="tab-pane fade" id="ab-content" role="tabpanel">
-                <div class="table-responsive sekat-item" style="max-height: 400px;">
-                    <table class="table table-hover align-middle mb-0 table-sbrs">
-                        <thead style="position: sticky; top: 0; z-index: 1;">
-                            <tr>
-                                <th class="ps-4">AB</th>
-                                <th class="text-center">JUMLAH KASUS</th>
-                                <th class="text-center pe-4">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for ab_val, total in ab_data %}
-                            <tr>
-                                <td class="ps-4 fw-bold text-dark">{{ ab_val }}</td>
-                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
-                                <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&ab_tab={{ ab_val }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="tab-pane fade" id="kel-content" role="tabpanel">
-                <div class="table-responsive sekat-item" style="max-height: 400px;">
-                    <table class="table table-hover align-middle mb-0 table-sbrs">
-                        <thead style="position: sticky; top: 0; z-index: 1;">
-                            <tr>
-                                <th class="ps-4">KELURAHAN</th>
-                                <th class="text-center">JUMLAH KASUS</th>
-                                <th class="text-center pe-4">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for kel, total in kelurahan_data %}
-                            <tr>
-                                <td class="ps-4 fw-bold text-dark">{{ kel }}</td>
-                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
-                                <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&kelurahan={{ kel }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="tab-pane fade" id="kec-content" role="tabpanel">
-                <div class="table-responsive sekat-item" style="max-height: 400px;">
-                    <table class="table table-hover align-middle mb-0 table-sbrs">
-                        <thead style="position: sticky; top: 0; z-index: 1;">
-                            <tr>
-                                <th class="ps-4">KECAMATAN</th>
-                                <th class="text-center">JUMLAH KASUS</th>
-                                <th class="text-center pe-4">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for kec, total in kecamatan_data %}
-                            <tr>
-                                <td class="ps-4 fw-bold text-dark">{{ kec }}</td>
-                                <td class="text-center"><span class="badge bg-light text-primary border px-3 py-2">{{ total }}</span></td>
-                                <td class="text-center pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&kecamatan={{ kec }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary px-3 shadow-sm" style="border-radius: 8px;"><i class="fas fa-search me-1"></i>Detail</a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="3" class="text-center py-4 text-muted">Data kosong.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
+            {% endfor %}
         </div>
     </div>
 </div>
 
+<div class="modal fade" id="modalCid" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content modal-nexus border-0 shadow-2xl rounded-[2rem]">
+            
+            <div class="modal-header border-0 p-4">
+                <h5 class="modal-title fw-800 text-white uppercase tracking-widest">
+                    <i class="fa-solid fa-database text-info me-2"></i>Target Intelligence: <span id="m_nomen" class="text-info"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-7">
+                        <div class="card p-3 border-0 bg-white bg-opacity-5 h-100">
+                            <p class="label-tech mb-2">Target Geolocation & Identity</p>
+                            <h6 class="fw-bold text-white mb-2" id="m_alamat"></h6>
+                            <div class="d-flex gap-3 small text-slate-400">
+                                <div><i class="fa-brands fa-whatsapp text-emerald-400 me-1"></i> <span id="m_wa"></span></div>
+                                <div><i class="fa-solid fa-phone text-info me-1"></i> <span id="m_telp"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="card p-3 border-0 bg-white bg-opacity-5 h-100">
+                            <div class="row">
+                                <div class="col-6">
+                                    <p class="label-tech mb-1">Agent MRID</p>
+                                    <p class="text-white fw-bold mb-0" id="m_mrid"></p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="label-tech mb-1">Region Rayon</p>
+                                    <p class="text-emerald-400 fw-bold mb-0" id="m_rayon"></p>
+                                </div>
+                                <div class="col-12 mt-3">
+                                    <p class="label-tech mb-1">Analytic Indication</p>
+                                    <div id="m_indikasi" class="text-rose-400 fw-bold small"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive rounded-xl border border-white border-opacity-5">
+                    <table class="table table-dark table-hover mb-0 master-table align-middle">
+                        <thead class="text-center">
+                            <tr>
+                                <th class="text-start ps-3">BAAE LOG PARAMETER</th>
+                                <th>H-2 CYCLE</th>
+                                <th>H-1 CYCLE</th>
+                                <th class="bg-info bg-opacity-10 text-info">KINI (CORE)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="small">
+                            <tr><td class="col-header ps-3"><i class="fa-solid fa-gears me-2"></i>Technical Data</td><td colspan="3"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Tarif / Golongan</td><td class="text-center" id="t_tarif_h2"></td><td class="text-center" id="t_tarif_h1"></td><td class="text-center text-info fw-bold" id="t_tarif_kini"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Meter Serial Number</td><td class="text-center" id="t_mtrnum_h2"></td><td class="text-center" id="t_mtrnum_h1"></td><td class="text-center text-info fw-bold" id="t_mtrnum_kini"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Reading Method</td><td class="text-center" id="t_method_h2"></td><td class="text-center" id="t_method_h1"></td><td class="text-center text-emerald-400 fw-bold" id="t_method_kini"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">CMR Trouble Code</td><td class="text-center text-rose-500" id="t_trbl_h2"></td><td class="text-center text-rose-500" id="t_trbl_h1"></td><td class="text-center text-rose-500 fw-bold" id="t_trbl_kini"></td></tr>
+                            
+                            <tr><td class="col-header ps-3"><i class="fa-solid fa-gauge-high me-2"></i>Reading Index</td><td colspan="3"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Stand Awal (PR1)</td><td class="text-center" id="t_pr1_h2"></td><td class="text-center" id="t_pr1_h1"></td><td class="text-center text-white" id="t_pr1_kini"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Stand Akhir (CR1)</td><td class="text-center" id="t_cr1_h2"></td><td class="text-center" id="t_cr1_h1"></td><td class="text-center text-emerald-400 fw-bold" id="t_cr1_kini"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Stand Tagihan (SB)</td><td class="text-center" id="t_sb_h2"></td><td class="text-center" id="t_sb_h1"></td><td class="text-center text-info fw-bold" id="t_sb_kini"></td></tr>
+                            
+                            <tr><td class="col-header ps-3"><i class="fa-solid fa-chart-area me-2"></i>Volume Analytics (m3)</td><td colspan="3"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Volume Lapangan</td><td class="text-center" id="v_lap_h2"></td><td class="text-center" id="v_lap_h1"></td><td class="text-center text-white fw-bold" id="v_lap_kini"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Volume Pusat</td><td class="text-center" id="v_pus_h2"></td><td class="text-center" id="v_pus_h1"></td><td class="text-center text-white fw-bold" id="v_pus_kini"></td></tr>
+                            <tr><td class="ps-4 text-emerald-400">Volume Cetak Tagihan</td><td class="text-center text-emerald-400" id="v_cet_h2"></td><td class="text-center text-emerald-400" id="v_cet_h1"></td><td class="text-center text-emerald-400 fw-800" id="v_cet_kini"></td></tr>
+                            
+                            <tr><td class="col-header ps-3"><i class="fa-solid fa-wallet me-2"></i>Financial Stats</td><td colspan="3"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Total Billing</td><td class="text-end pe-4" id="t_bill_h2"></td><td class="text-end pe-4" id="t_bill_h1"></td><td class="text-end pe-4 text-rose-400 fw-bold" id="t_bill_kini"></td></tr>
+                            <tr><td class="ps-4 text-slate-400">Total Paid</td><td class="text-end pe-4" id="t_pay_h2"></td><td class="text-end pe-4" id="t_pay_h1"></td><td class="text-end pe-4 text-emerald-400 fw-bold" id="t_pay_kini"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="modal-footer border-0 p-3">
+                <button type="button" class="btn btn-info px-5 rounded-pill fw-bold" data-bs-dismiss="modal">ACKNOWLEDGE</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="mt-5 mb-4 text-center">
+    <p class="label-tech text-slate-600">BAAE Analytic Engine v14.0 | Powering Data Integrity</p>
+</footer>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Format Mata Uang
+function formatRupiah(angka) {
+    let number = parseFloat(angka);
+    if(isNaN(number)) return "Rp 0";
+    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(number);
+}
+
+// Handler Modal Command Center
+function openCidDetail(info) {
+    const kini = info.kini || {};
+    const lalu1 = info.lalu_1 || {};
+    const lalu2 = info.lalu_2 || {};
+    
+    document.getElementById('m_nomen').innerText = info.nomen || '-';
+    document.getElementById('m_alamat').innerText = info.alamat || 'LOKASI TIDAK TERIDENTIFIKASI';
+    document.getElementById('m_wa').innerText = info.wa || '-';
+    document.getElementById('m_telp').innerText = info.telp || '-';
+    
+    document.getElementById('m_mrid').innerText = info.cmr_mrid || '-';
+    document.getElementById('m_rayon').innerText = info.rayon || '-';
+    document.getElementById('m_indikasi').innerText = info.indikasi || 'CLEAR / AMAN';
+
+    document.getElementById('t_tarif_kini').innerText = kini.tariff || '-';
+    document.getElementById('t_tarif_h1').innerText = lalu1.tariff || '-';
+    document.getElementById('t_tarif_h2').innerText = lalu2.tariff || '-';
+
+    document.getElementById('t_mtrnum_kini').innerText = kini.cmr_mtr_num || '-';
+    document.getElementById('t_mtrnum_h1').innerText = lalu1.cmr_mtr_num || '-';
+    document.getElementById('t_mtrnum_h2').innerText = lalu2.cmr_mtr_num || '-';
+
+    document.getElementById('t_method_kini').innerText = kini.read_method || '-';
+    document.getElementById('t_method_h1').innerText = lalu1.read_method || '-';
+    document.getElementById('t_method_h2').innerText = lalu2.read_method || '-';
+
+    document.getElementById('t_trbl_kini').innerText = kini.cmr_trbl1_code || '-';
+    document.getElementById('t_trbl_h1').innerText = lalu1.cmr_trbl1_code || '-';
+    document.getElementById('t_trbl_h2').innerText = lalu2.cmr_trbl1_code || '-';
+
+    document.getElementById('t_pr1_kini').innerText = kini.prev_read_1 ?? '-';
+    document.getElementById('t_pr1_h1').innerText = lalu1.prev_read_1 ?? '-';
+    document.getElementById('t_pr1_h2').innerText = lalu2.prev_read_1 ?? '-';
+
+    document.getElementById('t_cr1_kini').innerText = kini.curr_read_1 ?? '-';
+    document.getElementById('t_cr1_h1').innerText = lalu1.curr_read_1 ?? '-';
+    document.getElementById('t_cr1_h2').innerText = lalu2.curr_read_1 ?? '-';
+
+    document.getElementById('t_sb_kini').innerText = kini.sb_stand ?? '-';
+    document.getElementById('t_sb_h1').innerText = lalu1.sb_stand ?? '-';
+    document.getElementById('t_sb_h2').innerText = lalu2.sb_stand ?? '-';
+
+    document.getElementById('v_lap_kini').innerText = kini.vol_lapangan ?? '-';
+    document.getElementById('v_lap_h1').innerText = lalu1.vol_lapangan ?? '-';
+    document.getElementById('v_lap_h2').innerText = lalu2.vol_lapangan ?? '-';
+
+    document.getElementById('v_pus_kini').innerText = kini.vol_pusat ?? '-';
+    document.getElementById('v_pus_h1').innerText = lalu1.vol_pusat ?? '-';
+    document.getElementById('v_pus_h2').innerText = lalu2.vol_pusat ?? '-';
+
+    document.getElementById('v_cet_kini').innerText = kini.vol_cetak ?? '-';
+    document.getElementById('v_cet_h1').innerText = lalu1.vol_cetak ?? '-';
+    document.getElementById('v_cet_h2').innerText = lalu2.vol_cetak ?? '-';
+
+    document.getElementById('t_bill_kini').innerText = formatRupiah(kini.bill_amount);
+    document.getElementById('t_bill_h1').innerText = formatRupiah(lalu1.bill_amount);
+    document.getElementById('t_bill_h2').innerText = formatRupiah(lalu2.bill_amount);
+
+    document.getElementById('t_pay_kini').innerText = formatRupiah(kini.payment_amount);
+    document.getElementById('t_pay_h1').innerText = formatRupiah(lalu1.payment_amount);
+    document.getElementById('t_pay_h2').innerText = formatRupiah(lalu2.payment_amount);
+
+    var myModal = new bootstrap.Modal(document.getElementById('modalCid'));
+    myModal.show();
+}
+
+function simpanCatatan(nomen, periode) {
+    const catatan = document.getElementById('catatan_' + nomen).value;
+    const alertMsg = document.getElementById('alert_' + nomen);
+    
+    fetch('/sbrs/save-catatan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nomen: nomen, periode: periode, catatan: catatan })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alertMsg.classList.remove('d-none');
+            setTimeout(() => { alertMsg.classList.add('d-none'); }, 3000);
+        } else {
+            alert("Sistem BAAE Gagal Menyimpan: " + data.message);
+        }
+    })
+    .catch(error => console.error('Core Engine Error:', error));
+}
+</script>
 {% endblock %}
