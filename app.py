@@ -8,6 +8,7 @@ from api.monitoring import monitoring_bp
 from api.importer import importer_bp
 from api.kunjungan import kunjungan_bp
 from api.sbrs import sbrs_bp 
+from api.top_500 import top_500_bp # TAMBAHAN: Import Blueprint Top 500
 
 def sync_database_schema(app):
     """
@@ -102,6 +103,9 @@ def create_app():
     app.register_blueprint(importer_bp, url_prefix='/api/import')
     app.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
     app.register_blueprint(sbrs_bp, url_prefix='/sbrs') 
+    
+    # TAMBAHAN: Daftarkan rute Top 500 yang baru
+    app.register_blueprint(top_500_bp, url_prefix='/monitoring/top-500') 
 
     # --- 5. NAVIGASI UTAMA ---
     @app.route('/')
