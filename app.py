@@ -10,7 +10,8 @@ from api.kunjungan import kunjungan_bp
 from api.sbrs import sbrs_bp 
 from api.top_500 import top_500_bp # Blueprint Top 500
 from api.admin import admin_bp # Blueprint Admin Control (V18)
-from api.ocr import ocr_bp # Blueprint Tools OCR (BARU)
+from api.ocr import ocr_bp # Blueprint Tools OCR
+from api.converter import converter_bp # Blueprint Konversi Dokumen (BARU)
 
 def sync_database_schema(app):
     """
@@ -164,7 +165,8 @@ def create_app():
     app_flask.register_blueprint(sbrs_bp, url_prefix='/sbrs') 
     app_flask.register_blueprint(top_500_bp, url_prefix='/monitoring/top-500') 
     app_flask.register_blueprint(admin_bp, url_prefix='/admin')
-    app_flask.register_blueprint(ocr_bp, url_prefix='/tools/ocr') # Daftarkan modul OCR (BARU)
+    app_flask.register_blueprint(ocr_bp, url_prefix='/tools/ocr') # Modul OCR
+    app_flask.register_blueprint(converter_bp, url_prefix='/tools/converter') # Modul Konversi (BARU)
 
     # --- 5. NAVIGASI UTAMA (FIX 404 NOT FOUND) ---
     @app_flask.route('/')
