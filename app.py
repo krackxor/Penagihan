@@ -8,12 +8,12 @@ from api.monitoring import monitoring_bp
 from api.importer import importer_bp
 from api.kunjungan import kunjungan_bp
 from api.sbrs import sbrs_bp 
-from api.top_500 import top_500_bp # TAMBAHAN: Import Blueprint Top 500
+from api.top_500 import top_500_bp # Blueprint Top 500
 
 def sync_database_schema(app):
     """
-    Fungsi Sinergi Self-Healing V5.13: Sinkronisasi Multi-Tabel.
-    Menjamin master_pelanggan dan data_sbrs memiliki struktur fisik yang identik dengan models.py.
+    Fungsi Sinergi Self-Healing V5.14: Sinkronisasi Multi-Tabel.
+    Menjamin tabel memiliki struktur dan gembok unik agar sistem Upsert tidak crash.
     """
     with app.app_context():
         inspector = inspect(db.engine)
@@ -21,7 +21,6 @@ def sync_database_schema(app):
         
         with db.engine.connect() as conn:
             # --- 1. HEALING: master_pelanggan (Tabel Induk) ---
-            # Menjamin kolom induk tersedia agar Auto-Provisioning tidak crash
             if 'master_pelanggan' in tables:
                 mp_cols = [c['name'] for c in inspector.get_columns('master_pelanggan')]
                 mp_required = [
@@ -30,14 +29,14 @@ def sync_database_schema(app):
                     ('pcez', 'VARCHAR(20)'),
                     ('alamat', 'TEXT'),
                     ('tarif', 'VARCHAR(20)'),
-                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP') # <-- SOLUSI ERROR created_at
+                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
                 ]
                 for col, dtype in mp_required:
                     if col not in mp_cols:
                         print(f">>> [SINERGI-FIX] Menambah kolom '{col}' ke master_pelanggan...")
                         conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
 
-            # --- 2. HEALING: data_sbrs (Tabel Transaksi) ---
+            # --- 2. HEALING: data_sbrs (Tabel Transaksi SBRS) ---
             if 'data_sbrs' in tables:
                 sbrs_cols = [c['name'] for c in inspector.get_columns('data_sbrs')]
                 sbrs_constraints = [c['name'] for c in inspector.get_unique_constraints('data_sbrs')]
@@ -70,13 +69,30 @@ def sync_database_schema(app):
                         print(f">>> [SINERGI-FIX] Menambah kolom '{col}' ke data_sbrs...")
                         conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col} {dtype}"))
                 
-                # Pasang Gembok Unik (Wajib untuk Sinkronisasi Upsert)
                 if 'uix_sbrs_nomen_periode' not in sbrs_constraints:
                     print(">>> [SINERGI-FIX] Menciptakan Gembok Unik SBRS...")
                     try:
                         conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
                     except Exception:
-                        print("!!! Gagal pasang gembok: Bersihkan data duplikat dulu, Bos!")
+                        pass
+
+            # --- 3. HEALING: transaksi_tagihan (SOLUSI ERROR UPLOAD MC) ---
+            if 'transaksi_tagihan' in tables:
+                tagihan_constraints = [c['name'] for c in inspector.get_unique_constraints('transaksi_tagihan')]
+                
+                if 'uix_tagihan_nomen_periode' not in tagihan_constraints:
+                    print(">>> [SINERGI-FIX] Memasang Gembok Unik pada Tabel Transaksi Tagihan (MC)...")
+                    try:
+                        # Bersihkan data ganda (duplikat) dulu agar pemasangan gembok tidak gagal
+                        conn.execute(text("""
+                            DELETE FROM transaksi_tagihan a USING transaksi_tagihan b 
+                            WHERE a.id < b.id AND a.nomen = b.nomen AND a.periode = b.periode;
+                        """))
+                        # Pasang Gembok Anti-Crash untuk proses Upload MC
+                        conn.execute(text("ALTER TABLE transaksi_tagihan ADD CONSTRAINT uix_tagihan_nomen_periode UNIQUE (nomen, periode)"))
+                        print(">>> [SINERGI-FIX] Gembok Unik Transaksi Tagihan Sukses Terpasang!")
+                    except Exception as e:
+                        print(f"!!! Gagal pasang gembok tagihan: {e}")
             
             conn.commit()
 
@@ -103,8 +119,6 @@ def create_app():
     app.register_blueprint(importer_bp, url_prefix='/api/import')
     app.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
     app.register_blueprint(sbrs_bp, url_prefix='/sbrs') 
-    
-    # TAMBAHAN: Daftarkan rute Top 500 yang baru
     app.register_blueprint(top_500_bp, url_prefix='/monitoring/top-500') 
 
     # --- 5. NAVIGASI UTAMA ---
