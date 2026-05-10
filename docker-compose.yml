@@ -18,6 +18,10 @@ services:
   sinergi-app:
     build: .
     container_name: sinergi_v16_app
+    # =================================================================
+    # INI OBAT ANTI 502: Beri waktu 30 menit (1800s) untuk baca file MC
+    # =================================================================
+    command: gunicorn --bind 0.0.0.0:5000 app:app --timeout 1800 --workers 3
     expose:
       - "5000"
     volumes:
