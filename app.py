@@ -12,87 +12,126 @@ from api.top_500 import top_500_bp # Blueprint Top 500
 
 def sync_database_schema(app):
     """
-    Fungsi Sinergi Self-Healing V5.14: Sinkronisasi Multi-Tabel.
-    Menjamin tabel memiliki struktur dan gembok unik agar sistem Upsert tidak crash.
+    Fungsi Sinergi Self-Healing V5.17: Sinkronisasi Multi-Tabel Ekstrem.
+    Menjamin tabel CID, SBRS, MC, MB, Arrdebt, dan MainBill 
+    memiliki struktur dan gembok unik yang siap menelan format JSONB.
     """
     with app.app_context():
         inspector = inspect(db.engine)
         tables = inspector.get_table_names()
         
         with db.engine.connect() as conn:
-            # --- 1. HEALING: master_pelanggan (Tabel Induk) ---
+            # --- 1. HEALING: master_pelanggan (Tabel Induk & CID) ---
             if 'master_pelanggan' in tables:
                 mp_cols = [c['name'] for c in inspector.get_columns('master_pelanggan')]
+                
+                # Tambahkan JSONB untuk menampung 50 Header Master CID
+                if 'raw_data' not in mp_cols:
+                    print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' (JSONB) ke master_pelanggan...")
+                    conn.execute(text("ALTER TABLE master_pelanggan ADD COLUMN raw_data JSONB"))
+
                 mp_required = [
-                    ('rayon', 'VARCHAR(50)'),
-                    ('kelurahan', 'VARCHAR(50)'),
-                    ('pcez', 'VARCHAR(20)'),
-                    ('alamat', 'TEXT'),
-                    ('tarif', 'VARCHAR(20)'),
+                    ('rayon', 'VARCHAR(50)'), ('kelurahan', 'VARCHAR(100)'),
+                    ('pcez', 'VARCHAR(20)'), ('alamat', 'TEXT'),
+                    ('tarif', 'VARCHAR(20)'), ('ab', 'VARCHAR(50)'),
                     ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
                 ]
                 for col, dtype in mp_required:
                     if col not in mp_cols:
-                        print(f">>> [SINERGI-FIX] Menambah kolom '{col}' ke master_pelanggan...")
                         conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
 
-            # --- 2. HEALING: data_sbrs (Tabel Transaksi SBRS) ---
+            # --- 2. HEALING: data_sbrs (Tabel Transaksi Lapangan) ---
             if 'data_sbrs' in tables:
                 sbrs_cols = [c['name'] for c in inspector.get_columns('data_sbrs')]
                 sbrs_constraints = [c['name'] for c in inspector.get_unique_constraints('data_sbrs')]
                 
                 sbrs_required = [
-                    ('periode', 'VARCHAR(10)'),
-                    ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
-                    ('kelurahan', 'VARCHAR(100)'),
-                    ('pcez', 'VARCHAR(20)'),
-                    ('nama', 'VARCHAR(150)'),
-                    ('alamat', 'TEXT'),
-                    ('rayon', 'VARCHAR(20)'),
-                    ('tarif', 'VARCHAR(20)'),
-                    ('stand_meter', 'FLOAT DEFAULT 0'),
-                    ('bulan_ini', 'FLOAT DEFAULT 0'),
-                    ('rata_rata', 'FLOAT DEFAULT 15'),
-                    ('kategori_anomali', 'VARCHAR(50)'),
-                    ('status_audit', 'INTEGER DEFAULT 0'),
-                    ('raw_data', 'JSONB'),
-                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
-                    ('tgl_audit', 'TIMESTAMP'),
-                    ('catatan_lapangan', 'TEXT'),
-                    ('foto_meter_path', 'VARCHAR(255)'),
-                    ('latitude', 'VARCHAR(50)'),
-                    ('longitude', 'VARCHAR(50)')
+                    ('periode', 'VARCHAR(10)'), ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
+                    ('kelurahan', 'VARCHAR(100)'), ('pcez', 'VARCHAR(20)'),
+                    ('nama', 'VARCHAR(150)'), ('alamat', 'TEXT'),
+                    ('rayon', 'VARCHAR(20)'), ('tarif', 'VARCHAR(20)'),
+                    ('stand_meter', 'FLOAT DEFAULT 0'), ('bulan_ini', 'FLOAT DEFAULT 0'),
+                    ('rata_rata', 'FLOAT DEFAULT 15'), ('kategori_anomali', 'VARCHAR(50)'),
+                    ('status_audit', 'INTEGER DEFAULT 0'), ('raw_data', 'JSONB'),
+                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'), ('tgl_audit', 'TIMESTAMP'),
+                    ('catatan_lapangan', 'TEXT'), ('foto_meter_path', 'VARCHAR(255)'),
+                    ('latitude', 'VARCHAR(50)'), ('longitude', 'VARCHAR(50)')
                 ]
-                
                 for col, dtype in sbrs_required:
                     if col not in sbrs_cols:
-                        print(f">>> [SINERGI-FIX] Menambah kolom '{col}' ke data_sbrs...")
                         conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col} {dtype}"))
                 
                 if 'uix_sbrs_nomen_periode' not in sbrs_constraints:
-                    print(">>> [SINERGI-FIX] Menciptakan Gembok Unik SBRS...")
-                    try:
-                        conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
-                    except Exception:
-                        pass
+                    try: conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
+                    except Exception: pass
 
-            # --- 3. HEALING: transaksi_tagihan (SOLUSI ERROR UPLOAD MC) ---
+            # --- 3. HEALING: transaksi_tagihan (Tabel MC & Top 500) ---
             if 'transaksi_tagihan' in tables:
+                tagihan_cols = [c['name'] for c in inspector.get_columns('transaksi_tagihan')]
                 tagihan_constraints = [c['name'] for c in inspector.get_unique_constraints('transaksi_tagihan')]
                 
+                # Tambahkan JSONB untuk menampung semua header MC
+                if 'raw_data' not in tagihan_cols:
+                    print(">>> [SINERGI-FIX] Menambah kolom 'raw_data' (JSONB) ke transaksi_tagihan...")
+                    conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN raw_data JSONB"))
+                
                 if 'uix_tagihan_nomen_periode' not in tagihan_constraints:
-                    print(">>> [SINERGI-FIX] Memasang Gembok Unik pada Tabel Transaksi Tagihan (MC)...")
                     try:
-                        # Bersihkan data ganda (duplikat) dulu agar pemasangan gembok tidak gagal
                         conn.execute(text("""
                             DELETE FROM transaksi_tagihan a USING transaksi_tagihan b 
                             WHERE a.id < b.id AND a.nomen = b.nomen AND a.periode = b.periode;
                         """))
-                        # Pasang Gembok Anti-Crash untuk proses Upload MC
                         conn.execute(text("ALTER TABLE transaksi_tagihan ADD CONSTRAINT uix_tagihan_nomen_periode UNIQUE (nomen, periode)"))
-                        print(">>> [SINERGI-FIX] Gembok Unik Transaksi Tagihan Sukses Terpasang!")
-                    except Exception as e:
-                        print(f"!!! Gagal pasang gembok tagihan: {e}")
+                    except Exception: pass
+
+            # --- 4. CREATE: data_mb (Tabel Master Bayar / Daily) ---
+            if 'data_mb' not in tables:
+                print(">>> [SINERGI-FIX] Menciptakan Tabel data_mb (Master Bayar)...")
+                conn.execute(text("""
+                    CREATE TABLE data_mb (
+                        id SERIAL PRIMARY KEY,
+                        nomen VARCHAR(50),
+                        periode VARCHAR(10),
+                        tgl_bayar VARCHAR(50),
+                        nominal FLOAT,
+                        denda FLOAT,
+                        lks_bayar VARCHAR(100),
+                        raw_data JSONB,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT uix_mb_nomen_periode UNIQUE (nomen, periode)
+                    )
+                """))
+
+            # --- 5. CREATE: data_arrdebt (Tabel Tunggakan) ---
+            if 'data_arrdebt' not in tables:
+                print(">>> [SINERGI-FIX] Menciptakan Tabel data_arrdebt (Tunggakan)...")
+                conn.execute(text("""
+                    CREATE TABLE data_arrdebt (
+                        id SERIAL PRIMARY KEY,
+                        nomen VARCHAR(50),
+                        periode VARCHAR(10),
+                        nominal FLOAT,
+                        raw_data JSONB,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT uix_arrdebt_nomen_periode UNIQUE (nomen, periode)
+                    )
+                """))
+
+            # --- 6. CREATE: data_mainbill (Tabel Data Fix SBRS) ---
+            if 'data_mainbill' not in tables:
+                print(">>> [SINERGI-FIX] Menciptakan Tabel data_mainbill (Data Fix)...")
+                conn.execute(text("""
+                    CREATE TABLE data_mainbill (
+                        id SERIAL PRIMARY KEY,
+                        nomen VARCHAR(50),
+                        periode VARCHAR(10),
+                        total_tagihan FLOAT,
+                        konsumsi FLOAT,
+                        raw_data JSONB,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT uix_mainbill_nomen_periode UNIQUE (nomen, periode)
+                    )
+                """))
             
             conn.commit()
 
