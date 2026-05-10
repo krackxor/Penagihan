@@ -1,25 +1,23 @@
-version: '3.8'
-
 services:
-  # 1. DATABASE POSTGRESQL (Gratis & Tangguh untuk 1 Juta Data)
+  # 1. DATABASE POSTGRESQL (Arsitektur V18 - JSONB Optimized)
   db:
     image: postgres:15-alpine
-    container_name: sinergi_v16_db
+    container_name: sinergi_v18_db
     environment:
       - POSTGRES_USER=admin_sinergi
       - POSTGRES_PASSWORD=pamjaya2026
       - POSTGRES_DB=sinergi_db
     volumes:
-      # Data database disimpan di folder ini agar tidak hilang saat Docker mati
+      # Data tetap aman di folder lokal meskipun docker di-reset
       - ./postgres_data:/var/lib/postgresql/data
     restart: always
 
-  # 2. KONTAYNER APLIKASI (Flask)
+  # 2. KONTAYNER APLIKASI (Flask Engine V18)
   sinergi-app:
     build: .
-    container_name: sinergi_v16_app
+    container_name: sinergi_v18_app
     # =================================================================
-    # INI OBAT ANTI 502: Beri waktu 30 menit (1800s) untuk baca file MC
+    # PROTOKOL ANTI 502: Timeout 30 menit untuk Vacuuming JSONB 6 File
     # =================================================================
     command: gunicorn --bind 0.0.0.0:5000 app:app --timeout 1800 --workers 3
     expose:
@@ -31,16 +29,16 @@ services:
     environment:
       - FLASK_ENV=development 
       - PYTHONUNBUFFERED=1
-      # ALAMAT KONEKSI: Menyambungkan Flask ke kontainer 'db' di atas
+      # Koneksi internal antar kontainer
       - DATABASE_URL=postgresql://admin_sinergi:pamjaya2026@db:5432/sinergi_db
     depends_on:
       - db
     restart: always
 
-  # 3. NGINX (Pintu Depan)
+  # 3. NGINX (Gerbang Utama Sinergi)
   nginx-proxy:
     image: nginx:alpine
-    container_name: sinergi_v16_nginx
+    container_name: sinergi_v18_nginx
     ports:
       - "80:80"
     volumes:
