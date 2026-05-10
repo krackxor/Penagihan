@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Konversi Dokumen - 1 Sinergi{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-box {
+        border: 2px dashed #0d6efd;
+        border-radius: 15px;
+        padding: 40px 20px;
+        text-align: center;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .upload-box:hover {
+        background-color: #e9ecef;
+        border-color: #0a58ca;
+    }
+    .nav-pills .nav-link {
+        border-radius: 10px;
+        font-weight: bold;
+        color: #495057;
+        margin-right: 5px;
+    }
+    .nav-pills .nav-link.active {
+        background-color: #0d6efd;
+        color: white;
+        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-10 col-lg-8">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-3">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+                <li class="breadcrumb-item active fw-bold" aria-current="page">Tools Konversi</li>
+            </ol>
+        </nav>
+
+        <div class="card border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="bg-danger text-white rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-3 shadow-sm" style="width: 70px; height: 70px;">
+                        <i class="fas fa-file-pdf fa-2x"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1">Pusat Konversi Dokumen</h3>
+                    <p class="text-muted small">Alih media dokumen secara otomatis. Cepat, aman, dan tanpa batasan watermark.</p>
+                </div>
+
+                <ul class="nav nav-pills justify-content-center mb-4" id="pills-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button" role="tab">
+                            <i class="fas fa-file-word me-1"></i> PDF ke Word
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#word-to-pdf" type="button" role="tab">
+                            <i class="fas fa-file-pdf me-1"></i> Word ke PDF
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-to-pdf" type="button" role="tab">
+                            <i class="fas fa-image me-1"></i> Gambar ke PDF
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="pills-tabContent">
+                    
+                    <div class="tab-pane fade show active" id="pdf-to-word" role="tabpanel">
+                        <form onsubmit="handleConvert(event, '/tools/converter/pdf-to-word')">
+                            <div class="upload-box mb-4">
+                                <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                                <input type="file" name="file" class="form-control form-control-lg mb-2" accept=".pdf" required>
+                                <span class="small text-muted">Hanya menerima file .pdf</span>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
+                                <i class="fas fa-sync-alt me-2"></i>Konversi ke MS Word
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="tab-pane fade" id="word-to-pdf" role="tabpanel">
+                        <form onsubmit="handleConvert(event, '/tools/converter/word-to-pdf')">
+                            <div class="upload-box mb-4">
+                                <i class="fas fa-file-word fa-3x text-primary mb-3"></i>
+                                <input type="file" name="file" class="form-control form-control-lg mb-2" accept=".doc, .docx" required>
+                                <span class="small text-muted">Menerima format .doc dan .docx</span>
+                            </div>
+                            <button type="submit" class="btn btn-danger btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
+                                <i class="fas fa-sync-alt me-2"></i>Konversi ke PDF
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="tab-pane fade" id="img-to-pdf" role="tabpanel">
+                        <form onsubmit="handleConvert(event, '/tools/converter/image-to-pdf')">
+                            <div class="upload-box mb-4">
+                                <i class="fas fa-file-image fa-3x text-success mb-3"></i>
+                                <input type="file" name="file" class="form-control form-control-lg mb-2" accept="image/png, image/jpeg, image/jpg" required>
+                                <span class="small text-muted">Format gambar JPG, JPEG, PNG</span>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
+                                <i class="fas fa-sync-alt me-2"></i>Konversi ke PDF
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function handleConvert(event, endpoint) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('.convert-btn');
+        const originalText = submitBtn.innerHTML;
+
+        // Ubah tombol menjadi status loading
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses Dokumen...';
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                // Proses file dari blob untuk memicu download di browser pengguna
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // Coba ambil nama file asli dari header, gunakan fallback jika gagal
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let fileName = 'Hasil_Konversi_Sinergi';
+                if (contentDisposition) {
+                    const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                    if (fileNameMatch && fileNameMatch.length === 2) {
+                        fileName = fileNameMatch[1];
+                    }
+                }
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                
+                Swal.fire('Berhasil', 'Dokumen berhasil dikonversi dan otomatis diunduh!', 'success');
+                form.reset();
+            } else {
+                const result = await response.json();
+                Swal.fire('Gagal', result.message || 'Terjadi kesalahan pada sistem.', 'error');
+            }
+        } catch (error) {
+            Swal.fire('Error', 'Gagal menghubungi server.', 'error');
+        } finally {
+            // Kembalikan tombol ke kondisi semula
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+</script>
+{% endblock %}
