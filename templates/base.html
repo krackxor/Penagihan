@@ -3,74 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Sinergi Area Service V18{% endblock %}</title>
+    <title>{% block title %}Sinergi Area Service V18 - Ultra{% endblock %}</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
 
     <style>
+        /* ========================================= */
+        /* TEMA GAMING / CYBERPUNK (DARK & GLOW)     */
+        /* ========================================= */
         :root {
-            --sinergi-blue: #0056b3;
-            --sinergi-dark: #003366;
-            --sinergi-gold: #ffc107;
-            --bg-light: #f4f7fa;
-            --glass: rgba(255, 255, 255, 0.95);
+            --bg-dark: #0b0c10;        /* Latar belakang sangat gelap */
+            --card-bg: #1f2833;        /* Latar kotak/card */
+            --neon-cyan: #00e5ff;      /* Warna Glow Utama (Biru Neon) */
+            --neon-purple: #b500ff;    /* Warna Glow Sekunder (Ungu) */
+            --text-main: #c5c6c7;      /* Teks abu-abu terang */
+            --text-bright: #ffffff;    /* Teks putih menyala */
         }
 
         body { 
             font-family: 'Inter', sans-serif; 
-            background-color: var(--bg-light); 
-            color: #333;
+            background-color: var(--bg-dark); 
+            color: var(--text-main);
             overflow-x: hidden;
         }
 
-        /* Navbar V18: Professional Grade */
+        /* Heading Style bergaya Tech/Game */
+        h1, h2, h3, h4, h5, .navbar-brand {
+            font-family: 'Rajdhani', sans-serif; /* Font kotak khas Sci-Fi */
+            color: var(--text-bright);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* 1. EFEK GLOW PADA NAVBAR */
         .navbar { 
-            background: linear-gradient(135deg, var(--sinergi-dark) 0%, var(--sinergi-blue) 100%);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-            padding: 0.7rem 0;
-            border-bottom: 3px solid var(--sinergi-gold);
+            background: rgba(11, 12, 16, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4), 0 0 5px rgba(0, 229, 255, 0.2); 
+            padding: 1rem 0;
         }
         .navbar-brand { 
             font-weight: 800; 
-            letter-spacing: 1px; 
-            font-size: 1.5rem;
-            color: #fff !important;
+            font-size: 1.6rem;
+            text-shadow: 0 0 10px var(--neon-cyan); /* Teks Logo Menyala */
         }
         .nav-link { 
             font-weight: 600; 
             margin-right: 5px; 
-            transition: all 0.2s ease-in-out;
-            opacity: 0.85;
-            font-size: 0.9rem;
-            color: #fff !important;
+            transition: all 0.3s ease;
+            color: var(--text-main) !important;
         }
         .nav-link:hover, .nav-link.active { 
-            color: var(--sinergi-gold) !important; 
-            opacity: 1;
-            transform: translateY(-1px);
+            color: var(--neon-cyan) !important; 
+            text-shadow: 0 0 8px var(--neon-cyan);
+            transform: translateY(-2px);
         }
 
-        /* Dropdown V18 Style */
+        /* 2. EFEK GLOW PADA KOTAK / CARD GLOBAL */
+        .card {
+            background-color: var(--card-bg) !important;
+            border: 1px solid rgba(0, 229, 255, 0.2) !important;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            color: var(--text-bright);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            border-color: var(--neon-cyan) !important;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); /* Glow saat disorot */
+        }
+        
+        /* Ubah warna dasar teks tabel dan form bawaan bootstrap agar cocok di background gelap */
+        .form-control, .form-select {
+            background-color: rgba(0,0,0,0.5) !important;
+            border: 1px solid #45a29e !important;
+            color: #fff !important;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 10px var(--neon-cyan) !important;
+            border-color: var(--neon-cyan) !important;
+        }
+        .table { color: var(--text-main); }
+        .table-light { background-color: #1a1a24; color: var(--neon-cyan); }
+        .breadcrumb-item a { color: var(--neon-cyan); }
+
+        /* 3. MENU DROPDOWN DARK MODE */
         .dropdown-menu { 
-            border: none; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
-            border-radius: 12px; 
-            padding: 8px;
-            margin-top: 10px;
+            background-color: var(--bg-dark); 
+            border: 1px solid var(--neon-cyan); 
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); 
+            border-radius: 8px; 
         }
         .dropdown-item {
-            border-radius: 8px;
-            padding: 8px 15px;
+            color: var(--text-main);
             font-weight: 600;
-            font-size: 0.85rem;
         }
         .dropdown-item:hover {
-            background-color: #f0f7ff;
-            color: var(--sinergi-blue);
+            background-color: rgba(0, 229, 255, 0.1);
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan);
         }
-        .dropdown-item i { width: 20px; }
+
+        /* 4. TOMBOL BERGAYA GAMING */
+        .btn-sinergi {
+            background: transparent;
+            color: var(--neon-cyan);
+            font-weight: 700;
+            border-radius: 5px; /* Bentuk lebih tajam */
+            padding: 8px 20px;
+            font-size: 0.9rem;
+            border: 2px solid var(--neon-cyan);
+            box-shadow: inset 0 0 10px rgba(0,229,255,0.1), 0 0 10px rgba(0,229,255,0.2);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-sinergi:hover {
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+            transform: scale(1.05);
+            box-shadow: 0 0 20px var(--neon-cyan);
+        }
 
         .main-container { 
             min-height: 85vh; 
@@ -78,42 +133,42 @@
             padding-bottom: 5rem; 
         }
 
-        /* V18 Footer */
+        /* 5. FOOTER DARK */
         .footer { 
-            background: #ffffff; 
-            border-top: 1px solid #dee2e6; 
+            background: rgba(11, 12, 16, 0.9); 
+            border-top: 1px solid #45a29e; 
             padding: 20px 0; 
-            color: #6c757d; 
+            color: var(--text-main); 
             font-size: 0.8rem; 
         }
 
-        /* Global Turbo Loader */
+        /* 6. LOADING SCREEN ALA GAME */
         #turbo-loader {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(255,255,255,0.9);
+            background: rgba(11, 12, 16, 0.95);
             display: none;
             z-index: 9999;
             justify-content: center;
             align-items: center;
         }
-
-        /* Button Custom V18 */
-        .btn-sinergi {
-            background: var(--sinergi-gold);
-            color: var(--sinergi-dark);
-            font-weight: 700;
-            border-radius: 50px;
-            padding: 6px 18px;
-            font-size: 0.85rem;
-            border: none;
-            transition: all 0.3s ease;
+        .spinner-grow {
+            background-color: var(--neon-purple);
+            box-shadow: 0 0 20px var(--neon-purple);
         }
-        .btn-sinergi:hover {
-            background: #e5ac00;
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+
+        /* ========================================= */
+        /* KODE RESPONSIVE UNTUK HP (MOBILE FIXES)   */
+        /* ========================================= */
+        @media (max-width: 768px) {
+            h3 { font-size: 1.4rem !important; }
+            .card-body { padding: 1.25rem !important; }
+            .main-container { padding-top: 1rem; }
+            .navbar-toggler { border-color: var(--neon-cyan); outline: none; }
+            .navbar-toggler-icon { 
+                background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(0, 229, 255, 1)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E");
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -122,17 +177,19 @@
 
     <div id="turbo-loader">
         <div class="text-center">
-            <div class="spinner-grow text-primary" role="status"></div>
-            <p class="mt-3 fw-bold text-dark">Sinergi V18 Engine Active...</p>
+            <div class="spinner-grow" style="width: 3rem; height: 3rem;" role="status"></div>
+            <p class="mt-3 fw-bold text-light" style="letter-spacing: 2px; text-shadow: 0 0 5px var(--neon-purple);">
+                SYSTEM BOOTING...
+            </p>
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="fas fa-droplet me-2"></i>1 SINERGI
+                <i class="fas fa-microchip me-2"></i>1 SINERGI
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
@@ -154,14 +211,14 @@
                             <i class="fas fa-bolt me-1"></i> Analisa SBRS
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/sbrs/summary"><i class="fas fa-table me-2 text-primary"></i>Summary Anomali</a></li>
-                            <li><a class="dropdown-item" href="/sbrs/analisa"><i class="fas fa-magnifying-glass-chart me-2 text-danger"></i>Detail Per Hari</a></li>
+                            <li><a class="dropdown-item" href="/sbrs/summary"><i class="fas fa-table me-2" style="color:var(--neon-cyan)"></i>Summary Anomali</a></li>
+                            <li><a class="dropdown-item" href="/sbrs/analisa"><i class="fas fa-chart-line me-2" style="color:var(--neon-purple)"></i>Detail Per Hari</a></li>
                         </ul>
                     </li>
 
                     <li class="nav-item">
                         <a class="nav-link" href="/lapor">
-                            <i class="fas fa-map-location-dot me-1"></i> Lapor Lapangan
+                            <i class="fas fa-crosshairs me-1"></i> Lapor Lapangan
                         </a>
                     </li>
                     
@@ -170,19 +227,19 @@
                             <i class="fas fa-wrench me-1"></i> Tools
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/tools/ocr/"><i class="fas fa-font me-2 text-primary"></i>Gambar ke Teks (OCR)</a></li>
+                            <li><a class="dropdown-item" href="/tools/ocr/"><i class="fas fa-font me-2 text-info"></i>Gambar ke Teks (OCR)</a></li>
                             <li><a class="dropdown-item" href="/tools/converter/"><i class="fas fa-file-pdf me-2 text-danger"></i>Konversi Dokumen</a></li>
                         </ul>
                     </li>
                     
-                    <li class="nav-item dropdown ms-lg-3">
-                        <a class="btn btn-sinergi dropdown-toggle shadow-sm" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-gear me-1"></i> Admin Tool
+                    <li class="nav-item dropdown ms-lg-3 mt-3 mt-lg-0 mb-2 mb-lg-0">
+                        <a class="btn btn-sinergi dropdown-toggle w-100" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-ninja me-1"></i> Admin System
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-lg">
-                            <li><a class="dropdown-item" href="/upload"><i class="fas fa-file-import me-2 text-primary"></i>Pusat Sinkronisasi</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="/admin/database"><i class="fas fa-database me-2"></i>Database Control</a></li>
+                        <ul class="dropdown-menu dropdown-menu-end w-100">
+                            <li><a class="dropdown-item" href="/upload"><i class="fas fa-cloud-upload-alt me-2" style="color:var(--neon-cyan)"></i>Data Sync</a></li>
+                            <li><hr class="dropdown-divider" style="border-color: rgba(0,229,255,0.3);"></li>
+                            <li><a class="dropdown-item text-danger" href="/admin/database"><i class="fas fa-database me-2"></i>Database Override</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -198,10 +255,10 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-md-6 text-center text-md-start">
-                    <p class="mb-0">© 2026 <strong>PAM JAYA</strong> - Area Service Jakarta.</p>
+                    <p class="mb-0">© 2026 <strong style="color:var(--neon-cyan)">PAM JAYA</strong> - Area Service Jakarta.</p>
                 </div>
-                <div class="col-md-6 text-center text-md-end">
-                    <span class="badge bg-dark text-white px-3 py-2">Sinergi Core V18.0 Ultra</span>
+                <div class="col-md-6 text-center text-md-end mt-2 mt-md-0">
+                    <span class="badge" style="background-color: var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple);">Sinergi Engine v18.0</span>
                 </div>
             </div>
         </div>
@@ -215,10 +272,8 @@
         document.querySelectorAll('.nav-link, .dropdown-item').forEach(link => {
             const currentPath = window.location.pathname;
             const linkPath = link.getAttribute('href');
-            // Mencegah error jika linkPath kosong/anchor link (#)
             if (linkPath && linkPath !== '#' && currentPath === linkPath) {
                 link.classList.add('active');
-                // Jika item di dalam dropdown, tandai juga parent dropdown-nya
                 const parentDropdown = link.closest('.dropdown');
                 if (parentDropdown) {
                     parentDropdown.querySelector('.nav-link').classList.add('active');
