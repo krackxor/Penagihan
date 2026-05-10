@@ -196,7 +196,7 @@ def handle_sbrs_upload(file_cust, file_spot):
         if sbrs_entries:
             sql_sbrs = text("""
                 INSERT INTO data_sbrs (nomen, periode, nama, ab, kelurahan, pcez, bulan_ini, rata_rata, stand_meter, kategori_anomali, raw_data, status_audit)
-                VALUES (:nomen, :periode, :nama, :ab, :kelurahan, :pcez, :bulan_ini, :rata_rata, :stand_meter, :kategori_anomali, :raw_data::jsonb, :status_audit)
+                VALUES (:nomen, :periode, :nama, :ab, :kelurahan, :pcez, :bulan_ini, :rata_rata, :stand_meter, :kategori_anomali, CAST(:raw_data AS JSONB), :status_audit)
                 ON CONFLICT (nomen, periode) DO UPDATE SET 
                     kategori_anomali = EXCLUDED.kategori_anomali, bulan_ini = EXCLUDED.bulan_ini, 
                     stand_meter = EXCLUDED.stand_meter, raw_data = EXCLUDED.raw_data
@@ -251,7 +251,7 @@ def handle_mc_upload(file_mc):
             unique_master = {m['nomen']: m for m in master_provision}.values()
             sql_master = text("""
                 INSERT INTO master_pelanggan (nomen, nama, ab, pcez, kelurahan, alamat, rayon, raw_data)
-                VALUES (:nomen, :nama, :ab, :pcez, :kelurahan, :alamat, :rayon, :raw_data::jsonb)
+                VALUES (:nomen, :nama, :ab, :pcez, :kelurahan, :alamat, :rayon, CAST(:raw_data AS JSONB))
                 ON CONFLICT (nomen) DO UPDATE SET 
                     nama=EXCLUDED.nama, ab=EXCLUDED.ab, pcez=EXCLUDED.pcez, 
                     kelurahan=EXCLUDED.kelurahan, alamat=EXCLUDED.alamat, rayon=EXCLUDED.rayon, raw_data=EXCLUDED.raw_data
@@ -261,7 +261,7 @@ def handle_mc_upload(file_mc):
         if mc_entries:
             sql_mc = text("""
                 INSERT INTO transaksi_tagihan (nomen, periode, nominal, status_lunas, raw_data)
-                VALUES (:nomen, :periode, :nominal, 0, :raw_data::jsonb)
+                VALUES (:nomen, :periode, :nominal, 0, CAST(:raw_data AS JSONB))
                 ON CONFLICT (nomen, periode) DO UPDATE SET 
                     nominal=EXCLUDED.nominal, status_lunas=0, raw_data=EXCLUDED.raw_data
             """)
@@ -302,7 +302,7 @@ def handle_daily_collection(file_daily):
         if mb_entries:
             sql_mb = text("""
                 INSERT INTO data_mb (nomen, periode, tgl_bayar, nominal, denda, lks_bayar, raw_data)
-                VALUES (:nomen, :periode, :tgl_bayar, :nominal, :denda, :lks_bayar, :raw_data::jsonb)
+                VALUES (:nomen, :periode, :tgl_bayar, :nominal, :denda, :lks_bayar, CAST(:raw_data AS JSONB))
                 ON CONFLICT (nomen, periode) DO UPDATE SET 
                     tgl_bayar = EXCLUDED.tgl_bayar, nominal = EXCLUDED.nominal,
                     denda = EXCLUDED.denda, lks_bayar = EXCLUDED.lks_bayar, raw_data = EXCLUDED.raw_data
@@ -344,7 +344,7 @@ def handle_cid_upload(file_cid):
         if cid_entries:
             sql_cid = text("""
                 INSERT INTO master_pelanggan (nomen, nama, ab, pcez, kelurahan, alamat, rayon, tarif, raw_data)
-                VALUES (:nomen, :nama, :ab, :pcez, :kelurahan, :alamat, :rayon, :tarif, :raw_data::jsonb)
+                VALUES (:nomen, :nama, :ab, :pcez, :kelurahan, :alamat, :rayon, :tarif, CAST(:raw_data AS JSONB))
                 ON CONFLICT (nomen) DO UPDATE SET 
                     nama=EXCLUDED.nama, ab=EXCLUDED.ab, pcez=EXCLUDED.pcez, 
                     kelurahan=EXCLUDED.kelurahan, alamat=EXCLUDED.alamat, 
@@ -379,7 +379,7 @@ def handle_arrdebt_upload(file_arrdebt):
         if arr_entries:
             sql_arr = text("""
                 INSERT INTO data_arrdebt (nomen, periode, nominal, raw_data)
-                VALUES (:nomen, :periode, :nominal, :raw_data::jsonb)
+                VALUES (:nomen, :periode, :nominal, CAST(:raw_data AS JSONB))
                 ON CONFLICT (nomen, periode) DO UPDATE SET nominal = EXCLUDED.nominal, raw_data = EXCLUDED.raw_data
             """)
             db.session.execute(sql_arr, arr_entries)
@@ -424,7 +424,7 @@ def handle_mainbill_upload(file_mainbill):
         if mb_entries:
             sql = text("""
                 INSERT INTO data_mainbill (nomen, periode, total_tagihan, konsumsi, raw_data)
-                VALUES (:nomen, :periode, :total_tagihan, :konsumsi, :raw_data::jsonb)
+                VALUES (:nomen, :periode, :total_tagihan, :konsumsi, CAST(:raw_data AS JSONB))
                 ON CONFLICT (nomen, periode) DO UPDATE SET total_tagihan = EXCLUDED.total_tagihan, konsumsi = EXCLUDED.konsumsi, raw_data = EXCLUDED.raw_data
             """)
             db.session.execute(sql, mb_entries)
