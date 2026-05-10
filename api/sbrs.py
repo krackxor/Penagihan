@@ -42,6 +42,15 @@ def get_valid_str(val, fallback='-'):
         return fallback
     return s
 
+def get_raw_val(raw_data, keys_to_try):
+    """Mencari nilai dari daftar kunci yang mungkin (Pelacak Multi-Header)."""
+    if not raw_data: return "-"
+    for k in keys_to_try:
+        for actual_key in [k, k.upper(), k.lower(), k.capitalize()]:
+            if actual_key in raw_data and raw_data[actual_key] and str(raw_data[actual_key]).strip() not in ['None', 'nan', '']:
+                return str(raw_data[actual_key]).strip()
+    return "-"
+
 # --- KAMUS DATA SBRS ---
 SKIP_LABELS = {
     '1A': 'Meter Buram', '1B': 'Meter Berembun', '1C': 'Meter Rusak',
@@ -79,7 +88,6 @@ def sbrs_summary():
         prev_periode = (dt - timedelta(days=28)).strftime('%Y%m')
     except: prev_periode = periode_filter
 
-    # Ambil semua data untuk diproses di memori
     base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
     if ab != 'all': base_q = base_q.filter(DataSBRS.ab == ab)
     
@@ -89,7 +97,6 @@ def sbrs_summary():
     
     total_nomen = len(all_data)
 
-    # Hitung Kategori Manual
     summary_dict = {}
     for d in all_data:
         kat = d.kategori_anomali
@@ -194,7 +201,7 @@ def sbrs_summary():
 
 @sbrs_bp.route('/analisa')
 def sbrs_analisa():
-    """Detail Verifikasi: Mendukung Filter Drill-Down Lintas Wilayah murni CID."""
+    """Detail Verifikasi: Mendukung Filter Drill-Down dan Penyiapan Data Modal."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
@@ -203,7 +210,7 @@ def sbrs_analisa():
     trbl_code = request.args.get('trbl_code')
     read_method = request.args.get('read_method')
     
-    # 6 Parameter Filter Wilayah Murni
+    # 6 Parameter Filter Wilayah
     cc_filter = request.args.get('cc')
     pc_filter = request.args.get('pc')
     pcez_filter = request.args.get('pcez')
@@ -237,7 +244,7 @@ def sbrs_analisa():
         if trbl_code and str(get_case_insensitive(raw, 'cmr_trbl1_code')) != trbl_code: continue
         if read_method and str(get_case_insensitive(raw, 'Read_Method') or get_case_insensitive(raw, 'cmr_read_code')) != read_method: continue
         
-        # Eksekusi Filter 6 Tab Wilayah
+        # Eksekusi Filter Wilayah
         if cc_filter and get_valid_str(get_case_insensitive(raw, 'CC')).lower() != cc_filter.lower(): continue
         if pc_filter and get_valid_str(get_case_insensitive(raw, 'KODE PA/PC') or get_case_insensitive(raw, 'PC')).lower() != pc_filter.lower(): continue
         if pcez_filter and get_valid_str(get_case_insensitive(raw, 'PCEZ') or get_case_insensitive(raw, 'PCEZBK') or d.pcez).lower() != pcez_filter.lower(): continue
@@ -260,14 +267,52 @@ def sbrs_analisa():
     results = []
     for d in top_data:
         raw = d.raw_data or {}
+        
+        # 1. Rata-rata dan Volume (Bypass dari Database)
         raw_rata = get_case_insensitive(raw, 'Estimation_Value') or get_case_insensitive(raw, 'AVG_CONSUMPTION')
         rata_real = float(raw_rata) if raw_rata else d.rata_rata
         vol_tagihan = safe_f(get_case_insensitive(raw, 'SB_Stand')) - safe_f(get_case_insensitive(raw, 'Prev_Read_1'))
         
+        # 2. Persiapan Data Dinamis untuk Pop-up (Multi-Header Tracking)
+        alamat = get_raw_val(raw, ['cmr_address', 'ALAMAT'])
+        mtr_info = get_raw_val(raw, ['cmr_mtr_info', 'REMARK', 'cmr_spcl_msg'])
+        wa = get_raw_val(raw, ['WA_NUMBER', 'MOBILE', 'cmr_phone', 'NO_HP'])
+        telp = get_raw_val(raw, ['PHONE', 'TELEPON', 'TELP'])
+        email = get_raw_val(raw, ['EMAIL', 'SUREL'])
+        tarif = get_raw_val(raw, ['Tariff', 'TARIF', 'cmr_tarif'])
+        meter = get_raw_val(raw, ['cmr_mtr_num', 'Meter_Serial_1', 'METER_SERIAL'])
+        metode = get_raw_val(raw, ['Read_Method', 'READ_METHOD', 'cmr_read_code'])
+        bill_id = get_raw_val(raw, ['BILL_ID', 'Bill_No', 'BILL_NO'])
+        s_awal = get_raw_val(raw, ['Prev_Read_1', 'START_READ_STAN', 'cmr_prev_read', 'START_READ'])
+        s_akhir = get_raw_val(raw, ['SB_Stand', 'END_READ_STAN', 'cmr_reading', 'Curr_Read_1'])
+        hari = get_raw_val(raw, ['HARI_BACA', 'DAYS'])
+
         results.append({
-            "nomen": d.nomen, "nama": d.nama, "kelurahan": d.kelurahan, "pcez": d.pcez,
-            "bulan_ini": vol_tagihan, "rata_rata": rata_real, "kategori_anomali": d.kategori_anomali,
-            "status_audit": d.status_audit, "raw_data": raw, "nama_petugas_anomali": d.nama_petugas_anomali
+            "nomen": d.nomen,
+            "nama": d.nama,
+            "kelurahan": d.kelurahan,
+            "pcez": d.pcez,
+            "bulan_ini": vol_tagihan,
+            "rata_rata": rata_real,
+            "kategori_anomali": d.kategori_anomali,
+            "status_audit": d.status_audit,
+            "nama_petugas_anomali": d.nama_petugas_anomali,
+            "raw_data": raw,
+            "modal_info": { # Disuntikkan langsung ke Frontend
+                "alamat": alamat,
+                "mtr_info": mtr_info,
+                "wa": wa,
+                "telp": telp,
+                "email": email,
+                "tarif": tarif,
+                "meter": meter,
+                "metode": metode,
+                "bill_id": bill_id,
+                "s_awal": s_awal,
+                "s_akhir": s_akhir,
+                "hari": hari,
+                "indikasi": raw.get('INDIKASI_SINERGI', 'Aman')
+            }
         })
     
     cycles_list = sorted(list(set(str(get_case_insensitive(d.raw_data, 'cycle') or '') for d in all_data if get_case_insensitive(d.raw_data, 'cycle'))))
@@ -323,20 +368,17 @@ def export_analisa():
     all_data = query.all()
     filtered_data = []
 
-    # Memori filter case insensitive
     for d in all_data:
         raw = d.raw_data or {}
         if cycle != 'all' and str(get_case_insensitive(raw, 'cycle') or '').lower() != cycle.lower(): continue
         if kat != 'all' and kat is not None and d.kategori_anomali != kat: continue
         filtered_data.append(d)
 
-    # Filter Klik Baru Lama
     if kat != 'all' and kat is not None and sub_kat:
         prev_nomen = [n[0] for n in db.session.query(DataSBRS.nomen).filter(DataSBRS.periode == prev_periode, DataSBRS.kategori_anomali == kat).all()]
         if sub_kat == 'lama': filtered_data = [d for d in filtered_data if d.nomen in prev_nomen]
         elif sub_kat == 'baru': filtered_data = [d for d in filtered_data if d.nomen not in prev_nomen]
 
-    # Tarik memori tanggal bulan lalu
     prev_dates_q = db.session.query(DataSBRS.nomen, DataSBRS.raw_data).filter(DataSBRS.periode == prev_periode)
     prev_dates = {nomen: get_case_insensitive(raw, 'Read_date_1') or get_case_insensitive(raw, 'cmr_rd_date') for nomen, raw in prev_dates_q.all()}
 
