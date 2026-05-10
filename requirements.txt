@@ -1,8 +1,9 @@
-# --- Framework & Server ---
+# --- Framework & Server (WAJIB UNTUK DOCKER) ---
 Flask==2.3.3
 Werkzeug==2.3.7
+gunicorn==21.2.0
 
-# --- Database & Driver (DIPERBAIKI) ---
+# --- Database & Driver (Koneksi PostgreSQL) ---
 SQLAlchemy==2.0.19
 Flask-SQLAlchemy==3.0.5
 psycopg2-binary==2.9.9
@@ -13,7 +14,7 @@ pandas==2.0.3
 openpyxl==3.1.2
 xlsxwriter==3.1.2
 
-# --- Pengolahan Gambar & OCR ---
+# --- Pengolahan Gambar & OCR (Analisa Foto Meter) ---
 Pillow==10.0.0
 pytesseract==0.3.10
 
