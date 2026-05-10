@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Database Control - Sinergi V18{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-9">
+            <div class="card border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+                <div class="bg-dark p-4 text-center text-white">
+                    <i class="fas fa-database fa-3x mb-3 text-warning"></i>
+                    <h2 class="fw-bold mb-0">Database Control Center</h2>
+                    <p class="mb-0 opacity-75">Manajemen Pemeliharaan Data Area Service</p>
+                </div>
+                
+                <div class="card-body p-5">
+                    <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center mb-5" style="border-radius: 12px;">
+                        <i class="fas fa-exclamation-circle fa-2x me-3"></i>
+                        <div>
+                            <h6 class="fw-bold mb-1">Peringatan Keamanan Kritis!</h6>
+                            <p class="small mb-0">Tindakan di bawah ini bersifat permanen dan akan menghapus ribuan baris data. Pastikan Bos Anwar sudah melakukan backup data operasional sebelum melanjutkan.</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <div class="p-4 border border-2 rounded-4 bg-light transition-hover">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                    <div style="flex: 1; min-width: 300px;">
+                                        <h5 class="fw-bold text-dark mb-1"><i class="fas fa-eraser me-2 text-primary"></i>Pembersihan Transaksi Bulanan</h5>
+                                        <p class="small text-muted mb-0">Menghapus data MC, SBRS, MB, dan Laporan Lapangan. <br>
+                                        <span class="text-success fw-bold"><i class="fas fa-shield-alt me-1"></i>Master CID & Mapping Petugas tetap AMAN.</span></p>
+                                    </div>
+                                    <button onclick="confirmAction('transaksi')" class="btn btn-outline-danger px-4 py-2 fw-bold rounded-pill">
+                                        Bersihkan Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="p-4 border border-2 border-danger rounded-4 bg-danger-subtle">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                    <div style="flex: 1; min-width: 300px;">
+                                        <h5 class="fw-bold text-danger mb-1"><i class="fas fa-bomb me-2"></i>Reset Total (Factory Reset)</h5>
+                                        <p class="small text-danger mb-0">Menghapus 100% isi database tanpa sisa. Digunakan jika ingin pindah area atau mengganti seluruh database pelanggan dari nol.</p>
+                                    </div>
+                                    <button onclick="confirmAction('total')" class="btn btn-danger px-4 py-2 fw-bold shadow rounded-pill">
+                                        Gusur Semua Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-5">
+                        <a href="/upload" class="btn btn-link text-decoration-none text-muted">
+                            <i class="fas fa-chevron-left me-2"></i>Kembali ke Dashboard Utama
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function confirmAction(mode) {
+    const config = {
+        transaksi: { 
+            title: 'Hapus Data Transaksi?', 
+            text: 'Data tagihan dan SBRS akan dikosongkan. Gunakan ini untuk persiapan data bulan baru.', 
+            confirmText: 'Ya, Bersihkan!',
+            icon: 'warning'
+        },
+        total: { 
+            title: 'RESET TOTAL DATABASE?', 
+            text: 'PERINGATAN: Seluruh data pelanggan (CID) dan petugas akan LENYAP selamanya!', 
+            confirmText: 'SAYA YAKIN, RESET SEMUA!',
+            icon: 'error'
+        }
+    };
+
+    const result = await Swal.fire({
+        title: config[mode].title,
+        text: config[mode].text,
+        icon: config[mode].icon,
+        showCancelButton: true,
+        confirmButtonColor: mode === 'total' ? '#d33' : '#3085d6',
+        cancelButtonColor: '#6e7881',
+        confirmButtonText: config[mode].confirmText,
+        cancelButtonText: 'Batal'
+    });
+
+    if (result.isConfirmed) {
+        // Tampilkan loading state
+        Swal.fire({
+            title: 'Sedang Memproses Database...',
+            html: 'Mohon tunggu sebentar, sistem sedang melakukan sinkronisasi ulang.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            const response = await fetch('/admin/api/reset-database', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: mode })
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                Swal.fire('Berhasil!', data.message, 'success').then(() => {
+                    window.location.href = '/upload';
+                });
+            } else {
+                Swal.fire('Gagal!', data.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Koneksi ke server terputus!', 'error');
+        }
+    }
+}
+</script>
+
+<style>
+    .transition-hover { transition: all 0.3s ease; }
+    .transition-hover:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+    .bg-danger-subtle { background-color: #fff5f5 !important; }
+</style>
+{% endblock %}
