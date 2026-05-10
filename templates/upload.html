@@ -1,37 +1,84 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Upload - Sinergi V18{% endblock %}
+{% block title %}Pusat Sinkronisasi - BAAE Nexus{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom Neon Accents for Upload Cards */
+    .border-nexus-primary { border-left: 4px solid #38bdf8 !important; }
+    .border-nexus-warning { border-left: 4px solid #fbbf24 !important; }
+    .border-nexus-success { border-left: 4px solid #10b981 !important; }
+    .border-nexus-danger { border-left: 4px solid #f43f5e !important; }
+
+    .icon-box {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .label-tech {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: #94a3b8;
+    }
+
+    /* Override Bootstrap Badge for Nexus Style */
+    .badge-nexus {
+        background: rgba(56, 189, 248, 0.1);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        font-size: 0.7rem;
+        padding: 5px 10px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center mt-2">
     <div class="col-md-11">
-        <div class="d-flex align-items-center mb-4">
-            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow" style="width: 60px; height: 60px;">
-                <i class="fas fa-file-import fa-2x"></i>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-3">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-info">Home</a></li>
+                <li class="breadcrumb-item active fw-bold text-light" aria-current="page">Data Synchronization</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-5 animate-fade-in">
+            <div class="icon-box bg-info bg-opacity-10 text-info shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+                <i class="fas fa-file-import fa-lg"></i>
             </div>
             <div class="ms-3">
-                <h2 class="mb-0 fw-bold">Pusat Sinkronisasi Data <span class="badge bg-dark fs-6">V18</span></h2>
-                <p class="text-muted mb-0">Mendukung format <b>.txt Semicolon</b> dan <b>JSONB Vacuuming</b>.</p>
+                <h2 class="mb-0 fw-800 hero-gradient">Pusat Sinkronisasi Data</h2>
+                <p class="text-slate-400 small mb-0">High-Performance ETL Engine supporting <b>.txt</b> & <b>JSONB Vacuuming</b>.</p>
             </div>
         </div>
 
         <div class="row g-4">
             <div class="col-md-6">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <h5 class="card-title fw-bold text-primary"><i class="fas fa-users me-2"></i>Master Pelanggan (CID)</h5>
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">50 Headers</span>
+                <div class="card h-100 border-0 border-nexus-primary shadow-lg">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <div class="label-tech mb-1 text-info">Core Database</div>
+                                <h5 class="fw-bold text-white"><i class="fas fa-users-gear me-2"></i>Master CID</h5>
+                            </div>
+                            <span class="badge badge-nexus rounded-pill">V14.0 HEADERS</span>
                         </div>
-                        <p class="small text-muted">Gunakan file <b>CID 04.txt</b> untuk update data alamat, tarif, dan pcez terbaru.</p>
-                        <hr>
+                        <p class="small text-slate-400 mb-4">Gunakan dump file <b>CID_FULL.txt</b> untuk update data alamat dan pcez petugas.</p>
+                        
                         <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formCID')" id="formCID">
                             <div class="mb-3">
-                                <label class="form-label small fw-bold text-dark">File CID Pelanggan</label>
                                 <input type="file" name="file_cid" class="form-control" accept=".txt, .csv" required>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100 mt-2 shadow-sm">
-                                <i class="fas fa-sync me-2"></i>Sinkron CID
+                            <button type="submit" class="btn btn-info w-100 fw-bold rounded-pill py-2">
+                                <i class="fas fa-microchip me-2"></i>SYNC CID ENGINE
                             </button>
                         </form>
                     </div>
@@ -39,28 +86,27 @@
             </div>
 
             <div class="col-md-6">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold text-warning"><i class="fas fa-user-shield me-2"></i>Mapping Petugas PCEZ</h5>
-                        <p class="small text-muted">Sinkronisasi tim lapangan Sunter (Tagihan/SBRS) berdasarkan PCEZ.</p>
-                        <hr>
+                <div class="card h-100 border-0 border-nexus-warning shadow-lg">
+                    <div class="card-body p-4">
+                        <div class="label-tech mb-1 text-warning">Human Resources</div>
+                        <h5 class="fw-bold text-white mb-3"><i class="fas fa-user-shield me-2"></i>Mapping Petugas PCEZ</h5>
+                        <p class="small text-slate-400 mb-4">Sinkronisasi tim operasional berdasarkan cluster PCEZ dan wilayah kelurahan.</p>
+                        
                         <form onsubmit="handleUpload(event, '/api/import/petugas', 'formPetugas')" id="formPetugas">
                             <div class="row g-2 mb-3">
-                                <div class="col-6">
-                                    <label class="form-label small fw-bold text-dark">Pilih Peran</label>
+                                <div class="col-5">
                                     <select name="peran" class="form-select" required>
                                         <option value="TAGIHAN">TAGIHAN</option>
-                                        <option value="SBRS">SBRS (ANOMALI)</option>
+                                        <option value="SBRS">ANOMALI</option>
                                         <option value="CATAT">CATAT METER</option>
                                     </select>
                                 </div>
-                                <div class="col-6">
-                                    <label class="form-label small fw-bold text-dark">File Petugas</label>
+                                <div class="col-7">
                                     <input type="file" name="file" class="form-control" accept=".xlsx, .csv" required>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-warning w-100 mt-1 text-dark fw-bold shadow-sm">
-                                <i class="fas fa-user-tag me-2"></i>Update Petugas
+                            <button type="submit" class="btn btn-warning w-100 fw-bold rounded-pill py-2">
+                                <i class="fas fa-user-tag me-2"></i>OVERRIDE AGENTS
                             </button>
                         </form>
                     </div>
@@ -68,29 +114,28 @@
             </div>
 
             <div class="col-md-6">
-                <div class="card h-100 shadow-sm border-0 border-start border-success border-4">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold text-success"><i class="fas fa-money-bill-wave me-2"></i>Data Billing & Tunggakan</h5>
-                        <p class="small text-muted">Upload data piutang berjalan, tunggakan berekor, atau pelunasan harian.</p>
-                        <hr>
+                <div class="card h-100 border-0 border-nexus-success shadow-lg">
+                    <div class="card-body p-4">
+                        <div class="label-tech mb-1 text-emerald-400">Finance Analytics</div>
+                        <h5 class="fw-bold text-white mb-3"><i class="fas fa-money-check-dollar me-2"></i>Billing & Arrears</h5>
+                        <p class="small text-slate-400 mb-4">Injeksi data piutang berjalan, tunggakan historis, dan record pelunasan harian.</p>
+                        
                         <form onsubmit="handleTagihanUpload(event)" id="formTagihan">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
-                                    <label class="form-label small fw-bold text-dark">Jenis Data</label>
-                                    <select id="selectSumber" class="form-select border-success" required>
+                                    <select id="selectSumber" class="form-select" required style="border-color: rgba(16, 185, 129, 0.3);">
                                         <option value="file_mc">MC (Master Cetak)</option>
-                                        <option value="file_daily">MB / Daily Collection</option>
-                                        <option value="file_arrdebt">ARDEBT (Tunggakan)</option>
-                                        <option value="file_mainbill">MainBill (Data Fix)</option>
+                                        <option value="file_daily">MB (Master Bayar)</option>
+                                        <option value="file_arrdebt">ARDEBT (Lama)</option>
+                                        <option value="file_mainbill">MainBill (Fix)</option>
                                     </select>
                                 </div>
                                 <div class="col-7">
-                                    <label class="form-label small fw-bold text-dark">File Sumber</label>
-                                    <input type="file" id="inputFileTagihan" class="form-control border-success" accept=".txt, .csv" required>
+                                    <input type="file" id="inputFileTagihan" class="form-control" accept=".txt, .csv" required>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-success w-100 shadow-sm">
-                                <i class="fas fa-cloud-upload-alt me-2"></i>Upload ke Top 500
+                            <button type="submit" class="btn btn-success w-100 fw-bold rounded-pill py-2" style="background: #10b981; border:none;">
+                                <i class="fas fa-cloud-bolt me-2"></i>INJECT FINANCE DATA
                             </button>
                         </form>
                     </div>
@@ -98,25 +143,28 @@
             </div>
 
             <div class="col-md-6">
-                <div class="card h-100 shadow-sm border-0 border-start border-danger border-4">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <h5 class="card-title fw-bold text-danger"><i class="fas fa-bolt me-2"></i>Data SBRS (Turbo Join)</h5>
-                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Auto-Analisa</span>
+                <div class="card h-100 border-0 border-nexus-danger shadow-lg">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <div class="label-tech mb-1 text-rose-500">Field Intelligence</div>
+                                <h5 class="fw-bold text-white"><i class="fas fa-bolt-lightning me-2"></i>Data SBRS Hub</h5>
+                            </div>
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20 px-2">TURBO JOIN</span>
                         </div>
-                        <p class="small text-muted">Upload <b>customer.txt</b> dan <b>spot_bill.txt</b> untuk deteksi anomali.</p>
-                        <hr>
+                        <p class="small text-slate-400 mb-4">Otomasi deteksi anomali via <b>customer.txt</b> dan <b>spot_bill.txt</b>.</p>
+                        
                         <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formSBRS')" id="formSBRS">
                             <div class="mb-2">
-                                <label class="form-label small fw-bold text-dark">1. File Customer</label>
-                                <input type="file" name="file_customer" class="form-control form-control-sm border-danger" accept=".txt, .csv" required>
+                                <label class="extra-small text-slate-500 mb-1" style="font-size: 0.6rem;">DATA CUSTOMER SOURCE</label>
+                                <input type="file" name="file_customer" class="form-control form-control-sm" accept=".txt, .csv" required>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label small fw-bold text-dark">2. File Spotbill</label>
-                                <input type="file" name="file_spotbill" class="form-control form-control-sm border-danger" accept=".txt, .csv" required>
+                                <label class="extra-small text-slate-500 mb-1" style="font-size: 0.6rem;">DATA SPOTBILL SOURCE</label>
+                                <input type="file" name="file_spotbill" class="form-control form-control-sm" accept=".txt, .csv" required>
                             </div>
-                            <button type="submit" class="btn btn-danger w-100 shadow-sm">
-                                <i class="fas fa-search-plus me-2"></i>Jalankan Turbo Join
+                            <button type="submit" class="btn btn-danger w-100 fw-bold rounded-pill py-2" style="background: #f43f5e; border:none;">
+                                <i class="fas fa-magnifying-glass-chart me-2"></i>EXECUTE ANALYTIC JOIN
                             </button>
                         </form>
                     </div>
@@ -129,7 +177,14 @@
 
 {% block extra_js %}
 <script>
-    // Fungsi Khusus untuk Form Tagihan agar Nama Input File dinamis sesuai pilihan (V18 Protocol)
+    // Config SWAL Dark Mode
+    const swalDark = {
+        background: '#0f172a',
+        color: '#f8fafc',
+        confirmButtonColor: '#38bdf8',
+        cancelButtonColor: '#334155'
+    };
+
     async function handleTagihanUpload(event) {
         event.preventDefault();
         const select = document.getElementById('selectSumber');
@@ -137,30 +192,29 @@
         const submitBtn = event.target.querySelector('button[type="submit"]');
         
         const formData = new FormData();
-        formData.append(select.value, fileInput.files[0]); // Mengatur Key sesuai V18 Importer
+        formData.append(select.value, fileInput.files[0]);
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses Data...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>INJECTING...';
 
         try {
             const response = await fetch('/api/import/tagihan', { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.status === 'success') {
-                Swal.fire({ icon: 'success', title: 'Sinkronisasi Berhasil!', text: result.message });
+                Swal.fire({ ...swalDark, icon: 'success', title: 'Injection Success!', text: result.message });
                 event.target.reset();
             } else {
-                Swal.fire({ icon: 'error', title: 'Gagal', text: result.message });
+                Swal.fire({ ...swalDark, icon: 'error', title: 'Injection Failed', text: result.message });
             }
         } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Koneksi terputus atau file rusak!' });
+            Swal.fire({ ...swalDark, icon: 'error', title: 'Core Error', text: 'Koneksi terputus atau file korup!' });
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Upload ke Top 500';
+            submitBtn.innerHTML = '<i class="fas fa-cloud-bolt me-2"></i>INJECT FINANCE DATA';
         }
     }
 
-    // Fungsi Umum untuk Form CID, Petugas, dan SBRS
     async function handleUpload(event, url, formId) {
         event.preventDefault();
         const form = document.getElementById(formId);
@@ -169,20 +223,20 @@
         const originalText = submitBtn.innerHTML;
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sedang Sinkronisasi...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>SYNCING...';
 
         try {
             const response = await fetch(url, { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.status === 'success') {
-                Swal.fire({ icon: 'success', title: 'Sinergi Berhasil!', text: result.message });
+                Swal.fire({ ...swalDark, icon: 'success', title: 'System Optimized!', text: result.message });
                 form.reset();
             } else {
-                Swal.fire({ icon: 'error', title: 'Gagal Sinkron', text: result.message });
+                Swal.fire({ ...swalDark, icon: 'error', title: 'Sync Failed', text: result.message });
             }
         } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Koneksi terputus!' });
+            Swal.fire({ ...swalDark, icon: 'error', title: 'Fatal Error', text: 'Network connection lost!' });
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
