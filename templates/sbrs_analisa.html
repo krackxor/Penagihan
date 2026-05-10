@@ -13,6 +13,13 @@
     .indikasi-badge { font-size: 0.6rem; padding: 3px 6px; border-radius: 4px; letter-spacing: 0.5px; }
     .nomen-link { cursor: pointer; text-decoration: underline dotted; transition: 0.2s; }
     .nomen-link:hover { color: #0056b3 !important; background-color: #e7f1ff; }
+    
+    /* Tabel Tren 3 Bulan */
+    .trend-box { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .trend-item { text-align: center; min-width: 45px; }
+    .trend-label { font-size: 0.55rem; color: #6c757d; display: block; font-weight: bold; }
+    .trend-val { font-size: 0.9rem; font-weight: bold; }
+    .trend-arrow { font-size: 0.6rem; color: #adb5bd; }
 </style>
 {% endblock %}
 
@@ -25,9 +32,7 @@
                 <li class="breadcrumb-item active" aria-current="page">Detail Kasus</li>
             </ol>
         </nav>
-        <h3 class="fw-bold mb-0">
-            <i class="fas fa-microscope text-primary me-2"></i>Detail Verifikasi Anomali
-        </h3>
+        <h3 class="fw-bold mb-0"><i class="fas fa-microscope text-primary me-2"></i>Detail Verifikasi SBRS (Desktop)</h3>
         <p class="text-muted small mb-0">Periode: <b>{{ periode_aktif }}</b> | Wilayah: <b>{{ current_ab }}</b></p>
     </div>
     
@@ -61,78 +66,71 @@
 </div>
 
 <div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
-    <div class="table-responsive">
+    <div class="table-responsive" style="min-height: 500px;">
         <table class="table table-hover align-middle mb-0">
             <thead class="bg-dark text-white">
                 <tr>
-                    <th class="ps-4">DATA PELANGGAN</th>
-                    <th class="text-center" style="min-width: 180px;">HISTORI KONSUMSI & STAND</th>
-                    <th class="text-center">KATEGORI</th>
-                    <th style="min-width: 200px;">CATATAN DESKTOP</th>
-                    <th class="text-center pe-4">STATUS & AKSI</th>
+                    <th class="ps-4" style="width: 25%;">DATA PELANGGAN</th>
+                    <th class="text-center" style="width: 25%;">HISTORI KONSUMSI (3 BULAN)</th>
+                    <th style="width: 20%;">INFO BACA & PETUGAS</th>
+                    <th style="width: 20%;">ANALISA DESKTOP</th>
+                    <th class="text-center pe-4" style="width: 10%;">AKSI</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in data %}
                 <tr>
                     <td class="ps-4">
-                        <div class="fw-bold text-primary nomen-link fs-6" onclick='openCidDetail({{ item|tojson }})'>
-                            {{ item.nomen }}
+                        <div class="fw-bold text-primary nomen-link fs-6" onclick='openCidDetail({{ item.modal_info|tojson }})' title="Klik untuk lihat Detail Full CID">
+                            {{ item.nomen }} <i class="fas fa-external-link-alt ms-1" style="font-size: 0.6rem;"></i>
                         </div>
                         <div class="small fw-bold text-dark text-uppercase">{{ item.nama }}</div>
                         <div class="text-muted extra-small" style="font-size: 0.7rem;">
                             <i class="fas fa-map-marker-alt me-1"></i> {{ item.kelurahan }} | PCEZ: {{ item.pcez }}
                         </div>
-                        
-                        {% if item.modal_info and item.modal_info.indikasi %}
-                            <div class="mt-2">
-                                {% if 'FRAUD' in item.modal_info.indikasi %}
-                                    <span class="badge bg-danger indikasi-badge"><i class="fas fa-skull-crossbones me-1"></i>{{ item.modal_info.indikasi }}</span>
-                                {% elif 'TEKNIS' in item.modal_info.indikasi %}
-                                    <span class="badge bg-info text-dark indikasi-badge"><i class="fas fa-tools me-1"></i>{{ item.modal_info.indikasi }}</span>
-                                {% elif 'HUMAN' in item.modal_info.indikasi or 'WARNING' in item.modal_info.indikasi %}
-                                    <span class="badge bg-warning text-dark indikasi-badge"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.modal_info.indikasi }}</span>
-                                {% elif 'Aman' not in item.modal_info.indikasi %}
-                                    <span class="badge bg-secondary indikasi-badge">{{ item.modal_info.indikasi }}</span>
-                                {% endif %}
-                            </div>
+                        {% if item.modal_info.indikasi and item.modal_info.indikasi != 'Aman' %}
+                            <div class="mt-2"><span class="badge bg-danger indikasi-badge"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.modal_info.indikasi }}</span></div>
                         {% endif %}
                     </td>
                     
                     <td class="text-center">
-                        <div class="d-flex justify-content-center gap-3 mb-1">
-                            <div class="text-center">
-                                <span class="d-block text-muted" style="font-size: 0.65rem;">LALU / AVG</span>
-                                <span class="fw-bold text-secondary">{{ item.vol_lalu }}</span>
+                        <div class="trend-box mb-2">
+                            <div class="trend-item">
+                                <span class="trend-label">H-2</span>
+                                <span class="trend-val text-secondary">{{ item.vol_lalu_2 }}</span>
                             </div>
-                            <div class="text-center border-start border-2 ps-3">
-                                <span class="d-block text-primary fw-bold" style="font-size: 0.65rem;">KINI</span>
-                                <span class="fw-bold fs-5 {% if item.bulan_ini < 0 %}text-danger{% else %}text-primary{% endif %}">{{ item.bulan_ini }}</span>
+                            <i class="fas fa-chevron-right trend-arrow"></i>
+                            <div class="trend-item">
+                                <span class="trend-label">H-1</span>
+                                <span class="trend-val text-primary">{{ item.vol_lalu_1 }}</span>
+                            </div>
+                            <i class="fas fa-chevron-right trend-arrow"></i>
+                            <div class="trend-item bg-warning-subtle rounded px-2 pb-1 border border-warning">
+                                <span class="trend-label text-dark">KINI</span>
+                                <span class="trend-val {% if item.vol_kini < 0 %}text-danger{% else %}text-dark{% endif %} fs-5">{{ item.vol_kini }}</span>
                             </div>
                         </div>
                         <div class="badge bg-light text-dark border w-100" style="font-size: 0.7rem;">
-                            S. Awal: <b>{{ item.stand_awal }}</b> <i class="fas fa-arrow-right mx-1 text-muted"></i> S. Akhir: <b>{{ item.stand_akhir }}</b>
+                            <i class="fas fa-tachometer-alt me-1 text-muted"></i> Stand: <b>{{ item.stand_awal }}</b> - <b>{{ item.stand_akhir }}</b>
                         </div>
                     </td>
                     
-                    <td class="text-center">
-                        {% if item.kategori_anomali == 'ZERO' %}
-                            <span class="anomaly-badge bg-danger text-white shadow-sm">ZERO</span>
-                        {% elif item.kategori_anomali == 'EKSTREM' %}
-                            <span class="anomaly-badge bg-warning text-dark shadow-sm">EKSTREM</span>
-                        {% elif item.kategori_anomali == 'MINUS' %}
-                            <span class="anomaly-badge bg-dark text-white shadow-sm border border-danger">MINUS</span>
-                        {% else %}
-                            <span class="anomaly-badge bg-info text-white shadow-sm">TURUN</span>
-                        {% endif %}
+                    <td>
+                        <div class="small mb-1"><span class="text-muted">MRID:</span> <span class="fw-bold text-primary">{{ item.cmr_mrid }}</span></div>
+                        <div class="small mb-1"><span class="text-muted">Metode:</span> <span class="badge bg-secondary text-white" style="font-size: 0.6rem;">{{ item.read_method }}</span></div>
+                        <div class="small"><span class="text-muted">Trbl:</span> <span class="fw-bold text-danger">{{ item.cmr_trbl1_code }}</span></div>
                     </td>
                     
                     <td>
+                        <div class="mb-2">
+                            {% if item.kategori_anomali == 'ZERO' %}<span class="anomaly-badge bg-danger text-white">ZERO</span>
+                            {% elif item.kategori_anomali == 'EKSTREM' %}<span class="anomaly-badge bg-warning text-dark">EKSTREM</span>
+                            {% elif item.kategori_anomali == 'MINUS' %}<span class="anomaly-badge bg-dark text-white">MINUS</span>
+                            {% else %}<span class="anomaly-badge bg-info text-white">TURUN</span>{% endif %}
+                        </div>
                         <div class="input-group input-group-sm shadow-sm">
                             <input type="text" class="form-control border-primary-subtle" id="catatan_{{ item.nomen }}" value="{{ item.catatan }}" placeholder="Ketik analisa Anda...">
-                            <button class="btn btn-primary" onclick="simpanCatatan('{{ item.nomen }}', '{{ periode_aktif }}')" title="Simpan Catatan">
-                                <i class="fas fa-save"></i>
-                            </button>
+                            <button class="btn btn-primary" onclick="simpanCatatan('{{ item.nomen }}', '{{ periode_aktif }}')" title="Simpan Catatan"><i class="fas fa-save"></i></button>
                         </div>
                         <small id="alert_{{ item.nomen }}" class="text-success d-none" style="font-size: 0.65rem;"><i class="fas fa-check me-1"></i>Tersimpan!</small>
                     </td>
@@ -144,7 +142,7 @@
                             <span class="badge bg-secondary status-badge opacity-50 border mb-2 d-block">Belum Audit</span>
                         {% endif %}
                         <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-dark btn-audit w-100 shadow-sm">
-                            <i class="fas fa-camera me-1"></i> Verifikasi Lapangan
+                            <i class="fas fa-camera me-1"></i> Verifikasi
                         </a>
                     </td>
                 </tr>
@@ -152,7 +150,7 @@
                 <tr>
                     <td colspan="5" class="text-center py-5">
                         <i class="fas fa-search fa-3x text-muted opacity-25 mb-3"></i>
-                        <p class="text-muted">Tidak ada data detail anomali untuk filter <b>Cycle {{ current_cycle }}</b> dan <b>{{ current_kat }}</b>.</p>
+                        <p class="text-muted">Tidak ada data detail anomali untuk filter ini.</p>
                         <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}" class="btn btn-sm btn-link">Reset Filter</a>
                     </td>
                 </tr>
@@ -163,60 +161,64 @@
 </div>
 
 <div class="modal fade" id="modalCid" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
             <div class="modal-header bg-primary text-white" style="border-radius: 15px 15px 0 0;">
                 <h5 class="modal-title fw-bold">
-                    <i class="fas fa-id-card me-2"></i><span id="m_nomen"></span> - <span id="m_nama"></span>
+                    <i class="fas fa-id-card me-2"></i>DETAIL LENGKAP: <span id="m_nomen"></span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
             <div class="modal-body bg-light">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="card h-100 border-0 shadow-sm">
-                            <div class="card-body">
-                                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-map-marked-alt me-2"></i>Kontak & Alamat (CID)</h6>
-                                <p class="mb-2"><strong>Alamat Lengkap:</strong> <br><span id="m_alamat" class="text-muted small"></span></p>
-                                <div id="m_mtr_info" class="p-2 bg-light rounded small mb-3 border-start border-primary border-4"></div>
-                                <hr>
-                                <div class="mb-2 d-flex align-items-center">
-                                    <i class="fab fa-whatsapp text-success fs-5 me-2"></i>
-                                    <div><small class="text-muted d-block">WhatsApp/Mobile:</small><span id="m_wa" class="fw-bold"></span></div>
-                                </div>
-                                <div class="mb-2 d-flex align-items-center">
-                                    <i class="fas fa-phone-alt text-primary me-2"></i>
-                                    <div><small class="text-muted d-block">Telepon:</small><span id="m_telp" class="fw-bold"></span></div>
-                                </div>
-                                <div class="mb-3 d-flex align-items-center">
-                                    <i class="fas fa-envelope text-danger me-2"></i>
-                                    <div><small class="text-muted d-block">Email:</small><span id="m_email" class="fw-bold"></span></div>
-                                </div>
-                                <a id="m_gmaps" href="#" target="_blank" class="btn btn-sm btn-outline-danger w-100 fw-bold">
-                                    <i class="fas fa-directions me-2"></i>BUKA DI GOOGLE MAPS
-                                </a>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-white fw-bold text-primary border-bottom-0"><i class="fas fa-user-hard-hat me-2"></i>Teknis & Petugas</div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm table-striped mb-0 small">
+                                    <tr><td class="text-muted ps-3">CMR_MRID</td><td class="fw-bold text-end pe-3" id="md_mrid"></td></tr>
+                                    <tr><td class="text-muted ps-3">CMR_LOC_CODE</td><td class="fw-bold text-end pe-3" id="md_loc"></td></tr>
+                                    <tr><td class="text-muted ps-3">CMR_CYCLE</td><td class="fw-bold text-end pe-3" id="md_cycle"></td></tr>
+                                    <tr><td class="text-muted ps-3">READ_METHOD</td><td class="fw-bold text-end pe-3" id="md_method"></td></tr>
+                                    <tr><td class="text-muted ps-3">CMR_TRBL1_CODE</td><td class="fw-bold text-end pe-3 text-danger" id="md_trbl"></td></tr>
+                                    <tr><td class="text-muted ps-3">CMR_CHG_SPCL_MSG</td><td class="fw-bold text-end pe-3 text-warning" id="md_spcl"></td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-white fw-bold text-success border-bottom-0"><i class="fas fa-tachometer-alt me-2"></i>Stand & Konsumsi</div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm table-striped mb-0 small">
+                                    <tr><td class="text-muted ps-3">HARI BACA (HB)</td><td class="fw-bold text-end pe-3" id="md_hb"></td></tr>
+                                    <tr><td class="text-muted ps-3">PREV_READ_1</td><td class="fw-bold text-end pe-3" id="md_prev1"></td></tr>
+                                    <tr><td class="text-muted ps-3">CURR_READ_1</td><td class="fw-bold text-end pe-3" id="md_curr1"></td></tr>
+                                    <tr><td class="text-muted ps-3">SB_STAND</td><td class="fw-bold text-end pe-3 text-primary" id="md_sbstand"></td></tr>
+                                    <tr><td class="text-muted ps-3">CMR_PREV_READ</td><td class="fw-bold text-end pe-3" id="md_cmrprev"></td></tr>
+                                    <tr><td class="text-muted ps-3">CMR_READING</td><td class="fw-bold text-end pe-3" id="md_cmrcurr"></td></tr>
+                                </table>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <div class="card h-100 border-0 shadow-sm">
-                            <div class="card-body">
-                                <h6 class="fw-bold text-warning mb-3"><i class="fas fa-tachometer-alt me-2"></i>Data Teknis Pembacaan</h6>
-                                <table class="table table-sm table-borderless mb-0 small">
-                                    <tr><td class="text-muted">Tarif:</td><td class="fw-bold text-end" id="m_tarif"></td></tr>
-                                    <tr><td class="text-muted">No Seri Meter:</td><td class="fw-bold text-end" id="m_meter"></td></tr>
-                                    <tr><td class="text-muted">Metode Baca:</td><td class="fw-bold text-end text-uppercase badge bg-light text-dark" id="m_metode"></td></tr>
-                                    <tr><td class="text-muted">ID Tagihan:</td><td class="fw-bold text-end text-primary" id="m_bill"></td></tr>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-white fw-bold text-danger border-bottom-0"><i class="fas fa-file-invoice-dollar me-2"></i>Keuangan & Kalkulasi Vol</div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm table-striped mb-0 small">
+                                    <tr><td class="text-muted ps-3">METER_SERIAL_1</td><td class="fw-bold text-end pe-3" id="md_mtrnum"></td></tr>
+                                    <tr><td class="text-muted ps-3">TARIFF / RAYON</td><td class="fw-bold text-end pe-3"><span id="md_tarif"></span> / <span id="md_rayon"></span></td></tr>
+                                    <tr><td class="text-muted ps-3">BILL_AMOUNT</td><td class="fw-bold text-end pe-3 text-danger" id="md_bill"></td></tr>
+                                    <tr><td class="text-muted ps-3">PAYMENT_AMOUNT</td><td class="fw-bold text-end pe-3 text-success" id="md_pay"></td></tr>
+                                    <tr class="bg-primary text-white"><td colspan="2" class="text-center fw-bold">HASIL KALKULASI VOLUME SBRS</td></tr>
+                                    <tr><td class="text-muted ps-3">Vol Lapangan</td><td class="fw-bold text-end pe-3" id="md_vol_lap"></td></tr>
+                                    <tr><td class="text-muted ps-3">Vol Sistem Pusat</td><td class="fw-bold text-end pe-3" id="md_vol_pusat"></td></tr>
+                                    <tr><td class="text-muted ps-3">Vol Cetak Tagihan</td><td class="fw-bold text-end pe-3 text-primary" id="md_vol_cetak"></td></tr>
+                                    <tr><td class="text-muted ps-3">Vol Periode Lalu</td><td class="fw-bold text-end pe-3" id="md_vol_lalu"></td></tr>
                                 </table>
-                                
-                                <div class="mt-4 p-3 bg-primary-subtle border border-primary-subtle rounded text-center">
-                                    <span class="d-block small text-primary fw-bold mb-1">DATA KONSUMSI</span>
-                                    <h2 class="fw-bold text-dark mb-0"><span id="m_konsumsi"></span> <small class="fs-6">m³</small></h2>
-                                    <div class="text-muted small mt-1" id="m_stand"></div>
-                                    <div class="badge bg-white text-primary border border-primary-subtle mt-2" id="m_hari"></div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -231,36 +233,43 @@
 </div>
 
 <script>
-// Fungsi Menampilkan Modal CID
-function openCidDetail(item) {
-    const info = item.modal_info || {};
+// Fungsi Mengisi Modal LENGKAP dengan SEMUA Field yang Di-request
+function openCidDetail(info) {
+    document.getElementById('m_nomen').innerText = info.nomen || '-';
     
-    document.getElementById('m_nomen').innerText = item.nomen;
-    document.getElementById('m_nama').innerText = item.nama || '-';
+    // Teknis & Petugas
+    document.getElementById('md_mrid').innerText = info.cmr_mrid || '-';
+    document.getElementById('md_loc').innerText = info.cmr_loc_code || '-';
+    document.getElementById('md_cycle').innerText = info.cmr_cycle || '-';
+    document.getElementById('md_method').innerText = info.read_method || '-';
+    document.getElementById('md_trbl').innerText = info.cmr_trbl1_code || '-';
+    document.getElementById('md_spcl').innerText = info.cmr_chg_spcl_msg || '-';
+
+    // Volume & Stand
+    document.getElementById('md_hb').innerText = info.hari_baca || '-';
+    document.getElementById('md_prev1').innerText = info.prev_read_1 || '0';
+    document.getElementById('md_curr1').innerText = info.curr_read_1 || '0';
+    document.getElementById('md_sbstand').innerText = info.sb_stand || '0';
+    document.getElementById('md_cmrprev').innerText = info.cmr_prev_read || '0';
+    document.getElementById('md_cmrcurr').innerText = info.cmr_reading || '0';
+
+    // Finansial & 4 Volume Kalkulasi
+    document.getElementById('md_mtrnum').innerText = info.cmr_mtr_num || '-';
+    document.getElementById('md_tarif').innerText = info.tarif || '-';
+    document.getElementById('md_rayon').innerText = info.rayon || '-';
+    document.getElementById('md_bill').innerText = "Rp " + (info.bill_amount || '0');
+    document.getElementById('md_pay').innerText = "Rp " + (info.payment_amount || '0');
     
-    document.getElementById('m_alamat').innerText = (info.alamat !== '-') ? info.alamat : 'Alamat tidak ditemukan di sistem.';
-    document.getElementById('m_mtr_info').innerText = "Info Meter: " + ((info.mtr_info !== '-') ? info.mtr_info : 'Tidak ada catatan khusus.');
-    document.getElementById('m_wa').innerText = info.wa;
-    document.getElementById('m_telp').innerText = info.telp;
-    document.getElementById('m_email').innerText = info.email;
-    
-    const addr = info.alamat;
-    document.getElementById('m_gmaps').href = (addr && addr !== '-') ? `http://googleusercontent.com/maps.google.com/?q=${encodeURIComponent(addr)}` : '#';
-    
-    document.getElementById('m_tarif').innerText = info.tarif;
-    document.getElementById('m_meter').innerText = info.meter;
-    document.getElementById('m_metode').innerText = info.metode;
-    document.getElementById('m_bill').innerText = info.bill_id;
-    
-    document.getElementById('m_konsumsi').innerText = item.bulan_ini;
-    document.getElementById('m_stand').innerText = `Stand: ${info.s_awal} s/d ${info.s_akhir}`;
-    document.getElementById('m_hari').innerText = `${info.hari} Hari Baca`;
+    document.getElementById('md_vol_lap').innerText = info.vol_lapangan + " m³";
+    document.getElementById('md_vol_pusat').innerText = info.vol_pusat + " m³";
+    document.getElementById('md_vol_cetak').innerText = info.vol_cetak + " m³";
+    document.getElementById('md_vol_lalu').innerText = info.vol_periode_lalu + " m³";
 
     var myModal = new bootstrap.Modal(document.getElementById('modalCid'));
     myModal.show();
 }
 
-// Fungsi Simpan Catatan Desktop Tanpa Reload (AJAX)
+// Fungsi Simpan Catatan Desktop Tanpa Reload
 function simpanCatatan(nomen, periode) {
     const catatan = document.getElementById('catatan_' + nomen).value;
     const alertMsg = document.getElementById('alert_' + nomen);
