@@ -3,128 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Sinergi Area Service V18 - Ultra{% endblock %}</title>
+    <title>{% block title %}Sinergi Area Service V18{% endblock %}</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         /* ========================================= */
-        /* TEMA GAMING / CYBERPUNK (DARK & GLOW)     */
+        /* TEMA MODERN CLEAN SAAS (PROFESSIONAL)     */
         /* ========================================= */
         :root {
-            --bg-dark: #0b0c10;        /* Latar belakang sangat gelap */
-            --card-bg: #1f2833;        /* Latar kotak/card */
-            --neon-cyan: #00e5ff;      /* Warna Glow Utama (Biru Neon) */
-            --neon-purple: #b500ff;    /* Warna Glow Sekunder (Ungu) */
-            --text-main: #c5c6c7;      /* Teks abu-abu terang */
-            --text-bright: #ffffff;    /* Teks putih menyala */
+            --primary-blue: #2563eb;       /* Biru Modern */
+            --primary-hover: #1d4ed8;      /* Biru Gelap (Hover) */
+            --bg-body: #f8fafc;            /* Abu-abu kebiruan sangat terang */
+            --bg-surface: #ffffff;         /* Putih murni untuk kotak */
+            --text-main: #334155;          /* Teks utama (Abu-abu gelap pekat) */
+            --text-muted: #64748b;         /* Teks tambahan */
+            --border-soft: #e2e8f0;        /* Garis batas halus */
         }
 
         body { 
             font-family: 'Inter', sans-serif; 
-            background-color: var(--bg-dark); 
+            background-color: var(--bg-body); 
             color: var(--text-main);
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Heading Style bergaya Tech/Game */
-        h1, h2, h3, h4, h5, .navbar-brand {
-            font-family: 'Rajdhani', sans-serif; /* Font kotak khas Sci-Fi */
-            color: var(--text-bright);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* 1. EFEK GLOW PADA NAVBAR */
+        /* 1. NAVBAR BERSIH & MODERN */
         .navbar { 
-            background: rgba(11, 12, 16, 0.95);
-            backdrop-filter: blur(10px);
-            border-bottom: 2px solid var(--neon-cyan);
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4), 0 0 5px rgba(0, 229, 255, 0.2); 
-            padding: 1rem 0;
+            background-color: var(--bg-surface) !important;
+            border-bottom: 1px solid var(--border-soft);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); /* Bayangan sangat tipis */
+            padding: 0.8rem 0;
         }
         .navbar-brand { 
             font-weight: 800; 
-            font-size: 1.6rem;
-            text-shadow: 0 0 10px var(--neon-cyan); /* Teks Logo Menyala */
+            letter-spacing: 0.5px; 
+            font-size: 1.4rem;
+            color: var(--primary-blue) !important;
         }
         .nav-link { 
             font-weight: 600; 
+            color: var(--text-muted) !important;
             margin-right: 5px; 
-            transition: all 0.3s ease;
-            color: var(--text-main) !important;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
         }
         .nav-link:hover, .nav-link.active { 
-            color: var(--neon-cyan) !important; 
-            text-shadow: 0 0 8px var(--neon-cyan);
-            transform: translateY(-2px);
+            color: var(--primary-blue) !important; 
+            background-color: #eff6ff; /* Latar biru super tipis saat di-hover */
+            border-radius: 8px;
         }
 
-        /* 2. EFEK GLOW PADA KOTAK / CARD GLOBAL */
+        /* 2. CARD / KOTAK ELEGAN */
         .card {
-            background-color: var(--card-bg) !important;
-            border: 1px solid rgba(0, 229, 255, 0.2) !important;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            color: var(--text-bright);
-            transition: all 0.3s ease;
-        }
-        .card:hover {
-            border-color: var(--neon-cyan) !important;
-            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); /* Glow saat disorot */
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-soft) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         
-        /* Ubah warna dasar teks tabel dan form bawaan bootstrap agar cocok di background gelap */
-        .form-control, .form-select {
-            background-color: rgba(0,0,0,0.5) !important;
-            border: 1px solid #45a29e !important;
-            color: #fff !important;
-        }
-        .form-control:focus {
-            box-shadow: 0 0 10px var(--neon-cyan) !important;
-            border-color: var(--neon-cyan) !important;
-        }
-        .table { color: var(--text-main); }
-        .table-light { background-color: #1a1a24; color: var(--neon-cyan); }
-        .breadcrumb-item a { color: var(--neon-cyan); }
-
-        /* 3. MENU DROPDOWN DARK MODE */
+        /* 3. MENU DROPDOWN BERSIH */
         .dropdown-menu { 
-            background-color: var(--bg-dark); 
-            border: 1px solid var(--neon-cyan); 
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); 
-            border-radius: 8px; 
+            border: 1px solid var(--border-soft); 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            border-radius: 12px; 
+            padding: 8px;
+            margin-top: 10px;
         }
         .dropdown-item {
+            border-radius: 8px;
+            padding: 8px 15px;
+            font-weight: 500;
+            font-size: 0.9rem;
             color: var(--text-main);
-            font-weight: 600;
         }
         .dropdown-item:hover {
-            background-color: rgba(0, 229, 255, 0.1);
-            color: var(--neon-cyan);
-            text-shadow: 0 0 5px var(--neon-cyan);
+            background-color: #eff6ff;
+            color: var(--primary-blue);
         }
 
-        /* 4. TOMBOL BERGAYA GAMING */
+        /* 4. TOMBOL UTAMA (ADMIN TOOL) */
         .btn-sinergi {
-            background: transparent;
-            color: var(--neon-cyan);
-            font-weight: 700;
-            border-radius: 5px; /* Bentuk lebih tajam */
+            background-color: var(--primary-blue);
+            color: #ffffff !important;
+            font-weight: 600;
+            border-radius: 50px;
             padding: 8px 20px;
             font-size: 0.9rem;
-            border: 2px solid var(--neon-cyan);
-            box-shadow: inset 0 0 10px rgba(0,229,255,0.1), 0 0 10px rgba(0,229,255,0.2);
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
         .btn-sinergi:hover {
-            background: var(--neon-cyan);
-            color: var(--bg-dark);
-            transform: scale(1.05);
-            box-shadow: 0 0 20px var(--neon-cyan);
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.3);
         }
 
         .main-container { 
@@ -133,42 +110,46 @@
             padding-bottom: 5rem; 
         }
 
-        /* 5. FOOTER DARK */
+        /* 5. FOOTER SIMPLE */
         .footer { 
-            background: rgba(11, 12, 16, 0.9); 
-            border-top: 1px solid #45a29e; 
-            padding: 20px 0; 
-            color: var(--text-main); 
-            font-size: 0.8rem; 
+            background: var(--bg-surface); 
+            border-top: 1px solid var(--border-soft); 
+            padding: 24px 0; 
+            color: var(--text-muted); 
+            font-size: 0.85rem; 
         }
 
-        /* 6. LOADING SCREEN ALA GAME */
+        /* 6. GLOBAL LOADING (LEBIH SOFT) */
         #turbo-loader {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(11, 12, 16, 0.95);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
             display: none;
             z-index: 9999;
             justify-content: center;
             align-items: center;
-        }
-        .spinner-grow {
-            background-color: var(--neon-purple);
-            box-shadow: 0 0 20px var(--neon-purple);
         }
 
         /* ========================================= */
         /* KODE RESPONSIVE UNTUK HP (MOBILE FIXES)   */
         /* ========================================= */
         @media (max-width: 768px) {
-            h3 { font-size: 1.4rem !important; }
-            .card-body { padding: 1.25rem !important; }
+            h3 { font-size: 1.4rem !important; font-weight: 700; }
+            .card-body { padding: 1.5rem !important; }
             .main-container { padding-top: 1rem; }
-            .navbar-toggler { border-color: var(--neon-cyan); outline: none; }
-            .navbar-toggler-icon { 
-                background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(0, 229, 255, 1)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E");
+            
+            /* Penyesuaian tombol hamburger navbar di HP */
+            .navbar-toggler {
+                border: none;
+                padding: 0.5rem;
             }
+            .navbar-toggler:focus { box-shadow: none; }
+            
+            /* Jarak antar menu di HP */
+            .nav-link { margin-bottom: 5px; padding-left: 10px; }
+            .dropdown-menu { border: none; box-shadow: none; background: #f8fafc; }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -177,19 +158,18 @@
 
     <div id="turbo-loader">
         <div class="text-center">
-            <div class="spinner-grow" style="width: 3rem; height: 3rem;" role="status"></div>
-            <p class="mt-3 fw-bold text-light" style="letter-spacing: 2px; text-shadow: 0 0 5px var(--neon-purple);">
-                SYSTEM BOOTING...
-            </p>
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+            <p class="mt-3 fw-bold" style="color: var(--primary-blue);">Menyiapkan Data...</p>
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-lg sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-light sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="fas fa-microchip me-2"></i>1 SINERGI
+                <i class="fas fa-droplet me-2"></i>1 SINERGI
             </a>
-            <button class="navbar-toggler shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
@@ -202,23 +182,23 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/monitoring/top-500">
-                            <i class="fas fa-trophy me-1"></i> Top 500
+                            <i class="fas fa-trophy me-1 text-warning"></i> Top 500
                         </a>
                     </li>
                     
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="sbrsMenu" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-bolt me-1"></i> Analisa SBRS
+                            <i class="fas fa-bolt me-1 text-primary"></i> Analisa SBRS
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/sbrs/summary"><i class="fas fa-table me-2" style="color:var(--neon-cyan)"></i>Summary Anomali</a></li>
-                            <li><a class="dropdown-item" href="/sbrs/analisa"><i class="fas fa-chart-line me-2" style="color:var(--neon-purple)"></i>Detail Per Hari</a></li>
+                            <li><a class="dropdown-item" href="/sbrs/summary"><i class="fas fa-table me-2 text-secondary"></i>Summary Anomali</a></li>
+                            <li><a class="dropdown-item" href="/sbrs/analisa"><i class="fas fa-chart-line me-2 text-danger"></i>Detail Per Hari</a></li>
                         </ul>
                     </li>
 
                     <li class="nav-item">
                         <a class="nav-link" href="/lapor">
-                            <i class="fas fa-crosshairs me-1"></i> Lapor Lapangan
+                            <i class="fas fa-map-location-dot me-1 text-success"></i> Lapor Lapangan
                         </a>
                     </li>
                     
@@ -227,19 +207,19 @@
                             <i class="fas fa-wrench me-1"></i> Tools
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="/tools/ocr/"><i class="fas fa-font me-2 text-info"></i>Gambar ke Teks (OCR)</a></li>
+                            <li><a class="dropdown-item" href="/tools/ocr/"><i class="fas fa-font me-2 text-primary"></i>Gambar ke Teks (OCR)</a></li>
                             <li><a class="dropdown-item" href="/tools/converter/"><i class="fas fa-file-pdf me-2 text-danger"></i>Konversi Dokumen</a></li>
                         </ul>
                     </li>
                     
-                    <li class="nav-item dropdown ms-lg-3 mt-3 mt-lg-0 mb-2 mb-lg-0">
+                    <li class="nav-item dropdown ms-lg-3 mt-3 mt-lg-0 mb-2 mb-lg-0 w-100 w-lg-auto">
                         <a class="btn btn-sinergi dropdown-toggle w-100" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-ninja me-1"></i> Admin System
+                            <i class="fas fa-shield-alt me-1"></i> Admin Area
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end w-100">
-                            <li><a class="dropdown-item" href="/upload"><i class="fas fa-cloud-upload-alt me-2" style="color:var(--neon-cyan)"></i>Data Sync</a></li>
-                            <li><hr class="dropdown-divider" style="border-color: rgba(0,229,255,0.3);"></li>
-                            <li><a class="dropdown-item text-danger" href="/admin/database"><i class="fas fa-database me-2"></i>Database Override</a></li>
+                            <li><a class="dropdown-item" href="/upload"><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Pusat Sinkronisasi</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="/admin/database"><i class="fas fa-database me-2"></i>Database Control</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -255,10 +235,10 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-md-6 text-center text-md-start">
-                    <p class="mb-0">© 2026 <strong style="color:var(--neon-cyan)">PAM JAYA</strong> - Area Service Jakarta.</p>
+                    <p class="mb-0">© 2026 <strong>PAM JAYA</strong> - Area Service Jakarta.</p>
                 </div>
                 <div class="col-md-6 text-center text-md-end mt-2 mt-md-0">
-                    <span class="badge" style="background-color: var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple);">Sinergi Engine v18.0</span>
+                    <span class="badge bg-light text-dark border px-3 py-2">Sinergi V18.0 Stable</span>
                 </div>
             </div>
         </div>
