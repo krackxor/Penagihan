@@ -10,18 +10,27 @@ ENV PYTHONUNBUFFERED 1
 # 3. Set folder kerja di dalam kontainer
 WORKDIR /app
 
-# 4. Instal dependensi sistem (PENTING untuk PostgreSQL, OCR, OpenCV, dan LibreOffice)
+# 4. Instal dependensi sistem (PENTING untuk PostgreSQL, OpenCV, LibreOffice, dan Multi-Language OCR)
 # - build-essential & libpq-dev: Dibutuhkan untuk koneksi PostgreSQL
-# - tesseract-ocr: Mesin pembaca angka meter (OCR)
 # - libgl1 & libglib2.0-0: Library wajib untuk pengolahan foto/OpenCV
 # - libreoffice: Mesin untuk konversi dokumen Word (.docx) ke PDF
+# - tesseract-ocr & packs: Mesin pembaca teks dengan dukungan berbagai bahasa
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
-    tesseract-ocr \
     libgl1 \
     libglib2.0-0 \
     libreoffice \
+    # --- Jantung OCR (Tesseract) ---
+    tesseract-ocr \
+    # --- Paket Bahasa Pilihan (Indonesia, Inggris, Jepang, Korea, China, Arab) ---
+    tesseract-ocr-ind \
+    tesseract-ocr-eng \
+    tesseract-ocr-jpn \
+    tesseract-ocr-kor \
+    tesseract-ocr-chi-sim \
+    tesseract-ocr-chi-tra \
+    tesseract-ocr-ara \
     && rm -rf /var/lib/apt/lists/*
 
 # 5. Instal Library Python
