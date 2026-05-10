@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Top 500 Tunggakan - 1 Sinergi{% endblock %}
+{% block title %}Top 500 Tunggakan - Sinergi{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -50,7 +50,7 @@
     </div>
     
     <div class="col-md-6 d-flex justify-content-md-end gap-2 align-items-end">
-        <form method="GET" action="/monitoring/top-500" class="d-flex flex-column">
+        <form method="GET" action="" class="d-flex flex-column">
             <label class="extra-small fw-bold text-primary mb-1">Filter Periode:</label>
             <div class="d-flex gap-2">
                 <input type="month" name="periode" class="form-control calendar-filter shadow-sm" 
@@ -114,7 +114,7 @@
                     </td>
                     <td class="text-end px-4">
                         <div class="fw-bold text-danger" style="font-size: 1.15rem;">
-                            Rp {{ "{:,.0f}".format(item.total_nominal) }}
+                            Rp {{ "{:,.0f}".format(item.total_nominal | default(0, true)) | replace(',', '.') }}
                         </div>
                         <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-primary mt-1 px-3 shadow-sm no-print" style="font-size: 0.75rem; border-radius: 8px;">
                             <i class="fas fa-camera me-1"></i>Audit Lapangan
