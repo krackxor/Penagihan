@@ -1,52 +1,91 @@
 {% extends "base.html" %}
 
-{% block title %}Konversi Dokumen - 1 Sinergi{% endblock %}
+{% block title %}Doc Converter - BAAE{% endblock %}
 
 {% block extra_css %}
 <style>
+    /* Desain Kotak Upload bergaya Ultra Nexus */
     .upload-box {
-        border: 2px dashed #0d6efd;
-        border-radius: 15px;
+        border: 2px dashed rgba(56, 189, 248, 0.4);
+        border-radius: 1.5rem;
         padding: 40px 20px;
         text-align: center;
-        background-color: #f8f9fa;
-        transition: all 0.3s ease;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(10px);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
     .upload-box:hover {
-        background-color: #e9ecef;
-        border-color: #0a58ca;
+        background: rgba(56, 189, 248, 0.1);
+        border-color: #38bdf8;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+        transform: translateY(-3px);
     }
+    
+    /* Desain Tab (Pills) gaya Neon */
     .nav-pills .nav-link {
-        border-radius: 10px;
-        font-weight: bold;
-        color: #495057;
-        margin-right: 5px;
+        border-radius: 1rem;
+        font-weight: 700;
+        color: #94a3b8;
+        margin: 0 5px;
+        border: 1px solid transparent;
+        transition: all 0.3s ease;
+    }
+    .nav-pills .nav-link:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #e2e8f0;
     }
     .nav-pills .nav-link.active {
-        background-color: #0d6efd;
-        color: white;
-        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.3);
+        background: rgba(56, 189, 248, 0.1);
+        color: #38bdf8;
+        border-color: rgba(56, 189, 248, 0.3);
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
     }
+
+    /* Tombol Kustom Neon */
+    .btn-neon-primary {
+        background: rgba(56, 189, 248, 0.1);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        transition: all 0.3s;
+    }
+    .btn-neon-primary:hover { background: #38bdf8; color: #0f172a; box-shadow: 0 0 15px rgba(56, 189, 248, 0.6); }
+
+    .btn-neon-danger {
+        background: rgba(244, 63, 94, 0.1);
+        color: #f43f5e;
+        border: 1px solid rgba(244, 63, 94, 0.4);
+        transition: all 0.3s;
+    }
+    .btn-neon-danger:hover { background: #f43f5e; color: #fff; box-shadow: 0 0 15px rgba(244, 63, 94, 0.6); }
+
+    .btn-neon-success {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        transition: all 0.3s;
+    }
+    .btn-neon-success:hover { background: #10b981; color: #fff; box-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-4">
+<div class="row justify-content-center mt-3">
     <div class="col-md-10 col-lg-8">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-3">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
-                <li class="breadcrumb-item active fw-bold" aria-current="page">Tools Konversi</li>
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-info">Home</a></li>
+                <li class="breadcrumb-item active fw-bold text-light" aria-current="page">Tools Konversi</li>
             </ol>
         </nav>
 
-        <div class="card border-0 shadow-lg" style="border-radius: 20px;">
+        <div class="card border-0 mb-5">
             <div class="card-body p-4 p-md-5">
                 <div class="text-center mb-4">
-                    <div class="bg-danger text-white rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-3 shadow-sm" style="width: 70px; height: 70px;">
-                        <i class="fas fa-file-pdf fa-2x"></i>
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-3" 
+                         style="background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); box-shadow: 0 0 20px rgba(244, 63, 94, 0.2); width: 80px; height: 80px;">
+                        <i class="fas fa-file-pdf fa-2x text-rose-500" style="color: #f43f5e;"></i>
                     </div>
-                    <h3 class="fw-bold mb-1">Pusat Konversi Dokumen</h3>
+                    <h3 class="fw-bold mb-1" style="color: #f1f5f9;">Pusat Konversi Dokumen</h3>
                     <p class="text-muted small">Alih media dokumen secara otomatis. Cepat, aman, dan tanpa batasan watermark.</p>
                 </div>
 
@@ -73,11 +112,11 @@
                     <div class="tab-pane fade show active" id="pdf-to-word" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/pdf-to-word')">
                             <div class="upload-box mb-4">
-                                <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                                <i class="fas fa-file-pdf fa-3x mb-3" style="color: #f43f5e; filter: drop-shadow(0 0 8px rgba(244,63,94,0.5));"></i>
                                 <input type="file" name="file" class="form-control form-control-lg mb-2" accept=".pdf" required>
                                 <span class="small text-muted">Hanya menerima file .pdf</span>
                             </div>
-                            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
+                            <button type="submit" class="btn btn-neon-primary btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
                                 <i class="fas fa-sync-alt me-2"></i>Konversi ke MS Word
                             </button>
                         </form>
@@ -85,12 +124,12 @@
 
                     <div class="tab-pane fade" id="word-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/word-to-pdf')">
-                            <div class="upload-box mb-4">
-                                <i class="fas fa-file-word fa-3x text-primary mb-3"></i>
+                            <div class="upload-box mb-4" style="border-color: rgba(244, 63, 94, 0.4);">
+                                <i class="fas fa-file-word fa-3x mb-3" style="color: #38bdf8; filter: drop-shadow(0 0 8px rgba(56,189,248,0.5));"></i>
                                 <input type="file" name="file" class="form-control form-control-lg mb-2" accept=".doc, .docx" required>
                                 <span class="small text-muted">Menerima format .doc dan .docx</span>
                             </div>
-                            <button type="submit" class="btn btn-danger btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
+                            <button type="submit" class="btn btn-neon-danger btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
                                 <i class="fas fa-sync-alt me-2"></i>Konversi ke PDF
                             </button>
                         </form>
@@ -98,12 +137,12 @@
 
                     <div class="tab-pane fade" id="img-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/image-to-pdf')">
-                            <div class="upload-box mb-4">
-                                <i class="fas fa-file-image fa-3x text-success mb-3"></i>
+                            <div class="upload-box mb-4" style="border-color: rgba(16, 185, 129, 0.4);">
+                                <i class="fas fa-file-image fa-3x mb-3" style="color: #10b981; filter: drop-shadow(0 0 8px rgba(16,185,129,0.5));"></i>
                                 <input type="file" name="file" class="form-control form-control-lg mb-2" accept="image/png, image/jpeg, image/jpg" required>
                                 <span class="small text-muted">Format gambar JPG, JPEG, PNG</span>
                             </div>
-                            <button type="submit" class="btn btn-success btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
+                            <button type="submit" class="btn btn-neon-success btn-lg w-100 fw-bold rounded-pill shadow-sm convert-btn">
                                 <i class="fas fa-sync-alt me-2"></i>Konversi ke PDF
                             </button>
                         </form>
@@ -129,6 +168,13 @@
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses Dokumen...';
 
+        // Konfigurasi standar SweetAlert untuk Dark Mode
+        const swalDark = {
+            background: '#0f172a',
+            color: '#f8fafc',
+            confirmButtonColor: '#38bdf8'
+        };
+
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -144,7 +190,7 @@
                 
                 // Coba ambil nama file asli dari header, gunakan fallback jika gagal
                 const contentDisposition = response.headers.get('Content-Disposition');
-                let fileName = 'Hasil_Konversi_Sinergi';
+                let fileName = 'Hasil_Konversi_BAAE'; // Nama Default disesuaikan dengan BAAE
                 if (contentDisposition) {
                     const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
                     if (fileNameMatch && fileNameMatch.length === 2) {
@@ -156,14 +202,29 @@
                 a.click();
                 a.remove();
                 
-                Swal.fire('Berhasil', 'Dokumen berhasil dikonversi dan otomatis diunduh!', 'success');
+                Swal.fire({
+                    ...swalDark,
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Dokumen berhasil dikonversi dan otomatis diunduh!'
+                });
                 form.reset();
             } else {
                 const result = await response.json();
-                Swal.fire('Gagal', result.message || 'Terjadi kesalahan pada sistem.', 'error');
+                Swal.fire({
+                    ...swalDark,
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: result.message || 'Terjadi kesalahan pada sistem.'
+                });
             }
         } catch (error) {
-            Swal.fire('Error', 'Gagal menghubungi server.', 'error');
+            Swal.fire({
+                ...swalDark,
+                icon: 'error',
+                title: 'Error',
+                text: 'Gagal menghubungi server.'
+            });
         } finally {
             // Kembalikan tombol ke kondisi semula
             submitBtn.disabled = false;
