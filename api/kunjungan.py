@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
@@ -8,24 +9,44 @@ from sqlalchemy import and_
 # Inisialisasi Blueprint
 kunjungan_bp = Blueprint('kunjungan', __name__)
 
+# ==========================================
+# MESIN PEMBERSIH NOMEN V18 (WAJIB ADA)
+# ==========================================
+def clean_nomen(val):
+    """Pembersih Nomen Sakti: Memastikan Nomen Lapangan sinkron dengan CID/MC/MB."""
+    if not val: return None
+    s = str(val).strip().upper()
+    s = s.replace('K', '') # Hapus huruf K pengganggu
+    s = re.sub(r'[^0-9]', '', s) # Buang karakter non-angka
+    if not s: return None
+    return s[-8:].zfill(8) # Ambil tepat 8 digit angka
+
 def allowed_file(filename):
-    """Validasi format foto agar server tetap bersih dari file sampah."""
+    """Validasi format foto agar server tetap bersih."""
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@kunjungan_bp.route('/cek-pcez/<nomen>', methods=['GET'])
-def cek_pcez_petugas(nomen):
+@kunjungan_bp.route('/cek-pcez/<nomen_raw>', methods=['GET'])
+def cek_pcez_petugas(nomen_raw):
     """
     Fitur Otomatis: Cek data pelanggan dan mapping petugas secara real-time.
-    Menggunakan Explicit Join agar sinkron dengan standar Sinergi.
+    Sudah menggunakan clean_nomen agar tidak miss dengan data lapangan.
     """
-    # Cari pelanggan dan info wilayahnya
-    pelanggan = db.session.query(MasterPelanggan).filter_by(nomen=nomen).first()
+    nomen = clean_nomen(nomen_raw)
+    
+    # Cari pelanggan (V18 Style: Mengambil info penting saja untuk speed)
+    pelanggan = db.session.query(
+        MasterPelanggan.nomen, 
+        MasterPelanggan.nama, 
+        MasterPelanggan.pcez, 
+        MasterPelanggan.kelurahan
+    ).filter(MasterPelanggan.nomen == nomen).first()
+
     if not pelanggan:
         return jsonify({"status": "error", "message": "Nomen tidak ditemukan di database CID"}), 404
 
-    # Cari petugas dengan peran 'TAGIHAN' yang bertugas di PCEZ tersebut
-    petugas = db.session.query(MasterPetugas).filter(
+    # Cari petugas Tagihan di PCEZ tersebut
+    petugas = db.session.query(MasterPetugas.nama_petugas).filter(
         and_(MasterPetugas.pcez == pelanggan.pcez, MasterPetugas.peran == 'TAGIHAN')
     ).first()
     
@@ -43,11 +64,13 @@ def cek_pcez_petugas(nomen):
 @kunjungan_bp.route('/submit', methods=['POST'])
 def submit_laporan():
     """
-    Mesin Penerima Laporan Lapangan.
-    Menangani data teks, koordinat GPS, dan upload bukti foto secara atomik.
+    Mesin Penerima Laporan Lapangan V18.
+    Sudah terintegrasi dengan pembersihan Nomen untuk akurasi Top 500.
     """
     try:
-        nomen = request.form.get('nomen')
+        nomen_raw = request.form.get('nomen')
+        nomen = clean_nomen(nomen_raw) # Eksekusi pembersihan
+        
         hasil = request.form.get('hasil_kunjungan')
         tgl_janji = request.form.get('tgl_janji_bayar')
         lat = request.form.get('lat')
@@ -56,16 +79,16 @@ def submit_laporan():
         if not nomen or not hasil:
             return jsonify({"status": "error", "message": "Nomen dan Hasil Kunjungan wajib diisi"}), 400
 
-        # Ambil data pelanggan untuk snapshot PCEZ saat kunjungan
+        # Ambil snapshot pelanggan
         pelanggan = MasterPelanggan.query.filter_by(nomen=nomen).first()
         if not pelanggan:
-             return jsonify({"status": "error", "message": "Nomen tidak valid"}), 400
+             return jsonify({"status": "error", "message": "Nomen tidak valid atau belum terdaftar di CID"}), 400
 
-        # Identifikasi Petugas Otomatis
+        # Identifikasi Petugas Otomatis berdasarkan PCEZ
         petugas = MasterPetugas.query.filter_by(pcez=pelanggan.pcez, peran='TAGIHAN').first()
         nama_petugas = petugas.nama_petugas if petugas else "Petugas Luar"
 
-        # Proses Upload Foto (Sinergi dengan UPLOAD_FOLDER di app.py)
+        # Proses Upload Foto
         foto_filename = None
         if 'foto' in request.files:
             file = request.files['foto']
@@ -86,7 +109,7 @@ def submit_laporan():
             except ValueError:
                 pass 
 
-        # Simpan Laporan ke PostgreSQL
+        # Simpan Laporan ke PostgreSQL (Atomik)
         laporan = AnalisaAuditor(
             nomen=nomen,
             hasil_kunjungan=hasil,
@@ -109,13 +132,12 @@ def submit_laporan():
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Kesalahan Sistem: {str(e)}"}), 500
 
-@kunjungan_bp.route('/riwayat/<nomen>', methods=['GET'])
-def riwayat_kunjungan(nomen):
-    """
-    Menarik sejarah kunjungan pelanggan.
-    Kencang karena menggunakan Index pada kolom nomen di AnalisaAuditor.
-    """
-    riwayat = db.session.query(AnalisaAuditor).select_from(AnalisaAuditor)\
+@kunjungan_bp.route('/riwayat/<nomen_raw>', methods=['GET'])
+def riwayat_kunjungan(nomen_raw):
+    """Menarik sejarah kunjungan pelanggan dengan Nomen yang sudah dibersihkan."""
+    nomen = clean_nomen(nomen_raw)
+    
+    riwayat = db.session.query(AnalisaAuditor)\
                 .filter_by(nomen=nomen)\
                 .order_by(AnalisaAuditor.timestamp.desc()).all()
     
