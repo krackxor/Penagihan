@@ -1,150 +1,183 @@
 {% extends "base.html" %}
 
-{% block title %}Monitoring Tagihan - 1 Sinergi{% endblock %}
+{% block title %}Monitoring Analytics - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
-    .stats-card {
-        transition: transform 0.3s;
-        border: none;
-        border-radius: 15px;
+    /* Stats Card Custom for Nexus */
+    .stats-card-nexus {
+        position: relative;
+        overflow: hidden;
+        border-left: 4px solid #38bdf8 !important;
     }
-    .stats-card:hover {
-        transform: translateY(-5px);
+    .stats-card-nexus::before {
+        content: '';
+        position: absolute;
+        right: -20px;
+        top: -20px;
+        width: 100px;
+        height: 100px;
+        background: rgba(56, 189, 248, 0.05);
+        border-radius: 50%;
     }
-    .table-container {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    
+    .label-accent {
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        color: #38bdf8;
+        text-transform: uppercase;
     }
-    .btn-action {
-        width: 36px;
-        height: 36px;
-        padding: 0;
+
+    /* Filter Box Style */
+    .filter-panel {
+        background: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Table Customizations */
+    .table-nexus thead th {
+        font-size: 0.7rem;
+        letter-spacing: 1px;
+        color: #38bdf8 !important;
+        border-bottom: 2px solid rgba(56, 189, 248, 0.2) !important;
+    }
+    
+    .btn-action-nexus {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 10px;
-        margin: 0 2px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #f1f5f9;
+        transition: all 0.3s;
     }
-    .badge-pcez {
-        background-color: #e9ecef;
-        color: #495057;
-        font-weight: 600;
+    .btn-action-nexus:hover {
+        background: #38bdf8;
+        color: #020617;
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
     }
-    .input-periode {
-        border: 2px solid #0d6efd !important;
-        font-weight: bold;
-        color: #0d6efd;
+    .btn-wa:hover {
+        background: #22c55e !important;
+        box-shadow: 0 0 15px rgba(34, 197, 94, 0.4) !important;
+    }
+
+    @media (max-width: 768px) {
+        .stats-grid { gap: 10px !important; }
+        .nexus-table-font { font-size: 0.85rem; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row mb-4 g-3">
+<div class="row mb-4 g-3 stats-grid">
     <div class="col-md-6 col-lg-4">
-        <div class="card stats-card bg-primary text-white h-100 shadow">
-            <div class="card-body">
-                <h6 class="text-uppercase small fw-bold opacity-75">Total Piutang Periode <span class="label-periode">{{ periode_aktif }}</span></h6>
-                <h3 class="mb-0 fw-bold" id="totalNominal">Rp 0</h3>
-                <div class="small mt-2 opacity-75" id="totalLembar">0 Lembar Tagihan</div>
+        <div class="card stats-card-nexus h-100 shadow-lg">
+            <div class="card-body p-4">
+                <div class="label-accent mb-2">Total Piutang <span class="label-periode text-white opacity-50">{{ periode_aktif }}</span></div>
+                <h3 class="fw-800 mb-1 hero-gradient" id="totalNominal">Rp 0</h3>
+                <div class="small text-slate-400" id="totalLembar"><i class="fa-solid fa-file-invoice me-1"></i>0 Lembar Tagihan</div>
             </div>
         </div>
     </div>
     <div class="col-md-6 col-lg-4">
-        <div class="card stats-card bg-dark text-white h-100 shadow">
-            <div class="card-body">
-                <h6 class="text-uppercase small fw-bold opacity-75">Pelanggan Menunggak</h6>
-                <h3 class="mb-0 fw-bold" id="totalPlg">0</h3>
-                <div class="small mt-2 opacity-75">Area Fokus: {{ current_ab }}</div>
+        <div class="card stats-card-nexus h-100 shadow-lg" style="border-left-color: #818cf8 !important;">
+            <div class="card-body p-4">
+                <div class="label-accent mb-2" style="color: #818cf8;">Target Pelanggan</div>
+                <h3 class="fw-800 mb-1 text-white" id="totalPlg">0</h3>
+                <div class="small text-slate-400"><i class="fa-solid fa-location-dot me-1"></i>Area: {{ current_ab }}</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
+<div class="card filter-panel mb-4">
     <div class="card-body p-4">
         <form method="GET" action="/monitoring/" id="filterForm" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label small fw-bold text-muted">Area Bisnis (AB)</label>
-                <select name="ab" id="selectAB" class="form-select border-0 bg-light fw-bold" onchange="updateFilters()">
+            <div class="col-md-3 col-6">
+                <label class="label-accent mb-2 d-block">Area Bisnis</label>
+                <select name="ab" id="selectAB" class="form-select" onchange="updateFilters()">
                     <option value="AB Sunter" {% if current_ab == 'AB Sunter' %}selected{% endif %}>AB Sunter</option>
                     <option value="AB Dewaruci" {% if current_ab == 'AB Dewaruci' %}selected{% endif %}>AB Dewaruci</option>
                     <option value="all">Semua Area</option>
                 </select>
             </div>
 
-            <div class="col-md-3">
-                <label class="form-label small fw-bold text-primary"><i class="fas fa-calendar-alt me-1"></i>Pilih Periode</label>
-                <input type="month" name="periode" id="selectPeriode" class="form-control bg-light input-periode" 
+            <div class="col-md-3 col-6">
+                <label class="label-accent mb-2 d-block" style="color: #c084fc;">Pilih Periode</label>
+                <input type="month" name="periode" id="selectPeriode" class="form-control" 
                        value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" onchange="this.form.submit()">
             </div>
 
-            <div class="col-md-2">
-                <label class="form-label small fw-bold text-muted">Rayon</label>
-                <select name="rayon" id="selectRayon" class="form-select bg-light border-0">
+            <div class="col-md-2 col-6">
+                <label class="label-accent mb-2 d-block">Rayon</label>
+                <select name="rayon" id="selectRayon" class="form-select">
                     <option value="">-- Semua --</option>
                 </select>
             </div>
             
-            <div class="col-md-2">
-                <label class="form-label small fw-bold text-muted">Kelurahan</label>
-                <select name="kelurahan" id="selectKelurahan" class="form-select bg-light border-0">
+            <div class="col-md-2 col-6">
+                <label class="label-accent mb-2 d-block">Kelurahan</label>
+                <select name="kelurahan" id="selectKelurahan" class="form-select">
                     <option value="">-- Semua --</option>
                 </select>
             </div>
 
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">
-                    <i class="fas fa-search me-1"></i> Cari
+            <div class="col-md-2 col-12">
+                <button type="submit" class="btn btn-info w-100 fw-bold rounded-pill py-2 shadow-sm">
+                    <i class="fas fa-search me-1"></i> CARI
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<div class="table-container">
+<div class="card border-0 shadow-lg overflow-hidden">
     <div class="table-responsive">
-        <table class="table table-hover align-middle" id="tableTagihan">
-            <thead class="table-light">
+        <table class="table table-hover align-middle mb-0 table-nexus" id="tableTagihan">
+            <thead>
                 <tr>
-                    <th class="border-0">PELANGGAN</th>
-                    <th class="border-0 text-center">WILAYAH</th>
-                    <th class="border-0">PETUGAS TAGIHAN</th>
-                    <th class="border-0 text-end">TOTAL RUPIAH</th>
-                    <th class="border-0 text-center">AKSI</th>
+                    <th class="ps-4">DATA PELANGGAN</th>
+                    <th class="text-center">WILAYAH</th>
+                    <th>ANALITYC PETUGAS</th>
+                    <th class="text-end">NOMINAL PIUTANG</th>
+                    <th class="text-center pe-4">ACTION</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="nexus-table-font">
                 {% for item in data %}
                 <tr>
-                    <td>
-                        <div class="fw-bold text-primary">{{ item.nomen }}</div>
-                        <div class="small text-uppercase fw-semibold text-dark">{{ item.nama }}</div>
-                        <div class="text-muted extra-small" style="font-size: 0.7rem;">{{ item.alamat[:45] }}...</div>
+                    <td class="ps-4 py-3">
+                        <div class="fw-bold text-info" style="letter-spacing: 0.5px;">{{ item.nomen }}</div>
+                        <div class="small text-uppercase fw-bold text-white">{{ item.nama }}</div>
+                        <div class="text-slate-500 extra-small" style="font-size: 0.7rem;">{{ item.alamat[:45] }}...</div>
                     </td>
                     <td class="text-center">
-                        <span class="badge bg-info text-white">{{ item.rayon }}</span>
-                        <div class="extra-small text-muted mt-1" style="font-size: 0.7rem;">{{ item.kelurahan }}</div>
+                        <span class="badge rounded-pill bg-info bg-opacity-10 text-info border border-info border-opacity-20 px-3">
+                            {{ item.rayon }}
+                        </span>
+                        <div class="extra-small text-slate-500 mt-1" style="font-size: 0.65rem;">{{ item.kelurahan }}</div>
                     </td>
                     <td>
-                        <div class="badge badge-pcez mb-1">{{ item.pcez }}</div>
-                        <div class="fw-bold small text-dark">
-                            <i class="fas fa-user-check me-1 text-success"></i>
-                            {{ item.nama_petugas if item.nama_petugas else 'Belum Diplot' }}
+                        <div class="text-slate-400 small mb-1"><i class="fa-solid fa-fingerprint me-1"></i>{{ item.pcez }}</div>
+                        <div class="fw-bold small text-white">
+                            <span class="text-emerald-400">●</span> {{ item.nama_petugas if item.nama_petugas else 'System Void' }}
                         </div>
                     </td>
-                    <td class="text-end fw-bold text-danger">
-                        Rp {{ "{:,.0f}".format(item.total_nominal) }}
-                        <div class="text-muted small fw-normal">{{ item.jumlah_lembar }} Lembar Tagihan</div>
+                    <td class="text-end fw-bold">
+                        <div class="text-rose-400">Rp {{ "{:,.0f}".format(item.total_nominal) }}</div>
+                        <div class="text-slate-500 extra-small fw-normal" style="font-size: 0.65rem;">{{ item.jumlah_lembar }} Lembar</div>
                     </td>
-                    <td class="text-center">
-                        <div class="d-flex justify-content-center">
-                            <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-primary btn-action shadow-sm" title="Audit Lapangan">
-                                <i class="fas fa-camera"></i>
+                    <td class="text-center pe-4">
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="/lapor?nomen={{ item.nomen }}" class="btn-action-nexus" title="Audit Lapangan">
+                                <i class="fas fa-camera-retro"></i>
                             </a>
-                            <a href="https://wa.me/{{ item.wa if item.wa else '' }}" target="_blank" class="btn btn-success btn-action shadow-sm" title="WhatsApp">
+                            <a href="https://wa.me/{{ item.wa if item.wa else '' }}" target="_blank" class="btn-action-nexus btn-wa" title="WhatsApp Communication">
                                 <i class="fab fa-whatsapp"></i>
                             </a>
                         </div>
@@ -152,9 +185,12 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center py-5 text-muted">
-                        <i class="fas fa-calendar-times fa-3x mb-3 d-block opacity-25"></i>
-                        Tidak ada data tagihan berjalan untuk periode <b>{{ periode_aktif }}</b>.
+                    <td colspan="5" class="text-center py-5">
+                        <div class="opacity-20 mb-3">
+                            <i class="fa-solid fa-database fa-4x"></i>
+                        </div>
+                        <h5 class="text-slate-500">Data Tidak Ditemukan</h5>
+                        <p class="small text-slate-600">Tidak ada record analytic untuk periode {{ periode_aktif }}</p>
                     </td>
                 </tr>
                 {% endfor %}
@@ -180,11 +216,11 @@
             }).format(data.total_nominal);
             
             document.getElementById('totalPlg').innerText = data.total_pelanggan.toLocaleString('id-ID');
-            document.getElementById('totalLembar').innerText = data.total_lembar.toLocaleString('id-ID') + ' Lembar Tagihan';
+            document.getElementById('totalLembar').innerHTML = `<i class="fa-solid fa-file-invoice me-1"></i>${data.total_lembar.toLocaleString('id-ID')} Lembar Tagihan`;
             
             document.querySelectorAll('.label-periode').forEach(el => el.innerText = data.periode_text);
         } catch (e) {
-            console.error("Gagal memuat ringkasan piutang");
+            console.error("Gagal memuat ringkasan analytic");
         }
     }
 
@@ -208,6 +244,7 @@
 
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
+        // Load rayon filter choices if already selected from URL
         if (!urlParams.has('rayon')) {
             updateFilters();
         } else {
