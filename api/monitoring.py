@@ -30,7 +30,7 @@ def list_tagihan():
         MasterPelanggan.alamat,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode,
-        func.sum(TransaksiTagihan.nominal).label('total_nominal'),
+        func.sum(TransaksiTagihan.total_nominal).label('total_nominal'), # Disinkronkan dengan kolom di importer
         func.count(TransaksiTagihan.id).label('jumlah_lembar')
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
@@ -56,52 +56,13 @@ def list_tagihan():
         MasterPelanggan.alamat,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode
-    ).order_by(func.sum(TransaksiTagihan.nominal).desc()).all()
+    ).order_by(func.sum(TransaksiTagihan.total_nominal).desc()).all()
 
-    # KEMBALI KE NAMA ASLI BOS (monitoring.html)
     return render_template('monitoring.html', 
                            data=results, 
                            current_ab=ab_filter,
                            current_rayon=rayon_filter,
                            current_kel=kel_filter,
-                           periode_aktif=periode_filter)
-
-@monitoring_bp.route('/top-500')
-def top_500():
-    """Top 500 Tunggakan dengan Fix Explicit Join."""
-    ab_filter = request.args.get('ab', 'AB Sunter')
-    periode_raw = request.args.get('periode')
-    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
-
-    query = db.session.query(
-        TransaksiTagihan.nomen,
-        MasterPelanggan.nama,
-        MasterPelanggan.kelurahan,
-        MasterPelanggan.pcez,
-        MasterPetugas.nama_petugas,
-        TransaksiTagihan.periode,
-        func.sum(TransaksiTagihan.nominal).label('total_nominal')
-    ).select_from(TransaksiTagihan)\
-     .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
-     .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
-     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_filter)
-    
-    if ab_filter != 'all':
-        query = query.filter(MasterPelanggan.ab == ab_filter)
-
-    results = query.group_by(
-         TransaksiTagihan.nomen,
-         MasterPelanggan.nama,
-         MasterPelanggan.kelurahan,
-         MasterPelanggan.pcez,
-         MasterPetugas.nama_petugas,
-         TransaksiTagihan.periode
-     ).order_by(func.sum(TransaksiTagihan.nominal).desc()).limit(500).all()
-    
-    # KEMBALI KE NAMA ASLI BOS (top_500.html)
-    return render_template('top_500.html', 
-                           data=results, 
-                           current_ab=ab_filter, 
                            periode_aktif=periode_filter)
 
 @monitoring_bp.route('/summary')
@@ -112,7 +73,7 @@ def summary_stats():
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
     stats = db.session.query(
-        func.sum(TransaksiTagihan.nominal),
+        func.sum(TransaksiTagihan.total_nominal), # Disinkronkan dengan kolom di importer
         func.count(TransaksiTagihan.id)
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan)\
