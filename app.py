@@ -156,7 +156,7 @@ def create_app():
     os.makedirs(app_flask.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(os.path.join(BASE_DIR, 'static', 'uploads', 'materi'), exist_ok=True)
 
-    # --- 4. REGISTRASI MODUL ---
+    # --- 4. REGISTRASI MODUL (BLUEPRINTS) ---
     app_flask.register_blueprint(monitoring_bp, url_prefix='/monitoring')
     app_flask.register_blueprint(importer_bp, url_prefix='/api/import')
     app_flask.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
@@ -164,7 +164,7 @@ def create_app():
     app_flask.register_blueprint(top_500_bp, url_prefix='/monitoring/top-500') 
     app_flask.register_blueprint(admin_bp, url_prefix='/admin')
 
-    # --- 5. NAVIGASI UTAMA (ANTI 404) ---
+    # --- 5. NAVIGASI UTAMA (FIX 404 NOT FOUND) ---
     @app_flask.route('/')
     def index():
         return redirect(url_for('monitoring.list_tagihan', ab='AB Sunter'))
@@ -182,8 +182,7 @@ def create_app():
         try:
             db.create_all()
             sync_database_schema(app_flask)
-        except Exception as e:
-            # Proteksi jika worker lain sudah mengunci database
+        except Exception:
             db.session.rollback()
 
     return app_flask
