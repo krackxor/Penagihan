@@ -349,6 +349,26 @@
 
     <div id="backdrop" class="menu-backdrop" onclick="closeAllMenus()"></div>
     
+    <div id="radarMenu" class="actions-overlay">
+        <div class="actions-overlay-inner">
+            <div class="menu-title">SYS.RADAR</div>
+            <a href="/monitoring/" class="sub-item">
+                <div class="sub-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+                <div class="sub-text-wrapper">
+                    <span class="sub-title">General Radar</span>
+                    <span class="sub-desc">> TARGET_INTELLIGENCE</span>
+                </div>
+            </a>
+            <a href="/monitoring/top-500/" class="sub-item mt-1">
+                <div class="sub-icon"><i class="fa-solid fa-crown"></i></div>
+                <div class="sub-text-wrapper">
+                    <span class="sub-title">Top 500 Pareto</span>
+                    <span class="sub-desc">> BOUNTY_RANKS</span>
+                </div>
+            </a>
+        </div>
+    </div>
+    
     <div id="sbrsMenu" class="actions-overlay">
         <div class="actions-overlay-inner">
             <div class="menu-title">SYS.ANALYTIC</div>
@@ -434,10 +454,10 @@
     </footer>
 
     <nav class="bottom-nav">
-        <a href="/monitoring/" class="nav-item {% if request.path == '/monitoring/' or request.path == '/' %}active{% endif %}">
+        <div class="nav-item {% if request.path.startswith('/monitoring') or request.path == '/' %}active{% endif %}" onclick="toggleMenu('radarMenu')">
             <i class="fa-solid fa-tower-broadcast"></i>
             <span class="nav-label">Radar</span>
-        </a>
+        </div>
         
         <div class="nav-item {% if request.path.startswith('/sbrs') %}active{% endif %}" onclick="toggleMenu('sbrsMenu')">
             <i class="fa-solid fa-chart-column"></i>
