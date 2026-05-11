@@ -10,13 +10,8 @@
     
     /* Ikon Box Modern */
     .icon-box {
-        width: 48px;
-        height: 48px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 12px;
-        font-size: 1.25rem;
+        width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 12px; font-size: 1.25rem;
     }
     .icon-box-primary { background: var(--primary-light); color: var(--primary); }
     .icon-box-warning { background: #fef3c7; color: #d97706; }
@@ -25,49 +20,35 @@
 
     /* Label Form Bersih */
     .form-label-modern {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.5rem;
+        font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;
     }
 
     /* Lencana Modern (Badges) */
     .badge-modern {
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 0.35em 0.65em;
-        border-radius: 6px;
-        letter-spacing: 0.5px;
+        font-size: 0.7rem; font-weight: 600; padding: 0.35em 0.65em;
+        border-radius: 6px; letter-spacing: 0.5px;
     }
 
     /* Penyesuaian Input File agar lebih bersih */
-    input[type="file"].form-control {
-        padding: 0.5rem 1rem;
-    }
+    input[type="file"].form-control { padding: 0.5rem 1rem; }
     input[type="file"]::file-selector-button {
-        background-color: #f1f5f9;
-        color: var(--text-main);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 0.2rem 0.8rem;
-        margin-right: 1rem;
-        transition: all 0.2s;
-        font-weight: 500;
+        background-color: #f1f5f9; color: var(--text-main);
+        border: 1px solid var(--border-color); border-radius: 6px;
+        padding: 0.2rem 0.8rem; margin-right: 1rem; transition: all 0.2s; font-weight: 500;
     }
-    input[type="file"]::file-selector-button:hover {
-        background-color: #e2e8f0;
-    }
+    input[type="file"]::file-selector-button:hover { background-color: #e2e8f0; }
 
     /* Tombol Utama */
     .btn-action {
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        transition: all 0.2s;
+        font-weight: 600; letter-spacing: 0.5px; padding: 0.6rem 1.2rem;
+        border-radius: 8px; transition: all 0.2s;
     }
+
+    /* HTMX Indicator States */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request.btn-action { pointer-events: none; opacity: 0.7; }
 </style>
 {% endblock %}
 
@@ -103,26 +84,28 @@
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div class="d-flex align-items-center gap-3">
-                                <div class="icon-box icon-box-primary">
-                                    <i class="fas fa-users-gear"></i>
-                                </div>
+                                <div class="icon-box icon-box-primary"><i class="fas fa-users-gear"></i></div>
                                 <div>
                                     <div class="form-label-modern mb-0">Database Utama</div>
                                     <h5 class="fw-bold mb-0 text-dark">Master Data (CID)</h5>
                                 </div>
                             </div>
-                            <span class="badge badge-modern bg-primary bg-opacity-10 text-primary border border-primary-subtle">V14.0 HEADERS</span>
+                            <span class="badge badge-modern bg-primary bg-opacity-10 text-primary border border-primary-subtle">V18.0 HEADERS</span>
                         </div>
                         <p class="text-muted mb-4" style="font-size: 0.85rem; line-height: 1.5;">
                             Gunakan *dump file* <b>CID_FULL.txt</b> untuk memperbarui data pelanggan, alamat, dan rute wilayah (PCEZ).
                         </p>
                         
-                        <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formCID')" id="formCID" class="mt-auto">
+                        <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
+                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              id="formCID" class="mt-auto">
                             <div class="mb-3">
                                 <input type="file" name="file_cid" class="form-control" accept=".txt, .csv" required>
                             </div>
-                            <button type="submit" class="btn btn-primary btn-action w-100">
-                                <i class="fas fa-microchip me-2"></i> Sinkronisasi CID Utama
+                            <button type="submit" class="btn btn-primary btn-action w-100 d-flex align-items-center justify-content-center gap-2">
+                                <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                                <i class="fas fa-microchip" x-show="!$el.classList.contains('htmx-request')"></i> 
+                                <span>Sinkronisasi CID Utama</span>
                             </button>
                         </form>
                     </div>
@@ -133,9 +116,7 @@
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
                         <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="icon-box icon-box-warning">
-                                <i class="fas fa-user-shield"></i>
-                            </div>
+                            <div class="icon-box icon-box-warning"><i class="fas fa-user-shield"></i></div>
                             <div>
                                 <div class="form-label-modern mb-0">Sumber Daya Manusia</div>
                                 <h5 class="fw-bold mb-0 text-dark">Pemetaan Petugas</h5>
@@ -145,7 +126,9 @@
                             Sinkronisasi data operasional petugas lapangan berdasarkan wilayah kluster PCEZ dan sektor rayon masing-masing.
                         </p>
                         
-                        <form onsubmit="handleUpload(event, '/api/import/petugas', 'formPetugas')" id="formPetugas" class="mt-auto">
+                        <form hx-post="/api/import/petugas" hx-encoding="multipart/form-data" hx-swap="none"
+                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              id="formPetugas" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
                                     <select name="peran" class="form-select" required>
@@ -158,8 +141,10 @@
                                     <input type="file" name="file" class="form-control" accept=".xlsx, .csv" required>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-action w-100" style="background-color: #f59e0b; color: white;">
-                                <i class="fas fa-user-tag me-2"></i> Perbarui Data Petugas
+                            <button type="submit" class="btn btn-action w-100 d-flex align-items-center justify-content-center gap-2" style="background-color: #f59e0b; color: white;">
+                                <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                                <i class="fas fa-user-tag" x-show="!$el.classList.contains('htmx-request')"></i> 
+                                <span>Perbarui Data Petugas</span>
                             </button>
                         </form>
                     </div>
@@ -168,11 +153,9 @@
 
             <div class="col-md-6">
                 <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body p-4">
+                    <div class="card-body p-4" x-data="{ sourceKey: 'file_mc' }">
                         <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="icon-box icon-box-success">
-                                <i class="fas fa-money-check-dollar"></i>
-                            </div>
+                            <div class="icon-box icon-box-success"><i class="fas fa-money-check-dollar"></i></div>
                             <div>
                                 <div class="form-label-modern mb-0">Analitik Keuangan</div>
                                 <h5 class="fw-bold mb-0 text-dark">Tagihan & Piutang</h5>
@@ -182,10 +165,12 @@
                             Impor rekam data tagihan aktif, riwayat penagihan, serta catatan penyelesaian harian.
                         </p>
                         
-                        <form onsubmit="handleTagihanUpload(event)" id="formTagihan" class="mt-auto">
+                        <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
+                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              id="formTagihan" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
-                                    <select id="selectSumber" class="form-select" required>
+                                    <select x-model="sourceKey" class="form-select" required>
                                         <option value="file_mc">MC (Master_Cetak)</option>
                                         <option value="file_daily">MB (Master_Bayar)</option>
                                         <option value="file_arrdebt">ARDEBT (Tunggakan)</option>
@@ -193,11 +178,13 @@
                                     </select>
                                 </div>
                                 <div class="col-7">
-                                    <input type="file" id="inputFileTagihan" class="form-control" accept=".txt, .csv" required>
+                                    <input type="file" x-bind:name="sourceKey" class="form-control" accept=".txt, .csv" required>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-action w-100" style="background-color: #10b981; color: white;">
-                                <i class="fas fa-cloud-bolt me-2"></i> Ekstraksi Data Keuangan
+                            <button type="submit" class="btn btn-action w-100 d-flex align-items-center justify-content-center gap-2" style="background-color: #10b981; color: white;">
+                                <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                                <i class="fas fa-cloud-bolt" x-show="!$el.classList.contains('htmx-request')"></i> 
+                                <span>Ekstraksi Data Keuangan</span>
                             </button>
                         </form>
                     </div>
@@ -209,9 +196,7 @@
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div class="d-flex align-items-center gap-3">
-                                <div class="icon-box icon-box-danger">
-                                    <i class="fas fa-bolt-lightning"></i>
-                                </div>
+                                <div class="icon-box icon-box-danger"><i class="fas fa-bolt-lightning"></i></div>
                                 <div>
                                     <div class="form-label-modern mb-0">Intelijen Lapangan</div>
                                     <h5 class="fw-bold mb-0 text-dark">Data Anomali (SBRS)</h5>
@@ -223,7 +208,9 @@
                             Otomatisasi pelacakan anomali lapangan dari paduan dokumen <b>customer.txt</b> dan <b>spot_bill.txt</b>.
                         </p>
                         
-                        <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formSBRS')" id="formSBRS" class="mt-auto">
+                        <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
+                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              id="formSBRS" class="mt-auto">
                             <div class="mb-2">
                                 <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 2px;">File Customer (.txt)</label>
                                 <input type="file" name="file_customer" class="form-control" accept=".txt, .csv" required>
@@ -232,8 +219,10 @@
                                 <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 2px;">File Spot Bill (.txt)</label>
                                 <input type="file" name="file_spotbill" class="form-control" accept=".txt, .csv" required>
                             </div>
-                            <button type="submit" class="btn btn-action w-100" style="background-color: #ef4444; color: white;">
-                                <i class="fas fa-magnifying-glass-chart me-2"></i> Jalankan Analitik Gabungan
+                            <button type="submit" class="btn btn-action w-100 d-flex align-items-center justify-content-center gap-2" style="background-color: #ef4444; color: white;">
+                                <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                                <i class="fas fa-magnifying-glass-chart" x-show="!$el.classList.contains('htmx-request')"></i> 
+                                <span>Jalankan Analitik Gabungan</span>
                             </button>
                         </form>
                     </div>
@@ -247,72 +236,47 @@
 
 {% block extra_js %}
 <script>
-    // Konfigurasi SweetAlert Corporate SaaS (Sesuai dengan base.html terbaru)
     const swalModern = {
         background: '#ffffff', 
         color: '#0f172a',
-        confirmButtonColor: '#2563eb', // Biru tech company
+        confirmButtonColor: '#2563eb',
         cancelButtonColor: '#e2e8f0',
         customClass: { popup: 'border-0 rounded-4 shadow-lg' }
     };
 
-    // FUNGSI JAVASCRIPT: LOGIKA TETAP 100% SAMA, HANYA TEMA POPUP & TEKS LOADING YANG BERUBAH
-    async function handleTagihanUpload(event) {
-        event.preventDefault();
-        const select = document.getElementById('selectSumber');
-        const fileInput = document.getElementById('inputFileTagihan');
-        const submitBtn = event.target.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
+    // Satu fungsi global menangani semua response HTMX
+    function handleSyncResponse(event) {
+        const xhr = event.detail.xhr;
+        const formElement = event.target;
         
-        const formData = new FormData();
-        formData.append(select.value, fileInput.files[0]);
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses data...';
-
         try {
-            const response = await fetch('/api/import/tagihan', { method: 'POST', body: formData });
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                Swal.fire({ ...swalModern, icon: 'success', title: 'Berhasil', text: result.message });
-                event.target.reset();
+            const res = JSON.parse(xhr.responseText);
+            
+            if (xhr.status >= 200 && xhr.status < 300 && res.status === 'success') {
+                Swal.fire({ 
+                    ...swalModern, 
+                    icon: 'success', 
+                    title: 'Tersinkronisasi', 
+                    text: res.message 
+                });
+                formElement.reset(); // Kosongkan input file jika berhasil
             } else {
-                Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Ekstraksi Gagal', text: result.message });
+                Swal.fire({ 
+                    ...swalModern, 
+                    icon: 'error', 
+                    confirmButtonColor: '#ef4444', 
+                    title: 'Gagal Sinkronisasi', 
+                    text: res.message || 'Terjadi kesalahan sistem.' 
+                });
             }
         } catch (error) {
-            Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Kesalahan Jaringan', text: 'Koneksi terputus atau format file tidak didukung.' });
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
-    }
-
-    async function handleUpload(event, url, formId) {
-        event.preventDefault();
-        const form = document.getElementById(formId);
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyinkronkan...';
-
-        try {
-            const response = await fetch(url, { method: 'POST', body: formData });
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                Swal.fire({ ...swalModern, icon: 'success', title: 'Tersinkronisasi', text: result.message });
-                form.reset();
-            } else {
-                Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Gagal Sinkronisasi', text: result.message });
-            }
-        } catch (error) {
-            Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Gangguan Sistem', text: 'Terjadi masalah pada koneksi ke server.' });
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+            Swal.fire({ 
+                ...swalModern, 
+                icon: 'error', 
+                confirmButtonColor: '#ef4444', 
+                title: 'Gangguan Sistem', 
+                text: 'Terjadi masalah pada koneksi ke server atau file tidak dikenali.' 
+            });
         }
     }
 </script>
