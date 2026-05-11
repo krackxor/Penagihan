@@ -439,10 +439,13 @@ def sbrs_analisa():
     
     cycles_list = sorted(list(set(str(get_case_insensitive(d.raw_data, 'cycle') or '') for d in all_data if get_case_insensitive(d.raw_data, 'cycle'))))
     
+    master_totals = {"total_nomen": f"{len(results):,}".replace(',', '.')}
+    
     return render_template('sbrs_analisa.html', data=results, current_ab=ab, current_cycle=cycle, 
                            current_kat=kat, cycles=cycles_list, 
                            periode_aktif=periode_filter, label_kini=label_kini, 
-                           label_lalu_1=label_lalu_1, label_lalu_2=label_lalu_2)
+                           label_lalu_1=label_lalu_1, label_lalu_2=label_lalu_2,
+                           totals=master_totals)
 
 @sbrs_bp.route('/api-stats')
 def get_sbrs_api_stats():
