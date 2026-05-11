@@ -5,165 +5,90 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       MODERN SAAS INVESTIGATION STYLES
+       MODERN SAAS INVESTIGATION STYLES (HTMX POWERED)
        ========================================================== */
     
     /* Label & Badge Modern */
     .anomaly-badge {
-        font-size: 0.7rem;
-        padding: 0.35rem 0.65rem;
-        border-radius: 6px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
+        font-size: 0.7rem; padding: 0.35rem 0.65rem; border-radius: 6px;
+        font-weight: 600; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;
     }
 
     .form-label-modern {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.5rem;
+        font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;
     }
 
     /* Trend Console Box */
     .trend-box-modern {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: #f8fafc;
-        padding: 10px 15px;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
+        display: flex; align-items: center; justify-content: space-between;
+        background: #f8fafc; padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color);
     }
     .trend-item { text-align: center; flex: 1; }
     .trend-label { 
-        font-size: 0.65rem; 
-        color: var(--text-muted); 
-        display: block; 
-        font-weight: 600; 
-        text-transform: uppercase; 
-        margin-bottom: 2px; 
+        font-size: 0.65rem; color: var(--text-muted); display: block; 
+        font-weight: 600; text-transform: uppercase; margin-bottom: 2px; 
     }
-    .trend-val { 
-        font-size: 1.1rem; 
-        font-weight: 700; 
-        color: var(--text-main); 
-    }
-    .trend-kini {
-        background: #eff6ff;
-        padding: 4px 8px;
-        border-radius: 6px;
-        border: 1px solid #bfdbfe;
-    }
+    .trend-val { font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
+    .trend-kini { background: #eff6ff; padding: 4px 8px; border-radius: 6px; border: 1px solid #bfdbfe; }
     .trend-arrow { font-size: 0.75rem; color: #cbd5e1; margin: 0 8px; }
 
     /* Link Nomen (Target) */
     .nomen-link {
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: var(--primary) !important;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+        cursor: pointer; transition: all 0.2s; font-size: 1.15rem;
+        font-weight: 700; color: var(--primary) !important; display: inline-flex; align-items: center; gap: 6px;
     }
-    .nomen-link:hover { 
-        color: var(--primary-hover) !important; 
-        text-decoration: underline !important;
-    }
+    .nomen-link:hover { color: var(--primary-hover) !important; text-decoration: underline !important; }
 
     /* Tabel Utama */
     .table-modern { margin-bottom: 0; }
     .table-modern thead th {
-        background: #f8fafc !important;
-        color: #64748b !important;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #e2e8f0 !important;
-        padding: 1rem;
+        background: #f8fafc !important; color: #64748b !important; font-size: 0.75rem;
+        font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        border-bottom: 2px solid #e2e8f0 !important; padding: 1rem;
     }
     .table-modern td {
-        border-bottom: 1px solid #e2e8f0 !important;
-        color: var(--text-main);
-        vertical-align: middle;
-        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0 !important; color: var(--text-main);
+        vertical-align: middle; padding: 1rem;
     }
     .table-modern tbody tr:hover td { background-color: #f8fafc !important; }
 
     /* Input Form Catatan */
     .input-analisa {
-        font-size: 0.85rem;
-        border-radius: 6px 0 0 6px !important;
-        border: 1px solid var(--border-color);
-        box-shadow: none !important;
+        font-size: 0.85rem; border-radius: 6px 0 0 6px !important;
+        border: 1px solid var(--border-color); box-shadow: none !important;
     }
-    .input-analisa:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
-    }
+    .input-analisa:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important; }
     .btn-save-note {
-        border-radius: 0 6px 6px 0 !important;
-        background: var(--primary);
-        color: white;
-        border: 1px solid var(--primary);
-        transition: all 0.2s;
+        border-radius: 0 6px 6px 0 !important; background: var(--primary);
+        color: white; border: 1px solid var(--primary); transition: all 0.2s;
     }
-    .btn-save-note:hover {
-        background: var(--primary-hover);
-        color: white;
-    }
+    .btn-save-note:hover { background: var(--primary-hover); color: white; }
 
     /* Badge Status Ringkas */
     .badge-status {
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 4px 8px;
-        border-radius: 4px;
-        border: 1px solid var(--border-color);
-        background: #f1f5f9;
-        color: var(--text-muted);
-        display: inline-block;
-        min-width: 50px;
-        text-align: center;
+        font-size: 0.7rem; font-weight: 600; padding: 4px 8px; border-radius: 4px;
+        border: 1px solid var(--border-color); background: #f1f5f9; color: var(--text-muted);
+        display: inline-block; min-width: 50px; text-align: center;
     }
 
     /* Modal Modern */
-    .modal-modern .modal-content {
-        border: none;
-        border-radius: var(--radius-lg);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-    .modal-modern .modal-header {
-        background: #f8fafc;
-        border-bottom: 1px solid var(--border-color);
-        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-        padding: 1.25rem 1.5rem;
-    }
-    .modal-modern .modal-title {
-        font-weight: 700;
-        color: var(--text-main);
-        font-size: 1.1rem;
-    }
+    .modal-modern .modal-content { border: none; border-radius: var(--radius-lg); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+    .modal-modern .modal-header { background: #f8fafc; border-bottom: 1px solid var(--border-color); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 1.25rem 1.5rem; }
+    .modal-modern .modal-title { font-weight: 700; color: var(--text-main); font-size: 1.1rem; }
     .modal-table th { background: #f1f5f9 !important; font-size: 0.75rem; color: #475569; font-weight: 600; }
     .modal-table td { font-size: 0.85rem; vertical-align: middle; }
     .col-header { background: #e2e8f0 !important; font-weight: 700; color: #334155; font-size: 0.75rem; text-transform: uppercase; }
     
-    /* Card Info Dalam Modal */
     .info-card-modal {
-        background: #ffffff;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        padding: 15px;
-        height: 100%;
-        box-shadow: var(--shadow-sm);
+        background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+        padding: 15px; height: 100%; box-shadow: var(--shadow-sm);
     }
+
+    /* HTMX States */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request#analisa-content { opacity: 0.5; transition: opacity 200ms ease-in; pointer-events: none; }
 </style>
 {% endblock %}
 
@@ -176,8 +101,9 @@
                 <li class="breadcrumb-item active text-primary" aria-current="page">Investigasi Detail</li>
             </ol>
         </nav>
-        <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+        <h3 class="fw-bold mb-1 d-flex align-items-center gap-2" style="color: var(--text-main); letter-spacing: -0.5px;">
             Investigasi Detail Anomali
+            <span class="htmx-indicator spinner-border text-primary spinner-border-sm ms-2" role="status"></span>
         </h3>
         <p class="mb-0 text-muted" style="font-size: 0.9rem;">
             Periode: <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle ms-1">{{ label_kini|default(periode_aktif) }}</span> 
@@ -187,13 +113,19 @@
     </div>
     
     <div class="col-md-7 d-flex justify-content-md-end align-items-center mt-3 mt-md-0">
-        <form method="GET" action="/sbrs/analisa" class="card border-0 shadow-sm p-3 d-flex flex-row gap-3 w-100 w-md-auto" style="margin-bottom: 0;">
+        <form hx-get="/sbrs/analisa" 
+              hx-target="#analisa-content" 
+              hx-select="#analisa-content" 
+              hx-trigger="change" 
+              hx-push-url="true"
+              class="card border-0 shadow-sm p-3 d-flex flex-row gap-3 w-100 w-md-auto" style="margin-bottom: 0;">
+              
             <input type="hidden" name="ab" value="{{ current_ab }}">
             <input type="hidden" name="periode" value="{{ periode_aktif }}">
             
             <div style="flex: 1; min-width: 130px;">
                 <label class="form-label-modern">Siklus Tagihan</label>
-                <select name="cycle" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="cycle" class="form-select form-select-sm">
                     <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>Semua Siklus</option>
                     {% for c in cycles %}
                     <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>Siklus {{ c }}</option>
@@ -203,7 +135,7 @@
 
             <div style="flex: 1; min-width: 150px;">
                 <label class="form-label-modern text-danger">Kategori Anomali</label>
-                <select name="kategori" class="form-select form-select-sm border-danger-subtle" onchange="this.form.submit()">
+                <select name="kategori" class="form-select form-select-sm border-danger-subtle">
                     <option value="all" {% if not current_kat or current_kat == 'all' %}selected{% endif %}>Semua Anomali</option>
                     <option value="MINUS" {% if current_kat == 'MINUS' %}selected{% endif %}>Anomali Minus</option>
                     <option value="ZERO" {% if current_kat == 'ZERO' %}selected{% endif %}>Pemakaian Nol</option>
@@ -215,142 +147,152 @@
     </div>
 </div>
 
-<div class="card border-0 shadow-sm overflow-hidden mb-5">
-    <div class="table-responsive" style="min-height: 500px;">
-        <table class="table table-hover table-modern align-middle">
-            <thead>
-                <tr>
-                    <th class="ps-4" style="width: 25%;">Identitas Target</th>
-                    <th class="text-center" style="width: 28%;">Tren Pemakaian (3 Bulan)</th>
-                    <th style="width: 17%;">Status Pembacaan</th>
-                    <th style="width: 20%;">Catatan Analitik</th>
-                    <th class="text-center pe-4" style="width: 10%;">Tindakan</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in data %}
-                <tr>
-                    <td class="ps-4 py-3">
-                        <div class="nomen-link mb-1" onclick='openCidDetail({{ item.modal_info|tojson }})' title="Lihat Rekam Jejak Detail">
-                            {{ item.nomen }} <i class="fa-solid fa-square-up-right ms-1 text-muted" style="font-size: 0.8rem;"></i>
-                        </div>
-                        <div class="fw-semibold text-dark small" style="line-height: 1.3;">{{ item.nama }}</div>
-                        <div class="mt-2 text-muted" style="font-size: 0.75rem; font-weight: 500;">
-                            <i class="fa-solid fa-location-dot me-1 text-danger"></i>{{ item.kelurahan }} 
-                            <span class="mx-1 text-light-gray">|</span> Rute: <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle ms-1">{{ item.pcez }}</span>
-                        </div>
+<div id="analisa-content">
+    <div class="card border-0 shadow-sm overflow-hidden mb-5">
+        <div class="table-responsive" style="min-height: 500px;">
+            <table class="table table-hover table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4" style="width: 25%;">Identitas Target</th>
+                        <th class="text-center" style="width: 28%;">Tren Pemakaian (3 Bulan)</th>
+                        <th style="width: 17%;">Status Pembacaan</th>
+                        <th style="width: 20%;">Catatan Analitik</th>
+                        <th class="text-center pe-4" style="width: 10%;">Tindakan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                    <tr>
+                        <td class="ps-4 py-3">
+                            <div class="nomen-link mb-1" onclick='openCidDetail({{ item.modal_info|tojson }})' title="Lihat Rekam Jejak Detail">
+                                {{ item.nomen }} <i class="fa-solid fa-square-up-right ms-1 text-muted" style="font-size: 0.8rem;"></i>
+                            </div>
+                            <div class="fw-semibold text-dark small" style="line-height: 1.3;">{{ item.nama }}</div>
+                            <div class="mt-2 text-muted" style="font-size: 0.75rem; font-weight: 500;">
+                                <i class="fa-solid fa-location-dot me-1 text-danger"></i>{{ item.kelurahan }} 
+                                <span class="mx-1 text-light-gray">|</span> Rute: <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle ms-1">{{ item.pcez }}</span>
+                            </div>
+                            
+                            {% if item.modal_info.indikasi and item.modal_info.indikasi != 'Aman' %}
+                                <div class="mt-2">
+                                    {% if 'FRAUD' in item.modal_info.indikasi %}
+                                        <span class="anomaly-badge bg-danger bg-opacity-10 text-danger border border-danger-subtle">
+                                            <i class="fa-solid fa-triangle-exclamation"></i> {{ item.modal_info.indikasi }}
+                                        </span>
+                                    {% elif 'TEKNIS' in item.modal_info.indikasi %}
+                                        <span class="anomaly-badge bg-info bg-opacity-10 text-info border border-info-subtle">
+                                            <i class="fa-solid fa-gear"></i> {{ item.modal_info.indikasi }}
+                                        </span>
+                                    {% else %}
+                                        <span class="anomaly-badge bg-warning bg-opacity-10 text-warning border border-warning-subtle" style="color: #b45309 !important;">
+                                            <i class="fa-solid fa-circle-exclamation"></i> {{ item.modal_info.indikasi }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </td>
                         
-                        {% if item.modal_info.indikasi and item.modal_info.indikasi != 'Aman' %}
-                            <div class="mt-2">
-                                {% if 'FRAUD' in item.modal_info.indikasi %}
-                                    <span class="anomaly-badge bg-danger bg-opacity-10 text-danger border border-danger-subtle">
-                                        <i class="fa-solid fa-triangle-exclamation"></i> {{ item.modal_info.indikasi }}
-                                    </span>
-                                {% elif 'TEKNIS' in item.modal_info.indikasi %}
-                                    <span class="anomaly-badge bg-info bg-opacity-10 text-info border border-info-subtle">
-                                        <i class="fa-solid fa-gear"></i> {{ item.modal_info.indikasi }}
-                                    </span>
+                        <td class="text-center px-3">
+                            <div class="trend-box-modern mb-2">
+                                <div class="trend-item">
+                                    <span class="trend-label" title="Dua Bulan Lalu">{{ label_lalu_2|default('Bln-2') }}</span>
+                                    <span class="trend-val">{{ item.vol_lalu_2 }}</span>
+                                </div>
+                                <i class="fa-solid fa-angle-right trend-arrow"></i>
+                                <div class="trend-item">
+                                    <span class="trend-label" title="Bulan Lalu">{{ label_lalu_1|default('Bln-1') }}</span>
+                                    <span class="trend-val text-primary">{{ item.vol_lalu_1 }}</span>
+                                </div>
+                                <i class="fa-solid fa-angle-right trend-arrow"></i>
+                                <div class="trend-item trend-kini">
+                                    <span class="trend-label text-primary" title="Bulan Ini">{{ label_kini|default('KINI') }}</span>
+                                    <span class="trend-val {% if item.vol_kini < 0 %}text-danger{% else %}text-dark{% endif %}">{{ item.vol_kini }}</span>
+                                </div>
+                            </div>
+                            <div class="bg-light border rounded px-2 py-1 d-inline-block text-muted" style="font-size: 0.75rem; font-weight: 500;">
+                                Stand: <b class="text-dark">{{ item.stand_awal }}</b> <i class="fa-solid fa-arrow-right-long mx-2 text-primary"></i> <b class="text-primary">{{ item.stand_akhir }}</b>
+                            </div>
+                        </td>
+                        
+                        <td>
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="badge-status me-2">MRID</span>
+                                <span class="fw-semibold text-primary" style="font-size: 0.8rem;">{{ item.cmr_mrid }}</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="badge-status me-2">TRBL</span>
+                                <span class="fw-semibold text-danger" style="font-size: 0.8rem;">{{ item.cmr_trbl1_code }}</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge-status me-2">MODE</span>
+                                <span class="fw-semibold text-success" style="font-size: 0.8rem;">{{ item.read_method }}</span>
+                            </div>
+                        </td>
+                        
+                        <td x-data="{ status: '', timeout: null }">
+                            <div class="mb-2">
+                                {% if item.kategori_anomali == 'ZERO' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle">Pemakaian 0</span>
+                                {% elif item.kategori_anomali == 'EKSTREM' %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle" style="color: #b45309 !important;">Naik Ekstrem</span>
+                                {% elif item.kategori_anomali == 'MINUS' %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle">Minus</span>
                                 {% else %}
-                                    <span class="anomaly-badge bg-warning bg-opacity-10 text-warning border border-warning-subtle" style="color: #b45309 !important;">
-                                        <i class="fa-solid fa-circle-exclamation"></i> {{ item.modal_info.indikasi }}
-                                    </span>
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info-subtle">Turun Ekstrem</span>
                                 {% endif %}
                             </div>
-                        {% endif %}
-                    </td>
-                    
-                    <td class="text-center px-3">
-                        <div class="trend-box-modern mb-2">
-                            <div class="trend-item">
-                                <span class="trend-label" title="Dua Bulan Lalu">{{ label_lalu_2|default('Bln-2') }}</span>
-                                <span class="trend-val">{{ item.vol_lalu_2 }}</span>
-                            </div>
-                            <i class="fa-solid fa-angle-right trend-arrow"></i>
-                            <div class="trend-item">
-                                <span class="trend-label" title="Bulan Lalu">{{ label_lalu_1|default('Bln-1') }}</span>
-                                <span class="trend-val text-primary">{{ item.vol_lalu_1 }}</span>
-                            </div>
-                            <i class="fa-solid fa-angle-right trend-arrow"></i>
-                            <div class="trend-item trend-kini">
-                                <span class="trend-label text-primary" title="Bulan Ini">{{ label_kini|default('KINI') }}</span>
-                                <span class="trend-val {% if item.vol_kini < 0 %}text-danger{% else %}text-dark{% endif %}">{{ item.vol_kini }}</span>
-                            </div>
-                        </div>
-                        <div class="bg-light border rounded px-2 py-1 d-inline-block text-muted" style="font-size: 0.75rem; font-weight: 500;">
-                            Stand: <b class="text-dark">{{ item.stand_awal }}</b> <i class="fa-solid fa-arrow-right-long mx-2 text-primary"></i> <b class="text-primary">{{ item.stand_akhir }}</b>
-                        </div>
-                    </td>
-                    
-                    <td>
-                        <div class="d-flex align-items-center mb-1">
-                            <span class="badge-status me-2">MRID</span>
-                            <span class="fw-semibold text-primary" style="font-size: 0.8rem;">{{ item.cmr_mrid }}</span>
-                        </div>
-                        <div class="d-flex align-items-center mb-1">
-                            <span class="badge-status me-2">TRBL</span>
-                            <span class="fw-semibold text-danger" style="font-size: 0.8rem;">{{ item.cmr_trbl1_code }}</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <span class="badge-status me-2">MODE</span>
-                            <span class="fw-semibold text-success" style="font-size: 0.8rem;">{{ item.read_method }}</span>
-                        </div>
-                    </td>
-                    
-                    <td>
-                        <div class="mb-2">
-                            {% if item.kategori_anomali == 'ZERO' %}
-                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle">Pemakaian 0</span>
-                            {% elif item.kategori_anomali == 'EKSTREM' %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle" style="color: #b45309 !important;">Naik Ekstrem</span>
-                            {% elif item.kategori_anomali == 'MINUS' %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle">Minus</span>
-                            {% else %}
-                                <span class="badge bg-info bg-opacity-10 text-info border border-info-subtle">Turun Ekstrem</span>
-                            {% endif %}
-                        </div>
-                        <div class="input-group input-group-sm">
-                            <input type="text" class="form-control input-analisa" id="catatan_{{ item.nomen }}" value="{{ item.catatan }}" placeholder="Tulis hasil analisa...">
-                            <button class="btn btn-save-note" onclick="simpanCatatan('{{ item.nomen }}', '{{ periode_aktif }}')" title="Simpan Catatan">
-                                <i class="fa-solid fa-check"></i>
-                            </button>
-                        </div>
-                        <small id="alert_{{ item.nomen }}" class="d-none fw-bold mt-1 text-success d-block" style="font-size: 0.7rem;"><i class="fa-solid fa-circle-check me-1"></i>Tersimpan</small>
-                    </td>
+                            
+                            <form hx-post="/sbrs/save-catatan" hx-swap="none"
+                                  @htmx:after-request="if(event.detail.xhr.status == 200) { status = 'Tersimpan'; clearTimeout(timeout); timeout = setTimeout(() => status='', 3000); } else { alert('Gagal Simpan') }">
+                                <input type="hidden" name="nomen" value="{{ item.nomen }}">
+                                <input type="hidden" name="periode" value="{{ periode_aktif }}">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" name="catatan" class="form-control input-analisa" value="{{ item.catatan }}" placeholder="Tulis hasil analisa...">
+                                    <button type="submit" class="btn btn-save-note" title="Simpan Catatan">
+                                        <i class="fa-solid fa-check"></i>
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <small x-show="status === 'Tersimpan'" x-transition class="fw-bold mt-1 text-success d-block" style="font-size: 0.7rem;">
+                                <i class="fa-solid fa-circle-check me-1"></i>Tersimpan
+                            </small>
+                        </td>
 
-                    <td class="text-center pe-4">
-                        {% if item.status_audit == 1 %}
-                            <div class="badge bg-success bg-opacity-10 text-success border border-success-subtle w-100 py-2 mb-2" style="font-weight: 600;">
-                                <i class="fa-solid fa-shield-check me-1"></i> Telah Diaudit
-                            </div>
-                        {% else %}
-                            <div class="badge bg-light text-muted border w-100 py-2 mb-2" style="font-weight: 500;">
-                                Menunggu Audit
-                            </div>
-                        {% endif %}
-                        <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-outline-primary w-100" style="font-weight: 600;">
-                            <i class="fa-solid fa-clipboard-list me-1"></i> Lapor
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center py-5">
-                        <i class="fa-solid fa-folder-open fa-3x mb-3 text-muted opacity-25"></i>
-                        <h6 class="fw-bold text-dark">Data Tidak Ditemukan</h6>
-                        <p class="small text-muted mb-3">Sesuaikan filter siklus atau kategori anomali Anda.</p>
-                        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}" class="btn btn-sm btn-primary px-4 rounded-pill">Reset Filter</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        <td class="text-center pe-4">
+                            {% if item.status_audit == 1 %}
+                                <div class="badge bg-success bg-opacity-10 text-success border border-success-subtle w-100 py-2 mb-2" style="font-weight: 600;">
+                                    <i class="fa-solid fa-shield-check me-1"></i> Telah Diaudit
+                                </div>
+                            {% else %}
+                                <div class="badge bg-light text-muted border w-100 py-2 mb-2" style="font-weight: 500;">
+                                    Menunggu Audit
+                                </div>
+                            {% endif %}
+                            <a href="/lapor?nomen={{ item.nomen }}&sumber=SBRS&periode={{ periode_aktif }}" class="btn btn-sm btn-outline-primary w-100" style="font-weight: 600;">
+                                <i class="fa-solid fa-clipboard-list me-1"></i> Lapor
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="fa-solid fa-folder-open fa-3x mb-3 text-muted opacity-25"></i>
+                            <h6 class="fw-bold text-dark">Data Tidak Ditemukan</h6>
+                            <p class="small text-muted mb-3">Sesuaikan filter siklus atau kategori anomali Anda.</p>
+                            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}" class="btn btn-sm btn-primary px-4 rounded-pill">Reset Filter</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <div class="modal fade modal-modern" id="modalCid" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            
             <div class="modal-header">
                 <h5 class="modal-title d-flex align-items-center gap-2">
                     <i class="fa-solid fa-microscope text-primary"></i> 
@@ -412,131 +354,30 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td class="col-header ps-3" colspan="4"><i class="fa-solid fa-gears me-2"></i> Data Teknis & Administratif</td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Tarif Golongan</td>
-                                    <td class="text-center" id="t_tarif_h2"></td>
-                                    <td class="text-center" id="t_tarif_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_tarif_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Nomor Seri Meter</td>
-                                    <td class="text-center" id="t_mtrnum_h2"></td>
-                                    <td class="text-center" id="t_mtrnum_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_mtrnum_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Siklus (Cycle)</td>
-                                    <td class="text-center" id="t_cycle_h2"></td>
-                                    <td class="text-center" id="t_cycle_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_cycle_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Metode Baca</td>
-                                    <td class="text-center" id="t_method_h2"></td>
-                                    <td class="text-center" id="t_method_h1"></td>
-                                    <td class="text-center fw-bold bg-success bg-opacity-10 text-success" id="t_method_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Kode Trouble (TRBL)</td>
-                                    <td class="text-center text-danger" id="t_trbl_h2"></td>
-                                    <td class="text-center text-danger" id="t_trbl_h1"></td>
-                                    <td class="text-center fw-bold bg-danger bg-opacity-10 text-danger" id="t_trbl_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Pesan Khusus (Spcl Msg)</td>
-                                    <td class="text-center text-warning" style="color: #b45309 !important;" id="t_spcl_h2"></td>
-                                    <td class="text-center text-warning" style="color: #b45309 !important;" id="t_spcl_h1"></td>
-                                    <td class="text-center fw-bold bg-warning bg-opacity-10 text-warning" style="color: #b45309 !important;" id="t_spcl_kini"></td>
-                                </tr>
+                                <tr><td class="col-header ps-3" colspan="4"><i class="fa-solid fa-gears me-2"></i> Data Teknis & Administratif</td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Tarif Golongan</td><td class="text-center" id="t_tarif_h2"></td><td class="text-center" id="t_tarif_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_tarif_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Nomor Seri Meter</td><td class="text-center" id="t_mtrnum_h2"></td><td class="text-center" id="t_mtrnum_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_mtrnum_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Siklus (Cycle)</td><td class="text-center" id="t_cycle_h2"></td><td class="text-center" id="t_cycle_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_cycle_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Metode Baca</td><td class="text-center" id="t_method_h2"></td><td class="text-center" id="t_method_h1"></td><td class="text-center fw-bold bg-success bg-opacity-10 text-success" id="t_method_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Kode Trouble</td><td class="text-center text-danger" id="t_trbl_h2"></td><td class="text-center text-danger" id="t_trbl_h1"></td><td class="text-center fw-bold bg-danger bg-opacity-10 text-danger" id="t_trbl_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Pesan Khusus</td><td class="text-center text-warning" style="color: #b45309 !important;" id="t_spcl_h2"></td><td class="text-center text-warning" style="color: #b45309 !important;" id="t_spcl_h1"></td><td class="text-center fw-bold bg-warning bg-opacity-10 text-warning" style="color: #b45309 !important;" id="t_spcl_kini"></td></tr>
                                 
-                                <tr>
-                                    <td class="col-header ps-3" colspan="4"><i class="fa-solid fa-gauge-high me-2"></i> Indeks Pembacaan Stand</td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Kode Lokasi Meter</td>
-                                    <td class="text-center" id="t_loc_h2"></td>
-                                    <td class="text-center" id="t_loc_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_loc_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Durasi Hari Baca</td>
-                                    <td class="text-center" id="t_hb_h2"></td>
-                                    <td class="text-center" id="t_hb_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_hb_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Stand Awal (Lapangan)</td>
-                                    <td class="text-center" id="t_pr1_h2"></td>
-                                    <td class="text-center" id="t_pr1_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_pr1_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Stand Akhir (Lapangan)</td>
-                                    <td class="text-center" id="t_cr1_h2"></td>
-                                    <td class="text-center" id="t_cr1_h1"></td>
-                                    <td class="text-center fw-bold bg-success bg-opacity-10 text-success" id="t_cr1_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Stand Awal (Sistem Pusat)</td>
-                                    <td class="text-center text-secondary" id="t_cpr_h2"></td>
-                                    <td class="text-center text-secondary" id="t_cpr_h1"></td>
-                                    <td class="text-center fw-bold bg-light text-secondary" id="t_cpr_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Stand Akhir (Sistem Pusat)</td>
-                                    <td class="text-center text-secondary" id="t_cr_h2"></td>
-                                    <td class="text-center text-secondary" id="t_cr_h1"></td>
-                                    <td class="text-center fw-bold bg-light text-secondary" id="t_cr_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Stand Cetak Tagihan</td>
-                                    <td class="text-center" id="t_sb_h2"></td>
-                                    <td class="text-center" id="t_sb_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_sb_kini"></td>
-                                </tr>
+                                <tr><td class="col-header ps-3" colspan="4"><i class="fa-solid fa-gauge-high me-2"></i> Indeks Pembacaan Stand</td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Kode Lokasi Meter</td><td class="text-center" id="t_loc_h2"></td><td class="text-center" id="t_loc_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_loc_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Durasi Hari Baca</td><td class="text-center" id="t_hb_h2"></td><td class="text-center" id="t_hb_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_hb_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Stand Awal (Lap)</td><td class="text-center" id="t_pr1_h2"></td><td class="text-center" id="t_pr1_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_pr1_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Stand Akhir (Lap)</td><td class="text-center" id="t_cr1_h2"></td><td class="text-center" id="t_cr1_h1"></td><td class="text-center fw-bold bg-success bg-opacity-10 text-success" id="t_cr1_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Stand Awal (Sistem)</td><td class="text-center text-secondary" id="t_cpr_h2"></td><td class="text-center text-secondary" id="t_cpr_h1"></td><td class="text-center fw-bold bg-light text-secondary" id="t_cpr_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Stand Akhir (Sistem)</td><td class="text-center text-secondary" id="t_cr_h2"></td><td class="text-center text-secondary" id="t_cr_h1"></td><td class="text-center fw-bold bg-light text-secondary" id="t_cr_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Stand Cetak Tagihan</td><td class="text-center" id="t_sb_h2"></td><td class="text-center" id="t_sb_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="t_sb_kini"></td></tr>
                                 
-                                <tr>
-                                    <td class="col-header ps-3" colspan="4"><i class="fa-solid fa-chart-area me-2"></i> Metrik Volume & Tagihan</td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Volume Lapangan</td>
-                                    <td class="text-center" id="v_lap_h2"></td>
-                                    <td class="text-center" id="v_lap_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="v_lap_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Volume Sistem Pusat</td>
-                                    <td class="text-center" id="v_pus_h2"></td>
-                                    <td class="text-center" id="v_pus_h1"></td>
-                                    <td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="v_pus_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Volume Cetak Tagihan</td>
-                                    <td class="text-center text-success" id="v_cet_h2"></td>
-                                    <td class="text-center text-success" id="v_cet_h1"></td>
-                                    <td class="text-center fw-bold bg-success bg-opacity-10 text-success fs-6" id="v_cet_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Volume Rata-rata Lalu</td>
-                                    <td class="text-center text-secondary" id="v_lalu_h2"></td>
-                                    <td class="text-center text-secondary" id="v_lalu_h1"></td>
-                                    <td class="text-center fw-bold bg-light text-secondary" id="v_lalu_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Nominal Tagihan (Rp)</td>
-                                    <td class="text-end pe-4 text-danger" id="t_bill_h2"></td>
-                                    <td class="text-end pe-4 text-danger" id="t_bill_h1"></td>
-                                    <td class="text-end pe-4 fw-bold bg-danger bg-opacity-10 text-danger" id="t_bill_kini"></td>
-                                </tr>
-                                <tr>
-                                    <td class="ps-4 fw-semibold text-muted">Nominal Pembayaran (Rp)</td>
-                                    <td class="text-end pe-4 text-success" id="t_pay_h2"></td>
-                                    <td class="text-end pe-4 text-success" id="t_pay_h1"></td>
-                                    <td class="text-end pe-4 fw-bold bg-success bg-opacity-10 text-success" id="t_pay_kini"></td>
-                                </tr>
+                                <tr><td class="col-header ps-3" colspan="4"><i class="fa-solid fa-chart-area me-2"></i> Metrik Volume & Tagihan</td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Volume Lapangan</td><td class="text-center" id="v_lap_h2"></td><td class="text-center" id="v_lap_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="v_lap_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Volume Sistem Pusat</td><td class="text-center" id="v_pus_h2"></td><td class="text-center" id="v_pus_h1"></td><td class="text-center fw-bold bg-primary bg-opacity-10 text-primary" id="v_pus_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Volume Cetak Tagihan</td><td class="text-center text-success" id="v_cet_h2"></td><td class="text-center text-success" id="v_cet_h1"></td><td class="text-center fw-bold bg-success bg-opacity-10 text-success fs-6" id="v_cet_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Volume Rata-rata Lalu</td><td class="text-center text-secondary" id="v_lalu_h2"></td><td class="text-center text-secondary" id="v_lalu_h1"></td><td class="text-center fw-bold bg-light text-secondary" id="v_lalu_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Nominal Tagihan (Rp)</td><td class="text-end pe-4 text-danger" id="t_bill_h2"></td><td class="text-end pe-4 text-danger" id="t_bill_h1"></td><td class="text-end pe-4 fw-bold bg-danger bg-opacity-10 text-danger" id="t_bill_kini"></td></tr>
+                                <tr><td class="ps-4 fw-semibold text-muted">Nominal Pembayaran</td><td class="text-end pe-4 text-success" id="t_pay_h2"></td><td class="text-end pe-4 text-success" id="t_pay_h1"></td><td class="text-end pe-4 fw-bold bg-success bg-opacity-10 text-success" id="t_pay_kini"></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -551,7 +392,6 @@
 </div>
 
 <script>
-// SEMUA FUNGSI JAVASCRIPT TETAP UTUH (100% SAMA), HANYA GANTI TEMA ALERT
 function formatRupiah(angka) {
     let number = parseFloat(angka);
     if(isNaN(number)) return "Rp 0";
@@ -653,34 +493,6 @@ function openCidDetail(info) {
     myModal.show();
 }
 
-function simpanCatatan(nomen, periode) {
-    const catatan = document.getElementById('catatan_' + nomen).value;
-    const alertMsg = document.getElementById('alert_' + nomen);
-    
-    fetch('/sbrs/save-catatan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nomen: nomen, periode: periode, catatan: catatan })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.status === 'success') {
-            alertMsg.classList.remove('d-none');
-            setTimeout(() => { alertMsg.classList.add('d-none'); }, 3000);
-        } else {
-            // Updated to modern SWAL theme
-            Swal.fire({
-                background: '#ffffff',
-                color: '#0f172a',
-                icon: 'error',
-                title: 'Gagal Menyimpan',
-                text: "Pesan: " + data.message,
-                confirmButtonColor: '#ef4444',
-                customClass: { popup: 'border-0 rounded-4 shadow-lg' }
-            });
-        }
-    })
-    .catch(error => console.error('Error:', error));
-}
+// Fungsi simpanCatatan() telah dihapus karena fungsinya kini dikerjakan otomatis oleh HTMX & Alpine.js di HTML
 </script>
 {% endblock %}
