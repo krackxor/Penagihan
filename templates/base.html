@@ -3,295 +3,258 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}BAAE Nexus | Auto Analytic Engine{% endblock %}</title>
+    <title>{% block title %}BAAE Nexus | Tactical Engine{% endblock %}</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;600;700&display=swap" rel="stylesheet">
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
         /* ==========================================================
-           CORE THEME: DEEP SLATE & HACKER-VERCEL
+           1. ROOT & AMBIENT (Vercel Void + Hacker Grid)
            ========================================================== */
         :root {
-            /* Vercel Dark Mode Palette + Muted Cyber Accents */
-            --bg-dark: #000000;         /* Hitam murni Vercel */
-            --slate-deep: #020617;     /* Slate 950 */
-            --panel-bg: rgba(10, 10, 10, 0.7); /* Deep glass */
-            --border-color: #1e293b;   /* Slate 800 */
-            --text-main: #ededed;       /* White Vercel */
-            --text-muted: #888888;      /* Gray Vercel */
-            
-            /* Hacker Muted Neon */
-            --accent-cyber: #38bdf8;   /* Sky Blue */
-            --accent-hacker: #a5f3fc;  /* Cyan Light */
-            --accent-lapor: #e11d48;   /* Crimson */
+            --void-bg: #050505;
+            --glass-bg: rgba(15, 15, 15, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --neon-cyan: #00f0ff;
+            --neon-crimson: #ff0055;
+            --text-main: #f8fafc;
+            --text-dim: #737373;
+            --terminal-green: #00ff66;
         }
 
         body {
-            font-family: 'Inter', -apple-system, system-ui, sans-serif;
-            background-color: var(--bg-dark);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--void-bg);
             color: var(--text-main);
-            padding-bottom: 110px; /* Space for nav */
+            padding-bottom: 120px;
             overflow-x: hidden;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            
-            /* Subtle Grid Background - Hacker/Tech Feel */
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 50px 50px;
+            /* Pola Dotted Matrix sangat halus */
+            background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
 
-        /* Tipografi Taktis */
-        .font-mono { font-family: 'JetBrains Mono', monospace !important; }
-        .tabular-nums { font-variant-numeric: tabular-nums; } /* Buat angka di tabel */
+        .font-code { font-family: 'Fira Code', monospace !important; }
 
-        /* Custom Scrollbar - Minimalis Vercel */
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: var(--bg-dark); }
-        ::-webkit-scrollbar-thumb { background: #333333; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: var(--void-bg); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 0; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
 
         /* ==========================================================
-           VERCEL-STYLE GLASS PANELS & UI
+           2. HUD HEADER (Floating Top Bar)
            ========================================================== */
-        .card, .bg-white, .bg-light, .table-container {
-            background: var(--panel-bg) !important;
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color) !important;
-            border-radius: 0.75rem !important; /* Presisi, tidak terlalu bulat */
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            color: var(--text-main) !important;
-        }
-        
-        /* Tactical Card Hover */
-        .card-baae:hover {
-            border-color: rgba(56, 189, 248, 0.3) !important;
-            box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.03) !important;
-            transform: translateY(-2px);
-        }
-
-        .text-dark { color: var(--text-main) !important; }
-        .text-muted { color: var(--text-muted) !important; }
-        
-        /* Clean Technical Inputs */
-        .form-control, .form-select {
-            background-color: rgba(15, 15, 15, 0.8) !important;
-            border: 1px solid var(--border-color) !important;
-            color: var(--text-main) !important;
-            border-radius: 0.5rem;
-            font-size: 0.85rem;
-            transition: all 0.2s ease;
-        }
-        .form-control:focus, .form-select:focus {
-            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.1) !important;
-            border-color: var(--accent-cyber) !important;
-            background-color: var(--bg-dark) !important;
-        }
-
-        /* Cleanest Table (Enterprise Tech) */
-        .table { color: var(--text-muted) !important; border-color: var(--border-color) !important; }
-        .table thead th { 
-            background: #0a0a0a !important; 
-            color: var(--text-main) !important; 
-            border-bottom: 2px solid var(--border-color) !important;
-            font-size: 0.7rem; 
-            font-weight: 700;
-            text-transform: uppercase; 
-            letter-spacing: 1px;
-            font-family: 'Inter', sans-serif;
-        }
-        .table tbody td { border-bottom: 1px solid rgba(255,255,255,0.02) !important; vertical-align: middle; }
-        .table tbody tr:hover td { background: rgba(56, 189, 248, 0.02) !important; }
-
-        /* ==========================================================
-           SYSTEM HEADER
-           ========================================================== */
-        .nexus-header {
-            padding: 0.75rem 1.5rem;
+        .hud-header {
+            margin: 15px;
+            padding: 10px 20px;
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(10px);
-            position: sticky; top: 0; z-index: 50;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            /* Potongan Tech di sudut kiri atas dan kanan bawah */
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+            position: sticky; top: 15px; z-index: 50;
         }
-        .brand-wrapper { display: flex; align-items: center; gap: 12px; }
-        .brand-icon {
-            width: 35px; height: 35px;
-            display: flex; align-items: center; justify-content: center;
-            border: 1px solid var(--accent-cyber);
-            background: rgba(56, 189, 248, 0.05);
-            border-radius: 8px;
-            color: var(--accent-cyber);
+        
+        .hud-brand {
             font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            display: flex; align-items: center; gap: 10px;
         }
-        .brand-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--text-main);
-            margin: 0;
-            letter-spacing: 1.5px;
-        }
-
-        .system-status {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.65rem;
-            font-weight: 600;
-            color: var(--accent-cyber);
-            background: rgba(56, 189, 248, 0.05);
-            border: 1px solid rgba(56, 189, 248, 0.1);
-            padding: 4px 12px;
-            border-radius: 4px;
-            letter-spacing: 1.5px;
-            animation: text-pulse 2s infinite;
-        }
-        @keyframes text-pulse {
-            0% { opacity: 0.8; }
-            50% { opacity: 1; text-shadow: 0 0 5px rgba(56, 189, 248, 0.5); }
-            100% { opacity: 0.8; }
-        }
-
-        /* ==========================================================
-           ULTRA-SLEEK BOTTOM NAV (5 ELEMENTS)
-           ========================================================== */
-        .bottom-nav {
-            position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%);
-            width: 95%; max-width: 440px; /* Ramping presisi */
-            background: #0a0a0a; /* Vercel Dark Solid */
-            border: 1px solid var(--border-color);
-            border-radius: 50px; /* Vercel Pill Shape */
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0.5rem 0.6rem;
-            z-index: 9999; 
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(20px);
+        .brand-box {
+            background: var(--text-main); color: var(--void-bg);
+            padding: 2px 8px; font-weight: 800; font-size: 0.75rem;
         }
         
-        /* 5 Menu Items */
-        .nav-item {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            text-align: center; color: var(--text-muted);
-            font-size: 0.6rem; font-weight: 600; text-decoration: none;
-            cursor: pointer; width: 68px; padding: 0.4rem 0;
-            border-radius: 50px; transition: all 0.2s;
+        .sys-status {
+            font-size: 0.65rem; color: var(--terminal-green);
+            display: flex; align-items: center; gap: 8px;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .blink-dot {
+            width: 6px; height: 6px; background: var(--terminal-green);
+            box-shadow: 0 0 10px var(--terminal-green);
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* ==========================================================
+           3. TACTICAL DECK (Bottom Navigation)
+           ========================================================== */
+        .deck-wrapper {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 95%; max-width: 460px;
+            z-index: 9999;
+            /* Efek bracket penargetan di luar Nav */
+            filter: drop-shadow(0 15px 30px rgba(0,0,0,0.8));
+        }
+        
+        /* The Nav Console Shape */
+        .tactical-deck {
+            background: rgba(8, 8, 8, 0.85);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+            /* Potongan Cyberpunk di 4 sudut */
+            clip-path: polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%, 0 15px);
+            display: flex; justify-content: space-between; align-items: flex-end;
+            padding: 5px 15px; height: 65px;
             position: relative;
         }
-        .nav-item i { font-size: 1.15rem; margin-bottom: 4px; transition: color 0.2s; }
-        
-        /* Hover Vercel Clean */
-        .nav-item:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.04); }
-        
-        /* Active State (Muted Cyber Glow) */
-        .nav-item.active { color: var(--text-main); }
-        .nav-item.active i { 
-            color: var(--accent-hacker); 
-            text-shadow: 0 0 10px rgba(165, 243, 252, 0.7); 
-        }
-        .nav-item.active span {
-            color: var(--text-main);
-            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+
+        /* Garis aksen Cyberpunk di atas Nav */
+        .deck-accent {
+            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 100px; height: 2px; background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
         }
 
-        /* Hacker Floating Button (Crimson Accent) */
-        .fab-wrapper { transform: translateY(-16px); width: 50px; }
-        .fab-shadow { filter: drop-shadow(0 5px 15px rgba(225, 29, 72, 0.3)); }
-        .fab-btn {
-            background: #000;
-            width: 50px; height: 50px;
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-dim); text-decoration: none; cursor: pointer;
+            width: 60px; height: 55px; position: relative; transition: all 0.3s;
+        }
+        .nav-item i { font-size: 1.1rem; margin-bottom: 4px; transition: all 0.3s; }
+        .nav-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .nav-item:hover { color: var(--text-main); }
+        
+        /* Active State: "Targeting Brackets" & Glitch Glow */
+        .nav-item.active { color: var(--neon-cyan); }
+        .nav-item.active i {
+            transform: scale(1.1);
+            text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+        }
+        /* Bracket Kiri Kanan [ icon ] */
+        .nav-item.active::before {
+            content: '['; position: absolute; left: 5px; top: 8px; font-family: 'Fira Code', monospace;
+            color: var(--neon-cyan); opacity: 0.7; font-size: 1rem;
+        }
+        .nav-item.active::after {
+            content: ']'; position: absolute; right: 5px; top: 8px; font-family: 'Fira Code', monospace;
+            color: var(--neon-cyan); opacity: 0.7; font-size: 1rem;
+        }
+
+        /* 4. THE CORE (Center Action Button) */
+        .core-wrapper {
+            position: relative; width: 70px; height: 80px;
             display: flex; align-items: center; justify-content: center;
-            margin: 0 auto;
-            color: var(--accent-lapor);
-            border: 2px solid var(--accent-lapor);
-            /* Chamfered Hacker Shape */
-            clip-path: polygon(20% 0%, 100% 0, 100% 80%, 80% 100%, 0 100%, 0% 20%);
-            transition: all 0.3s;
+            transform: translateY(-20px);
         }
-        .fab-btn i { font-size: 1.3rem; margin: 0; }
-        .nav-item.active .fab-btn {
-            background: rgba(225, 29, 72, 0.15);
-            box-shadow: inset 0 0 15px rgba(225, 29, 72, 0.3);
-            color: #fff;
-            text-shadow: 0 0 8px #fff;
+        .core-btn {
+            width: 55px; height: 55px;
+            background: var(--void-bg);
+            border: 2px solid var(--neon-crimson);
+            color: var(--neon-crimson);
+            display: flex; align-items: center; justify-content: center;
+            /* Hexagon Shape */
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: inset 0 0 15px rgba(255, 0, 85, 0.2);
         }
+        .core-btn i { font-size: 1.4rem; margin: 0; }
+        
+        .nav-item.active .core-btn, .core-wrapper:hover .core-btn {
+            background: rgba(255, 0, 85, 0.1);
+            transform: scale(1.1) rotate(90deg); /* Animasi mekanik */
+            box-shadow: inset 0 0 20px rgba(255, 0, 85, 0.5);
+            color: #fff; text-shadow: 0 0 10px #fff;
+        }
+        .nav-item.active .core-btn i, .core-wrapper:hover .core-btn i { transform: rotate(-90deg); } /* Ikon tetap lurus */
 
         /* ==========================================================
-           HUD OPERATING OVERLAYS (HACKER TERMINAL)
+           5. TERMINAL MENUS (Hacker Style Popups)
            ========================================================== */
-        .actions-overlay {
-            position: fixed; bottom: 105px; left: 50%; transform: translateX(-50%) translateY(10px) scale(0.95);
-            width: 260px;
-            background: #0a0a0a; /* Solid Vercel Dark */
-            border: 1px solid var(--border-color);
-            border-top: 3px solid var(--accent-cyber); /* HUD Line Top */
-            border-radius: 8px; /* Sudut taktis kaku */
-            padding: 8px; z-index: 10000; opacity: 0; pointer-events: none;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-        }
-        .actions-overlay.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0) scale(1); }
-        
-        .menu-title { 
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.65rem; font-weight: 700; color: var(--accent-cyber); 
-            text-transform: uppercase; letter-spacing: 2px;
-            padding: 8px 12px; margin-bottom: 4px;
-            border-bottom: 1px dashed var(--border-color);
-        }
-        
-        .sub-item {
-            display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-            text-decoration: none; border-radius: 4px; transition: background 0.2s;
-        }
-        .sub-item:hover { background: rgba(56, 189, 248, 0.04); }
-        
-        .sub-icon {
-            width: 32px; height: 32px;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-color);
+        .terminal-menu {
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) scale(0.9);
+            width: 280px;
+            background: rgba(5, 5, 5, 0.95);
+            border: 1px solid #333;
             border-radius: 6px;
-            color: var(--text-muted);
-            font-size: 0.95rem;
+            z-index: 10000; opacity: 0; pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
         }
-        .sub-item:hover .sub-icon { 
-            color: var(--accent-hacker); 
-            border-color: rgba(165, 243, 252, 0.3); 
-            background: rgba(165, 243, 252, 0.1); 
-            text-shadow: 0 0 10px rgba(165, 243, 252, 0.7);
-        }
+        .terminal-menu.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1); }
         
-        .sub-text-wrapper { display: flex; flex-direction: column; }
-        .sub-title { font-size: 0.8rem; font-weight: 500; color: var(--text-main); }
-        .sub-desc { font-size: 0.6rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+        /* Terminal Header (Mac/Linux Style) */
+        .term-header {
+            background: #111; padding: 6px 12px;
+            display: flex; align-items: center; border-bottom: 1px solid #222;
+        }
+        .term-dots { display: flex; gap: 5px; flex: 1; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot-r { background: #ff5f56; } .dot-y { background: #ffbd2e; } .dot-g { background: #27c93f; }
+        .term-title { font-size: 0.6rem; color: #666; font-family: 'Fira Code', monospace; flex: 2; text-align: center; letter-spacing: 1px; }
+        
+        .term-body { padding: 8px; }
+        .term-item {
+            display: flex; align-items: center; gap: 12px; padding: 10px;
+            text-decoration: none; color: var(--text-dim);
+            transition: all 0.2s; border-left: 2px solid transparent;
+        }
+        .term-item i { width: 20px; text-align: center; font-size: 0.9rem; }
+        .term-text { display: flex; flex-direction: column; }
+        .term-name { font-size: 0.75rem; font-weight: 600; color: #ccc; transition: all 0.2s;}
+        .term-cmd { font-family: 'Fira Code', monospace; font-size: 0.6rem; color: #555; margin-top: 2px; transition: all 0.2s;}
+        
+        /* Terminal Select Hover */
+        .term-item:hover { background: rgba(255,255,255,0.03); border-left-color: var(--neon-cyan); }
+        .term-item:hover .term-name { color: var(--text-main); }
+        .term-item:hover .term-cmd { color: var(--neon-cyan); }
+        
+        /* Simulating typing cursor on hover */
+        .term-item:hover .term-cmd::after {
+            content: '_'; animation: blink 1s step-end infinite; color: var(--neon-cyan);
+        }
 
         .menu-backdrop {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.6); z-index: 9998; opacity: 0; pointer-events: none;
-            transition: opacity 0.2s; backdrop-filter: blur(3px);
+            background: rgba(0, 0, 0, 0.7); z-index: 9998; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s; backdrop-filter: blur(2px);
         }
         .menu-backdrop.show { opacity: 1; pointer-events: auto; }
 
-        /* VERCEL CLEAN SPINNER */
+        /* ==========================================================
+           6. CONTENT CARDS & TABLES
+           ========================================================== */
+        .card, .bg-white, .bg-light, .table-container {
+            background: var(--glass-bg) !important;
+            border: 1px solid var(--glass-border) !important;
+            border-radius: 0.5rem !important; /* Tech square look */
+            color: var(--text-main) !important;
+        }
+        .form-control, .form-select {
+            background-color: #0a0a0a !important;
+            border: 1px solid #333 !important;
+            color: var(--text-main) !important;
+            border-radius: 0.25rem; font-family: 'Fira Code', monospace; font-size: 0.8rem;
+        }
+        .form-control:focus, .form-select:focus {
+            box-shadow: none !important; border-color: var(--neon-cyan) !important;
+        }
+
+        /* LOADING MODULE */
         #turbo-loader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-dark); display: none; z-index: 99999;
+            background: var(--void-bg); display: none; z-index: 99999;
             justify-content: center; align-items: center; flex-direction: column;
         }
-        .vercel-spinner {
-            width: 40px; height: 40px;
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top-color: var(--text-main);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        .cyber-ring {
+            width: 50px; height: 50px; border: 2px dashed #333; border-top: 2px solid var(--neon-cyan);
+            border-radius: 50%; animation: spin 2s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -299,127 +262,136 @@
 
     <div id="backdrop" class="menu-backdrop" onclick="closeAllMenus()"></div>
     
-    <div id="sbrsMenu" class="actions-overlay">
-        <div class="menu-title">ANALYSIS_TERMINAL</div>
-        <a href="/sbrs/summary" class="sub-item">
-            <div class="sub-icon"><i class="fa-solid fa-radar"></i></div>
-            <div class="sub-text-wrapper">
-                <span class="sub-title">Anomali Summary</span>
-                <span class="sub-desc">> EXEC_AGGREGATE_DATA</span>
-            </div>
-        </a>
-        <a href="/sbrs/analisa" class="sub-item mt-1">
-            <div class="sub-icon"><i class="fa-solid fa-crosshairs"></i></div>
-            <div class="sub-text-wrapper">
-                <span class="sub-title">Intelligence Analisa</span>
-                <span class="sub-desc">> TRACK_ANOMALIES_3M</span>
-            </div>
-        </a>
-    </div>
-
-    <div id="toolsMenu" class="actions-overlay">
-        <div class="menu-title">UTILITIES_DECODER</div>
-        <a href="/tools/ocr/" class="sub-item">
-            <div class="sub-icon"><i class="fa-solid fa-fingerprint"></i></div>
-            <div class="sub-text-wrapper">
-                <span class="sub-title">Image OCR Engine</span>
-                <span class="sub-desc">> EXTRACT_TEXT_FROM_IMG</span>
-            </div>
-        </a>
-        <a href="/tools/converter/" class="sub-item mt-1">
-            <div class="sub-icon"><i class="fa-solid fa-file-code"></i></div>
-            <div class="sub-text-wrapper">
-                <span class="sub-title">Format Override</span>
-                <span class="sub-desc">> DATA_CONVERSION_PROTOCOL</span>
-            </div>
-        </a>
-    </div>
-
-    <div id="adminMenu" class="actions-overlay">
-        <div class="menu-title">COMMAND_CENTER</div>
-        <a href="/upload" class="sub-item">
-            <div class="sub-icon"><i class="fa-solid fa-network-wired"></i></div>
-            <div class="sub-text-wrapper">
-                <span class="sub-title">Database Sync</span>
-                <span class="sub-desc">> UPLOAD_CID_TARGET</span>
-            </div>
-        </a>
-        <a href="/admin/database" class="sub-item mt-1">
-            <div class="sub-icon"><i class="fa-solid fa-server"></i></div>
-            <div class="sub-text-wrapper">
-                <span class="sub-title">Core Override</span>
-                <span class="sub-desc">> DB_MAINTENANCE_LOG</span>
-            </div>
-        </a>
-    </div>
-
-    <header class="nexus-header">
-        <div class="brand-wrapper">
-            <div class="brand-icon"><i class="fa-solid fa-layer-group"></i></div>
-            <h1 class="brand-title">BAAE_NEXUS</h1>
+    <div id="sbrsMenu" class="terminal-menu">
+        <div class="term-header">
+            <div class="term-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+            <div class="term-title">bash - analytic</div>
+            <div style="flex:1;"></div>
         </div>
-        <div class="system-status">
-            SYS.SECURE
+        <div class="term-body">
+            <a href="/sbrs/summary" class="term-item">
+                <i class="fa-solid fa-chart-pie"></i>
+                <div class="term-text">
+                    <span class="term-name">Executive Summary</span>
+                    <span class="term-cmd">$ get --aggregate</span>
+                </div>
+            </a>
+            <a href="/sbrs/analisa" class="term-item">
+                <i class="fa-solid fa-microscope"></i>
+                <div class="term-text">
+                    <span class="term-name">Target Investigation</span>
+                    <span class="term-cmd">$ trace --anomaly</span>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div id="toolsMenu" class="terminal-menu">
+        <div class="term-header">
+            <div class="term-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+            <div class="term-title">bash - utilities</div>
+            <div style="flex:1;"></div>
+        </div>
+        <div class="term-body">
+            <a href="/tools/ocr/" class="term-item">
+                <i class="fa-solid fa-eye"></i>
+                <div class="term-text">
+                    <span class="term-name">Optical Engine</span>
+                    <span class="term-cmd">$ decode --image</span>
+                </div>
+            </a>
+            <a href="/tools/converter/" class="term-item">
+                <i class="fa-solid fa-file-code"></i>
+                <div class="term-text">
+                    <span class="term-name">Format Override</span>
+                    <span class="term-cmd">$ convert --force</span>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div id="adminMenu" class="terminal-menu">
+        <div class="term-header">
+            <div class="term-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+            <div class="term-title">bash - root@baae</div>
+            <div style="flex:1;"></div>
+        </div>
+        <div class="term-body">
+            <a href="/upload" class="term-item">
+                <i class="fa-solid fa-server"></i>
+                <div class="term-text">
+                    <span class="term-name">Database Sync</span>
+                    <span class="term-cmd">$ sync --target db</span>
+                </div>
+            </a>
+            <a href="/admin/database" class="term-item">
+                <i class="fa-solid fa-shield-virus"></i>
+                <div class="term-text">
+                    <span class="term-name">Core Maintenance</span>
+                    <span class="term-cmd">$ sudo override</span>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <header class="hud-header">
+        <div class="hud-brand font-code">
+            <span class="brand-box">BAAE</span> <span style="color: var(--neon-cyan);">NEXUS</span>
+        </div>
+        <div class="sys-status font-code">
+            <div class="blink-dot"></div> ROOT_SECURE
         </div>
     </header>
 
-    <main class="container py-4 mb-4" style="position: relative; z-index: 1;">
+    <main class="container py-3 mb-4" style="position: relative; z-index: 1;">
         {% block content %}{% endblock %}
     </main>
 
     <div id="turbo-loader">
-        <div class="vercel-spinner mb-3"></div>
-        <p class="font-mono" style="font-size: 0.75rem; color: var(--text-muted); letter-spacing: 2px;">Establishing connection...</p>
+        <div class="cyber-ring mb-4"></div>
+        <p class="font-code" style="font-size: 0.75rem; color: #555;">[ INITIALIZING PROTOCOLS ]</p>
     </div>
 
-    <footer class="footer" style="position: relative; z-index: 1; margin-top: auto; padding: 25px 0; border-top: 1px solid var(--border-color); background: rgba(10, 10, 10, 0.4);">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6 text-center text-md-start">
-                    <p class="mb-0 font-mono" style="color: var(--text-muted); font-size: 0.75rem;">© 2026 // KHOIRUL ANWAR // BAAE_SYSTEM</p>
-                </div>
-                <div class="col-md-6 text-center text-md-end mt-2 mt-md-0">
-                    <span class="font-mono text-muted" style="font-size: 0.7rem; background: rgba(255,255,255,0.02); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">ENGINE v14.0</span>
-                </div>
-            </div>
-        </div>
+    <footer class="text-center pb-5 pt-3" style="position: relative; z-index: 1;">
+        <span class="font-code" style="font-size: 0.6rem; color: #444;">BAAE_SYSTEM v14.0 // KHOIRUL ANWAR</span>
     </footer>
 
-    <nav class="bottom-nav">
-        <a href="/monitoring/" class="nav-item {% if request.path == '/monitoring/' or request.path == '/' %}active{% endif %}">
-            <i class="fa-solid fa-satellite-dish"></i>
-            <span>Radar</span>
-        </a>
-        
-        <div class="nav-item {% if request.path.startswith('/sbrs') %}active{% endif %}" onclick="toggleMenu('sbrsMenu')">
-            <i class="fa-solid fa-chart-line"></i>
-            <span>Analytic</span>
-        </div>
-        
-        <a href="/lapor" class="nav-item fab-wrapper {% if request.path == '/lapor' %}active{% endif %}">
-            <div class="fab-shadow">
-                <div class="fab-btn">
+    <div class="deck-wrapper">
+        <nav class="tactical-deck">
+            <div class="deck-accent"></div>
+            
+            <a href="/monitoring/" class="nav-item {% if request.path == '/monitoring/' or request.path == '/' %}active{% endif %}">
+                <i class="fa-solid fa-satellite-dish"></i>
+                <span class="nav-label font-code">Radar</span>
+            </a>
+            
+            <div class="nav-item {% if request.path.startswith('/sbrs') %}active{% endif %}" onclick="toggleMenu('sbrsMenu')">
+                <i class="fa-solid fa-chart-gantt"></i>
+                <span class="nav-label font-code">Data</span>
+            </div>
+            
+            <a href="/lapor" class="nav-item core-wrapper {% if request.path == '/lapor' %}active{% endif %}">
+                <div class="core-btn">
                     <i class="fa-solid fa-crosshairs"></i>
                 </div>
+                <span class="nav-label font-code mt-1" style="color: var(--neon-crimson);">Lapor</span>
+            </a>
+            
+            <div class="nav-item {% if request.path.startswith('/tools') %}active{% endif %}" onclick="toggleMenu('toolsMenu')">
+                <i class="fa-solid fa-terminal"></i>
+                <span class="nav-label font-code">Tools</span>
             </div>
-            <span style="color: var(--text-main); font-weight: 700; letter-spacing: 1px;">Target</span>
-        </a>
-        
-        <div class="nav-item {% if request.path.startswith('/tools') %}active{% endif %}" onclick="toggleMenu('toolsMenu')">
-            <i class="fa-solid fa-terminal"></i>
-            <span>Tools</span>
-        </div>
-        
-        <div class="nav-item {% if request.path.startswith('/admin') or request.path == '/upload' %}active{% endif %}" onclick="toggleMenu('adminMenu')">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>Admin</span>
-        </div>
-    </nav>
+            
+            <div class="nav-item {% if request.path.startswith('/admin') or request.path == '/upload' %}active{% endif %}" onclick="toggleMenu('adminMenu')">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span class="nav-label font-code">Admin</span>
+            </div>
+        </nav>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Logika Menu Clean-Hacker
         function closeAllMenus() {
             document.getElementById('sbrsMenu').classList.remove('show');
             document.getElementById('toolsMenu').classList.remove('show');
@@ -437,7 +409,6 @@
             }
         }
 
-        // Clean Loading Screen
         window.onbeforeunload = function() {
             document.getElementById('turbo-loader').style.display = 'flex';
         };
