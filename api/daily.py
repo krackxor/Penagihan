@@ -26,14 +26,16 @@ def parse_db_date(date_str):
     if len(date_str) >= 10 and date_str[4] == '-':
         try:
             return datetime.strptime(date_str[:10], '%Y-%m-%d')
-        except: pass
+        except ValueError:
+            pass
     
     # Deteksi Format DD/MM/YYYY atau lainnya menggunakan Pandas (Fallback)
     try:
         import pandas as pd
         dt = pd.to_datetime(date_str, dayfirst=True, errors='coerce')
         if pd.notnull(dt): return dt
-    except: pass
+    except Exception:
+        pass
     
     return None
 
@@ -51,7 +53,7 @@ def index():
         target_date = safe_month_math(curr_mon_date, 1)
         prev_target_date = safe_month_math(curr_mon_date, 2)
 
-        p_target = target_date.strftime('%Y%m')             
+        p_target = target_date.strftime('%Y%m')              
         p_prev_target = prev_target_date.strftime('%Y%m')   
 
         def get_mc_target(periode_rek):
@@ -119,7 +121,7 @@ def index():
         targets_prev = get_mc_target(p_prev_target)
         undue_prev, daily_prev = get_mb_processed(
             p_prev_target, 
-            target_date.month, target_date.year,           
+            target_date.month, target_date.year,            
             prev_target_date.month, prev_target_date.year  
         )
 
@@ -177,7 +179,9 @@ def index():
                                data=table_data, 
                                periode=curr_mon_date.strftime('%Y-%m'),
                                mon_name=curr_mon_date.strftime('%B %Y'),
-                               prev_mon_name=target_date.strftime('%B %Y'))
+                               prev_mon_name=target_date.strftime('%B %Y'),
+                               targets=targets_now, # Dikirim ke frontend
+                               undue=undue_now)     # Dikirim ke frontend
 
     except Exception as e:
         import traceback
