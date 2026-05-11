@@ -5,14 +5,15 @@ from sqlalchemy import inspect, text # Jantung Audit & Sinkronisasi Database
 
 # --- 1. IMPORT BLUEPRINTS ---
 from api.monitoring import monitoring_bp
-from api.daily import daily_bp  # <--- [BARU] Import Blueprint Daily Collection
+from api.daily import daily_bp  # Import Blueprint Daily Collection
 from api.importer import importer_bp
 from api.kunjungan import kunjungan_bp
 from api.sbrs import sbrs_bp 
 from api.top_500 import top_500_bp # Blueprint Top 500
 from api.admin import admin_bp # Blueprint Admin Control (V18)
 from api.ocr import ocr_bp # Blueprint Tools OCR
-from api.converter import converter_bp # Blueprint Konversi Dokumen (BARU)
+from api.converter import converter_bp # Blueprint Konversi Dokumen
+from api.optimizer import optimizer_bp # <--- [BARU] Blueprint Kompresi Gambar
 
 def sync_database_schema(app):
     """
@@ -161,14 +162,15 @@ def create_app():
 
     # --- 4. REGISTRASI MODUL (BLUEPRINTS) ---
     app_flask.register_blueprint(monitoring_bp, url_prefix='/monitoring')
-    app_flask.register_blueprint(daily_bp, url_prefix='/monitoring/daily') # <--- [BARU] Registrasi URL Daily
+    app_flask.register_blueprint(daily_bp, url_prefix='/monitoring/daily') 
     app_flask.register_blueprint(importer_bp, url_prefix='/api/import')
     app_flask.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
     app_flask.register_blueprint(sbrs_bp, url_prefix='/sbrs') 
     app_flask.register_blueprint(top_500_bp, url_prefix='/monitoring/top-500') 
     app_flask.register_blueprint(admin_bp, url_prefix='/admin')
-    app_flask.register_blueprint(ocr_bp, url_prefix='/tools/ocr') # Modul OCR
-    app_flask.register_blueprint(converter_bp, url_prefix='/tools/converter') # Modul Konversi (BARU)
+    app_flask.register_blueprint(ocr_bp, url_prefix='/tools/ocr')
+    app_flask.register_blueprint(converter_bp, url_prefix='/tools/converter')
+    app_flask.register_blueprint(optimizer_bp, url_prefix='/tools/optimizer') # <--- [BARU] Registrasi URL Optimizer
 
     # --- 5. NAVIGASI UTAMA (FIX 404 NOT FOUND) ---
     @app_flask.route('/')
