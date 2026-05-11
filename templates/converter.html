@@ -231,3 +231,65 @@
 
         try {
             const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                // Eksekusi Download Blob File
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // Ambil header Content-Disposition untuk nama file jika tersedia
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let fileName = 'BAAE_Converted_File'; 
+                if (contentDisposition) {
+                    const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                    if (fileNameMatch && fileNameMatch.length === 2) {
+                        fileName = fileNameMatch[1];
+                    }
+                }
+                
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                
+                Swal.fire({
+                    ...swalModern,
+                    icon: 'success',
+                    title: 'Konversi Berhasil',
+                    text: 'Dokumen berhasil diproses dan telah diunduh ke penyimpanan lokal Anda.',
+                    confirmButtonText: 'Selesai'
+                });
+                form.reset();
+            } else {
+                const result = await response.json();
+                Swal.fire({
+                    ...swalModern,
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444', // Danger Red
+                    title: 'Konversi Gagal',
+                    text: result.message || 'Terjadi kesalahan saat memproses file Anda.',
+                    confirmButtonText: 'Tutup'
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                ...swalModern,
+                icon: 'error',
+                confirmButtonColor: '#ef4444',
+                title: 'Gangguan Jaringan',
+                text: 'Koneksi ke server terputus. Silakan coba beberapa saat lagi.',
+                confirmButtonText: 'Tutup'
+            });
+        } finally {
+            // Mengembalikan state tombol ke semula
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+</script>
+{% endblock %}
