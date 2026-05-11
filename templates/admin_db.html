@@ -1,97 +1,70 @@
 {% extends "base.html" %}
 
-{% block title %}Database Control - BAAE Nexus{% endblock %}
+{% block title %}Kontrol Database - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
     /* ==========================================================
-       TACTICAL DATABASE CONTROL (HACKER RED ZONE)
+       MODERN SAAS DATABASE CONTROL ZONE
        ========================================================== */
     
-    /* Danger Glow Effects for Master Card */
-    .card-danger-nexus {
-        background: rgba(0, 0, 0, 0.5) !important;
-        border: none !important;
-        border-top: 2px solid var(--glow-crimson) !important;
-        border-left: 1px solid var(--glow-crimson) !important;
-        clip-path: var(--cyber-cut);
-        border-radius: 0 !important;
-        position: relative;
-    }
-    .card-danger-nexus::after {
-        content: ''; position: absolute; bottom: 0; left: 0; width: 0%; height: 2px;
-        background: var(--glow-crimson); transition: width 0.3s ease;
-    }
-    .card-danger-nexus:hover::after { width: 100%; }
-    
-    /* Tactical Danger Zone Boxes */
-    .danger-zone-box {
-        background: rgba(255, 7, 58, 0.05);
-        border: 1px dashed rgba(255, 7, 58, 0.3);
-        border-radius: 0;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .danger-zone-box:hover {
-        background: rgba(255, 7, 58, 0.1);
-        border-color: var(--glow-crimson);
-        box-shadow: inset 0 0 15px rgba(255, 7, 58, 0.2);
-    }
-
-    .info-zone-box {
-        background: rgba(0, 255, 65, 0.05);
-        border: 1px solid rgba(0, 255, 65, 0.3);
-        border-radius: 0;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .info-zone-box:hover {
-        background: rgba(0, 255, 65, 0.1);
-        border-color: var(--glow-green);
-        box-shadow: inset 0 0 15px rgba(0, 255, 65, 0.2);
-    }
-
-    /* Industrial Hacker Buttons */
-    .btn-term {
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
-        font-size: 0.75rem;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        border-radius: 0;
-        padding: 10px 20px;
-        transition: all 0.3s;
-    }
-    
-    .btn-t-crimson { background: rgba(255, 7, 58, 0.1); color: var(--glow-crimson); border: 1px solid var(--glow-crimson); }
-    .btn-t-crimson:hover { background: var(--glow-crimson); color: #000; box-shadow: 0 0 15px var(--glow-crimson); }
-
-    .btn-t-green { background: var(--glow-green-dim); color: var(--glow-green); border: 1px solid var(--glow-green); }
-    .btn-t-green:hover { background: var(--glow-green); color: #000; box-shadow: 0 0 15px var(--glow-green); }
-
-    /* Alert Box Hacker Style */
-    .alert-nexus {
-        background: rgba(0, 0, 0, 0.8);
-        border: 1px solid var(--glow-crimson);
-        border-left: 4px solid var(--glow-crimson);
-        border-radius: 0;
-        color: var(--text-main);
-    }
-
-    .label-cmd {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
-        font-weight: 800;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: var(--text-muted);
-    }
-    
-    .hacker-icon-box {
+    /* Ikon Peringatan Modern */
+    .icon-box-danger {
+        background: #fee2e2;
+        color: #ef4444;
+        width: 64px; height: 64px;
         display: inline-flex; align-items: center; justify-content: center;
-        width: 70px; height: 70px; margin-bottom: 1rem;
-        background: rgba(255, 7, 58, 0.05); border: 1px solid rgba(255, 7, 58, 0.3);
-        border-radius: 0; transform: rotate(45deg);
+        border-radius: 16px;
+        font-size: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
     }
-    .hacker-icon-box i { transform: rotate(-45deg); }
+
+    .icon-box-warning-sm {
+        background: #fef3c7; color: #d97706;
+        width: 40px; height: 40px; border-radius: 10px;
+        display: inline-flex; align-items: center; justify-content: center; font-size: 1.2rem;
+    }
+    
+    .icon-box-danger-sm {
+        background: #fee2e2; color: #ef4444;
+        width: 40px; height: 40px; border-radius: 10px;
+        display: inline-flex; align-items: center; justify-content: center; font-size: 1.2rem;
+    }
+
+    /* Kotak Peringatan Kritis (Alert) */
+    .alert-modern-danger {
+        background-color: #fff5f5;
+        border: 1px solid #fecaca;
+        border-left: 4px solid #ef4444;
+        border-radius: 12px;
+        color: #7f1d1d;
+    }
+
+    /* Zona Pemeliharaan */
+    .zone-box {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        transition: all 0.2s;
+        box-shadow: var(--shadow-sm);
+    }
+    .zone-box.warning-zone:hover {
+        border-color: #f59e0b;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
+    }
+    .zone-box.danger-zone:hover {
+        border-color: #ef4444;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+    }
+
+    /* Tombol Aksi */
+    .btn-action {
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
 </style>
 {% endblock %}
 
@@ -99,72 +72,76 @@
 <div class="row justify-content-center mt-3 animate-fade-in">
     <div class="col-md-10 col-lg-8">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-3 font-code" style="font-size: 0.7rem;">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none" style="color: var(--text-muted);">[ SYS_HOME ]</a></li>
-                <li class="breadcrumb-item active fw-bold" style="color: var(--glow-crimson);" aria-current="page">SYS_ADMIN_CONTROL</li>
+            <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted">Beranda</a></li>
+                <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Manajemen Sistem</a></li>
+                <li class="breadcrumb-item active text-danger" aria-current="page">Kontrol Database</li>
             </ol>
         </nav>
 
-        <div class="card card-danger-nexus mb-5">
+        <div class="card border-0 shadow-sm mb-5">
             <div class="card-body p-4 p-md-5">
+                
                 <div class="text-center mb-5">
-                    <div class="hacker-icon-box">
-                        <i class="fas fa-database fa-2x animate-pulse" style="color: var(--glow-crimson);"></i>
+                    <div class="icon-box-danger mb-3">
+                        <i class="fas fa-database"></i>
                     </div>
-                    <h3 class="font-code fw-800 mb-1 text-white uppercase tracking-widest">
-                        <span style="color: var(--glow-crimson);">></span> DATABASE_CONTROL_CENTER
+                    <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+                        Pusat Kontrol Database
                     </h3>
-                    <p class="font-code small mt-2" style="color: var(--text-muted);">[ AUTO_ANALYTIC_CORE_MAINTENANCE ]</p>
+                    <p class="small text-muted mt-2">
+                        Pemeliharaan Inti & Manajemen Penyimpanan Sistem
+                    </p>
                 </div>
 
-                <div class="alert alert-nexus p-4 mb-5 shadow-lg">
-                    <div class="d-flex gap-3">
-                        <i class="fas fa-triangle-exclamation fa-2x animate-pulse" style="color: var(--glow-crimson);"></i>
-                        <div>
-                            <h6 class="font-code fw-800 mb-1" style="color: var(--glow-crimson);">! CRITICAL_SECURITY_ALERT !</h6>
-                            <p class="font-code small mb-0 mt-2" style="color: var(--text-main);">
-                                Tindakan di bawah ini bersifat permanen dan akan mengeksekusi penghapusan ribuan baris data operasional. <br><br>
-                                <span style="color: var(--glow-green);">> REQUIREMENT:</span> Pastikan <strong>Chief Khoirul Anwar</strong> telah melakukan <i>backup</i> data sebelum menginisiasi protokol ini.
-                            </p>
-                        </div>
+                <div class="alert alert-modern-danger p-4 mb-5 shadow-sm d-flex gap-3">
+                    <i class="fas fa-triangle-exclamation fa-2x mt-1" style="color: #ef4444;"></i>
+                    <div>
+                        <h6 class="fw-bold mb-1" style="color: #991b1b; letter-spacing: 0.5px; text-transform: uppercase;">Peringatan Keamanan Sistem</h6>
+                        <p class="small mb-0 mt-2" style="color: #7f1d1d; line-height: 1.5;">
+                            Tindakan di bawah ini bersifat permanen dan akan mengeksekusi penghapusan ribuan baris data operasional. <br><br>
+                            <span class="fw-bold" style="color: #ef4444;"><i class="fas fa-circle-exclamation me-1"></i> SYARAT WAJIB:</span> Pastikan <strong>Chief Khoirul Anwar</strong> telah melakukan pencadangan (<i>backup</i>) data sebelum menginisiasi protokol ini.
+                        </p>
                     </div>
                 </div>
 
                 <div class="row g-4">
                     <div class="col-12">
-                        <div class="info-zone-box p-4">
+                        <div class="zone-box warning-zone p-4">
                             <div class="d-flex justify-content-between align-items-center flex-wrap gap-4">
                                 <div style="flex: 1; min-width: 280px;">
-                                    <h5 class="font-code fw-800 text-white mb-2">
-                                        <i class="fas fa-eraser me-2" style="color: var(--glow-green);"></i>ROUTINE_PURGE_PROTOCOL
-                                    </h5>
-                                    <p class="font-code small mb-0 mt-2" style="color: var(--text-muted);">
-                                        Menghapus data MC, SBRS, MB, dan Laporan Lapangan. <br>
-                                        <span class="fw-bold mt-1 d-block" style="color: var(--glow-green);">
-                                            <i class="fas fa-shield-halved me-1"></i>Master CID & Mapping Petugas tetap AMAN.
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <div class="icon-box-warning-sm"><i class="fas fa-eraser"></i></div>
+                                        <h5 class="fw-bold text-dark mb-0">Pembersihan Rutin Bulanan</h5>
+                                    </div>
+                                    <p class="small mb-0 mt-2 text-muted" style="line-height: 1.5;">
+                                        Menghapus data operasional (MC, SBRS, MB, dan Laporan Lapangan) untuk mempersiapkan siklus bulan baru. <br>
+                                        <span class="fw-semibold mt-1 d-inline-block text-success">
+                                            <i class="fas fa-shield-halved me-1"></i>Master CID & Pemetaan Petugas tetap AMAN.
                                         </span>
                                     </p>
                                 </div>
-                                <button onclick="confirmAction('transaksi')" class="btn btn-term btn-t-green px-4 py-2">
-                                    > INITIATE_PURGE
+                                <button onclick="confirmAction('transaksi')" class="btn btn-warning btn-action text-dark" style="background-color: #f59e0b; border: none; color: white !important;">
+                                    <i class="fas fa-broom me-2"></i> Jalankan Pembersihan
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div class="col-12">
-                        <div class="danger-zone-box p-4">
+                        <div class="zone-box danger-zone p-4">
                             <div class="d-flex justify-content-between align-items-center flex-wrap gap-4">
                                 <div style="flex: 1; min-width: 280px;">
-                                    <h5 class="font-code fw-800 mb-2" style="color: var(--glow-crimson);">
-                                        <i class="fas fa-biohazard me-2"></i>FACTORY_RESET_OVERRIDE
-                                    </h5>
-                                    <p class="font-code small mb-0 mt-2" style="color: var(--text-muted);">
-                                        Menghapus 100% isi database tanpa sisa. Digunakan jika ingin pindah area operasional atau me-reset seluruh sistem dari nol.
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <div class="icon-box-danger-sm"><i class="fas fa-biohazard"></i></div>
+                                        <h5 class="fw-bold text-dark mb-0">Reset Total Database</h5>
+                                    </div>
+                                    <p class="small mb-0 mt-2 text-muted" style="line-height: 1.5;">
+                                        Menghapus <strong>100%</strong> isi database tanpa sisa. Digunakan jika ingin memindahkan area operasional ke regional lain atau melakukan *Factory Reset* pada seluruh sistem.
                                     </p>
                                 </div>
-                                <button onclick="confirmAction('total')" class="btn btn-term btn-t-crimson px-4 py-2">
-                                    > EXECUTE_OVERRIDE
+                                <button onclick="confirmAction('total')" class="btn btn-danger btn-action">
+                                    <i class="fas fa-power-off me-2"></i> Eksekusi Reset Total
                                 </button>
                             </div>
                         </div>
@@ -172,8 +149,8 @@
                 </div>
 
                 <div class="text-center mt-5">
-                    <a href="/upload" class="font-code text-decoration-none small" style="color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--accent-cyber)'" onmouseout="this.style.color='var(--text-muted)'">
-                        <i class="fas fa-chevron-left me-2"></i>RETURN_TO_SYNC_CENTER
+                    <a href="/upload" class="text-decoration-none fw-semibold" style="color: var(--primary); font-size: 0.9rem;">
+                        <i class="fas fa-arrow-left me-2"></i>Kembali ke Pusat Sinkronisasi
                     </a>
                 </div>
             </div>
@@ -185,50 +162,52 @@
 
 {% block extra_js %}
 <script>
+// Konfigurasi SweetAlert Corporate SaaS
+const swalModern = {
+    background: '#ffffff', 
+    color: '#0f172a',
+    cancelButtonColor: '#e2e8f0',
+    customClass: { 
+        popup: 'border-0 rounded-4 shadow-lg',
+        cancelButton: 'text-dark'
+    }
+};
+
 // JavaScript Logic 100% UTUH
 async function confirmAction(mode) {
-    // Config SWAL Hacker Dark Mode (Sync with Base)
-    const swalDark = {
-        background: '#0a0e17', 
-        color: '#e2e8f0',
-        confirmButtonColor: mode === 'total' ? '#ff073a' : '#00ff41',
-        cancelButtonColor: '#1f2937',
-        customClass: { popup: 'border border-secondary border-opacity-25 rounded-0 font-code' }
-    };
-
     const config = {
         transaksi: { 
-            title: 'SYS.PURGE_DATA?', 
-            text: 'Data tagihan dan SBRS akan dikosongkan untuk persiapan bulan baru.', 
-            confirmText: '> CONFIRM_PURGE',
-            icon: 'warning',
-            iconColor: '#00ff41'
+            title: 'Bersihkan Data Rutin?', 
+            text: 'Data tagihan dan laporan SBRS akan dikosongkan untuk persiapan bulan baru.', 
+            confirmText: 'Ya, Bersihkan',
+            confirmButtonColor: '#f59e0b',
+            icon: 'warning'
         },
         total: { 
-            title: 'SYS.FACTORY_RESET?', 
-            text: 'WARNING: Seluruh data pelanggan (CID) dan petugas akan LENYAP selamanya!', 
-            confirmText: '> EXECUTE_OVERRIDE',
-            icon: 'error',
-            iconColor: '#ff073a'
+            title: 'Reset Total Sistem?', 
+            text: 'PERINGATAN: Seluruh data pelanggan (CID) dan rute petugas akan terhapus selamanya!', 
+            confirmText: 'Ya, Reset Total',
+            confirmButtonColor: '#ef4444',
+            icon: 'error'
         }
     };
 
     const result = await Swal.fire({
-        ...swalDark,
+        ...swalModern,
         title: config[mode].title,
         text: config[mode].text,
         icon: config[mode].icon,
-        iconColor: config[mode].iconColor,
         showCancelButton: true,
+        confirmButtonColor: config[mode].confirmButtonColor,
         confirmButtonText: config[mode].confirmText,
-        cancelButtonText: 'ABORT'
+        cancelButtonText: 'Batal'
     });
 
     if (result.isConfirmed) {
         Swal.fire({
-            ...swalDark,
-            title: 'EXECUTING_PROTOCOL...',
-            html: '<p style="color: var(--glow-green); font-size: 0.8rem;">Sedang memproses instruksi penghapusan data masif...</p>',
+            ...swalModern,
+            title: 'Memproses Perintah...',
+            html: '<p style="color: #64748b; font-size: 0.9rem;">Sedang mengeksekusi penghapusan data secara masif pada server...</p>',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
@@ -243,32 +222,30 @@ async function confirmAction(mode) {
 
             if (data.status === 'success') {
                 Swal.fire({
-                    ...swalDark,
+                    ...swalModern,
                     icon: 'success',
-                    iconColor: '#00ff41',
-                    title: 'SYS.SUCCESS',
+                    confirmButtonColor: '#10b981',
+                    title: 'Berhasil',
                     text: data.message
                 }).then(() => {
                     window.location.href = '/upload';
                 });
             } else {
                 Swal.fire({
-                    ...swalDark,
+                    ...swalModern,
                     icon: 'error',
-                    iconColor: '#ff073a',
-                    confirmButtonColor: '#ff073a',
-                    title: 'SYS.FAILURE',
+                    confirmButtonColor: '#ef4444',
+                    title: 'Kegagalan Sistem',
                     text: data.message
                 });
             }
         } catch (e) {
             Swal.fire({
-                ...swalDark,
+                ...swalModern,
                 icon: 'error',
-                iconColor: '#ff073a',
-                confirmButtonColor: '#ff073a',
-                title: 'NETWORK.ERROR',
-                text: 'Terputus dari Core Analytic Server!'
+                confirmButtonColor: '#ef4444',
+                title: 'Gangguan Jaringan',
+                text: 'Terputus dari server database. Silakan periksa koneksi Anda.'
             });
         }
     }
