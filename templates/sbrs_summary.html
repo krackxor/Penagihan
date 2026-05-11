@@ -5,7 +5,7 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       MODERN SAAS SBRS SUMMARY STYLES
+       MODERN SAAS SBRS SUMMARY STYLES (HTMX)
        ========================================================== */
     
     /* Panel Metrik Modern */
@@ -30,7 +30,7 @@
         box-shadow: var(--shadow-md);
     }
 
-    /* Garis Aksen Samping (Opsional untuk kategori error) */
+    /* Garis Aksen Samping */
     .stat-card.accent-danger { border-bottom: 3px solid var(--danger); }
     .stat-card.accent-warning { border-bottom: 3px solid #f59e0b; }
     .stat-card.accent-secondary { border-bottom: 3px solid #64748b; }
@@ -38,95 +38,51 @@
     .stat-card.accent-success { border-bottom: 3px solid var(--success); }
 
     .stat-label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
     }
 
-    .stat-val {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--text-main);
-        margin: 0;
-        line-height: 1.2;
-    }
+    .stat-val { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin: 0; line-height: 1.2; }
 
-    /* List Item Modern (Untuk Skip/Trouble/Read Methods) */
+    /* List Item Modern */
     .list-card-item {
-        display: block;
-        padding: 12px 16px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        margin-bottom: 8px;
-        background: #ffffff;
-        text-decoration: none !important;
-        transition: all 0.2s ease;
+        display: block; padding: 12px 16px; border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm); margin-bottom: 8px; background: #ffffff;
+        text-decoration: none !important; transition: all 0.2s ease;
     }
     .list-card-item:hover {
-        background: #f8fafc;
-        border-color: var(--primary);
-        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.05);
+        background: #f8fafc; border-color: var(--primary); box-shadow: 0 2px 4px rgba(37, 99, 235, 0.05);
     }
-    .scrollable-list {
-        max-height: 320px;
-        overflow-y: auto;
-        padding: 4px;
-    }
+    .scrollable-list { max-height: 320px; overflow-y: auto; padding: 4px; }
 
     /* Tabs Modern */
-    .modern-tabs {
-        border-bottom: 1px solid var(--border-color);
-        gap: 0.5rem;
-    }
+    .modern-tabs { border-bottom: 1px solid var(--border-color); gap: 0.5rem; }
     .modern-tabs .nav-link {
-        color: var(--text-muted);
-        font-weight: 600;
-        font-size: 0.85rem;
-        border: none;
-        border-bottom: 2px solid transparent;
-        padding: 10px 16px;
-        border-radius: 0;
-        transition: all 0.2s;
+        color: var(--text-muted); font-weight: 600; font-size: 0.85rem; border: none;
+        border-bottom: 2px solid transparent; padding: 10px 16px; border-radius: 0; transition: all 0.2s;
     }
-    .modern-tabs .nav-link:hover {
-        color: var(--primary);
-    }
-    .modern-tabs .nav-link.active {
-        color: var(--primary);
-        border-bottom: 2px solid var(--primary);
-        background: transparent;
-    }
+    .modern-tabs .nav-link:hover { color: var(--primary); }
+    .modern-tabs .nav-link.active { color: var(--primary); border-bottom: 2px solid var(--primary); background: transparent; }
 
     /* Table Modern */
     .table-modern { margin-bottom: 0; }
     .table-modern thead th {
-        background: #f8fafc !important;
-        color: #64748b !important;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #e2e8f0 !important;
-        padding: 1rem 1.25rem;
+        background: #f8fafc !important; color: #64748b !important; font-size: 0.75rem;
+        font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        border-bottom: 2px solid #e2e8f0 !important; padding: 1rem 1.25rem;
     }
     .table-modern td {
-        border-bottom: 1px solid #e2e8f0 !important;
-        color: var(--text-main);
-        vertical-align: middle;
-        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e2e8f0 !important; color: var(--text-main);
+        vertical-align: middle; padding: 1rem 1.25rem;
     }
     .table-modern tbody tr:hover td { background-color: #f8fafc !important; }
 
-    /* Tombol Aksi Kustom */
-    .btn-action {
-        font-weight: 600;
-        border-radius: var(--radius-sm);
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-    }
+    .btn-action { font-weight: 600; border-radius: var(--radius-sm); padding: 0.5rem 1rem; font-size: 0.85rem; }
+
+    /* HTMX States */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request#sbrs-content { opacity: 0.5; transition: opacity 200ms ease-in; pointer-events: none; }
 </style>
 {% endblock %}
 
@@ -140,8 +96,9 @@
                 <li class="breadcrumb-item active text-primary" aria-current="page">Ringkasan</li>
             </ol>
         </nav>
-        <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+        <h3 class="fw-bold mb-1 d-flex align-items-center gap-2" style="color: var(--text-main); letter-spacing: -0.5px;">
             Ringkasan Agregat Anomali
+            <span class="htmx-indicator spinner-border text-primary spinner-border-sm ms-2" role="status"></span>
         </h3>
         <p class="mb-0 text-muted" style="font-size: 0.9rem;">
             Wilayah Analitik: <strong>{{ current_ab }}</strong>
@@ -149,15 +106,23 @@
     </div>
     
     <div class="col-md-7 d-flex justify-content-md-end mt-3 mt-md-0">
-        <form method="GET" action="/sbrs/summary" class="card border-0 shadow-sm p-3 d-flex flex-wrap flex-row gap-3 align-items-end mb-0 w-100 justify-content-md-end">
+        <form hx-get="/sbrs/summary" 
+              hx-target="#sbrs-content" 
+              hx-select="#sbrs-content" 
+              hx-trigger="change" 
+              hx-push-url="true"
+              class="card border-0 shadow-sm p-3 d-flex flex-wrap flex-row gap-3 align-items-end mb-0 w-100 justify-content-md-end">
+            
+            <input type="hidden" name="ab" value="{{ current_ab }}">
+            
             <div>
                 <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Periode</label>
                 <input type="month" name="periode" class="form-control form-control-sm" 
-                       value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
+                       value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}">
             </div>
             <div>
                 <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Siklus (Cycle)</label>
-                <select name="cycle" class="form-select form-select-sm" onchange="this.form.action='/sbrs/summary'; this.form.submit()">
+                <select name="cycle" class="form-select form-select-sm">
                     <option value="all" {% if current_cycle == 'all' %}selected{% endif %}>Semua Siklus</option>
                     {% for c in cycles %}
                     <option value="{{ c }}" {% if current_cycle == c %}selected{% endif %}>Siklus {{ c }}</option>
@@ -169,10 +134,10 @@
                 <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary btn-action" title="Cetak Laporan">
                     <i class="fas fa-print"></i>
                 </button>
-                <button type="submit" formaction="/sbrs/export/summary" class="btn btn-sm btn-outline-success btn-action">
+                <button type="submit" formaction="/sbrs/export/summary" hx-disable class="btn btn-sm btn-outline-success btn-action">
                     <i class="fas fa-file-excel me-1"></i> Excel
                 </button>
-                <button type="submit" formaction="/sbrs/export/analisa" class="btn btn-sm btn-primary btn-action">
+                <button type="submit" formaction="/sbrs/export/analisa" hx-disable class="btn btn-sm btn-primary btn-action">
                     <i class="fas fa-download me-1"></i> Data Mentah
                 </button>
             </div>
@@ -180,226 +145,218 @@
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-4 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="stat-card accent-primary">
-            <div class="stat-label">Total Pelanggan</div>
-            <div class="stat-val text-primary">{{ totals.total_nomen }}</div>
-        </a>
-    </div>
-    <div class="col-md-4 col-lg-2">
-        <div class="stat-card accent-secondary" style="cursor: default;">
-            <div class="stat-label">Volume Tagihan (m³)</div>
-            <div class="stat-val">{{ totals.total_vol_tagihan }}</div>
-        </div>
-    </div>
-    <div class="col-md-4 col-lg-2">
-        <div class="stat-card accent-success" style="cursor: default;">
-            <div class="stat-label">Total Nominal (Rp)</div>
-            <div class="stat-val text-success" style="font-size: 1.1rem; line-height: 1.5;">{{ totals.total_nominal }}</div>
-        </div>
-    </div>
-    <div class="col-md-4 col-lg-2">
-        <div class="stat-card accent-secondary" style="cursor: default;">
-            <div class="stat-label">Rata-rata Hari Baca</div>
-            <div class="stat-val text-dark">{{ totals.total_hb }} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">Hari</span></div>
-        </div>
-    </div>
-    <div class="col-md-4 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="stat-card accent-warning">
-            <div class="stat-label">Total Skip</div>
-            <div class="stat-val" style="color: #d97706;">{{ totals.total_skip }}</div>
-        </a>
-    </div>
-    <div class="col-md-4 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="stat-card accent-danger">
-            <div class="stat-label">Total Trouble</div>
-            <div class="stat-val text-danger">{{ totals.total_trbl }}</div>
-        </a>
-    </div>
-</div>
+<div id="sbrs-content">
 
-<div class="row g-3 mb-5">
-    <div class="col-md-6 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=baru" class="stat-card">
-            <div class="stat-label text-danger">Pemakaian Nol (Baru)</div>
-            <div class="stat-val text-danger">{{ totals.zero_baru }}</div>
-        </a>
-    </div>
-    <div class="col-md-6 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=lama" class="stat-card" style="background: #fef2f2;">
-            <div class="stat-label text-danger">Pemakaian Nol (Lama)</div>
-            <div class="stat-val text-danger">{{ totals.zero_lama }}</div>
-        </a>
-    </div>
-    
-    <div class="col-md-6 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=baru" class="stat-card">
-            <div class="stat-label" style="color: #d97706;">Ekstrem Naik (Baru)</div>
-            <div class="stat-val" style="color: #d97706;">{{ totals.ekstrem_baru }}</div>
-        </a>
-    </div>
-    <div class="col-md-6 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=lama" class="stat-card" style="background: #fffbeb;">
-            <div class="stat-label" style="color: #d97706;">Ekstrem Naik (Lama)</div>
-            <div class="stat-val" style="color: #d97706;">{{ totals.ekstrem_lama }}</div>
-        </a>
-    </div>
-
-    <div class="col-md-6 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=baru" class="stat-card">
-            <div class="stat-label text-dark">Ekstrem Turun (Baru)</div>
-            <div class="stat-val text-dark">{{ totals.turun_baru }}</div>
-        </a>
-    </div>
-    <div class="col-md-6 col-lg-2">
-        <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=lama" class="stat-card" style="background: #f8fafc;">
-            <div class="stat-label text-muted">Ekstrem Turun (Lama)</div>
-            <div class="stat-val text-muted">{{ totals.turun_lama }}</div>
-        </a>
-    </div>
-</div>
-
-<div class="row g-4 mb-5">
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom border-light">
-                <h6 class="fw-bold mb-0" style="color: #d97706;"><i class="fas fa-forward-step me-2"></i> Distribusi Kode Skip</h6>
+    <div class="row g-3 mb-4">
+        <div class="col-md-4 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="stat-card accent-primary">
+                <div class="stat-label">Total Pelanggan</div>
+                <div class="stat-val text-primary">{{ totals.total_nomen }}</div>
+            </a>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="stat-card accent-secondary" style="cursor: default;">
+                <div class="stat-label">Volume Tagihan (m³)</div>
+                <div class="stat-val">{{ totals.total_vol_tagihan }}</div>
             </div>
-            <div class="card-body scrollable-list">
-                {% for item in skip_data %}
-                <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&skip_code={{ item.code }}" class="list-card-item">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="pe-2">
-                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle mb-1">{{ item.code }}</span>
-                            <div class="text-muted" style="font-size: 0.75rem; font-weight: 500;">{{ item.desc }}</div>
-                        </div>
-                        <span class="fw-bold" style="color: #d97706;">{{ item.count }}</span>
-                    </div>
-                </a>
-                {% else %}
-                <div class="text-center py-4 text-muted small">
-                    <i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Tidak ada data
-                </div>
-                {% endfor %}
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="stat-card accent-success" style="cursor: default;">
+                <div class="stat-label">Total Nominal (Rp)</div>
+                <div class="stat-val text-success" style="font-size: 1.1rem; line-height: 1.5;">{{ totals.total_nominal }}</div>
             </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <div class="stat-card accent-secondary" style="cursor: default;">
+                <div class="stat-label">Rata-rata Hari Baca</div>
+                <div class="stat-val text-dark">{{ totals.total_hb }} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">Hari</span></div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="stat-card accent-warning">
+                <div class="stat-label">Total Skip</div>
+                <div class="stat-val" style="color: #d97706;">{{ totals.total_skip }}</div>
+            </a>
+        </div>
+        <div class="col-md-4 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=all" class="stat-card accent-danger">
+                <div class="stat-label">Total Trouble</div>
+                <div class="stat-val text-danger">{{ totals.total_trbl }}</div>
+            </a>
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom border-light">
-                <h6 class="fw-bold mb-0 text-danger"><i class="fas fa-triangle-exclamation me-2"></i> Distribusi Kode Trouble</h6>
-            </div>
-            <div class="card-body scrollable-list">
-                {% for item in trbl_data %}
-                <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&trbl_code={{ item.code }}" class="list-card-item">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="pe-2">
-                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle mb-1">{{ item.code }}</span>
-                            <div class="text-muted" style="font-size: 0.75rem; font-weight: 500;">{{ item.desc }}</div>
-                        </div>
-                        <span class="fw-bold text-danger">{{ item.count }}</span>
-                    </div>
-                </a>
-                {% else %}
-                <div class="text-center py-4 text-muted small">
-                    <i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Tidak ada data
-                </div>
-                {% endfor %}
-            </div>
+    <div class="row g-3 mb-5">
+        <div class="col-md-6 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=baru" class="stat-card">
+                <div class="stat-label text-danger">Pemakaian Nol (Baru)</div>
+                <div class="stat-val text-danger">{{ totals.zero_baru }}</div>
+            </a>
         </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom border-light">
-                <h6 class="fw-bold mb-0 text-success"><i class="fas fa-glasses me-2"></i> Distribusi Metode Baca</h6>
-            </div>
-            <div class="card-body scrollable-list">
-                {% for item in read_data %}
-                <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&read_method={{ item.code }}" class="list-card-item">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ item.code }} <span class="fw-normal text-muted ms-1">({{ item.desc }})</span></span>
-                        <span class="fw-bold text-success">{{ item.count }}</span>
-                    </div>
-                    <div class="progress" style="height: 4px; background: #e2e8f0;">
-                        <div class="progress-bar bg-success" style="width: 100%;"></div>
-                    </div>
-                </a>
-                {% else %}
-                <div class="text-center py-4 text-muted small">
-                    <i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Tidak ada data
-                </div>
-                {% endfor %}
-            </div>
+        <div class="col-md-6 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=ZERO&sub_kat=lama" class="stat-card" style="background: #fef2f2;">
+                <div class="stat-label text-danger">Pemakaian Nol (Lama)</div>
+                <div class="stat-val text-danger">{{ totals.zero_lama }}</div>
+            </a>
         </div>
-    </div>
-</div>
-
-<div class="card border-0 shadow-sm mb-5">
-    <div class="card-header bg-white py-3 border-bottom border-light">
-        <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-map-location-dot me-2 text-primary"></i> Distribusi Matriks Wilayah</h6>
-    </div>
-    
-    <div class="card-body p-0">
-        <ul class="nav modern-tabs px-3 pt-2" id="wilayahTab" role="tablist">
-            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cc-content">Cabang (CC)</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pc-content">Pembuat Rekening (PA/PC)</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pcez-content">Rute (PCEZ)</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ab-content">Area Bisnis (AB)</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#kel-content">Kelurahan</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#kec-content">Kecamatan</button></li>
-        </ul>
         
-        <div class="tab-content" id="wilayahTabContent">
-            {% set panes = [
-                ('cc-content', cc_data, 'Cabang', 'cc'),
-                ('pc-content', pc_data, 'PA/PC', 'pc'),
-                ('pcez-content', pcez_data, 'PCEZ', 'pcez'),
-                ('ab-content', ab_data, 'Area Bisnis', 'ab_tab'),
-                ('kel-content', kelurahan_data, 'Kelurahan', 'kelurahan'),
-                ('kec-content', kecamatan_data, 'Kecamatan', 'kecamatan')
-            ] %}
+        <div class="col-md-6 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=baru" class="stat-card">
+                <div class="stat-label" style="color: #d97706;">Ekstrem Naik (Baru)</div>
+                <div class="stat-val" style="color: #d97706;">{{ totals.ekstrem_baru }}</div>
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=EKSTREM&sub_kat=lama" class="stat-card" style="background: #fffbeb;">
+                <div class="stat-label" style="color: #d97706;">Ekstrem Naik (Lama)</div>
+                <div class="stat-val" style="color: #d97706;">{{ totals.ekstrem_lama }}</div>
+            </a>
+        </div>
 
-            {% for id, data_list, label, url_param in panes %}
-            <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="{{ id }}" role="tabpanel">
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-hover table-modern">
-                        <thead class="sticky-top">
-                            <tr>
-                                <th class="ps-4">Unit {{ label }}</th>
-                                <th class="text-center">Jumlah Anomali</th>
-                                <th class="text-end pe-4">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for key, total in data_list %}
-                            <tr>
-                                <td class="ps-4 fw-semibold text-dark">{{ key }}</td>
-                                <td class="text-center">
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-3 py-1" style="font-size: 0.85rem;">
-                                        {{ total }}
-                                    </span>
-                                </td>
-                                <td class="text-end pe-4">
-                                    <a href="/sbrs/analisa?ab={{ current_ab }}&{{ url_param }}={{ key }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary btn-action rounded-pill px-3">
-                                        <i class="fas fa-search me-1"></i> Detail
-                                    </a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="3" class="text-center py-5 text-muted">
-                                    <i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Data distribusi tidak ditemukan
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        <div class="col-md-6 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=baru" class="stat-card">
+                <div class="stat-label text-dark">Ekstrem Turun (Baru)</div>
+                <div class="stat-val text-dark">{{ totals.turun_baru }}</div>
+            </a>
+        </div>
+        <div class="col-md-6 col-lg-2">
+            <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&kategori=TURUN&sub_kat=lama" class="stat-card" style="background: #f8fafc;">
+                <div class="stat-label text-muted">Ekstrem Turun (Lama)</div>
+                <div class="stat-val text-muted">{{ totals.turun_lama }}</div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-bottom border-light">
+                    <h6 class="fw-bold mb-0" style="color: #d97706;"><i class="fas fa-forward-step me-2"></i> Distribusi Kode Skip</h6>
+                </div>
+                <div class="card-body scrollable-list">
+                    {% for item in skip_data %}
+                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&skip_code={{ item.code }}" class="list-card-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="pe-2">
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle mb-1">{{ item.code }}</span>
+                                <div class="text-muted" style="font-size: 0.75rem; font-weight: 500;">{{ item.desc }}</div>
+                            </div>
+                            <span class="fw-bold" style="color: #d97706;">{{ item.count }}</span>
+                        </div>
+                    </a>
+                    {% else %}
+                    <div class="text-center py-4 text-muted small"><i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Tidak ada data</div>
+                    {% endfor %}
                 </div>
             </div>
-            {% endfor %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-bottom border-light">
+                    <h6 class="fw-bold mb-0 text-danger"><i class="fas fa-triangle-exclamation me-2"></i> Distribusi Kode Trouble</h6>
+                </div>
+                <div class="card-body scrollable-list">
+                    {% for item in trbl_data %}
+                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&trbl_code={{ item.code }}" class="list-card-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="pe-2">
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle mb-1">{{ item.code }}</span>
+                                <div class="text-muted" style="font-size: 0.75rem; font-weight: 500;">{{ item.desc }}</div>
+                            </div>
+                            <span class="fw-bold text-danger">{{ item.count }}</span>
+                        </div>
+                    </a>
+                    {% else %}
+                    <div class="text-center py-4 text-muted small"><i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Tidak ada data</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-bottom border-light">
+                    <h6 class="fw-bold mb-0 text-success"><i class="fas fa-glasses me-2"></i> Distribusi Metode Baca</h6>
+                </div>
+                <div class="card-body scrollable-list">
+                    {% for item in read_data %}
+                    <a href="/sbrs/analisa?ab={{ current_ab }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}&read_method={{ item.code }}" class="list-card-item">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ item.code }} <span class="fw-normal text-muted ms-1">({{ item.desc }})</span></span>
+                            <span class="fw-bold text-success">{{ item.count }}</span>
+                        </div>
+                        <div class="progress" style="height: 4px; background: #e2e8f0;">
+                            <div class="progress-bar bg-success" style="width: 100%;"></div>
+                        </div>
+                    </a>
+                    {% else %}
+                    <div class="text-center py-4 text-muted small"><i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Tidak ada data</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-5">
+        <div class="card-header bg-white py-3 border-bottom border-light">
+            <h6 class="fw-bold mb-0 text-dark"><i class="fas fa-map-location-dot me-2 text-primary"></i> Distribusi Matriks Wilayah</h6>
+        </div>
+        <div class="card-body p-0">
+            <ul class="nav modern-tabs px-3 pt-2" id="wilayahTab" role="tablist">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cc-content">Cabang (CC)</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pc-content">Pembuat Rekening (PA/PC)</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pcez-content">Rute (PCEZ)</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ab-content">Area Bisnis (AB)</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#kel-content">Kelurahan</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#kec-content">Kecamatan</button></li>
+            </ul>
+            
+            <div class="tab-content" id="wilayahTabContent">
+                {% set panes = [
+                    ('cc-content', cc_data, 'Cabang', 'cc'),
+                    ('pc-content', pc_data, 'PA/PC', 'pc'),
+                    ('pcez-content', pcez_data, 'PCEZ', 'pcez'),
+                    ('ab-content', ab_data, 'Area Bisnis', 'ab_tab'),
+                    ('kel-content', kelurahan_data, 'Kelurahan', 'kelurahan'),
+                    ('kec-content', kecamatan_data, 'Kecamatan', 'kecamatan')
+                ] %}
+
+                {% for id, data_list, label, url_param in panes %}
+                <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="{{ id }}" role="tabpanel">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-hover table-modern">
+                            <thead class="sticky-top">
+                                <tr>
+                                    <th class="ps-4">Unit {{ label }}</th>
+                                    <th class="text-center">Jumlah Anomali</th>
+                                    <th class="text-end pe-4">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, total in data_list %}
+                                <tr>
+                                    <td class="ps-4 fw-semibold text-dark">{{ key }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-3 py-1" style="font-size: 0.85rem;">
+                                            {{ total }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a href="/sbrs/analisa?ab={{ current_ab }}&{{ url_param }}={{ key }}&periode={{ periode_aktif }}&cycle={{ current_cycle }}" class="btn btn-sm btn-outline-primary btn-action rounded-pill px-3">
+                                            <i class="fas fa-search me-1"></i> Detail
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="3" class="text-center py-5 text-muted"><i class="fas fa-folder-open mb-2 fa-2x opacity-25"></i><br>Data distribusi tidak ditemukan</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 </div>
