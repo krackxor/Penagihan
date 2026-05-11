@@ -6,62 +6,84 @@
 <style>
     /* BAAE Tactical Upload Box */
     .upload-box {
-        border: 1px dashed rgba(56, 189, 248, 0.3);
-        border-radius: 0.75rem;
+        border: 1px dashed var(--border-hacker);
+        border-radius: 0; /* Kotak tajam */
         padding: 40px 20px;
         text-align: center;
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(0, 0, 0, 0.4);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .upload-box:hover {
-        background: rgba(56, 189, 248, 0.05);
-        border-color: rgba(56, 189, 248, 0.6);
-        box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.05);
+        position: relative;
     }
     
-    /* Tactical Nav Pills */
-    .nav-pills { border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; }
+    /* Varian Hover Upload Box */
+    .box-crimson:hover {
+        background: rgba(255, 7, 58, 0.05);
+        border-color: var(--glow-crimson);
+        box-shadow: inset 0 0 20px rgba(255, 7, 58, 0.1);
+    }
+    .box-cyan:hover {
+        background: rgba(56, 189, 248, 0.05);
+        border-color: var(--accent-cyber);
+        box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.1);
+    }
+    .box-green:hover {
+        background: var(--glow-green-dim);
+        border-color: var(--glow-green);
+        box-shadow: inset 0 0 20px var(--glow-green-dim);
+    }
+    .box-yellow:hover {
+        background: rgba(255, 189, 46, 0.05);
+        border-color: #ffbd2e;
+        box-shadow: inset 0 0 20px rgba(255, 189, 46, 0.1);
+    }
+    
+    /* Tactical Nav Pills (Hacker Style) */
+    .nav-pills { border-bottom: 1px solid var(--border-hacker); padding-bottom: 0; }
     .nav-pills .nav-link {
-        border-radius: 0.5rem;
-        font-weight: 800;
+        border-radius: 0;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
         font-size: 0.75rem;
-        color: #64748b;
-        margin: 0 5px;
-        border: 1px solid transparent;
+        color: var(--text-muted);
+        margin: 0;
+        border: none;
+        border-bottom: 2px solid transparent;
         text-transform: uppercase;
         letter-spacing: 1px;
         transition: all 0.2s ease;
+        padding: 12px 20px;
     }
-    .nav-pills .nav-link:hover { color: #cbd5e1; background: rgba(255,255,255,0.02); }
+    .nav-pills .nav-link:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
     .nav-pills .nav-link.active {
-        background: rgba(56, 189, 248, 0.05);
-        color: #38bdf8;
-        border-color: rgba(56, 189, 248, 0.2);
+        background: var(--glow-green-dim);
+        color: var(--glow-green);
+        border-bottom: 2px solid var(--glow-green);
     }
 
     /* Industrial Buttons */
     .btn-tactical {
+        font-family: 'JetBrains Mono', monospace;
         font-weight: 800;
         font-size: 0.8rem;
         letter-spacing: 2px;
         text-transform: uppercase;
-        border-radius: 0.5rem;
+        border-radius: 0;
         padding: 12px 20px;
         transition: all 0.3s;
     }
     
-    /* Varian Warna Tombol */
-    .btn-t-crimson { background: rgba(225, 29, 72, 0.05); color: #e11d48; border: 1px solid rgba(225, 29, 72, 0.3); }
-    .btn-t-crimson:hover { background: rgba(225, 29, 72, 0.15); box-shadow: inset 0 0 15px rgba(225, 29, 72, 0.2); color: #f43f5e; }
+    /* Varian Warna Tombol Terminal */
+    .btn-t-crimson { background: rgba(255, 7, 58, 0.1); color: var(--glow-crimson); border: 1px solid var(--glow-crimson); }
+    .btn-t-crimson:hover { background: var(--glow-crimson); color: #000; box-shadow: 0 0 15px var(--glow-crimson); }
 
-    .btn-t-cyan { background: rgba(56, 189, 248, 0.05); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
-    .btn-t-cyan:hover { background: rgba(56, 189, 248, 0.15); box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.2); color: #7dd3fc; }
+    .btn-t-cyan { background: rgba(56, 189, 248, 0.1); color: var(--accent-cyber); border: 1px solid var(--accent-cyber); }
+    .btn-t-cyan:hover { background: var(--accent-cyber); color: #000; box-shadow: 0 0 15px var(--accent-cyber); }
 
-    .btn-t-emerald { background: rgba(16, 185, 129, 0.05); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .btn-t-emerald:hover { background: rgba(16, 185, 129, 0.15); box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.2); color: #34d399; }
+    .btn-t-green { background: var(--glow-green-dim); color: var(--glow-green); border: 1px solid var(--glow-green); }
+    .btn-t-green:hover { background: var(--glow-green); color: #000; box-shadow: 0 0 15px var(--glow-green); }
     
-    .btn-t-indigo { background: rgba(99, 102, 241, 0.05); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
-    .btn-t-indigo:hover { background: rgba(99, 102, 241, 0.15); box-shadow: inset 0 0 15px rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+    .btn-t-yellow { background: rgba(255, 189, 46, 0.1); color: #ffbd2e; border: 1px solid #ffbd2e; }
+    .btn-t-yellow:hover { background: #ffbd2e; color: #000; box-shadow: 0 0 15px #ffbd2e; }
 
     .label-tech {
         font-family: 'JetBrains Mono', monospace;
@@ -69,8 +91,17 @@
         font-weight: 800;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        color: #94a3b8;
+        color: var(--text-muted);
     }
+    
+    .hacker-icon-box {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 70px; height: 70px; margin-bottom: 1rem;
+        background: rgba(0, 255, 65, 0.05); border: 1px solid rgba(0, 255, 65, 0.3);
+        border-radius: 0;
+        transform: rotate(45deg);
+    }
+    .hacker-icon-box i { transform: rotate(-45deg); }
 </style>
 {% endblock %}
 
@@ -78,42 +109,43 @@
 <div class="row justify-content-center mt-3 animate-fade-in">
     <div class="col-md-10 col-lg-8">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-3">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-info">System Utilities</a></li>
-                <li class="breadcrumb-item active fw-bold text-light" aria-current="page">Format Override</li>
+            <ol class="breadcrumb mb-3 font-code" style="font-size: 0.7rem;">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none" style="color: var(--text-muted);">[ SYS_UTILITIES ]</a></li>
+                <li class="breadcrumb-item active fw-bold" style="color: var(--glow-green);" aria-current="page">FORMAT_OVERRIDE</li>
             </ol>
         </nav>
 
-        <div class="card border-0 mb-5" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05) !important;">
+        <div class="card p-0 mb-5">
             <div class="card-body p-4 p-md-5">
                 <div class="text-center mb-5">
-                    <div class="rounded-3 d-inline-flex align-items-center justify-content-center p-4 mb-3" 
-                         style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); width: 80px; height: 80px;">
-                        <i class="fa-solid fa-file-shield fa-2x text-info"></i>
+                    <div class="hacker-icon-box">
+                        <i class="fa-solid fa-file-shield fa-2x" style="color: var(--glow-green);"></i>
                     </div>
-                    <h3 class="fw-800 mb-1 text-white uppercase tracking-widest">Data Format Override</h3>
-                    <p class="text-slate-400 small font-mono">// SECURE_DOCUMENT_CONVERSION_PROTOCOL</p>
+                    <h3 class="font-code fw-800 mb-1 text-white uppercase tracking-widest">
+                        <span style="color: var(--glow-green);">></span> FORMAT_OVERRIDE
+                    </h3>
+                    <p class="font-code small mt-2" style="color: var(--text-muted);">[ SECURE_DOCUMENT_CONVERSION_PROTOCOL ]</p>
                 </div>
 
                 <ul class="nav nav-pills justify-content-center mb-4" id="pills-tab" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button" role="tab">
-                            <i class="fa-solid fa-file-export me-1"></i> PDF to DOCX
+                            <i class="fa-solid fa-file-export me-1"></i> PDF_2_DOCX
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#word-to-pdf" type="button" role="tab">
-                            <i class="fa-solid fa-file-shield me-1"></i> DOCX to PDF
+                            <i class="fa-solid fa-file-shield me-1"></i> DOCX_2_PDF
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-to-pdf" type="button" role="tab">
-                            <i class="fa-solid fa-layer-group me-1"></i> IMG to PDF
+                            <i class="fa-solid fa-layer-group me-1"></i> IMG_2_PDF
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-optimizer" type="button" role="tab">
-                            <i class="fa-solid fa-microchip me-1"></i> Image Optimizer
+                            <i class="fa-solid fa-microchip me-1"></i> IMG_OPTIMIZER
                         </button>
                     </li>
                 </ul>
@@ -122,10 +154,10 @@
                     
                     <div class="tab-pane fade show active" id="pdf-to-word" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/pdf-to-word')">
-                            <div class="upload-box mb-4" style="border-color: rgba(225, 29, 72, 0.3);">
-                                <i class="fa-solid fa-file-pdf fa-3x mb-3 text-rose-500 opacity-75"></i>
+                            <div class="upload-box box-crimson mb-4">
+                                <i class="fa-solid fa-file-pdf fa-3x mb-3" style="color: var(--glow-crimson); opacity: 0.8;"></i>
                                 <input type="file" name="file" class="form-control form-control-sm mb-2" accept=".pdf" required>
-                                <span class="label-tech d-block mt-2">Target Format: MS Word (.docx)</span>
+                                <span class="label-tech d-block mt-3">Target Format: MS Word (.docx)</span>
                             </div>
                             <button type="submit" class="btn btn-tactical btn-t-crimson w-100 convert-btn">
                                 <i class="fa-solid fa-terminal me-2"></i>Execute Extraction
@@ -135,10 +167,10 @@
 
                     <div class="tab-pane fade" id="word-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/word-to-pdf')">
-                            <div class="upload-box mb-4">
-                                <i class="fa-solid fa-file-word fa-3x mb-3 text-info opacity-75"></i>
+                            <div class="upload-box box-cyan mb-4">
+                                <i class="fa-solid fa-file-word fa-3x mb-3" style="color: var(--accent-cyber); opacity: 0.8;"></i>
                                 <input type="file" name="file" class="form-control form-control-sm mb-2" accept=".doc, .docx" required>
-                                <span class="label-tech d-block mt-2">Target Format: Secure PDF (.pdf)</span>
+                                <span class="label-tech d-block mt-3">Target Format: Secure PDF (.pdf)</span>
                             </div>
                             <button type="submit" class="btn btn-tactical btn-t-cyan w-100 convert-btn">
                                 <i class="fa-solid fa-terminal me-2"></i>Execute Compilation
@@ -148,12 +180,12 @@
 
                     <div class="tab-pane fade" id="img-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/image-to-pdf')">
-                            <div class="upload-box mb-4" style="border-color: rgba(16, 185, 129, 0.3);">
-                                <i class="fa-solid fa-images fa-3x mb-3 text-emerald-400 opacity-75"></i>
+                            <div class="upload-box box-green mb-4">
+                                <i class="fa-solid fa-images fa-3x mb-3" style="color: var(--glow-green); opacity: 0.8;"></i>
                                 <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/png, image/jpeg, image/jpg" required>
-                                <span class="label-tech d-block mt-2">Target Format: Document PDF (.pdf)</span>
+                                <span class="label-tech d-block mt-3">Target Format: Document PDF (.pdf)</span>
                             </div>
-                            <button type="submit" class="btn btn-tactical btn-t-emerald w-100 convert-btn">
+                            <button type="submit" class="btn btn-tactical btn-t-green w-100 convert-btn">
                                 <i class="fa-solid fa-terminal me-2"></i>Execute Packaging
                             </button>
                         </form>
@@ -161,12 +193,12 @@
 
                     <div class="tab-pane fade" id="img-optimizer" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/image-optimizer')">
-                            <div class="upload-box mb-4" style="border-color: rgba(99, 102, 241, 0.3);">
-                                <i class="fa-solid fa-camera-retro fa-3x mb-3 text-indigo-400 opacity-75" style="color: #818cf8;"></i>
+                            <div class="upload-box box-yellow mb-4">
+                                <i class="fa-solid fa-camera-retro fa-3x mb-3" style="color: #ffbd2e; opacity: 0.8;"></i>
                                 <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/*" required>
-                                <span class="label-tech d-block mt-2">Protocol: Downsize to Email Standard (<1MB)</span>
+                                <span class="label-tech d-block mt-3">Protocol: Downsize to Email Standard (<1MB)</span>
                             </div>
-                            <button type="submit" class="btn btn-tactical btn-t-indigo w-100 convert-btn">
+                            <button type="submit" class="btn btn-tactical btn-t-yellow w-100 convert-btn">
                                 <i class="fa-solid fa-microchip me-2"></i>Initialize Compression
                             </button>
                         </form>
@@ -188,16 +220,16 @@
         const submitBtn = form.querySelector('.convert-btn');
         const originalText = submitBtn.innerHTML;
 
-        // Visual Feedback Status Processing
+        // Visual Feedback Status Processing (Hacker Style)
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>PROCESSING OVERRIDE...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>[ EXECUTING_PROTOCOL... ]';
 
         // Konfigurasi SweetAlert Corporate Hacker
         const swalDark = {
-            background: '#0f172a',
-            color: '#f8fafc',
-            confirmButtonColor: '#38bdf8',
-            customClass: { popup: 'border border-info border-opacity-25 rounded-3' }
+            background: '#0a0e17', // Match --bg-void
+            color: '#e2e8f0',      // Match --text-main
+            confirmButtonColor: '#00ff41', // Match --glow-green
+            customClass: { popup: 'border border-secondary border-opacity-25 rounded-0' }
         };
 
         try {
@@ -231,8 +263,8 @@
                 Swal.fire({
                     ...swalDark,
                     icon: 'success',
-                    iconColor: '#10b981',
-                    title: 'SYSTEM SUCCESS',
+                    iconColor: '#00ff41', // Matrix Green
+                    title: 'SYS.SUCCESS',
                     text: 'Dokumen berhasil diproses dan diunduh ke penyimpanan lokal.',
                     confirmButtonText: 'ACKNOWLEDGE'
                 });
@@ -242,9 +274,9 @@
                 Swal.fire({
                     ...swalDark,
                     icon: 'error',
-                    iconColor: '#f43f5e',
-                    confirmButtonColor: '#f43f5e',
-                    title: 'SYSTEM FAILURE',
+                    iconColor: '#ff073a', // Crimson
+                    confirmButtonColor: '#ff073a',
+                    title: 'SYS.FAILURE',
                     text: result.message || 'Terjadi anomali pada server konversi.',
                     confirmButtonText: 'CLOSE'
                 });
@@ -253,9 +285,9 @@
             Swal.fire({
                 ...swalDark,
                 icon: 'error',
-                iconColor: '#f43f5e',
-                confirmButtonColor: '#f43f5e',
-                title: 'NETWORK ERROR',
+                iconColor: '#ff073a', // Crimson
+                confirmButtonColor: '#ff073a',
+                title: 'NETWORK.ERROR',
                 text: 'Koneksi ke BAAE Central Server terputus.',
                 confirmButtonText: 'CLOSE'
             });
