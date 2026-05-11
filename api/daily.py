@@ -2,13 +2,12 @@ from flask import Blueprint, render_template, request
 from datetime import datetime
 import calendar
 
-# Import sesuai struktur proyek Anda
+# Import sesuai struktur proyek
 from models import db, TransaksiTagihan, MasterPelanggan, DataMB
 
 daily_bp = Blueprint('daily', __name__)
 
 # --- FUNGSI HELPER AMAN ---
-
 def get_val(data, keys):
     """Mencari nilai di JSON tanpa peduli huruf besar atau kecil (Anti-0)"""
     if not data or not isinstance(data, dict): return ""
@@ -20,6 +19,7 @@ def get_val(data, keys):
     return ""
 
 def safe_month_math(date_obj, minus_months):
+    """Mundur X bulan secara aman dari date_obj"""
     m = date_obj.month - minus_months
     y = date_obj.year
     while m < 1:
@@ -28,6 +28,7 @@ def safe_month_math(date_obj, minus_months):
     return date_obj.replace(year=y, month=m, day=1)
 
 def parse_db_date(date_str):
+    """Menerjemahkan string tanggal dari database secara luwes"""
     if not date_str: return None
     s = str(date_str).strip()
     for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%Y%m%d'):
@@ -46,7 +47,7 @@ def index():
         target_date = safe_month_math(curr_mon_date, 1)
         t_month, t_year = target_date.month, target_date.year
         
-        # Format String Filter sesuai permintaan Anda
+        # Format String Filter 
         p_mc = target_date.strftime('%Y%m')                  # YYYYMM (e.g. 202603)
         p_mb_rek = f"{t_month:02d}{t_year}"                  # MMYYYY (e.g. 032026)
         p_bill_period = f"01/{t_month:02d}/{t_year}"         # 01/MM/YYYY (e.g. 01/03/2026)
@@ -91,8 +92,7 @@ def index():
             DataMB.tgl_bayar,
             DataMB.raw_data,
             MasterPelanggan.raw_data.label('cid_raw')
-        ).join(MasterPelanggan, DataMB.nomen == MasterPelanggan.nomen)\
-         .all() # Loop manual lebih aman untuk JSONB kustom
+        ).join(MasterPelanggan, DataMB.nomen == MasterPelanggan.nomen).all()
 
         undue = {'34': {'rp': 0, 'count': 0}, '35': {'rp': 0, 'count': 0}, 'total': {'rp': 0, 'count': 0}}
         
@@ -117,7 +117,6 @@ def index():
                 undue['total']['count'] += 1
 
             # LOGIKA DAILY (Bayar di bulan N)
-            # Filter: BILL_PERIOD, BILL_TYPE=WATER, TypeCust1=REGULAR
             b_period = get_val(raw_mb, ['BILL_PERIOD'])
             b_type = get_val(raw_mb, ['BILL_TYPE'])
             t_cust = get_val(raw_mb, ['TypeCust1'])
@@ -154,7 +153,7 @@ def index():
                 'tgl': f"{d:02d}",
                 'u34_cust': r34_n['cust'], 'u34_rp': r34_n['rp'], 'u34_kum': kum_now['34'], 
                 'u34_coll': calc_ratio(kum_now['34'], undue['34']['rp'], targets['34']['rp']),
-                'u34_coll_mar': 0, # Komparasi
+                'u34_coll_mar': 0, # Placeholder
                 
                 'u35_cust': r35_n['cust'], 'u35_rp': r35_n['rp'], 'u35_kum': kum_now['35'], 
                 'u35_coll': calc_ratio(kum_now['35'], undue['35']['rp'], targets['35']['rp']),
@@ -177,5 +176,4 @@ def index():
 
     except Exception as e:
         import traceback
-        print("ERROR IN DAILY:", traceback.format_exc())
-        return f"<div style='background:#000;color:red;padding:20px;font-family:monospace;'><h1>[500_LOGIC_ERROR]</h1><pre>{traceback.format_exc()}</pre></div>", 500
+        return f"<div style='background:#0f172a;color:#ef4444;padding:20px;font-family:monospace;border-radius:10px'><h3>[500_LOGIC_ERROR]</h3><pre>{traceback.format_exc()}</pre></div>", 500
