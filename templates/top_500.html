@@ -5,7 +5,7 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       MODERN SAAS TOP 500 ANALYTICS
+       MODERN SAAS TOP 500 ANALYTICS (HTMX POWERED)
        ========================================================== */
     
     /* Ikon Box Modern */
@@ -42,61 +42,41 @@
     }
 
     /* Highlight Baris Prioritas (Lembut) */
-    .gold-row td {
-        background-color: #fffbeb !important;
-    }
+    .gold-row td { background-color: #fffbeb !important; }
 
     /* Form Label */
     .form-label-modern {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.5rem;
+        font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;
     }
 
     /* Tabel Analitik Modern */
-    .table-modern {
-        margin-bottom: 0;
-    }
+    .table-modern { margin-bottom: 0; }
     .table-modern thead th {
-        background-color: #f8fafc;
-        color: #64748b;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-        border-bottom: 2px solid #e2e8f0;
-        padding: 1rem;
+        background-color: #f8fafc; color: #64748b; font-size: 0.75rem;
+        text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+        border-bottom: 2px solid #e2e8f0; padding: 1rem;
     }
     .table-modern td {
-        padding: 1rem;
-        vertical-align: middle;
-        border-bottom: 1px solid #e2e8f0;
+        padding: 1rem; vertical-align: middle; border-bottom: 1px solid #e2e8f0;
         color: var(--text-main);
     }
-    .table-modern tbody tr {
-        transition: background-color 0.2s;
-    }
-    .table-modern tbody tr:hover td {
-        background-color: #f8fafc !important;
-    }
+    .table-modern tbody tr { transition: background-color 0.2s; }
+    .table-modern tbody tr:hover td { background-color: #f8fafc !important; }
 
     /* Info Card */
     .info-card {
-        background: #eff6ff;
-        border: 1px solid #bfdbfe;
-        border-radius: 12px;
-        color: #1e3a8a;
+        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; color: #1e3a8a;
     }
     .info-icon {
-        background: #dbeafe;
-        color: #2563eb;
-        width: 32px; height: 32px;
-        border-radius: 8px;
-        display: inline-flex; align-items: center; justify-content: center;
+        background: #dbeafe; color: #2563eb; width: 32px; height: 32px;
+        border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
     }
+
+    /* HTMX Loading States */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request#top500-content { opacity: 0.5; transition: opacity 200ms ease-in; pointer-events: none; }
 
     @media print {
         .no-print { display: none !important; }
@@ -124,8 +104,9 @@
                 <i class="fas fa-crown"></i>
             </div>
             <div>
-                <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+                <h3 class="fw-bold mb-1 d-flex align-items-center gap-2" style="color: var(--text-main); letter-spacing: -0.5px;">
                     Analitik Pareto: Top 500
+                    <span class="htmx-indicator spinner-border text-warning spinner-border-sm ms-2" role="status"></span>
                 </h3>
                 <p class="mb-0 text-muted" style="font-size: 0.9rem;">
                     Wilayah Prioritas: <span class="fw-bold text-dark">{{ current_ab }}</span>
@@ -135,19 +116,15 @@
     </div>
     
     <div class="col-md-5 d-flex justify-content-md-end mt-3 mt-md-0">
-        <form method="GET" action="" class="d-flex align-items-end gap-2">
-            <div class="text-end w-100">
-                <label class="form-label-modern d-block text-start">> Periode Laporan</label>
-                <div class="d-flex gap-2">
-                    <input type="month" name="periode" class="form-control" 
-                           value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" 
-                           onchange="this.form.submit()">
-                    <button type="button" onclick="window.print()" class="btn btn-outline-secondary px-3" title="Cetak Laporan">
-                        <i class="fas fa-print"></i>
-                    </button>
-                </div>
-            </div>
-        </form>
+        <div class="d-flex align-items-end gap-2 w-100 justify-content-end">
+            <a href="/top-500/export?ab={{ current_ab }}&periode={{ periode_aktif }}" 
+               class="btn btn-success fw-bold px-3 py-2 shadow-sm rounded-3">
+                <i class="fa-solid fa-file-excel me-2"></i> Ekspor Excel
+            </a>
+            <button type="button" onclick="window.print()" class="btn btn-outline-secondary px-3 py-2" title="Cetak Laporan">
+                <i class="fas fa-print"></i>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -161,68 +138,104 @@
     </div>
 </div>
 
-<div class="card border-0 shadow-sm overflow-hidden mb-5">
-    <div class="table-responsive">
-        <table class="table table-modern table-hover align-middle">
-            <thead>
-                <tr>
-                    <th class="text-center" style="width: 80px;">Peringkat</th>
-                    <th>Identitas Pelanggan</th>
-                    <th>Lokasi & Rute</th>
-                    <th>Petugas Lapangan</th>
-                    <th class="text-end pe-4">Total Tagihan</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in data %}
-                <tr class="{% if loop.index <= 3 %}gold-row{% endif %}">
-                    <td class="text-center">
-                        <div class="rank-badge mx-auto 
-                            {% if loop.index == 1 %}top-1
-                            {% elif loop.index == 2 %}top-2
-                            {% elif loop.index == 3 %}top-3
-                            {% else %}top-others{% endif %}">
-                            {{ loop.index }}
-                        </div>
-                    </td>
-                    <td>
-                        <div class="fw-bold" style="color: var(--primary); font-size: 0.95rem;">{{ item.nomen }}</div>
-                        <div class="text-dark fw-semibold mt-1" style="font-size: 0.85rem;">{{ item.nama }}</div>
-                    </td>
-                    <td>
-                        <div class="fw-semibold text-dark" style="font-size: 0.85rem;">{{ item.kelurahan }}</div>
-                        <div class="text-muted mt-1" style="font-size: 0.75rem;">
-                            Rute: <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle ms-1">{{ item.pcez }}</span>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="fw-semibold text-dark" style="font-size: 0.85rem;">
-                            <i class="fas fa-user-shield me-1 text-muted"></i>
-                            {{ item.nama_petugas if item.nama_petugas else 'Tidak Ditugaskan' }}
-                        </div>
-                        <div class="text-muted mt-1" style="font-size: 0.75rem;">Unit Analitik Sunter</div>
-                    </td>
-                    <td class="text-end pe-4">
-                        <div class="fw-bold text-danger" style="font-size: 1.1rem;">
-                            Rp {{ "{:,.0f}".format(item.total_nominal | default(0, true)) | replace(',', '.') }}
-                        </div>
-                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-outline-primary mt-2 px-3 no-print rounded-pill" style="font-size: 0.75rem; font-weight: 600;">
-                            <i class="fas fa-file-signature me-1"></i> Lihat Laporan
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center py-5">
-                        <div class="mb-3">
-                            <i class="fas fa-folder-open fa-3x" style="color: #cbd5e1;"></i>
-                        </div>
-                        <p class="text-muted fw-semibold mb-0">Tidak ada data analitik untuk periode {{ periode_aktif }}</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div id="top500-content">
+
+    <div class="card border-0 shadow-sm mb-4 no-print">
+        <div class="card-body p-4">
+            <form hx-get="/top-500/" 
+                  hx-target="#top500-content" 
+                  hx-select="#top500-content" 
+                  hx-trigger="change" 
+                  hx-push-url="true"
+                  class="row g-3 align-items-end">
+                
+                <div class="col-md-5 col-12">
+                    <label class="form-label-modern">Area Bisnis</label>
+                    <select name="ab" class="form-select">
+                        <option value="AB Sunter" {% if current_ab == 'AB Sunter' %}selected{% endif %}>AB Sunter</option>
+                        <option value="AB Dewaruci" {% if current_ab == 'AB Dewaruci' %}selected{% endif %}>AB Dewaruci</option>
+                        <option value="all" {% if current_ab == 'all' %}selected{% endif %}>Semua Area</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-5 col-12">
+                    <label class="form-label-modern text-primary">Periode Laporan</label>
+                    <input type="month" name="periode" class="form-control border-primary-subtle" 
+                           value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}">
+                </div>
+
+                <div class="col-md-2 col-12 d-none d-md-block">
+                    <button type="submit" class="btn btn-primary w-100 py-2 disabled" style="font-weight: 600; opacity: 0.5;">
+                        <i class="fas fa-bolt me-2"></i>Auto-Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm overflow-hidden mb-5">
+        <div class="table-responsive">
+            <table class="table table-modern table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width: 80px;">Peringkat</th>
+                        <th>Identitas Pelanggan</th>
+                        <th>Lokasi & Rute</th>
+                        <th>Petugas Lapangan</th>
+                        <th class="text-end pe-4">Total Tagihan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                    <tr class="{% if loop.index <= 3 %}gold-row{% endif %}">
+                        <td class="text-center">
+                            <div class="rank-badge mx-auto 
+                                {% if loop.index == 1 %}top-1
+                                {% elif loop.index == 2 %}top-2
+                                {% elif loop.index == 3 %}top-3
+                                {% else %}top-others{% endif %}">
+                                {{ loop.index }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fw-bold" style="color: var(--primary); font-size: 0.95rem;">{{ item.nomen }}</div>
+                            <div class="text-dark fw-semibold mt-1" style="font-size: 0.85rem;">{{ item.nama }}</div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark" style="font-size: 0.85rem;">{{ item.kelurahan }}</div>
+                            <div class="text-muted mt-1" style="font-size: 0.75rem;">
+                                Rute: <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle ms-1">{{ item.pcez }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark" style="font-size: 0.85rem;">
+                                <i class="fas fa-user-shield me-1 text-muted"></i>
+                                {{ item.nama_petugas if item.nama_petugas else 'Tidak Ditugaskan' }}
+                            </div>
+                            <div class="text-muted mt-1" style="font-size: 0.75rem;">Unit Analitik Sunter</div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="fw-bold text-danger" style="font-size: 1.1rem;">
+                                Rp {{ "{:,.0f}".format(item.total_nominal | default(0, true)) | replace(',', '.') }}
+                            </div>
+                            <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-outline-primary mt-2 px-3 no-print rounded-pill" style="font-size: 0.75rem; font-weight: 600;">
+                                <i class="fas fa-file-signature me-1"></i> Lihat Laporan
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <div class="mb-3">
+                                <i class="fas fa-folder-open fa-3x" style="color: #cbd5e1;"></i>
+                            </div>
+                            <p class="text-muted fw-semibold mb-0">Tidak ada data analitik untuk periode {{ periode_aktif }}</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}
