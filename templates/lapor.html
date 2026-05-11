@@ -1,226 +1,193 @@
 {% extends "base.html" %}
 
-{% block title %}Field Audit - BAAE Nexus{% endblock %}
+{% block title %}Formulir Laporan Lapangan - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
     /* ==========================================================
-       TACTICAL FIELD AUDIT STYLES (Sync with Hacker Base)
+       MODERN SAAS FIELD AUDIT STYLES
        ========================================================== */
     
-    /* Terminal Input Forms */
-    .terminal-input {
-        background: rgba(0, 0, 0, 0.5) !important;
-        border: 1px solid var(--border-hacker) !important;
-        border-left: 2px solid var(--glow-green) !important;
-        color: var(--text-main) !important;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85rem;
-        border-radius: 0 !important;
-        transition: all 0.3s;
-    }
-    .terminal-input:focus {
-        border-color: var(--glow-green) !important;
-        box-shadow: 0 0 15px var(--glow-green-dim) !important;
+    /* Ikon Box Modern */
+    .icon-box-primary {
+        background: var(--primary-light);
+        color: var(--primary);
+        width: 64px; height: 64px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 16px;
+        font-size: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
     }
 
-    /* Red Input Alert (untuk Janji Bayar) */
-    .terminal-input-alert {
-        border-left: 2px solid var(--glow-crimson) !important;
-        color: var(--glow-crimson) !important;
-    }
-    .terminal-input-alert:focus {
-        border-color: var(--glow-crimson) !important;
-        box-shadow: 0 0 15px rgba(255, 7, 58, 0.2) !important;
-    }
-
-    /* Photo Preview Panel */
-    #photoPreview {
-        width: 100%;
-        border-radius: 0;
-        display: none;
-        margin-top: 15px;
-        border: 1px dashed var(--glow-green);
-        box-shadow: 0 0 20px var(--glow-green-dim);
-    }
-
-    /* Status Radar GPS */
-    .gps-status-box {
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px dashed var(--border-hacker);
-        border-radius: 0;
-        padding: 15px;
-        transition: all 0.5s ease;
-    }
-    .radar-active {
-        border-color: var(--glow-green);
-        background: var(--glow-green-dim);
-        box-shadow: inset 0 0 15px var(--glow-green-dim);
-    }
-
-    .label-cmd {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
-        font-weight: 700;
-        letter-spacing: 1.5px;
+    /* Form Label Modern */
+    .form-label-modern {
+        font-size: 0.75rem;
+        font-weight: 600;
         color: var(--text-muted);
         text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        display: block;
     }
 
-    /* Detail Pelanggan Readout (Telemetry Style) */
-    #infoPelanggan {
-        background: rgba(0, 255, 65, 0.05);
-        border: 1px solid var(--border-hacker);
-        border-left: 3px solid var(--glow-green);
-        border-radius: 0;
-    }
-    
-    /* Hacker Button Search */
-    .btn-search-nomen {
-        background: rgba(0, 255, 65, 0.1);
-        color: var(--glow-green);
-        border: 1px solid var(--glow-green);
-        border-radius: 0;
-        transition: all 0.3s;
-    }
-    .btn-search-nomen:hover {
-        background: var(--glow-green);
-        color: #000;
-        box-shadow: 0 0 15px var(--glow-green);
+    /* Detail Pelanggan Box */
+    .info-pelanggan-box {
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-left: 4px solid var(--primary);
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        transition: all 0.2s;
     }
 
-    /* Master Submit Button */
-    .btn-execute {
-        font-family: 'JetBrains Mono', monospace;
-        background: rgba(255, 7, 58, 0.1);
-        color: var(--glow-crimson);
-        border: 1px solid var(--glow-crimson);
-        font-weight: 800;
-        letter-spacing: 2px;
-        border-radius: 0;
-        transition: all 0.3s;
+    /* GPS Status Box */
+    .gps-status-box {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        transition: all 0.3s ease;
     }
-    .btn-execute:hover:not(:disabled) {
-        background: var(--glow-crimson);
-        color: #000;
-        box-shadow: 0 0 25px rgba(255, 7, 58, 0.6);
-    }
-    .btn-execute:disabled {
-        background: rgba(0,0,0,0.5);
-        border-color: var(--border-hacker);
-        color: #555;
+    .gps-status-box.radar-active {
+        background: #ecfdf5;
+        border-color: #a7f3d0;
     }
 
-    /* Central Target Icon Box */
-    .target-icon-box {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 70px; height: 70px; margin-bottom: 1rem;
-        background: rgba(255, 7, 58, 0.05); 
-        border: 1px solid rgba(255, 7, 58, 0.3);
-        /* Octagon Cut */
-        clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+    /* Pratinjau Foto */
+    #photoPreview {
+        width: 100%;
+        max-height: 300px;
+        border-radius: var(--radius-md);
+        display: none;
+        margin-top: 15px;
+        border: 1px solid var(--border-color);
+        object-fit: contain;
+        background: #f8fafc;
+    }
+
+    /* Tombol Aksi */
+    .btn-action {
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--radius-sm);
+        transition: all 0.2s;
+    }
+
+    /* Input Merah (Janji Bayar) */
+    .input-alert {
+        border-color: #fca5a5 !important;
+        background-color: #fef2f2 !important;
+        color: #991b1b !important;
+    }
+    .input-alert:focus {
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+        border-color: #ef4444 !important;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-2 animate-fade-in">
+<div class="row justify-content-center mt-3 animate-fade-in">
     <div class="col-lg-6 col-md-8">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-3 font-code" style="font-size: 0.7rem;">
-                <li class="breadcrumb-item"><a href="/monitoring/" class="text-decoration-none" style="color: var(--text-muted);">[ SYS_RADAR ]</a></li>
-                <li class="breadcrumb-item active fw-bold" style="color: var(--glow-crimson);" aria-current="page">FIELD_AUDIT</li>
+            <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
+                <li class="breadcrumb-item"><a href="/monitoring/" class="text-decoration-none text-muted">Dashboard</a></li>
+                <li class="breadcrumb-item active text-primary" aria-current="page">Laporan Lapangan</li>
             </ol>
         </nav>
 
-        <div class="card mb-5 p-0">
+        <div class="card border-0 shadow-sm mb-5">
             <div class="card-body p-4 p-md-5">
+                
                 <div class="text-center mb-5">
-                    <div class="target-icon-box">
-                        <i class="fa-solid fa-crosshairs fa-2x animate-pulse" style="color: var(--glow-crimson);"></i>
+                    <div class="icon-box-primary mb-3">
+                        <i class="fa-solid fa-clipboard-check"></i>
                     </div>
-                    <h3 class="font-code fw-800 text-white mb-1 uppercase tracking-tight">
-                        <span style="color: var(--glow-crimson);">></span> FIELD_REPORT_LOG
+                    <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+                        Formulir Laporan Lapangan
                     </h3>
-                    <p class="font-code small mb-0" style="color: var(--text-muted);">[ VERIFY_NODE_VIA_SATELLITE ]</p>
+                    <p class="text-muted mt-2" style="font-size: 0.95rem;">
+                        Verifikasi lokasi dan unggah bukti kunjungan pelanggan.
+                    </p>
                 </div>
 
                 <form id="formLapor" enctype="multipart/form-data">
                     
                     <div class="mb-4">
-                        <label class="label-cmd">> target_identity_nomen</label>
-                        <div class="input-group">
+                        <label class="form-label-modern">Nomor Pelanggan (Nomen)</label>
+                        <div class="input-group shadow-sm" style="border-radius: var(--radius-sm); overflow: hidden;">
                             <input type="number" name="nomen" id="inputNomen" 
-                                   class="form-control terminal-input" 
-                                   placeholder="8_DIGIT_ID..." 
+                                   class="form-control" style="border: 1px solid var(--border-color);"
+                                   placeholder="Masukkan 8 digit nomor..." 
                                    value="{{ request.args.get('nomen', '') }}" required>
-                            <button class="btn btn-search-nomen px-4" type="button" id="btnCek" onclick="cekDataPelanggan()">
-                                <i class="fas fa-search"></i>
+                            <button class="btn btn-primary px-4" type="button" id="btnCek" onclick="cekDataPelanggan()">
+                                <i class="fas fa-search"></i> Cari
                             </button>
                         </div>
                         
-                        <div id="infoPelanggan" class="mt-3 p-3 d-none">
+                        <div id="infoPelanggan" class="info-pelanggan-box mt-3 d-none">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 class="font-code fw-800 text-white mb-1" id="dispNama" style="letter-spacing: 0.5px;">[ FETCHING_DATA... ]</h6>
-                                    <div class="font-code small" style="color: var(--glow-green);" id="dispKel">Kelurahan</div>
+                                    <h6 class="fw-bold text-dark mb-1" id="dispNama">Memuat Data...</h6>
+                                    <div class="text-muted" style="font-size: 0.8rem;" id="dispKel">Kelurahan</div>
                                 </div>
-                                <span class="font-code" style="background: var(--glow-green-dim); color: var(--glow-green); border: 1px solid rgba(0,255,65,0.3); padding: 4px 8px; font-size: 0.65rem;" id="dispPcez">PCEZ</span>
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-1" id="dispPcez">RUTE</span>
                             </div>
-                            <hr class="my-3" style="border-color: rgba(0, 255, 65, 0.2);">
-                            <div class="font-code small" style="color: var(--text-muted);">
-                                <i class="fa-solid fa-user-shield me-2" style="color: var(--text-main);"></i>
-                                <span>FIELD_ENGINEER:</span> <strong id="dispPetugas" class="text-white">-</strong>
+                            <hr class="my-3 border-secondary-subtle">
+                            <div class="text-muted" style="font-size: 0.8rem; font-weight: 500;">
+                                <i class="fa-solid fa-user-shield me-2 text-primary"></i>
+                                Petugas: <strong id="dispPetugas" class="text-dark">-</strong>
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="label-cmd">> field_investigation_result</label>
-                        <select name="hasil_kunjungan" id="hasilKunjungan" class="form-select terminal-input" onchange="toggleJanjiBayar()" required>
-                            <option value="">[ -- SELECT_STATUS -- ]</option>
-                            <option value="JANJI BAYAR">📝 JANJI_BAYAR</option>
-                            <option value="RUMAH KOSONG">🏠 RUMAH_KOSONG / TUTUP</option>
-                            <option value="METER TERTIMBUN">🚧 METER_TERTIMBUN / RUSAK</option>
-                            <option value="PENGGUNAAN NORMAL">✅ PENGGUNAAN_NORMAL (SBRS)</option>
-                            <option value="SUDAH BAYAR">💰 SUDAH_BAYAR (ADA BUKTI)</option>
+                        <label class="form-label-modern">Hasil Kunjungan</label>
+                        <select name="hasil_kunjungan" id="hasilKunjungan" class="form-select shadow-sm" onchange="toggleJanjiBayar()" required>
+                            <option value="">-- Pilih Status Kunjungan --</option>
+                            <option value="JANJI BAYAR">📝 Janji Bayar</option>
+                            <option value="RUMAH KOSONG">🏠 Rumah Kosong / Tutup</option>
+                            <option value="METER TERTIMBUN">🚧 Meter Tertimbun / Rusak</option>
+                            <option value="PENGGUNAAN NORMAL">✅ Penggunaan Normal (SBRS)</option>
+                            <option value="SUDAH BAYAR">💰 Sudah Bayar (Ada Bukti)</option>
                         </select>
                     </div>
 
                     <div class="mb-4 d-none" id="groupJanji">
-                        <label class="label-cmd" style="color: var(--glow-crimson);">> set_payment_schedule</label>
-                        <input type="date" name="tgl_janji_bayar" class="form-control terminal-input terminal-input-alert">
+                        <label class="form-label-modern text-danger">Tentukan Tanggal Janji Bayar</label>
+                        <input type="date" name="tgl_janji_bayar" class="form-control shadow-sm input-alert">
                     </div>
 
                     <div class="mb-4">
-                        <label class="label-cmd">> visual_evidence_capture</label>
-                        <div class="p-3 gps-status-box mb-2">
-                             <input type="file" name="foto" id="inputFoto" class="form-control terminal-input mb-1" 
+                        <label class="form-label-modern">Unggah Bukti Foto Lokasi</label>
+                        <div class="p-3 bg-light border rounded-3 mb-2">
+                             <input type="file" name="foto" id="inputFoto" class="form-control mb-2" 
                                     accept="image/*" capture="environment" onchange="previewImage(this)" required>
-                             <div class="font-code mt-2" style="font-size: 0.6rem; color: var(--text-muted);">
-                                <i class="fa-solid fa-info-circle me-1" style="color: var(--glow-green);"></i> SYSTEM_REQ: Ensure adequate lighting for optical engine.
+                             <div class="text-muted" style="font-size: 0.75rem;">
+                                <i class="fa-solid fa-info-circle me-1 text-primary"></i> Pastikan foto jelas dan terang agar mudah diverifikasi.
                              </div>
                         </div>
-                        <img id="photoPreview" src="" alt="Capture Preview">
+                        <img id="photoPreview" src="" alt="Pratinjau Foto">
                     </div>
 
                     <div class="mb-5">
-                        <div id="gpsStatus" class="gps-status-box d-flex align-items-center justify-content-between">
+                        <div id="gpsStatus" class="gps-status-box d-flex align-items-center justify-content-between shadow-sm">
                             <div class="d-flex align-items-center">
-                                <i class="fas fa-satellite-dish fa-spin me-3" id="gpsIcon" style="font-size: 1.2rem; color: #ffbd2e;"></i>
+                                <i class="fas fa-satellite-dish fa-spin me-3" id="gpsIcon" style="font-size: 1.5rem; color: #f59e0b;"></i>
                                 <div>
-                                    <div class="label-cmd" style="font-size: 0.55rem;">GEO_LOCATION_RADAR</div>
-                                    <span id="gpsText" class="font-code small fw-bold text-white">Establishing satellite link...</span>
+                                    <div class="form-label-modern mb-0" style="font-size: 0.65rem;">Status Lokasi (GPS)</div>
+                                    <span id="gpsText" class="fw-bold text-dark" style="font-size: 0.85rem;">Mencari sinyal GPS...</span>
                                 </div>
                             </div>
-                            <div id="gpsPulse" class="rounded-circle animate-pulse" style="width: 10px; height: 10px; background: #ffbd2e; box-shadow: 0 0 10px rgba(255, 189, 46, 0.5);"></div>
+                            <div id="gpsPulse" class="rounded-circle animate-pulse" style="width: 12px; height: 12px; background: #f59e0b;"></div>
                         </div>
                         <input type="hidden" name="lat" id="lat">
                         <input type="hidden" name="lng" id="lng">
                     </div>
 
-                    <button type="submit" id="btnSubmit" class="btn btn-execute btn-lg w-100 py-3" disabled>
-                        <i class="fas fa-cloud-arrow-up me-2"></i> UPLOAD_REPORT
+                    <button type="submit" id="btnSubmit" class="btn btn-primary btn-action w-100 py-3" disabled>
+                        <i class="fas fa-cloud-arrow-up me-2"></i> Kirim Laporan Lapangan
                     </button>
                 </form>
             </div>
@@ -231,16 +198,16 @@
 
 {% block extra_js %}
 <script>
-    // Config SWAL Dark Mode Hacker (Sync dengan base.html)
-    const swalDark = {
-        background: '#0a0e17', 
-        color: '#e2e8f0',
-        confirmButtonColor: '#00ff41', // Matrix green
-        cancelButtonColor: '#1f2937',
-        customClass: { popup: 'border border-secondary border-opacity-25 rounded-0' }
+    // Konfigurasi SweetAlert Corporate SaaS
+    const swalModern = {
+        background: '#ffffff', 
+        color: '#0f172a',
+        confirmButtonColor: '#2563eb', // Biru tech company
+        cancelButtonColor: '#e2e8f0',
+        customClass: { popup: 'border-0 rounded-4 shadow-lg' }
     };
 
-    // 1. Ambil Lokasi GPS (Radar System)
+    // 1. Ambil Lokasi GPS
     function getGPS() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function(position) {
@@ -256,23 +223,28 @@
                 // Ubah Tampilan Menjadi Hijau Aktif
                 statusBox.classList.add('radar-active');
                 gpsIcon.classList.replace('fa-satellite-dish', 'fa-location-dot');
-                gpsIcon.style.color = 'var(--glow-green)'; // Override color to hacker green
+                gpsIcon.style.color = '#10b981'; // Hijau Sukses
                 gpsIcon.classList.remove('fa-spin');
                 
-                gpsPulse.style.background = 'var(--glow-green)';
-                gpsPulse.style.boxShadow = "0 0 15px var(--glow-green)";
+                gpsPulse.style.background = '#10b981';
                 
-                document.getElementById('gpsText').innerHTML = `<span style="color: var(--glow-green);">COORD_LOCKED:</span> ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('gpsText').innerHTML = `<span class="text-success">Terkunci:</span> ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                 
                 document.getElementById('btnSubmit').disabled = false;
             }, function(error) {
-                document.getElementById('gpsText').innerText = "SYS.ERR: Location access denied!";
-                Swal.fire({ ...swalDark, icon: 'warning', iconColor: '#ffbd2e', title: 'RADAR_OFFLINE', text: 'System requires GPS coordinates for field validation.' });
+                document.getElementById('gpsText').innerText = "Akses lokasi ditolak!";
+                Swal.fire({ 
+                    ...swalModern, 
+                    icon: 'warning', 
+                    confirmButtonColor: '#f59e0b', 
+                    title: 'GPS Tidak Aktif', 
+                    text: 'Sistem membutuhkan koordinat lokasi Anda untuk verifikasi laporan lapangan.' 
+                });
             }, { enableHighAccuracy: true });
         }
     }
 
-    // 2. Auto-Lookup Nomen (Analytic Check)
+    // 2. Auto-Lookup Nomen (Data Pelanggan)
     async function cekDataPelanggan() {
         const nomen = document.getElementById('inputNomen').value;
         if (!nomen || nomen.length < 5) return;
@@ -288,15 +260,20 @@
             if (data.status === 'success') {
                 document.getElementById('infoPelanggan').classList.remove('d-none');
                 document.getElementById('dispNama').innerText = data.nama_pelanggan;
-                document.getElementById('dispPcez').innerText = `CLUSTER: ${data.pcez}`;
-                document.getElementById('dispKel').innerText = `REGION: ${data.kelurahan}`;
+                document.getElementById('dispPcez').innerText = `RUTE: ${data.pcez}`;
+                document.getElementById('dispKel').innerText = `Wilayah: ${data.kelurahan}`;
                 document.getElementById('dispPetugas').innerText = data.petugas;
             } else {
-                Swal.fire({ ...swalDark, icon: 'info', iconColor: '#38bdf8', title: 'RECORD_VOID', text: 'Nomor Pelanggan tidak terdaftar dalam database.' });
+                Swal.fire({ 
+                    ...swalModern, 
+                    icon: 'info', 
+                    title: 'Tidak Ditemukan', 
+                    text: 'Nomor Pelanggan tersebut tidak terdaftar di dalam database.' 
+                });
                 document.getElementById('infoPelanggan').classList.add('d-none');
             }
         } catch (e) {
-            console.error("Lookup Failed");
+            console.error("Gagal mengambil data pelanggan");
         } finally {
             btn.innerHTML = originalContent;
         }
@@ -325,14 +302,20 @@
         e.preventDefault();
         
         if (!document.getElementById('lat').value) {
-            return Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'GPS_NOT_FOUND', text: 'Wait for the satellite radar to lock your location.' });
+            return Swal.fire({ 
+                ...swalModern, 
+                icon: 'error', 
+                confirmButtonColor: '#ef4444', 
+                title: 'GPS Belum Siap', 
+                text: 'Harap tunggu hingga sistem mengunci lokasi GPS Anda sebelum mengirim laporan.' 
+            });
         }
 
         const formData = new FormData(this);
         Swal.fire({
-            ...swalDark,
-            title: 'SYNCING_DATA...',
-            html: '<p style="color: var(--glow-green); font-family: \'JetBrains Mono\', monospace; font-size: 0.8rem;">Uploading field intelligence to Central Server</p>',
+            ...swalModern,
+            title: 'Mengirim Laporan...',
+            html: '<p style="color: #64748b; font-size: 0.9rem;">Menyimpan data dan mengunggah foto bukti ke server.</p>',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
@@ -343,17 +326,29 @@
 
             if (result.status === 'success') {
                 Swal.fire({
-                    ...swalDark,
+                    ...swalModern,
                     icon: 'success',
-                    iconColor: '#00ff41',
-                    title: 'SYS.SYNC_SUCCESS',
+                    confirmButtonColor: '#10b981',
+                    title: 'Laporan Terkirim',
                     text: result.message
                 }).then(() => { window.location.href = '/monitoring/'; });
             } else {
-                Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'SYS.SAVE_FAIL', text: result.message });
+                Swal.fire({ 
+                    ...swalModern, 
+                    icon: 'error', 
+                    confirmButtonColor: '#ef4444', 
+                    title: 'Gagal Menyimpan', 
+                    text: result.message 
+                });
             }
         } catch (err) {
-            Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'NETWORK_FATAL', text: 'Connection lost. Check field signal integrity.' });
+            Swal.fire({ 
+                ...swalModern, 
+                icon: 'error', 
+                confirmButtonColor: '#ef4444', 
+                title: 'Gangguan Jaringan', 
+                text: 'Koneksi terputus. Pastikan sinyal internet Anda stabil saat mengunggah foto.' 
+            });
         }
     };
 
