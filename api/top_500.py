@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify
+import io
+import polars as pl
+from flask import Blueprint, render_template, request, jsonify, send_file
 from models import db, TransaksiTagihan, MasterPelanggan, MasterPetugas
 from sqlalchemy import desc, func
 from datetime import datetime
@@ -49,7 +51,7 @@ def index():
         MasterPelanggan.pcez,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode
-    ).order_by(desc(func.sum(TransaksiTagihan.nominal))).limit(500).all()
+    ).order_by(desc('total_nominal')).limit(500).all()
 
     # 6. Render ke Template
     return render_template(
@@ -96,3 +98,61 @@ def api_stats():
         "total_tunggakan_tercatat": int(total_pelanggan),
         "total_nominal_rp": float(total_uang)
     })
+
+@top_500_bp.route('/export')
+def export_top500():
+    """
+    [FITUR BARU] Export Data Top 500 ke Excel menggunakan Polars Engine!
+    """
+    ab_filter = request.args.get('ab', 'AB Sunter')
+    periode_raw = request.args.get('periode') 
+    periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+
+    query = db.session.query(
+        TransaksiTagihan.nomen,
+        MasterPelanggan.nama,
+        MasterPelanggan.kelurahan,
+        MasterPelanggan.pcez,
+        MasterPetugas.nama_petugas,
+        TransaksiTagihan.periode,
+        func.sum(TransaksiTagihan.nominal).label('total_nominal')
+    ).select_from(TransaksiTagihan)\
+     .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
+     .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
+     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_bersih)
+    
+    if ab_filter != 'all':
+        query = query.filter(MasterPelanggan.ab == ab_filter)
+
+    results = query.group_by(
+        TransaksiTagihan.nomen, MasterPelanggan.nama, MasterPelanggan.kelurahan,
+        MasterPelanggan.pcez, MasterPetugas.nama_petugas, TransaksiTagihan.periode
+    ).order_by(desc('total_nominal')).limit(500).all()
+
+    # Mapping hasil query ke dalam list dictionary untuk Polars
+    data_list = []
+    for rank, r in enumerate(results, start=1):
+        data_list.append({
+            "Peringkat": rank,
+            "Nomen Sinergi": r.nomen,
+            "Nama Pelanggan": r.nama,
+            "Kelurahan": r.kelurahan,
+            "Wilayah PCEZ": r.pcez,
+            "Petugas Lapangan": r.nama_petugas or "Belum Diatur",
+            "Total Tunggakan (Rp)": float(r.total_nominal or 0),
+            "Periode": r.periode
+        })
+
+    # Konversi ke Excel menggunakan mesin Polars
+    df = pl.DataFrame(data_list)
+    output = io.BytesIO()
+    df.write_excel(output, worksheet="Top_500_Pareto")
+    output.seek(0)
+    
+    nama_file = f"Data_Top_500_{ab_filter}_{periode_bersih}.xlsx"
+    return send_file(
+        output, 
+        download_name=nama_file, 
+        as_attachment=True, 
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
