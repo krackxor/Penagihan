@@ -12,6 +12,9 @@
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
     <style>
         /* ==========================================================
            1. CORE THEME: MODERN TECH COMPANY / SAAS
@@ -140,6 +143,19 @@
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
+        /* HTMX Transition Animations */
+        .htmx-swapping {
+            opacity: 0;
+            transition: opacity 200ms ease-out;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         /* ==========================================================
            4. BOTTOM NAV (APP STYLE)
            ========================================================== */
@@ -241,7 +257,7 @@
         .menu-backdrop.show { opacity: 1; pointer-events: auto; }
 
         /* ==========================================================
-           6. MODERN LOADING SCREEN
+           6. MODERN LOADING SCREEN (Full Reload Only)
            ========================================================== */
         #turbo-loader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -379,11 +395,14 @@
 
     <div id="turbo-loader">
         <div class="spinner-modern"></div>
-        <div class="loader-text">Memproses Permintaan...</div>
+        <div class="loader-text">Memuat Sistem...</div>
     </div>
 
     <footer class="footer mt-auto py-4 text-center">
-        <span class="text-muted" style="font-size: 0.8rem;">BAAE System v14.0 &copy; 2026 Khoirul Anwar</span>
+        <span class="text-muted" style="font-size: 0.8rem; font-weight: 500;">
+            <i class="fa-solid fa-shield-halved me-1 text-primary"></i> 
+            BAAE System V18.0 &copy; 2026 Khoirul Anwar
+        </span>
     </footer>
 
     <nav class="bottom-nav">
@@ -437,9 +456,11 @@
             }
         }
 
-        window.onbeforeunload = function() {
+        // Tampilkan loader layar penuh HANYA saat pindah halaman secara normal
+        // HTMX tidak memicu event beforeunload, sehingga layar tidak akan berkedip putih saat filter data
+        window.addEventListener('beforeunload', function() {
             document.getElementById('turbo-loader').style.display = 'flex';
-        };
+        });
 
         const swalModern = {
             background: '#ffffff', 
