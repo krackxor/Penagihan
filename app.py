@@ -5,6 +5,7 @@ from sqlalchemy import inspect, text # Jantung Audit & Sinkronisasi Database
 
 # --- 1. IMPORT BLUEPRINTS ---
 from api.monitoring import monitoring_bp
+from api.daily import daily_bp  # <--- [BARU] Import Blueprint Daily Collection
 from api.importer import importer_bp
 from api.kunjungan import kunjungan_bp
 from api.sbrs import sbrs_bp 
@@ -160,6 +161,7 @@ def create_app():
 
     # --- 4. REGISTRASI MODUL (BLUEPRINTS) ---
     app_flask.register_blueprint(monitoring_bp, url_prefix='/monitoring')
+    app_flask.register_blueprint(daily_bp, url_prefix='/monitoring/daily') # <--- [BARU] Registrasi URL Daily
     app_flask.register_blueprint(importer_bp, url_prefix='/api/import')
     app_flask.register_blueprint(kunjungan_bp, url_prefix='/api/kunjungan')
     app_flask.register_blueprint(sbrs_bp, url_prefix='/sbrs') 
