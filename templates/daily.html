@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Collection | BAAE Nexus{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Pewarnaan Khusus Tabel Daily Collection */
+    .table-daily thead th { 
+        background: #0a0e17 !important; 
+        color: var(--text-main) !important; 
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.65rem; 
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border: 1px solid var(--border-hacker) !important;
+        padding: 10px;
+        vertical-align: middle;
+    }
+    
+    .table-daily td { 
+        border: 1px solid rgba(255,255,255,0.05) !important; 
+        color: var(--text-main); 
+        vertical-align: middle; 
+        padding: 8px 10px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+    }
+
+    .table-daily tbody tr:hover td { background: rgba(255,255,255,0.03) !important; }
+    
+    /* Warna Identitas Unit */
+    .text-cyan { color: #00f2ff !important; }
+    .text-yellow { color: #ffbd2e !important; }
+    .text-green { color: var(--glow-green) !important; }
+    .text-danger { color: var(--glow-crimson) !important; }
+    
+    .border-bottom-cyan { border-bottom: 2px solid #00f2ff !important; }
+    .border-bottom-yellow { border-bottom: 2px solid #ffbd2e !important; }
+    .border-bottom-green { border-bottom: 2px solid var(--glow-green) !important; }
+
+    .bg-dark-accent { background: rgba(0, 0, 0, 0.4) !important; }
+
+    /* Input Periode Terminal Style */
+    .terminal-input {
+        background: rgba(0, 0, 0, 0.5) !important;
+        border: 1px solid var(--border-hacker) !important;
+        border-left: 2px solid var(--glow-green) !important;
+        color: var(--glow-green) !important;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+        border-radius: 0;
+        padding: 5px 10px;
+    }
+    .terminal-input:focus {
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.2) !important;
+        border-color: var(--glow-green) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-4 animate-fade-in">
+    <div class="col-md-7">
+        <h3 class="font-mono text-white mb-0" style="font-size: 1.2rem; font-weight: 800;">
+            <span style="color: var(--glow-green);">></span> DAILY_COLLECTION_{{ mon_name|upper }}
+        </h3>
+        <p class="font-mono small mb-0 mt-1" style="color: var(--text-muted);">
+            [ TARGET_PERIODE: {{ prev_mon_name|upper }} ]
+        </p>
+    </div>
+    <div class="col-md-5 d-flex justify-content-md-end mt-3 mt-md-0">
+        <form method="GET" action="" class="d-flex align-items-end gap-2">
+            <div>
+                <label class="font-mono text-muted mb-1" style="font-size: 0.6rem; font-weight: 800;">> SYS_FILTER</label>
+                <div class="d-flex gap-2">
+                    <input type="month" name="periode" class="form-control terminal-input" 
+                           value="{{ periode }}" onchange="this.form.submit()">
+                    
+                    <button type="button" onclick="window.print()" class="btn btn-dark rounded-0" style="border: 1px solid var(--border-hacker); color: var(--text-muted);">
+                        <i class="fas fa-print"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card p-0 border-0 overflow-hidden mb-5 shadow-lg">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 table-daily text-nowrap">
+            <thead>
+                <tr>
+                    <th rowspan="2" class="text-center align-middle" style="color: var(--glow-green); width: 60px;">TGL</th>
+                    <th colspan="6" class="text-center border-bottom-cyan">34</th>
+                    <th colspan="6" class="text-center border-bottom-yellow">35</th>
+                    <th colspan="6" class="text-center border-bottom-green">AB SUNTER</th>
+                </tr>
+                <tr class="bg-dark-accent">
+                    <th class="text-center">CUST</th>
+                    <th class="text-end">Rp</th>
+                    <th class="text-end">1</th>
+                    <th class="text-end">komulatif</th>
+                    <th class="text-center">COLL {{ mon_name[:3] }}</th>
+                    <th class="text-center">COLL {{ prev_mon_name[:3] }}</th>
+                    
+                    <th class="text-center">CUST</th>
+                    <th class="text-end">Rp</th>
+                    <th class="text-end">1</th>
+                    <th class="text-end">komulatif</th>
+                    <th class="text-center">COLL {{ mon_name[:3] }}</th>
+                    <th class="text-center">COLL {{ prev_mon_name[:3] }}</th>
+                    
+                    <th class="text-center">Jumlah Transaksi</th>
+                    <th class="text-end">Rp</th>
+                    <th class="text-end">Rp</th>
+                    <th class="text-center">COLL {{ mon_name[:3] }}</th>
+                    <th class="text-center">COLL {{ prev_mon_name[:3] }}</th>
+                    <th class="text-center">VAR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                <tr>
+                    <td class="text-center fw-bold">{{ row.tgl }}</td>
+                    
+                    <td class="text-center text-muted">{{ "{:,.0f}".format(row.u34_cust) }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td> <td class="text-end text-cyan">{{ "{:,.0f}".format(row.u34_kum) }}</td>
+                    <td class="text-center fw-bold text-cyan">{{ "%.4f"|format(row.u34_coll / 100) }}</td>
+                    <td class="text-center text-muted">{{ "%.4f"|format(row.u34_coll_mar / 100) }}</td>
+                    
+                    <td class="text-center text-muted">{{ "{:,.0f}".format(row.u35_cust) }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(row.u35_rp) }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(row.u35_rp) }}</td>
+                    <td class="text-end text-yellow">{{ "{:,.0f}".format(row.u35_kum) }}</td>
+                    <td class="text-center fw-bold text-yellow">{{ "%.4f"|format(row.u35_coll / 100) }}</td>
+                    <td class="text-center text-muted">{{ "%.4f"|format(row.u35_coll_mar / 100) }}</td>
+
+                    <td class="text-center text-muted">{{ "{:,.0f}".format(row.tot_cust) }}</td>
+                    <td class="text-end text-white">{{ "{:,.0f}".format(row.tot_rp) }}</td>
+                    <td class="text-end text-white">{{ "{:,.0f}".format(row.tot_rp) }}</td>
+                    <td class="text-center fw-bold text-green">{{ "%.4f"|format(row.tot_coll / 100) }}</td>
+                    <td class="text-center text-muted">{{ "%.4f"|format(row.tot_coll_mar / 100) }}</td>
+                    
+                    {% set var_value = (row.var_tot / 100) %}
+                    <td class="text-center fw-bold {% if var_value < 0 %}text-danger{% else %}text-green{% endif %}">
+                        {{ "%.4f"|format(var_value) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
