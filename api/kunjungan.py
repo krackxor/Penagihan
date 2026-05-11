@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from models import db, MasterPelanggan, MasterPetugas, AnalisaAuditor
 from sqlalchemy import and_
+from PIL import Image, ImageOps # Tambahan untuk Optimasi Foto Lapangan
 
 # Inisialisasi Blueprint
 kunjungan_bp = Blueprint('kunjungan', __name__)
@@ -23,7 +24,7 @@ def clean_nomen(val):
 
 def allowed_file(filename):
     """Validasi format foto agar server tetap bersih."""
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @kunjungan_bp.route('/cek-pcez/<nomen_raw>', methods=['GET'])
@@ -65,11 +66,11 @@ def cek_pcez_petugas(nomen_raw):
 def submit_laporan():
     """
     Mesin Penerima Laporan Lapangan V18.
-    Sudah terintegrasi dengan pembersihan Nomen untuk akurasi Top 500.
+    Dilengkapi dengan Auto-Rotation dan Smart Compression untuk menghemat SSD.
     """
     try:
         nomen_raw = request.form.get('nomen')
-        nomen = clean_nomen(nomen_raw) # Eksekusi pembersihan
+        nomen = clean_nomen(nomen_raw) 
         
         hasil = request.form.get('hasil_kunjungan')
         tgl_janji = request.form.get('tgl_janji_bayar')
@@ -88,18 +89,40 @@ def submit_laporan():
         petugas = MasterPetugas.query.filter_by(pcez=pelanggan.pcez, peran='TAGIHAN').first()
         nama_petugas = petugas.nama_petugas if petugas else "Petugas Luar"
 
-        # Proses Upload Foto
+        # Proses Upload & Optimasi Foto
         foto_filename = None
         if 'foto' in request.files:
             file = request.files['foto']
             if file and allowed_file(file.filename):
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                ext = file.filename.rsplit('.', 1)[1].lower()
-                filename = secure_filename(f"{nomen}_{timestamp}.{ext}")
-                
+                # Paksa ekstensi menjadi jpg untuk standardisasi
+                filename = secure_filename(f"{nomen}_{timestamp}.jpg")
                 save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-                file.save(save_path)
-                foto_filename = filename
+                
+                try:
+                    # Buka gambar di memori
+                    img = Image.open(file.stream)
+                    
+                    # Cegah foto lapangan miring/terbalik
+                    img = ImageOps.exif_transpose(img)
+                    
+                    # Pastikan format kompatibel untuk JPEG
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                        
+                    # SMART COMPRESSION: Batasi resolusi maksimal (misal 1280px)
+                    # File 5MB akan turun drastis menjadi < 200KB tanpa buram
+                    img.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+                    
+                    # Simpan ke SSD Server
+                    img.save(save_path, "JPEG", quality=75, optimize=True)
+                    foto_filename = filename
+                    
+                except Exception as e:
+                    # Fallback Darurat jika proses Pillow gagal, simpan file mentah
+                    file.seek(0)
+                    file.save(save_path)
+                    foto_filename = secure_filename(file.filename)
 
         # Konversi Tanggal Janji Bayar
         janji_date = None
