@@ -1,107 +1,93 @@
 {% extends "base.html" %}
 
-{% block title %}Format Override - BAAE Nexus{% endblock %}
+{% block title %}Konverter Format - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* BAAE Tactical Upload Box */
-    .upload-box {
-        border: 1px dashed var(--border-hacker);
-        border-radius: 0; /* Kotak tajam */
+    /* ==========================================================
+       MODERN SAAS CONVERTER STYLES
+       ========================================================== */
+    
+    /* Ikon Box Modern */
+    .icon-box-primary {
+        background: var(--primary-light);
+        color: var(--primary);
+        width: 64px; height: 64px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 16px;
+        font-size: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Modern Upload Box */
+    .upload-box-modern {
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-md);
         padding: 40px 20px;
         text-align: center;
-        background: rgba(0, 0, 0, 0.4);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: #f8fafc;
+        transition: all 0.2s ease-in-out;
         position: relative;
     }
     
-    /* Varian Hover Upload Box */
-    .box-crimson:hover {
-        background: rgba(255, 7, 58, 0.05);
-        border-color: var(--glow-crimson);
-        box-shadow: inset 0 0 20px rgba(255, 7, 58, 0.1);
-    }
-    .box-cyan:hover {
-        background: rgba(56, 189, 248, 0.05);
-        border-color: var(--accent-cyber);
-        box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.1);
-    }
-    .box-green:hover {
-        background: var(--glow-green-dim);
-        border-color: var(--glow-green);
-        box-shadow: inset 0 0 20px var(--glow-green-dim);
-    }
-    .box-yellow:hover {
-        background: rgba(255, 189, 46, 0.05);
-        border-color: #ffbd2e;
-        box-shadow: inset 0 0 20px rgba(255, 189, 46, 0.1);
+    .upload-box-modern:hover {
+        background: var(--primary-light);
+        border-color: var(--primary);
     }
     
-    /* Tactical Nav Pills (Hacker Style) */
-    .nav-pills { border-bottom: 1px solid var(--border-hacker); padding-bottom: 0; }
-    .nav-pills .nav-link {
-        border-radius: 0;
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 700;
-        font-size: 0.75rem;
+    .upload-box-modern input[type="file"] {
+        max-width: 300px;
+        margin: 0 auto;
+        background: #ffffff;
+    }
+
+    /* Nav Pills Modern (Segmented Control Style) */
+    .modern-nav-pills {
+        background: #f1f5f9;
+        padding: 6px;
+        border-radius: var(--radius-md);
+        display: inline-flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .modern-nav-pills .nav-link {
         color: var(--text-muted);
-        margin: 0;
+        font-weight: 600;
+        font-size: 0.85rem;
+        border-radius: 8px;
+        padding: 10px 20px;
         border: none;
-        border-bottom: 2px solid transparent;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        transition: all 0.2s ease;
-        padding: 12px 20px;
+        transition: all 0.2s;
     }
-    .nav-pills .nav-link:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
-    .nav-pills .nav-link.active {
-        background: var(--glow-green-dim);
-        color: var(--glow-green);
-        border-bottom: 2px solid var(--glow-green);
+    
+    .modern-nav-pills .nav-link:hover {
+        color: var(--text-main);
+    }
+    
+    .modern-nav-pills .nav-link.active {
+        background: #ffffff;
+        color: var(--primary);
+        box-shadow: var(--shadow-sm);
     }
 
-    /* Industrial Buttons */
-    .btn-tactical {
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
+    /* Tombol Aksi */
+    .btn-action {
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--radius-sm);
+        transition: all 0.2s;
+    }
+
+    .format-label {
         font-size: 0.8rem;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        border-radius: 0;
-        padding: 12px 20px;
-        transition: all 0.3s;
-    }
-    
-    /* Varian Warna Tombol Terminal */
-    .btn-t-crimson { background: rgba(255, 7, 58, 0.1); color: var(--glow-crimson); border: 1px solid var(--glow-crimson); }
-    .btn-t-crimson:hover { background: var(--glow-crimson); color: #000; box-shadow: 0 0 15px var(--glow-crimson); }
-
-    .btn-t-cyan { background: rgba(56, 189, 248, 0.1); color: var(--accent-cyber); border: 1px solid var(--accent-cyber); }
-    .btn-t-cyan:hover { background: var(--accent-cyber); color: #000; box-shadow: 0 0 15px var(--accent-cyber); }
-
-    .btn-t-green { background: var(--glow-green-dim); color: var(--glow-green); border: 1px solid var(--glow-green); }
-    .btn-t-green:hover { background: var(--glow-green); color: #000; box-shadow: 0 0 15px var(--glow-green); }
-    
-    .btn-t-yellow { background: rgba(255, 189, 46, 0.1); color: #ffbd2e; border: 1px solid #ffbd2e; }
-    .btn-t-yellow:hover { background: #ffbd2e; color: #000; box-shadow: 0 0 15px #ffbd2e; }
-
-    .label-tech {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
-        font-weight: 800;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
+        font-weight: 600;
         color: var(--text-muted);
+        margin-top: 15px;
+        display: block;
     }
-    
-    .hacker-icon-box {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 70px; height: 70px; margin-bottom: 1rem;
-        background: rgba(0, 255, 65, 0.05); border: 1px solid rgba(0, 255, 65, 0.3);
-        border-radius: 0;
-        transform: rotate(45deg);
-    }
-    .hacker-icon-box i { transform: rotate(-45deg); }
 </style>
 {% endblock %}
 
@@ -109,97 +95,107 @@
 <div class="row justify-content-center mt-3 animate-fade-in">
     <div class="col-md-10 col-lg-8">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-3 font-code" style="font-size: 0.7rem;">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none" style="color: var(--text-muted);">[ SYS_UTILITIES ]</a></li>
-                <li class="breadcrumb-item active fw-bold" style="color: var(--glow-green);" aria-current="page">FORMAT_OVERRIDE</li>
+            <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted">Beranda</a></li>
+                <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Utilitas Tambahan</a></li>
+                <li class="breadcrumb-item active text-primary" aria-current="page">Konverter Format</li>
             </ol>
         </nav>
 
-        <div class="card p-0 mb-5">
+        <div class="card border-0 shadow-sm mb-5">
             <div class="card-body p-4 p-md-5">
+                
                 <div class="text-center mb-5">
-                    <div class="hacker-icon-box">
-                        <i class="fa-solid fa-file-shield fa-2x" style="color: var(--glow-green);"></i>
+                    <div class="icon-box-primary mb-3">
+                        <i class="fa-solid fa-file-shield"></i>
                     </div>
-                    <h3 class="font-code fw-800 mb-1 text-white uppercase tracking-widest">
-                        <span style="color: var(--glow-green);">></span> FORMAT_OVERRIDE
+                    <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+                        Konverter Format Dokumen
                     </h3>
-                    <p class="font-code small mt-2" style="color: var(--text-muted);">[ SECURE_DOCUMENT_CONVERSION_PROTOCOL ]</p>
+                    <p class="text-muted mt-2" style="font-size: 0.95rem;">
+                        Alat konversi dan optimasi media yang aman dan cepat.
+                    </p>
                 </div>
 
-                <ul class="nav nav-pills justify-content-center mb-4" id="pills-tab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button" role="tab">
-                            <i class="fa-solid fa-file-export me-1"></i> PDF_2_DOCX
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#word-to-pdf" type="button" role="tab">
-                            <i class="fa-solid fa-file-shield me-1"></i> DOCX_2_PDF
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-to-pdf" type="button" role="tab">
-                            <i class="fa-solid fa-layer-group me-1"></i> IMG_2_PDF
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-optimizer" type="button" role="tab">
-                            <i class="fa-solid fa-microchip me-1"></i> IMG_OPTIMIZER
-                        </button>
-                    </li>
-                </ul>
+                <div class="text-center mb-4">
+                    <ul class="nav modern-nav-pills" id="pills-tab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button" role="tab">
+                                <i class="fa-solid fa-file-word me-1"></i> PDF ke Word
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#word-to-pdf" type="button" role="tab">
+                                <i class="fa-solid fa-file-pdf me-1"></i> Word ke PDF
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-to-pdf" type="button" role="tab">
+                                <i class="fa-solid fa-layer-group me-1"></i> Gambar ke PDF
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-optimizer" type="button" role="tab">
+                                <i class="fa-solid fa-compress me-1"></i> Kompresi Gambar
+                            </button>
+                        </li>
+                    </ul>
+                </div>
 
                 <div class="tab-content mt-4" id="pills-tabContent">
                     
                     <div class="tab-pane fade show active" id="pdf-to-word" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/pdf-to-word')">
-                            <div class="upload-box box-crimson mb-4">
-                                <i class="fa-solid fa-file-pdf fa-3x mb-3" style="color: var(--glow-crimson); opacity: 0.8;"></i>
-                                <input type="file" name="file" class="form-control form-control-sm mb-2" accept=".pdf" required>
-                                <span class="label-tech d-block mt-3">Target Format: MS Word (.docx)</span>
+                            <div class="upload-box-modern mb-4">
+                                <i class="fa-solid fa-file-pdf fa-3x mb-3" style="color: #ef4444; opacity: 0.9;"></i>
+                                <h6 class="fw-bold mb-3">Unggah File PDF</h6>
+                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept=".pdf" required>
+                                <span class="format-label">Hasil Konversi: Dokumen Microsoft Word (.docx)</span>
                             </div>
-                            <button type="submit" class="btn btn-tactical btn-t-crimson w-100 convert-btn">
-                                <i class="fa-solid fa-terminal me-2"></i>Execute Extraction
+                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn">
+                                <i class="fa-solid fa-arrows-rotate me-2"></i> Konversi ke Word
                             </button>
                         </form>
                     </div>
 
                     <div class="tab-pane fade" id="word-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/word-to-pdf')">
-                            <div class="upload-box box-cyan mb-4">
-                                <i class="fa-solid fa-file-word fa-3x mb-3" style="color: var(--accent-cyber); opacity: 0.8;"></i>
-                                <input type="file" name="file" class="form-control form-control-sm mb-2" accept=".doc, .docx" required>
-                                <span class="label-tech d-block mt-3">Target Format: Secure PDF (.pdf)</span>
+                            <div class="upload-box-modern mb-4">
+                                <i class="fa-solid fa-file-word fa-3x mb-3" style="color: #2563eb; opacity: 0.9;"></i>
+                                <h6 class="fw-bold mb-3">Unggah Dokumen Word</h6>
+                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept=".doc, .docx" required>
+                                <span class="format-label">Hasil Konversi: Dokumen PDF Aman (.pdf)</span>
                             </div>
-                            <button type="submit" class="btn btn-tactical btn-t-cyan w-100 convert-btn">
-                                <i class="fa-solid fa-terminal me-2"></i>Execute Compilation
+                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn">
+                                <i class="fa-solid fa-arrows-rotate me-2"></i> Konversi ke PDF
                             </button>
                         </form>
                     </div>
 
                     <div class="tab-pane fade" id="img-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/image-to-pdf')">
-                            <div class="upload-box box-green mb-4">
-                                <i class="fa-solid fa-images fa-3x mb-3" style="color: var(--glow-green); opacity: 0.8;"></i>
-                                <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/png, image/jpeg, image/jpg" required>
-                                <span class="label-tech d-block mt-3">Target Format: Document PDF (.pdf)</span>
+                            <div class="upload-box-modern mb-4">
+                                <i class="fa-solid fa-images fa-3x mb-3" style="color: #10b981; opacity: 0.9;"></i>
+                                <h6 class="fw-bold mb-3">Unggah File Gambar</h6>
+                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept="image/png, image/jpeg, image/jpg" required>
+                                <span class="format-label">Hasil Konversi: Dokumen PDF (.pdf)</span>
                             </div>
-                            <button type="submit" class="btn btn-tactical btn-t-green w-100 convert-btn">
-                                <i class="fa-solid fa-terminal me-2"></i>Execute Packaging
+                            <button type="submit" class="btn btn-success btn-action w-100 convert-btn">
+                                <i class="fa-solid fa-arrows-rotate me-2"></i> Konversi ke PDF
                             </button>
                         </form>
                     </div>
 
                     <div class="tab-pane fade" id="img-optimizer" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/image-optimizer')">
-                            <div class="upload-box box-yellow mb-4">
-                                <i class="fa-solid fa-camera-retro fa-3x mb-3" style="color: #ffbd2e; opacity: 0.8;"></i>
-                                <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/*" required>
-                                <span class="label-tech d-block mt-3">Protocol: Downsize to Email Standard (<1MB)</span>
+                            <div class="upload-box-modern mb-4">
+                                <i class="fa-solid fa-camera-retro fa-3x mb-3" style="color: #f59e0b; opacity: 0.9;"></i>
+                                <h6 class="fw-bold mb-3">Unggah Gambar Asli</h6>
+                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept="image/*" required>
+                                <span class="format-label">Protokol: Pengurangan Ukuran Standar Email (< 1MB)</span>
                             </div>
-                            <button type="submit" class="btn btn-tactical btn-t-yellow w-100 convert-btn">
-                                <i class="fa-solid fa-microchip me-2"></i>Initialize Compression
+                            <button type="submit" class="btn btn-warning text-dark btn-action w-100 convert-btn">
+                                <i class="fa-solid fa-compress me-2"></i> Mulai Kompresi Gambar
                             </button>
                         </form>
                     </div>
@@ -220,82 +216,18 @@
         const submitBtn = form.querySelector('.convert-btn');
         const originalText = submitBtn.innerHTML;
 
-        // Visual Feedback Status Processing (Hacker Style)
+        // Visual Feedback Status Processing
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>[ EXECUTING_PROTOCOL... ]';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
 
-        // Konfigurasi SweetAlert Corporate Hacker
-        const swalDark = {
-            background: '#0a0e17', // Match --bg-void
-            color: '#e2e8f0',      // Match --text-main
-            confirmButtonColor: '#00ff41', // Match --glow-green
-            customClass: { popup: 'border border-secondary border-opacity-25 rounded-0' }
+        // Konfigurasi SweetAlert Corporate SaaS
+        const swalModern = {
+            background: '#ffffff', 
+            color: '#0f172a',
+            confirmButtonColor: '#2563eb', // Primary Blue
+            cancelButtonColor: '#e2e8f0',
+            customClass: { popup: 'border-0 rounded-4 shadow-lg' }
         };
 
         try {
             const response = await fetch(endpoint, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                // Eksekusi Blob File
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                
-                // Ambil header Content-Disposition untuk nama file
-                const contentDisposition = response.headers.get('Content-Disposition');
-                let fileName = 'BAAE_OVERRIDE_OUTPUT'; 
-                if (contentDisposition) {
-                    const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-                    if (fileNameMatch && fileNameMatch.length === 2) {
-                        fileName = fileNameMatch[1];
-                    }
-                }
-                
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                
-                Swal.fire({
-                    ...swalDark,
-                    icon: 'success',
-                    iconColor: '#00ff41', // Matrix Green
-                    title: 'SYS.SUCCESS',
-                    text: 'Dokumen berhasil diproses dan diunduh ke penyimpanan lokal.',
-                    confirmButtonText: 'ACKNOWLEDGE'
-                });
-                form.reset();
-            } else {
-                const result = await response.json();
-                Swal.fire({
-                    ...swalDark,
-                    icon: 'error',
-                    iconColor: '#ff073a', // Crimson
-                    confirmButtonColor: '#ff073a',
-                    title: 'SYS.FAILURE',
-                    text: result.message || 'Terjadi anomali pada server konversi.',
-                    confirmButtonText: 'CLOSE'
-                });
-            }
-        } catch (error) {
-            Swal.fire({
-                ...swalDark,
-                icon: 'error',
-                iconColor: '#ff073a', // Crimson
-                confirmButtonColor: '#ff073a',
-                title: 'NETWORK.ERROR',
-                text: 'Koneksi ke BAAE Central Server terputus.',
-                confirmButtonText: 'CLOSE'
-            });
-        } finally {
-            // Revert state
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
-    }
-</script>
-{% endblock %}
