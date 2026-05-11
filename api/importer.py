@@ -1,9 +1,8 @@
-import pandas as pd
-import numpy as np  
 import os
 import gc
 import json
 import re
+import polars as pl
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
@@ -16,7 +15,7 @@ importer_bp = Blueprint('importer', __name__)
 # ==========================================
 def clean_nomen(val):
     """Pembersih Nomen Sakti: Buang huruf 'K', buang spasi, ambil tepat 8 digit angka"""
-    if not val or pd.isna(val): return None
+    if not val or val is None: return None
     s = str(val).strip().upper().split('.')[0]
     s = s.replace('K', '')
     s = re.sub(r'[^0-9]', '', s) # Bersihkan karakter aneh
@@ -49,33 +48,42 @@ def extract_periode(val):
 def parse_float(val):
     """Pintar mengubah 1.660,00 (Koma Indonesia) menjadi 1660.00 (Standar Database)"""
     try:
-        if pd.isna(val) or val is None: return 0.0
+        if val is None: return 0.0
         v_str = str(val).strip().replace('.', '').replace(',', '.')
         return float(v_str)
     except: return 0.0
 
 def process_mega_file(file, logic_func, chunk_size=20000):
-    """Mesin Turbo Chunking: Membaca jutaan baris tanpa bikin RAM Server jebol"""
+    """Mesin Turbo Polars: Membaca jutaan baris jauh lebih cepat & hemat RAM"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
     file.save(temp_path)
 
     try:
-        reader = pd.read_csv(
-            temp_path, sep=';', dtype=str, chunksize=chunk_size, 
-            low_memory=False, memory_map=True, quotechar='"'
+        # Menggunakan Polars Batched Reader untuk menghindari bottleneck RAM
+        reader = pl.read_csv_batched(
+            temp_path, separator=';', infer_schema_length=0, 
+            quote_char='"', batch_size=chunk_size
         )
         total = 0
-        for chunk in reader:
-            chunk.columns = chunk.columns.str.strip().str.upper()
-            chunk = chunk.replace({np.nan: None})
+        batches = reader.next_batches(1)
+        
+        while batches:
+            chunk = batches[0]
+            
+            # Ubah nama kolom menjadi kapital dan hapus spasi (standar Sinergi)
+            chunk = chunk.rename({col: col.strip().upper() for col in chunk.columns})
+            
             added_count = logic_func(chunk)
             if added_count: total += added_count
             
             db.session.commit()
             db.session.expunge_all() 
             gc.collect() 
+            
+            batches = reader.next_batches(1)
+            
         return total
     finally:
         if os.path.exists(temp_path): os.remove(temp_path)
@@ -114,15 +122,23 @@ def handle_sbrs_upload(file_cust, file_spot):
     file_cust.save(cust_temp_path)
     
     lookup_cust = {}
-    cust_reader = pd.read_csv(cust_temp_path, sep=';', dtype=str, chunksize=50000, low_memory=False, quotechar='"')
-    for c_chunk in cust_reader:
-        c_chunk.columns = c_chunk.columns.str.strip().str.upper()
-        c_chunk = c_chunk.replace({np.nan: None})
+    
+    # Baca file customer dengan Polars
+    cust_reader = pl.read_csv_batched(cust_temp_path, separator=';', infer_schema_length=0, quote_char='"', batch_size=50000)
+    c_batches = cust_reader.next_batches(1)
+    
+    while c_batches:
+        c_chunk = c_batches[0]
+        c_chunk = c_chunk.rename({col: col.strip().upper() for col in c_chunk.columns})
         col_key_c = 'CMR_ACCOUNT' if 'CMR_ACCOUNT' in c_chunk.columns else 'NOMEN'
-        if col_key_c not in c_chunk.columns: continue
-        for _, row in c_chunk.iterrows():
-            nk = clean_nomen(row.get(col_key_c))
-            if nk: lookup_cust[nk] = row.to_dict()
+        
+        if col_key_c in c_chunk.columns:
+            # Polars to_dicts() jauh lebih cepat daripada iterrows Pandas
+            for row in c_chunk.to_dicts():
+                nk = clean_nomen(row.get(col_key_c))
+                if nk: lookup_cust[nk] = row
+        
+        c_batches = cust_reader.next_batches(1)
     
     if os.path.exists(cust_temp_path): os.remove(cust_temp_path)
 
@@ -133,12 +149,12 @@ def handle_sbrs_upload(file_cust, file_spot):
         master_provision = [] 
         sbrs_entries = []
 
-        for _, spot_row in df_spot_chunk.iterrows():
+        for spot_row in df_spot_chunk.to_dicts():
             nomen = clean_nomen(spot_row.get(col_key_s))
             if not nomen: continue
             
             cust_data = lookup_cust.get(nomen, {})
-            merged_row = spot_row.to_dict()
+            merged_row = spot_row.copy()
             merged_row.update(cust_data)
             
             nama_pel = merged_row.get('CMR_NAME') or merged_row.get('NAMA') or 'Pelanggan Baru'
@@ -218,7 +234,7 @@ def handle_mc_upload(file_mc):
         master_provision = []
         mc_entries = []
         
-        for _, row in df_chunk.iterrows():
+        for row in df_chunk.to_dicts():
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
@@ -239,12 +255,12 @@ def handle_mc_upload(file_mc):
             master_provision.append({
                 "nomen": nomen, "nama": nama_pel, "ab": ab_pel, "pcez": pcez,
                 "kelurahan": kelurahan, "alamat": alamat, "rayon": rayon,
-                "raw_data": json.dumps(row.to_dict())
+                "raw_data": json.dumps(row)
             })
             
             mc_entries.append({
                 "nomen": nomen, "periode": periode, "nominal": nominal, 
-                "raw_data": json.dumps(row.to_dict())
+                "raw_data": json.dumps(row)
             })
             
         if master_provision:
@@ -280,7 +296,7 @@ def handle_daily_collection(file_daily):
         mb_entries = []
         lunas_entries = []
         
-        for _, row in df_chunk.iterrows():
+        for row in df_chunk.to_dicts():
             nomen_raw = row.get('NOMEN') or row.get('CMR_ACCOUNT')
             nomen = clean_nomen(nomen_raw) 
             if not nomen: continue
@@ -295,7 +311,7 @@ def handle_daily_collection(file_daily):
             mb_entries.append({
                 "nomen": nomen, "periode": periode, "tgl_bayar": tgl_bayar,
                 "nominal": nominal, "denda": denda, "lks_bayar": lks_bayar,
-                "raw_data": json.dumps(row.to_dict())
+                "raw_data": json.dumps(row)
             })
             lunas_entries.append({"n": nomen, "p": periode})
             
@@ -323,7 +339,7 @@ def handle_daily_collection(file_daily):
 def handle_cid_upload(file_cid):
     def cid_logic(df_chunk):
         cid_entries = []
-        for _, row in df_chunk.iterrows():
+        for row in df_chunk.to_dicts():
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
@@ -338,7 +354,7 @@ def handle_cid_upload(file_cid):
             cid_entries.append({
                 "nomen": nomen, "nama": nama, "ab": ab, "pcez": pcez,
                 "kelurahan": kelurahan, "alamat": alamat, "rayon": rayon,
-                "tarif": tarif, "raw_data": json.dumps(row.to_dict())
+                "tarif": tarif, "raw_data": json.dumps(row)
             })
             
         if cid_entries:
@@ -365,7 +381,7 @@ def handle_arrdebt_upload(file_arrdebt):
         arr_entries = []
         tagihan_entries = []
         
-        for _, row in df_chunk.iterrows():
+        for row in df_chunk.to_dicts():
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
@@ -373,7 +389,7 @@ def handle_arrdebt_upload(file_arrdebt):
             if not periode: periode = "000000"
             nominal = parse_float(row.get('BILL_AMT') or row.get('WATER'))
             
-            arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": json.dumps(row.to_dict())})
+            arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": json.dumps(row)})
             tagihan_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "status_lunas": 0})
 
         if arr_entries:
@@ -402,7 +418,7 @@ def handle_arrdebt_upload(file_arrdebt):
 def handle_mainbill_upload(file_mainbill):
     def mainbill_logic(df_chunk):
         mb_entries = []
-        for _, row in df_chunk.iterrows():
+        for row in df_chunk.to_dicts():
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
@@ -418,7 +434,7 @@ def handle_mainbill_upload(file_mainbill):
             
             mb_entries.append({
                 "nomen": nomen, "periode": periode, "total_tagihan": total_tagihan,
-                "konsumsi": konsumsi, "raw_data": json.dumps(row.to_dict())
+                "konsumsi": konsumsi, "raw_data": json.dumps(row)
             })
             
         if mb_entries:
