@@ -28,6 +28,17 @@
 
     .table-daily tbody tr:hover td { background: rgba(255,255,255,0.03) !important; }
     
+    /* Summary Widget Styles */
+    .summary-box { 
+        background: rgba(13, 18, 28, 0.9); 
+        border-top: 1px solid var(--border-hacker);
+        border-left: 3px solid var(--glow-green); 
+        padding: 15px; 
+        clip-path: var(--cyber-cut);
+    }
+    .stat-label { font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+    .stat-value { font-family: 'JetBrains Mono'; font-weight: 800; font-size: 0.85rem; color: #fff; }
+
     /* Warna Identitas Unit */
     .text-cyan { color: #00f2ff !important; }
     .text-yellow { color: #ffbd2e !important; }
@@ -50,10 +61,6 @@
         font-size: 0.8rem;
         border-radius: 0;
         padding: 5px 10px;
-    }
-    .terminal-input:focus {
-        box-shadow: 0 0 10px rgba(0, 255, 65, 0.2) !important;
-        border-color: var(--glow-green) !important;
     }
 </style>
 {% endblock %}
@@ -85,6 +92,37 @@
     </div>
 </div>
 
+<div class="row g-3 mb-4 animate-fade-in">
+    {% for label, unit in [('UNIT 34', '34'), ('UNIT 35', '35'), ('AB SUNTER', 'total')] %}
+    <div class="col-md-4">
+        <div class="summary-box {% if unit=='34' %}border-cyan{% elif unit=='35' %}border-yellow{% endif %}" 
+             style="border-left-color: {% if unit=='34' %}#00f2ff{% elif unit=='35' %}#ffbd2e{% else %}var(--glow-green){% endif %};">
+            <div class="fw-bold mb-2 {% if unit=='34' %}text-cyan{% elif unit=='35' %}text-yellow{% else %}text-green{% endif %}" style="font-size: 0.7rem;">
+                <i class="fas fa-microchip me-1"></i> {{ label }}
+            </div>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="stat-label">Target MC</div>
+                    <div class="stat-value text-white">{{ "{:,.0f}".format(targets[unit]) }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-label">Realisasi Undue</div>
+                    <div class="stat-value text-white">{{ "{:,.0f}".format(undue[unit]) }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-label">Realisasi Current</div>
+                    <div class="stat-value text-white">{{ "{:,.0f}".format(current[unit]) }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-label">Total Coll %</div>
+                    <div class="stat-value text-green">{{ "%.2f"|format(((current[unit] + undue[unit]) / targets[unit] * 100) if targets[unit] > 0 else 0) }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
 <div class="card p-0 border-0 overflow-hidden mb-5 shadow-lg">
     <div class="table-responsive">
         <table class="table table-hover mb-0 table-daily text-nowrap">
@@ -101,20 +139,20 @@
                     <th class="text-end">1</th>
                     <th class="text-end">komulatif</th>
                     <th class="text-center">COLL {{ mon_name[:3] }}</th>
-                    <th class="text-center">COLL {{ prev_mon_name[:3] }}</th>
+                    <th class="text-center">COLL_LALU</th>
                     
                     <th class="text-center">CUST</th>
                     <th class="text-end">Rp</th>
                     <th class="text-end">1</th>
                     <th class="text-end">komulatif</th>
                     <th class="text-center">COLL {{ mon_name[:3] }}</th>
-                    <th class="text-center">COLL {{ prev_mon_name[:3] }}</th>
+                    <th class="text-center">COLL_LALU</th>
                     
-                    <th class="text-center">Jumlah Transaksi</th>
+                    <th class="text-center">JML_TRNS</th>
                     <th class="text-end">Rp</th>
                     <th class="text-end">Rp</th>
                     <th class="text-center">COLL {{ mon_name[:3] }}</th>
-                    <th class="text-center">COLL {{ prev_mon_name[:3] }}</th>
+                    <th class="text-center">COLL_LALU</th>
                     <th class="text-center">VAR</th>
                 </tr>
             </thead>
@@ -125,7 +163,8 @@
                     
                     <td class="text-center text-muted">{{ "{:,.0f}".format(row.u34_cust) }}</td>
                     <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td>
-                    <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td> <td class="text-end text-cyan">{{ "{:,.0f}".format(row.u34_kum) }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td> 
+                    <td class="text-end text-cyan">{{ "{:,.0f}".format(row.u34_kum) }}</td>
                     <td class="text-center fw-bold text-cyan">{{ "%.4f"|format(row.u34_coll / 100) }}</td>
                     <td class="text-center text-muted">{{ "%.4f"|format(row.u34_coll_mar / 100) }}</td>
                     
