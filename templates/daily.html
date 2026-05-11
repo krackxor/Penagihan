@@ -1,89 +1,133 @@
 {% extends "base.html" %}
 
-{% block title %}Daily Collection | BAAE Nexus{% endblock %}
+{% block title %}Koleksi Harian | BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* Pewarnaan Khusus Tabel Daily Collection */
-    .table-daily thead th { 
-        background: #0a0e17 !important; 
-        color: var(--text-main) !important; 
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem; 
+    /* ==========================================================
+       MODERN SAAS DAILY COLLECTION STYLES
+       ========================================================== */
+    
+    /* Stats Cards Modern */
+    .stats-card-modern {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.2s ease;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+    .stats-card-modern:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+    }
+    
+    /* Warna Aksen Card */
+    .card-accent-primary { border-top: 4px solid var(--primary); }
+    .card-accent-warning { border-top: 4px solid #f59e0b; }
+    .card-accent-success { border-top: 4px solid var(--success); }
+
+    .stat-label { 
+        font-size: 0.75rem; 
+        color: var(--text-muted); 
+        font-weight: 600; 
+        text-transform: uppercase; 
+        margin-bottom: 4px; 
+    }
+    .stat-value { 
+        font-size: 1.1rem; 
+        font-weight: 700; 
+        color: var(--text-main); 
+    }
+
+    /* Modern Table Styling */
+    .table-container {
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        background: #ffffff;
+    }
+    
+    .table-modern { 
+        margin-bottom: 0; 
+        font-size: 0.85rem; 
+    }
+    .table-modern thead th {
+        color: #475569 !important;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        border: 1px solid var(--border-hacker) !important;
-        padding: 10px;
+        letter-spacing: 0.5px;
+        border: 1px solid #e2e8f0 !important;
+        padding: 0.75rem;
         vertical-align: middle;
     }
     
-    .table-daily td { 
-        border: 1px solid rgba(255,255,255,0.05) !important; 
-        color: var(--text-main); 
-        vertical-align: middle; 
-        padding: 8px 10px;
-        font-family: 'JetBrains Mono', monospace;
+    /* Warna Header Grup */
+    .th-group-primary { background-color: #eff6ff !important; color: #1e40af !important; }
+    .th-group-warning { background-color: #fffbeb !important; color: #b45309 !important; }
+    .th-group-success { background-color: #ecfdf5 !important; color: #065f46 !important; }
+    .th-sub-group { background-color: #f8fafc !important; font-size: 0.75rem; }
+
+    .table-modern tbody td {
+        border: 1px solid #e2e8f0 !important;
+        color: var(--text-main);
+        vertical-align: middle;
+        padding: 0.6rem 0.75rem;
+    }
+    .table-modern tbody tr:hover td { background-color: #f8fafc !important; }
+
+    /* Warna Teks Spesifik */
+    .text-primary-modern { color: #2563eb !important; font-weight: 600; }
+    .text-warning-modern { color: #d97706 !important; font-weight: 600; }
+    .text-success-modern { color: #059669 !important; font-weight: 700; }
+    .text-danger-modern { color: #dc2626 !important; font-weight: 700; }
+
+    .form-label-modern {
         font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
     }
 
-    .table-daily tbody tr:hover td { background: rgba(255,255,255,0.03) !important; }
-    
-    /* Summary Widget Styles */
-    .summary-box { 
-        background: rgba(13, 18, 28, 0.9); 
-        border-top: 1px solid var(--border-hacker);
-        border-left: 3px solid var(--glow-green); 
-        padding: 15px; 
-        clip-path: var(--cyber-cut);
-    }
-    .stat-label { font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-    .stat-value { font-family: 'JetBrains Mono'; font-weight: 800; font-size: 0.85rem; color: #fff; }
-
-    /* Warna Identitas Unit */
-    .text-cyan { color: #00f2ff !important; }
-    .text-yellow { color: #ffbd2e !important; }
-    .text-green { color: var(--glow-green) !important; }
-    .text-danger { color: var(--glow-crimson) !important; }
-    
-    .border-bottom-cyan { border-bottom: 2px solid #00f2ff !important; }
-    .border-bottom-yellow { border-bottom: 2px solid #ffbd2e !important; }
-    .border-bottom-green { border-bottom: 2px solid var(--glow-green) !important; }
-
-    .bg-dark-accent { background: rgba(0, 0, 0, 0.4) !important; }
-
-    /* Input Periode Terminal Style */
-    .terminal-input {
-        background: rgba(0, 0, 0, 0.5) !important;
-        border: 1px solid var(--border-hacker) !important;
-        border-left: 2px solid var(--glow-green) !important;
-        color: var(--glow-green) !important;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.8rem;
-        border-radius: 0;
-        padding: 5px 10px;
+    @media print {
+        .no-print { display: none !important; }
+        body { background: white !important; }
+        .table-container { border: none !important; box-shadow: none !important; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row align-items-center mb-4 animate-fade-in">
+<div class="row align-items-center mb-4 no-print animate-fade-in">
     <div class="col-md-7">
-        <h3 class="font-mono text-white mb-0" style="font-size: 1.2rem; font-weight: 800;">
-            <span style="color: var(--glow-green);">></span> DAILY_COLLECTION_{{ mon_name|upper }}
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2" style="font-size: 0.85rem; font-weight: 500;">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted">Beranda</a></li>
+                <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Laporan Utama</a></li>
+                <li class="breadcrumb-item active text-primary" aria-current="page">Koleksi Harian</li>
+            </ol>
+        </nav>
+        <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+            Laporan Koleksi Harian ({{ mon_name|upper }})
         </h3>
-        <p class="font-mono small mb-0 mt-1" style="color: var(--text-muted);">
-            [ TARGET_PERIODE: {{ prev_mon_name|upper }} ]
+        <p class="mb-0 text-muted" style="font-size: 0.9rem;">
+            Periode Target: <strong>{{ prev_mon_name|upper }}</strong>
         </p>
     </div>
+    
     <div class="col-md-5 d-flex justify-content-md-end mt-3 mt-md-0">
-        <form method="GET" action="" class="d-flex align-items-end gap-2">
-            <div>
-                <label class="font-mono text-muted mb-1" style="font-size: 0.6rem; font-weight: 800;">> SYS_FILTER</label>
+        <form method="GET" action="" class="d-flex align-items-end gap-2 w-100 justify-content-md-end">
+            <div class="text-start">
+                <label class="form-label-modern">> Filter Bulan</label>
                 <div class="d-flex gap-2">
-                    <input type="month" name="periode" class="form-control terminal-input" 
+                    <input type="month" name="periode" class="form-control" 
                            value="{{ periode }}" onchange="this.form.submit()">
-                    
-                    <button type="button" onclick="window.print()" class="btn btn-dark rounded-0" style="border: 1px solid var(--border-hacker); color: var(--text-muted);">
+                    <button type="button" onclick="window.print()" class="btn btn-outline-secondary" title="Cetak Laporan">
                         <i class="fas fa-print"></i>
                     </button>
                 </div>
@@ -92,32 +136,40 @@
     </div>
 </div>
 
-<div class="row g-3 mb-4 animate-fade-in">
+<div class="row g-3 mb-4 animate-fade-in no-print">
     {% for label, unit in [('UNIT 34', '34'), ('UNIT 35', '35'), ('AB SUNTER', 'total')] %}
     <div class="col-md-4">
-        <div class="summary-box" style="border-left-color: {% if unit=='34' %}#00f2ff{% elif unit=='35' %}#ffbd2e{% else %}var(--glow-green){% endif %};">
-            <div class="fw-bold mb-2 {% if unit=='34' %}text-cyan{% elif unit=='35' %}text-yellow{% else %}text-green{% endif %}" style="font-size: 0.7rem;">
-                <i class="fas fa-microchip me-1"></i> {{ label }}
+        <div class="stats-card-modern 
+            {% if unit=='34' %}card-accent-primary
+            {% elif unit=='35' %}card-accent-warning
+            {% else %}card-accent-success{% endif %}">
+            
+            <div class="fw-bold mb-3 
+                {% if unit=='34' %}text-primary-modern
+                {% elif unit=='35' %}text-warning-modern
+                {% else %}text-success-modern{% endif %}" style="font-size: 0.95rem;">
+                <i class="fas fa-building me-2"></i> {{ label }}
             </div>
-            <div class="row g-2">
+            
+            <div class="row g-3">
                 <div class="col-6">
                     <div class="stat-label">Target MC</div>
-                    <div class="stat-value text-white">{{ "{:,.0f}".format(targets[unit]['rp']) if targets[unit] is mapping else "{:,.0f}".format(targets[unit]) }}</div>
+                    <div class="stat-value text-dark">{{ "{:,.0f}".format(targets[unit]['rp']) if targets[unit] is mapping else "{:,.0f}".format(targets[unit]) }}</div>
                 </div>
                 <div class="col-6">
                     <div class="stat-label">Realisasi Undue</div>
-                    <div class="stat-value text-white">{{ "{:,.0f}".format(undue[unit]['rp']) if undue[unit] is mapping else "{:,.0f}".format(undue[unit]) }}</div>
+                    <div class="stat-value text-dark">{{ "{:,.0f}".format(undue[unit]['rp']) if undue[unit] is mapping else "{:,.0f}".format(undue[unit]) }}</div>
                 </div>
                 <div class="col-6">
                     <div class="stat-label">Realisasi Current</div>
-                    <div class="stat-value text-white">{{ "{:,.0f}".format(current[unit]) }}</div>
+                    <div class="stat-value text-dark">{{ "{:,.0f}".format(current[unit]) }}</div>
                 </div>
                 <div class="col-6">
-                    <div class="stat-label">Total Coll %</div>
+                    <div class="stat-label">Total Collection</div>
                     {% set t_rp = targets[unit]['rp'] if targets[unit] is mapping else targets[unit] %}
                     {% set u_rp = undue[unit]['rp'] if undue[unit] is mapping else undue[unit] %}
                     {% set c_rp = current[unit] %}
-                    <div class="stat-value text-green">
+                    <div class="stat-value text-success-modern">
                         {{ "%.2f"|format(((c_rp + u_rp) / t_rp * 100) if t_rp > 0 else 0) }}%
                     </div>
                 </div>
@@ -127,65 +179,65 @@
     {% endfor %}
 </div>
 
-<div class="card p-0 border-0 overflow-hidden mb-5 shadow-lg">
+<div class="table-container mb-5 shadow-sm">
     <div class="table-responsive">
-        <table class="table table-hover mb-0 table-daily text-nowrap">
+        <table class="table table-hover table-modern text-nowrap">
             <thead>
                 <tr>
-                    <th rowspan="2" class="text-center align-middle" style="color: var(--glow-green); width: 60px;">TGL</th>
-                    <th colspan="6" class="text-center border-bottom-cyan">34</th>
-                    <th colspan="6" class="text-center border-bottom-yellow">35</th>
-                    <th colspan="6" class="text-center border-bottom-green">AB SUNTER</th>
+                    <th rowspan="2" class="text-center align-middle" style="background: #f8fafc; width: 60px;">Tgl</th>
+                    <th colspan="6" class="text-center th-group-primary border-bottom-0">UNIT 34</th>
+                    <th colspan="6" class="text-center th-group-warning border-bottom-0">UNIT 35</th>
+                    <th colspan="6" class="text-center th-group-success border-bottom-0">AB SUNTER</th>
                 </tr>
-                <tr class="bg-dark-accent">
-                    <th class="text-center">CUST</th>
+                <tr class="th-sub-group">
+                    <th class="text-center">Cust</th>
                     <th class="text-end">Rp</th>
-                    <th class="text-end">1</th>
-                    <th class="text-end">komulatif</th>
-                    <th class="text-center">COLL {{ mon_name[:3] }}</th>
-                    <th class="text-center">COLL_LALU</th>
+                    <th class="text-end">Harian</th>
+                    <th class="text-end">Komulatif</th>
+                    <th class="text-center">Coll {{ mon_name[:3] }}</th>
+                    <th class="text-center">Coll Lalu</th>
                     
-                    <th class="text-center">CUST</th>
+                    <th class="text-center">Cust</th>
                     <th class="text-end">Rp</th>
-                    <th class="text-end">1</th>
-                    <th class="text-end">komulatif</th>
-                    <th class="text-center">COLL {{ mon_name[:3] }}</th>
-                    <th class="text-center">COLL_LALU</th>
+                    <th class="text-end">Harian</th>
+                    <th class="text-end">Komulatif</th>
+                    <th class="text-center">Coll {{ mon_name[:3] }}</th>
+                    <th class="text-center">Coll Lalu</th>
                     
-                    <th class="text-center">JML_TRNS</th>
+                    <th class="text-center">Total Transaksi</th>
                     <th class="text-end">Rp</th>
-                    <th class="text-end">Rp</th>
-                    <th class="text-center">COLL {{ mon_name[:3] }}</th>
-                    <th class="text-center">COLL_LALU</th>
-                    <th class="text-center">VAR</th>
+                    <th class="text-end">Rp Total</th>
+                    <th class="text-center">Coll {{ mon_name[:3] }}</th>
+                    <th class="text-center">Coll Lalu</th>
+                    <th class="text-center">Variance</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in data %}
                 <tr>
-                    <td class="text-center fw-bold">{{ row.tgl }}</td>
+                    <td class="text-center fw-bold text-dark">{{ row.tgl }}</td>
                     
                     <td class="text-center text-muted">{{ "{:,.0f}".format(row.u34_cust) }}</td>
-                    <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td>
-                    <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td> 
-                    <td class="text-end text-cyan">{{ "{:,.0f}".format(row.u34_kum) }}</td>
-                    <td class="text-center fw-bold text-cyan">{{ "%.4f"|format(row.u34_coll) }}</td>
+                    <td class="text-end text-muted">{{ "{:,.0f}".format(row.u34_rp) }}</td>
+                    <td class="text-end text-muted">{{ "{:,.0f}".format(row.u34_rp) }}</td> 
+                    <td class="text-end text-primary-modern">{{ "{:,.0f}".format(row.u34_kum) }}</td>
+                    <td class="text-center fw-bold text-primary-modern bg-light">{{ "%.4f"|format(row.u34_coll) }}</td>
                     <td class="text-center text-muted">{{ "%.4f"|format(row.u34_coll_mar) }}</td>
                     
                     <td class="text-center text-muted">{{ "{:,.0f}".format(row.u35_cust) }}</td>
-                    <td class="text-end">{{ "{:,.0f}".format(row.u35_rp) }}</td>
-                    <td class="text-end">{{ "{:,.0f}".format(row.u35_rp) }}</td>
-                    <td class="text-end text-yellow">{{ "{:,.0f}".format(row.u35_kum) }}</td>
-                    <td class="text-center fw-bold text-yellow">{{ "%.4f"|format(row.u35_coll) }}</td>
+                    <td class="text-end text-muted">{{ "{:,.0f}".format(row.u35_rp) }}</td>
+                    <td class="text-end text-muted">{{ "{:,.0f}".format(row.u35_rp) }}</td>
+                    <td class="text-end text-warning-modern">{{ "{:,.0f}".format(row.u35_kum) }}</td>
+                    <td class="text-center fw-bold text-warning-modern bg-light">{{ "%.4f"|format(row.u35_coll) }}</td>
                     <td class="text-center text-muted">{{ "%.4f"|format(row.u35_coll_mar) }}</td>
 
-                    <td class="text-center text-muted">{{ "{:,.0f}".format(row.tot_cust) }}</td>
-                    <td class="text-end text-white">{{ "{:,.0f}".format(row.tot_rp) }}</td>
-                    <td class="text-end text-white">{{ "{:,.0f}".format(row.tot_rp) }}</td>
-                    <td class="text-center fw-bold text-green">{{ "%.4f"|format(row.tot_coll) }}</td>
+                    <td class="text-center text-muted fw-semibold">{{ "{:,.0f}".format(row.tot_cust) }}</td>
+                    <td class="text-end text-dark fw-semibold">{{ "{:,.0f}".format(row.tot_rp) }}</td>
+                    <td class="text-end text-dark fw-semibold">{{ "{:,.0f}".format(row.tot_rp) }}</td>
+                    <td class="text-center text-success-modern bg-light">{{ "%.4f"|format(row.tot_coll) }}</td>
                     <td class="text-center text-muted">{{ "%.4f"|format(row.tot_coll_mar) }}</td>
                     
-                    <td class="text-center fw-bold {% if row.var_tot < 0 %}text-danger{% else %}text-green{% endif %}">
+                    <td class="text-center bg-light {% if row.var_tot < 0 %}text-danger-modern{% else %}text-success-modern{% endif %}">
                         {{ "%.4f"|format(row.var_tot) }}
                     </td>
                 </tr>
