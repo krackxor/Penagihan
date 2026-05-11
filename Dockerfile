@@ -1,57 +1,52 @@
-# 1. Gunakan base image Python yang stabil (Versi 3.11-slim lebih kencang)
+# 1. Gunakan base image Python 3.11-slim (Stabil & Ringan)
 FROM python:3.11-slim
 
 # 2. Set environment variables
-# PYTHONDONTWRITEBYTECODE: Mencegah file .pyc (sampah) memenuhi kontainer
-# PYTHONUNBUFFERED: Agar log aplikasi langsung tampil di terminal Docker
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# 3. Set folder kerja di dalam kontainer
+# 3. Set folder kerja
 WORKDIR /app
 
-# 4. Instal dependensi sistem (PENTING untuk PostgreSQL, OpenCV, LibreOffice, dan Multi-Language OCR)
-# - build-essential & libpq-dev: Dibutuhkan untuk koneksi PostgreSQL
-# - libgl1 & libglib2.0-0: Library wajib untuk pengolahan foto/OpenCV
-# - libreoffice: Mesin untuk konversi dokumen Word (.docx) ke PDF
-# - tesseract-ocr & packs: Mesin pembaca teks dengan dukungan berbagai bahasa
-RUN apt-get update && apt-get install -y \
+# 4. Instal dependensi sistem (Optimasi: --no-install-recommends & Clean Up)
+# Digunakan untuk PostgreSQL, OpenCV, LibreOffice, dan OCR
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     libgl1 \
     libglib2.0-0 \
     libreoffice \
-    # --- Jantung OCR (Tesseract) ---
     tesseract-ocr \
-    # --- Paket Bahasa Pilihan (Indonesia, Inggris, Jepang, Korea, China, Arab) ---
+    # Paket Bahasa OCR (Tambahkan sesuai kebutuhan utama saja biar tidak terlalu berat)
     tesseract-ocr-ind \
     tesseract-ocr-eng \
     tesseract-ocr-jpn \
     tesseract-ocr-kor \
     tesseract-ocr-chi-sim \
-    tesseract-ocr-chi-tra \
     tesseract-ocr-ara \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # 5. Instal Library Python
-# Kita copy requirements duluan agar Docker bisa melakukan caching (rebuild jadi lebih cepat)
+# Copy requirements duluan agar caching layer Docker bekerja (rebuild secepat kilat)
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# 6. Copy seluruh kode project ke dalam kontainer
+# 6. Copy seluruh kode project
 COPY . .
 
-# 7. Pastikan folder data dan upload sudah tercipta secara otomatis
-# Folder ini akan menjadi tempat singgah data raksasa (JSONB) dan foto lapangan
+# 7. Pastikan folder data dan upload siap dengan izin akses yang benar
+# Kita gunakan chmod 777 agar Flask tidak kena 'Permission Denied' saat simpan foto/db
 RUN mkdir -p /app/instance \
     /app/static/uploads/kunjungan \
-    /app/static/uploads/materi
+    /app/static/uploads/materi \
+    && chmod -R 777 /app/instance \
+    && chmod -R 777 /app/static/uploads
 
-# 8. Buka port 5000 (Port standar Flask/Gunicorn)
+# 8. Buka port 5000
 EXPOSE 5000
 
-# 9. Jalankan aplikasi
-# Di Docker Compose kita menggunakan Gunicorn, 
-# CMD ini sebagai cadangan jika Bos ingin menjalankan kontainer secara mandiri.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app", "--timeout", "1800"]
+# 9. Jalankan aplikasi dengan Gunicorn
+# Timeout 1800 (30 menit) cocok untuk proses OCR file PDF raksasa (120MB+)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app", "--timeout", "1800", "--workers", "3"]
