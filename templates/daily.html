@@ -95,19 +95,18 @@
 <div class="row g-3 mb-4 animate-fade-in">
     {% for label, unit in [('UNIT 34', '34'), ('UNIT 35', '35'), ('AB SUNTER', 'total')] %}
     <div class="col-md-4">
-        <div class="summary-box {% if unit=='34' %}border-cyan{% elif unit=='35' %}border-yellow{% endif %}" 
-             style="border-left-color: {% if unit=='34' %}#00f2ff{% elif unit=='35' %}#ffbd2e{% else %}var(--glow-green){% endif %};">
+        <div class="summary-box" style="border-left-color: {% if unit=='34' %}#00f2ff{% elif unit=='35' %}#ffbd2e{% else %}var(--glow-green){% endif %};">
             <div class="fw-bold mb-2 {% if unit=='34' %}text-cyan{% elif unit=='35' %}text-yellow{% else %}text-green{% endif %}" style="font-size: 0.7rem;">
                 <i class="fas fa-microchip me-1"></i> {{ label }}
             </div>
             <div class="row g-2">
                 <div class="col-6">
                     <div class="stat-label">Target MC</div>
-                    <div class="stat-value text-white">{{ "{:,.0f}".format(targets[unit]) }}</div>
+                    <div class="stat-value text-white">{{ "{:,.0f}".format(targets[unit]['rp']) if targets[unit] is mapping else "{:,.0f}".format(targets[unit]) }}</div>
                 </div>
                 <div class="col-6">
                     <div class="stat-label">Realisasi Undue</div>
-                    <div class="stat-value text-white">{{ "{:,.0f}".format(undue[unit]) }}</div>
+                    <div class="stat-value text-white">{{ "{:,.0f}".format(undue[unit]['rp']) if undue[unit] is mapping else "{:,.0f}".format(undue[unit]) }}</div>
                 </div>
                 <div class="col-6">
                     <div class="stat-label">Realisasi Current</div>
@@ -115,7 +114,12 @@
                 </div>
                 <div class="col-6">
                     <div class="stat-label">Total Coll %</div>
-                    <div class="stat-value text-green">{{ "%.2f"|format(((current[unit] + undue[unit]) / targets[unit] * 100) if targets[unit] > 0 else 0) }}%</div>
+                    {% set t_rp = targets[unit]['rp'] if targets[unit] is mapping else targets[unit] %}
+                    {% set u_rp = undue[unit]['rp'] if undue[unit] is mapping else undue[unit] %}
+                    {% set c_rp = current[unit] %}
+                    <div class="stat-value text-green">
+                        {{ "%.2f"|format(((c_rp + u_rp) / t_rp * 100) if t_rp > 0 else 0) }}%
+                    </div>
                 </div>
             </div>
         </div>
@@ -165,25 +169,24 @@
                     <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td>
                     <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td> 
                     <td class="text-end text-cyan">{{ "{:,.0f}".format(row.u34_kum) }}</td>
-                    <td class="text-center fw-bold text-cyan">{{ "%.4f"|format(row.u34_coll / 100) }}</td>
-                    <td class="text-center text-muted">{{ "%.4f"|format(row.u34_coll_mar / 100) }}</td>
+                    <td class="text-center fw-bold text-cyan">{{ "%.4f"|format(row.u34_coll) }}</td>
+                    <td class="text-center text-muted">{{ "%.4f"|format(row.u34_coll_mar) }}</td>
                     
                     <td class="text-center text-muted">{{ "{:,.0f}".format(row.u35_cust) }}</td>
                     <td class="text-end">{{ "{:,.0f}".format(row.u35_rp) }}</td>
                     <td class="text-end">{{ "{:,.0f}".format(row.u35_rp) }}</td>
                     <td class="text-end text-yellow">{{ "{:,.0f}".format(row.u35_kum) }}</td>
-                    <td class="text-center fw-bold text-yellow">{{ "%.4f"|format(row.u35_coll / 100) }}</td>
-                    <td class="text-center text-muted">{{ "%.4f"|format(row.u35_coll_mar / 100) }}</td>
+                    <td class="text-center fw-bold text-yellow">{{ "%.4f"|format(row.u35_coll) }}</td>
+                    <td class="text-center text-muted">{{ "%.4f"|format(row.u35_coll_mar) }}</td>
 
                     <td class="text-center text-muted">{{ "{:,.0f}".format(row.tot_cust) }}</td>
                     <td class="text-end text-white">{{ "{:,.0f}".format(row.tot_rp) }}</td>
                     <td class="text-end text-white">{{ "{:,.0f}".format(row.tot_rp) }}</td>
-                    <td class="text-center fw-bold text-green">{{ "%.4f"|format(row.tot_coll / 100) }}</td>
-                    <td class="text-center text-muted">{{ "%.4f"|format(row.tot_coll_mar / 100) }}</td>
+                    <td class="text-center fw-bold text-green">{{ "%.4f"|format(row.tot_coll) }}</td>
+                    <td class="text-center text-muted">{{ "%.4f"|format(row.tot_coll_mar) }}</td>
                     
-                    {% set var_value = (row.var_tot / 100) %}
-                    <td class="text-center fw-bold {% if var_value < 0 %}text-danger{% else %}text-green{% endif %}">
-                        {{ "%.4f"|format(var_value) }}
+                    <td class="text-center fw-bold {% if row.var_tot < 0 %}text-danger{% else %}text-green{% endif %}">
+                        {{ "%.4f"|format(row.var_tot) }}
                     </td>
                 </tr>
                 {% endfor %}
