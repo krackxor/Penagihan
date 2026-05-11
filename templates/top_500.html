@@ -1,131 +1,134 @@
 {% extends "base.html" %}
 
-{% block title %}Top 500 Analytics - BAAE Nexus{% endblock %}
+{% block title %}Top 500 Pareto - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* Styling Peringkat Prioritas (Cyber Bounty Ranks) */
+    /* ==========================================================
+       MODERN SAAS TOP 500 ANALYTICS
+       ========================================================== */
+    
+    /* Ikon Box Modern */
+    .icon-box-warning {
+        background: #fef3c7; 
+        color: #d97706;
+        width: 50px; height: 50px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 12px;
+        font-size: 1.5rem;
+    }
+
+    /* Badge Peringkat Modern */
     .rank-badge {
-        width: 36px;
-        height: 36px;
-        display: flex;
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
-        font-size: 0.9rem;
-        transition: all 0.3s;
-        /* Cyber-Cut Hexagon */
-        clip-path: polygon(30% 0%, 100% 0, 100% 70%, 70% 100%, 0 100%, 0% 30%);
-    }
-    
-    /* Efek Neon Glow untuk 3 Besar */
-    .top-1 { 
-        background: rgba(251, 191, 36, 0.15); 
-        color: #fbbf24; 
-        border-left: 2px solid #fbbf24;
-        box-shadow: inset 0 0 10px rgba(251, 191, 36, 0.4);
-    }
-    .top-2 { 
-        background: rgba(148, 163, 184, 0.15); 
-        color: #cbd5e1; 
-        border-left: 2px solid #cbd5e1;
-        box-shadow: inset 0 0 10px rgba(148, 163, 184, 0.3);
-    }
-    .top-3 { 
-        background: rgba(217, 119, 6, 0.15); 
-        color: #d97706; 
-        border-left: 2px solid #d97706;
-        box-shadow: inset 0 0 10px rgba(217, 119, 6, 0.3);
-    }
-    .top-others { 
-        background: rgba(255, 255, 255, 0.05); 
-        color: var(--text-muted); 
-        border-left: 2px solid var(--border-hacker); 
-    }
-
-    /* Highlight Baris Prioritas (Hacker Gold) */
-    .gold-row {
-        background: rgba(251, 191, 36, 0.02) !important;
-        border-bottom: 1px solid rgba(251, 191, 36, 0.3) !important;
-    }
-    
-    /* Terminal Filter Inputs */
-    .terminal-input {
-        background: rgba(0, 0, 0, 0.5) !important;
-        border: 1px solid var(--border-hacker) !important;
-        border-left: 2px solid var(--glow-green) !important;
-        color: var(--text-main) !important;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.75rem;
-        border-radius: 0;
-        transition: all 0.3s;
-    }
-    .terminal-input:focus {
-        border-color: var(--glow-green) !important;
-        box-shadow: 0 0 10px var(--glow-green-dim) !important;
-    }
-
-    .label-cmd {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.6rem;
+        border-radius: 8px;
         font-weight: 700;
-        letter-spacing: 1.5px;
+        font-size: 0.85rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .top-1 { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .top-2 { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .top-3 { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+    .top-others { 
+        background: var(--bg-main); 
+        color: var(--text-muted); 
+        border: 1px solid var(--border-color); 
+        box-shadow: none;
+    }
+
+    /* Highlight Baris Prioritas (Lembut) */
+    .gold-row td {
+        background-color: #fffbeb !important;
+    }
+
+    /* Form Label */
+    .form-label-modern {
+        font-size: 0.75rem;
+        font-weight: 600;
         color: var(--text-muted);
         text-transform: uppercase;
-        margin-bottom: 5px;
-    }
-    
-    .btn-term {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
-        font-weight: 800;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        border-radius: 0;
-        transition: all 0.3s;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
     }
 
-    /* Master Table Styling */
-    .table-data { border-color: var(--border-hacker) !important; margin-bottom: 0;}
-    .table-data thead th { 
-        background: #0a0e17 !important; 
-        color: var(--glow-green) !important; 
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem; 
+    /* Tabel Analitik Modern */
+    .table-modern {
+        margin-bottom: 0;
+    }
+    .table-modern thead th {
+        background-color: #f8fafc;
+        color: #64748b;
+        font-size: 0.75rem;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
-        border-bottom: 1px dashed rgba(0, 255, 65, 0.3) !important;
-        padding: 15px;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        border-bottom: 2px solid #e2e8f0;
+        padding: 1rem;
     }
-    .table-data td { 
-        border-bottom: 1px solid rgba(255,255,255,0.02) !important; 
-        color: var(--text-main); vertical-align: middle; padding: 12px 15px;
+    .table-modern td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #e2e8f0;
+        color: var(--text-main);
     }
-    .table-data tbody tr:hover td { background: rgba(255,255,255,0.02) !important; }
+    .table-modern tbody tr {
+        transition: background-color 0.2s;
+    }
+    .table-modern tbody tr:hover td {
+        background-color: #f8fafc !important;
+    }
+
+    /* Info Card */
+    .info-card {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        color: #1e3a8a;
+    }
+    .info-icon {
+        background: #dbeafe;
+        color: #2563eb;
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
 
     @media print {
         .no-print { display: none !important; }
         body { background: white !important; color: black !important; }
-        .card { border: 1px solid #ddd !important; background: white !important; clip-path: none !important; }
-        .hero-gradient { -webkit-text-fill-color: black !important; }
+        .card { border: 1px solid #e2e8f0 !important; background: white !important; box-shadow: none !important; }
+        .table-modern th { background-color: #f1f5f9 !important; }
+        .table-modern td, .table-modern th { padding: 0.5rem !important; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
+<nav aria-label="breadcrumb" class="no-print">
+    <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
+        <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted">Beranda</a></li>
+        <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Laporan Utama</a></li>
+        <li class="breadcrumb-item active text-primary" aria-current="page">Top 500 Pareto</li>
+    </ol>
+</nav>
+
 <div class="row align-items-center mb-4 no-print animate-fade-in">
     <div class="col-md-7">
         <div class="d-flex align-items-center gap-3">
-            <div class="p-3" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); clip-path: polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%);">
-                <i class="fas fa-crown fa-xl"></i>
+            <div class="icon-box-warning">
+                <i class="fas fa-crown"></i>
             </div>
             <div>
-                <h2 class="font-code fw-800 text-white mb-0 uppercase tracking-tight" style="font-size: 1.2rem;">
-                    <span style="color: #fbbf24;">></span> ANALYTICS_PARETO: TOP_500
-                </h2>
-                <p class="font-code small mb-0" style="color: var(--text-muted);">
-                    TARGET_PRIORITY_NODE: <b style="color: #fbbf24;">{{ current_ab }}</b>
+                <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+                    Analitik Pareto: Top 500
+                </h3>
+                <p class="mb-0 text-muted" style="font-size: 0.9rem;">
+                    Wilayah Prioritas: <span class="fw-bold text-dark">{{ current_ab }}</span>
                 </p>
             </div>
         </div>
@@ -133,13 +136,13 @@
     
     <div class="col-md-5 d-flex justify-content-md-end mt-3 mt-md-0">
         <form method="GET" action="" class="d-flex align-items-end gap-2">
-            <div class="text-end">
-                <label class="label-cmd d-block">> target_periode</label>
+            <div class="text-end w-100">
+                <label class="form-label-modern d-block text-start">> Periode Laporan</label>
                 <div class="d-flex gap-2">
-                    <input type="month" name="periode" class="form-control terminal-input" 
+                    <input type="month" name="periode" class="form-control" 
                            value="{{ periode_aktif[:4] }}-{{ periode_aktif[4:] }}" 
                            onchange="this.form.submit()">
-                    <button type="button" onclick="window.print()" class="btn btn-dark btn-term px-3" style="border: 1px solid var(--border-hacker);">
+                    <button type="button" onclick="window.print()" class="btn btn-outline-secondary px-3" title="Cetak Laporan">
                         <i class="fas fa-print"></i>
                     </button>
                 </div>
@@ -148,28 +151,26 @@
     </div>
 </div>
 
-<div class="card border-0 mb-4 p-0 no-print" style="background: rgba(0, 255, 65, 0.02) !important; border-top: 2px solid var(--glow-green) !important;">
-    <div class="card-body p-3 d-flex align-items-center">
-        <div class="me-3 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; background: rgba(0,255,65,0.1); border: 1px solid rgba(0,255,65,0.3); color: var(--glow-green);">
-            <i class="fas fa-bolt-lightning animate-pulse"></i>
-        </div>
-        <div class="font-code small" style="font-size: 0.65rem;">
-            <span style="color: var(--glow-green); font-weight: 800;">SYS.OPT: [{{ periode_aktif }}]</span> 
-            <span style="color: var(--text-muted);">Initiate direct intervention on Bounty Rank 1-100 for maximum fund recovery efficiency.</span>
-        </div>
+<div class="info-card p-3 mb-4 d-flex align-items-center no-print shadow-sm">
+    <div class="info-icon me-3">
+        <i class="fas fa-lightbulb"></i>
+    </div>
+    <div style="font-size: 0.85rem;">
+        <strong style="color: #1e40af;">Optimalisasi Pemulihan ({{ periode_aktif }}):</strong> 
+        Fokuskan intervensi lapangan langsung pada Peringkat 1-100 untuk efisiensi pengembalian dana maksimal.
     </div>
 </div>
 
-<div class="card p-0 border-0 overflow-hidden mb-5">
+<div class="card border-0 shadow-sm overflow-hidden mb-5">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 table-data">
+        <table class="table table-modern table-hover align-middle">
             <thead>
                 <tr>
-                    <th class="text-center py-3" style="width: 80px;">RANK_LVL</th>
-                    <th class="py-3">TARGET_IDENTITY</th>
-                    <th class="py-3">ANALYTIC_ZONE</th>
-                    <th class="py-3">FIELD_ENGINEER</th>
-                    <th class="text-end py-3 pe-4">AGGREGATE_AMOUNT</th>
+                    <th class="text-center" style="width: 80px;">Peringkat</th>
+                    <th>Identitas Pelanggan</th>
+                    <th>Lokasi & Rute</th>
+                    <th>Petugas Lapangan</th>
+                    <th class="text-end pe-4">Total Tagihan</th>
                 </tr>
             </thead>
             <tbody>
@@ -185,37 +186,38 @@
                         </div>
                     </td>
                     <td>
-                        <div class="font-code fw-800" style="color: var(--glow-green); letter-spacing: 0.5px;">{{ item.nomen }}</div>
-                        <div class="small text-uppercase fw-bold text-white mt-1">{{ item.nama }}</div>
+                        <div class="fw-bold" style="color: var(--primary); font-size: 0.95rem;">{{ item.nomen }}</div>
+                        <div class="text-dark fw-semibold mt-1" style="font-size: 0.85rem;">{{ item.nama }}</div>
                     </td>
                     <td>
-                        <div class="font-code text-white small fw-bold">{{ item.kelurahan }}</div>
-                        <div class="font-code text-muted mt-1" style="font-size: 0.65rem;">PCEZ_NODE: <span style="color: var(--accent-cyber);">{{ item.pcez }}</span></div>
-                    </td>
-                    <td>
-                        <div class="font-code fw-bold small text-white">
-                            <i class="fas fa-user-shield me-1" style="color: var(--terminal-green);"></i>
-                            {{ item.nama_petugas if item.nama_petugas else 'SYSTEM_VOID' }}
+                        <div class="fw-semibold text-dark" style="font-size: 0.85rem;">{{ item.kelurahan }}</div>
+                        <div class="text-muted mt-1" style="font-size: 0.75rem;">
+                            Rute: <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle ms-1">{{ item.pcez }}</span>
                         </div>
-                        <div class="font-code text-muted mt-1" style="font-size: 0.65rem;">ANALYTIC_UNIT_SUNTER</div>
+                    </td>
+                    <td>
+                        <div class="fw-semibold text-dark" style="font-size: 0.85rem;">
+                            <i class="fas fa-user-shield me-1 text-muted"></i>
+                            {{ item.nama_petugas if item.nama_petugas else 'Tidak Ditugaskan' }}
+                        </div>
+                        <div class="text-muted mt-1" style="font-size: 0.75rem;">Unit Analitik Sunter</div>
                     </td>
                     <td class="text-end pe-4">
-                        <div class="font-code fw-800" style="color: var(--glow-crimson); font-size: 1.1rem;">
+                        <div class="fw-bold text-danger" style="font-size: 1.1rem;">
                             Rp {{ "{:,.0f}".format(item.total_nominal | default(0, true)) | replace(',', '.') }}
                         </div>
-                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-term mt-2 px-3 no-print" 
-                           style="background: rgba(0, 240, 255, 0.1); color: var(--accent-cyber); border: 1px solid rgba(0, 240, 255, 0.3);">
-                            <i class="fas fa-crosshairs me-1"></i> EXECUTE_AUDIT
+                        <a href="/lapor?nomen={{ item.nomen }}" class="btn btn-sm btn-outline-primary mt-2 px-3 no-print rounded-pill" style="font-size: 0.75rem; font-weight: 600;">
+                            <i class="fas fa-file-signature me-1"></i> Lihat Laporan
                         </a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <td colspan="5" class="text-center py-5">
-                        <div class="opacity-50 mb-3" style="color: var(--border-hacker);">
-                            <i class="fas fa-database fa-4x"></i>
+                        <div class="mb-3">
+                            <i class="fas fa-folder-open fa-3x" style="color: #cbd5e1;"></i>
                         </div>
-                        <p class="font-code text-muted small uppercase tracking-widest">[ 404_NO_ANALYTIC_RECORDS_FOR_{{ periode_aktif }} ]</p>
+                        <p class="text-muted fw-semibold mb-0">Tidak ada data analitik untuk periode {{ periode_aktif }}</p>
                     </td>
                 </tr>
                 {% endfor %}
