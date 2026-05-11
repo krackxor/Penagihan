@@ -5,7 +5,7 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       MODERN SAAS CONVERTER STYLES (FIXED ALIGNMENT)
+       MODERN SAAS CONVERTER STYLES (FIXED MOBILE TABS)
        ========================================================== */
     
     /* Ikon Box Utama */
@@ -46,29 +46,43 @@
         background: #ffffff;
     }
 
-    /* Navigasi Tab (Rapih di Mobile) */
+    /* =========================================================
+       PERBAIKAN TABS MENU UNTUK MOBILE (GRID 2x2 & SUSUN ATAS BAWAH)
+       ========================================================= */
     .modern-nav-pills {
         background: #f1f5f9;
         padding: 6px;
         border-radius: var(--radius-md);
-        display: inline-flex;
+        display: flex; 
         gap: 6px;
-        flex-wrap: wrap;
+        flex-wrap: wrap; /* Izinkan elemen turun ke baris baru */
         justify-content: center;
+    }
+    
+    .modern-nav-pills .nav-item {
+        flex: 1 1 calc(50% - 6px); /* Paksa menjadi 2 kolom di layar HP */
+        min-width: 120px;
     }
     
     .modern-nav-pills .nav-link {
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.85rem;
+        font-size: 0.75rem; /* Ukuran font lebih ringkas untuk HP */
         border-radius: 8px;
-        padding: 10px 18px;
+        padding: 12px 5px; 
         border: none;
         transition: all 0.2s;
         display: flex;
+        flex-direction: column; /* Tumpuk ikon DI ATAS teks */
         align-items: center;
         justify-content: center;
-        gap: 8px; /* Jarak PASTI antara ikon dan teks */
+        gap: 6px; 
+        width: 100%;
+        white-space: nowrap; /* Cegah teks patah sembarangan */
+    }
+    
+    .modern-nav-pills .nav-link i {
+        font-size: 1.3rem; /* Ikon diperbesar agar proporsional */
     }
     
     .modern-nav-pills .nav-link:hover {
@@ -79,6 +93,21 @@
         background: #ffffff;
         color: var(--primary);
         box-shadow: var(--shadow-sm);
+    }
+
+    /* Tampilan untuk layar besar (Laptop/PC) */
+    @media (min-width: 768px) {
+        .modern-nav-pills .nav-item {
+            flex: 1 1 auto; /* Kembali ke ukuran otomatis */
+        }
+        .modern-nav-pills .nav-link {
+            flex-direction: row; /* Jejerkan ikon dan teks ke Samping */
+            padding: 10px 20px;
+            font-size: 0.85rem;
+        }
+        .modern-nav-pills .nav-link i {
+            font-size: 1.1rem;
+        }
     }
 
     /* Tombol Submit/Convert */
@@ -98,7 +127,6 @@
         display: block;
     }
     
-    /* Hilangkan margin default ikon besar agar tidak berantakan */
     .upload-icon-main {
         display: block;
         margin: 0 auto 15px auto;
@@ -132,7 +160,7 @@
                     </p>
                 </div>
 
-                <div class="text-center mb-4">
+                <div class="mb-4">
                     <ul class="nav modern-nav-pills" id="pills-tab" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button" role="tab">
@@ -231,11 +259,9 @@
         const submitBtn = form.querySelector('.convert-btn');
         const originalText = submitBtn.innerHTML;
 
-        // Visual Feedback Status Processing menggunakan gap Flexbox agar spinner dan tulisan tidak nempel
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> <span>Memproses Permintaan...</span>';
 
-        // Konfigurasi SweetAlert Corporate SaaS
         const swalModern = {
             background: '#ffffff', 
             color: '#0f172a',
@@ -251,7 +277,6 @@
             });
 
             if (response.ok) {
-                // Eksekusi Download Blob File
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -300,7 +325,6 @@
                 confirmButtonText: 'Tutup'
             });
         } finally {
-            // Mengembalikan state tombol ke semula
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         }
