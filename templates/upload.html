@@ -5,77 +5,68 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       TACTICAL SYNC CENTER STYLES (Hacker Base)
+       MODERN SAAS SYNC CENTER STYLES
        ========================================================== */
-    .label-cmd {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
-        font-weight: 800;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
+    
+    /* Ikon Box Modern */
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        font-size: 1.25rem;
+    }
+    .icon-box-primary { background: var(--primary-light); color: var(--primary); }
+    .icon-box-warning { background: #fef3c7; color: #d97706; }
+    .icon-box-success { background: #d1fae5; color: var(--success); }
+    .icon-box-danger { background: #fee2e2; color: var(--danger); }
+
+    /* Label Form Bersih */
+    .form-label-modern {
+        font-size: 0.75rem;
+        font-weight: 600;
         color: var(--text-muted);
-    }
-
-    /* Terminal Filter Inputs */
-    .terminal-input {
-        background: rgba(0, 0, 0, 0.5) !important;
-        border: 1px solid var(--border-hacker) !important;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.75rem;
-        border-radius: 0 !important;
-        transition: all 0.3s;
-    }
-    
-    /* Varian Input Colors */
-    .input-cyan { border-left: 2px solid var(--accent-cyber) !important; color: var(--text-main) !important; }
-    .input-cyan:focus { border-color: var(--accent-cyber) !important; box-shadow: 0 0 10px rgba(56, 189, 248, 0.2) !important; }
-    
-    .input-yellow { border-left: 2px solid #ffbd2e !important; color: var(--text-main) !important; }
-    .input-yellow:focus { border-color: #ffbd2e !important; box-shadow: 0 0 10px rgba(255, 189, 46, 0.2) !important; }
-    
-    .input-green { border-left: 2px solid var(--glow-green) !important; color: var(--text-main) !important; }
-    .input-green:focus { border-color: var(--glow-green) !important; box-shadow: 0 0 10px var(--glow-green-dim) !important; }
-    
-    .input-crimson { border-left: 2px solid var(--glow-crimson) !important; color: var(--text-main) !important; }
-    .input-crimson:focus { border-color: var(--glow-crimson) !important; box-shadow: 0 0 10px rgba(255, 7, 58, 0.2) !important; }
-
-    /* Industrial Hacker Buttons */
-    .btn-term {
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
-        font-size: 0.75rem;
-        letter-spacing: 1.5px;
         text-transform: uppercase;
-        border-radius: 0;
-        padding: 10px 15px;
-        transition: all 0.3s;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
     }
-    .btn-t-cyan { background: rgba(56, 189, 248, 0.1); color: var(--accent-cyber); border: 1px solid rgba(56, 189, 248, 0.3); }
-    .btn-t-cyan:hover:not(:disabled) { background: var(--accent-cyber); color: #000; box-shadow: 0 0 15px rgba(56, 189, 248, 0.5); }
-    
-    .btn-t-yellow { background: rgba(255, 189, 46, 0.1); color: #ffbd2e; border: 1px solid rgba(255, 189, 46, 0.3); }
-    .btn-t-yellow:hover:not(:disabled) { background: #ffbd2e; color: #000; box-shadow: 0 0 15px rgba(255, 189, 46, 0.5); }
-    
-    .btn-t-green { background: var(--glow-green-dim); color: var(--glow-green); border: 1px solid rgba(0, 255, 65, 0.3); }
-    .btn-t-green:hover:not(:disabled) { background: var(--glow-green); color: #000; box-shadow: 0 0 15px var(--glow-green); }
-    
-    .btn-t-crimson { background: rgba(255, 7, 58, 0.1); color: var(--glow-crimson); border: 1px solid rgba(255, 7, 58, 0.3); }
-    .btn-t-crimson:hover:not(:disabled) { background: var(--glow-crimson); color: #000; box-shadow: 0 0 15px var(--glow-crimson); }
 
-    .btn-term:disabled { background: rgba(0,0,0,0.5); border-color: var(--border-hacker); color: #555; }
+    /* Lencana Modern (Badges) */
+    .badge-modern {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.35em 0.65em;
+        border-radius: 6px;
+        letter-spacing: 0.5px;
+    }
 
-    /* Override Card Borders from Base */
-    .card-cyan { border-left-color: var(--accent-cyber) !important; border-top-color: var(--accent-cyber) !important; }
-    .card-yellow { border-left-color: #ffbd2e !important; border-top-color: #ffbd2e !important; }
-    .card-green { border-left-color: var(--glow-green) !important; border-top-color: var(--glow-green) !important; }
-    .card-crimson { border-left-color: var(--glow-crimson) !important; border-top-color: var(--glow-crimson) !important; }
+    /* Penyesuaian Input File agar lebih bersih */
+    input[type="file"].form-control {
+        padding: 0.5rem 1rem;
+    }
+    input[type="file"]::file-selector-button {
+        background-color: #f1f5f9;
+        color: var(--text-main);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 0.2rem 0.8rem;
+        margin-right: 1rem;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    input[type="file"]::file-selector-button:hover {
+        background-color: #e2e8f0;
+    }
 
-    .badge-hacker {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.6rem;
-        padding: 4px 8px;
-        border-radius: 0;
-        letter-spacing: 1px;
+    /* Tombol Utama */
+    .btn-action {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        transition: all 0.2s;
     }
 </style>
 {% endblock %}
@@ -84,44 +75,54 @@
 <div class="row justify-content-center mt-2 animate-fade-in">
     <div class="col-md-11">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-3 font-code" style="font-size: 0.7rem;">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none" style="color: var(--text-muted);">[ SYS_HOME ]</a></li>
-                <li class="breadcrumb-item active fw-bold" style="color: var(--glow-green);" aria-current="page">DATA_SYNCHRONIZATION</li>
+            <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted">Beranda</a></li>
+                <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Manajemen Sistem</a></li>
+                <li class="breadcrumb-item active text-primary" aria-current="page">Sinkronisasi Data</li>
             </ol>
         </nav>
 
         <div class="d-flex align-items-center mb-5">
-            <div class="d-inline-flex align-items-center justify-content-center" style="width: 55px; height: 55px; background: rgba(0, 255, 65, 0.05); border: 1px solid var(--glow-green); transform: rotate(45deg);">
-                <i class="fas fa-file-import fa-lg" style="color: var(--glow-green); transform: rotate(-45deg);"></i>
+            <div class="icon-box icon-box-primary" style="width: 60px; height: 60px; font-size: 1.5rem;">
+                <i class="fas fa-cloud-arrow-up"></i>
             </div>
-            <div class="ms-4">
-                <h2 class="mb-1 font-code fw-800 text-white" style="letter-spacing: 1px;">
-                    <span style="color: var(--glow-green);">></span> SYNC_CENTER
-                </h2>
-                <p class="font-code small mb-0" style="color: var(--text-muted);">High-Performance ETL Engine supporting <b>.txt</b> & <b>JSONB Vacuuming</b>.</p>
+            <div class="ms-3">
+                <h3 class="mb-1 fw-bold" style="color: var(--text-main); letter-spacing: -0.5px;">
+                    Pusat Sinkronisasi Data
+                </h3>
+                <p class="mb-0 text-muted" style="font-size: 0.9rem;">
+                    Mesin pemrosesan ETL berkecepatan tinggi yang mendukung ekstraksi format <b>.txt</b> & <b>JSONB</b>.
+                </p>
             </div>
         </div>
 
         <div class="row g-4">
             
             <div class="col-md-6">
-                <div class="card card-cyan h-100 p-0 border-0">
+                <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <div class="label-cmd" style="color: var(--accent-cyber);">> database_core</div>
-                                <h5 class="fw-bold text-white font-code"><i class="fas fa-users-gear me-2"></i>MASTER_CID</h5>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="icon-box icon-box-primary">
+                                    <i class="fas fa-users-gear"></i>
+                                </div>
+                                <div>
+                                    <div class="form-label-modern mb-0">Database Utama</div>
+                                    <h5 class="fw-bold mb-0 text-dark">Master Data (CID)</h5>
+                                </div>
                             </div>
-                            <span class="badge-hacker" style="background: rgba(56, 189, 248, 0.1); color: var(--accent-cyber); border: 1px solid rgba(56, 189, 248, 0.3);">V14.0 HEADERS</span>
+                            <span class="badge badge-modern bg-primary bg-opacity-10 text-primary border border-primary-subtle">V14.0 HEADERS</span>
                         </div>
-                        <p class="small font-code mb-4" style="color: var(--text-muted); font-size: 0.7rem;">Use dump file <b>CID_FULL.txt</b> to update customer address and field agent routing (PCEZ).</p>
+                        <p class="text-muted mb-4" style="font-size: 0.85rem; line-height: 1.5;">
+                            Gunakan *dump file* <b>CID_FULL.txt</b> untuk memperbarui data pelanggan, alamat, dan rute wilayah (PCEZ).
+                        </p>
                         
-                        <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formCID')" id="formCID">
+                        <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formCID')" id="formCID" class="mt-auto">
                             <div class="mb-3">
-                                <input type="file" name="file_cid" class="form-control terminal-input input-cyan" accept=".txt, .csv" required>
+                                <input type="file" name="file_cid" class="form-control" accept=".txt, .csv" required>
                             </div>
-                            <button type="submit" class="btn btn-term btn-t-cyan w-100">
-                                <i class="fas fa-microchip me-2"></i>SYNC_CID_ENGINE
+                            <button type="submit" class="btn btn-primary btn-action w-100">
+                                <i class="fas fa-microchip me-2"></i> Sinkronisasi CID Utama
                             </button>
                         </form>
                     </div>
@@ -129,27 +130,36 @@
             </div>
 
             <div class="col-md-6">
-                <div class="card card-yellow h-100 p-0 border-0">
+                <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
-                        <div class="label-cmd" style="color: #ffbd2e;">> human_resources</div>
-                        <h5 class="fw-bold text-white font-code mb-2"><i class="fas fa-user-shield me-2"></i>AGENT_MAPPING</h5>
-                        <p class="small font-code mb-4" style="color: var(--text-muted); font-size: 0.7rem;">Synchronize operational field agents based on PCEZ cluster and regional sectors.</p>
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="icon-box icon-box-warning">
+                                <i class="fas fa-user-shield"></i>
+                            </div>
+                            <div>
+                                <div class="form-label-modern mb-0">Sumber Daya Manusia</div>
+                                <h5 class="fw-bold mb-0 text-dark">Pemetaan Petugas</h5>
+                            </div>
+                        </div>
+                        <p class="text-muted mb-4" style="font-size: 0.85rem; line-height: 1.5;">
+                            Sinkronisasi data operasional petugas lapangan berdasarkan wilayah kluster PCEZ dan sektor rayon masing-masing.
+                        </p>
                         
-                        <form onsubmit="handleUpload(event, '/api/import/petugas', 'formPetugas')" id="formPetugas">
+                        <form onsubmit="handleUpload(event, '/api/import/petugas', 'formPetugas')" id="formPetugas" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
-                                    <select name="peran" class="form-select terminal-input input-yellow" required>
-                                        <option value="TAGIHAN">TAGIHAN</option>
-                                        <option value="SBRS">ANOMALI</option>
-                                        <option value="CATAT">CATAT_METER</option>
+                                    <select name="peran" class="form-select" required>
+                                        <option value="TAGIHAN">Tunggakan</option>
+                                        <option value="SBRS">Anomali SBRS</option>
+                                        <option value="CATAT">Catat Meter</option>
                                     </select>
                                 </div>
                                 <div class="col-7">
-                                    <input type="file" name="file" class="form-control terminal-input input-yellow" accept=".xlsx, .csv" required>
+                                    <input type="file" name="file" class="form-control" accept=".xlsx, .csv" required>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-term btn-t-yellow w-100">
-                                <i class="fas fa-user-tag me-2"></i>OVERRIDE_AGENTS
+                            <button type="submit" class="btn btn-action w-100" style="background-color: #f59e0b; color: white;">
+                                <i class="fas fa-user-tag me-2"></i> Perbarui Data Petugas
                             </button>
                         </form>
                     </div>
@@ -157,16 +167,25 @@
             </div>
 
             <div class="col-md-6">
-                <div class="card card-green h-100 p-0 border-0">
+                <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
-                        <div class="label-cmd" style="color: var(--glow-green);">> finance_analytics</div>
-                        <h5 class="fw-bold text-white font-code mb-2"><i class="fas fa-money-check-dollar me-2"></i>BILLING_&_ARREARS</h5>
-                        <p class="small font-code mb-4" style="color: var(--text-muted); font-size: 0.7rem;">Inject active billing data, historical arrears, and daily clearing records.</p>
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="icon-box icon-box-success">
+                                <i class="fas fa-money-check-dollar"></i>
+                            </div>
+                            <div>
+                                <div class="form-label-modern mb-0">Analitik Keuangan</div>
+                                <h5 class="fw-bold mb-0 text-dark">Tagihan & Piutang</h5>
+                            </div>
+                        </div>
+                        <p class="text-muted mb-4" style="font-size: 0.85rem; line-height: 1.5;">
+                            Impor rekam data tagihan aktif, riwayat penagihan, serta catatan penyelesaian harian.
+                        </p>
                         
-                        <form onsubmit="handleTagihanUpload(event)" id="formTagihan">
+                        <form onsubmit="handleTagihanUpload(event)" id="formTagihan" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
-                                    <select id="selectSumber" class="form-select terminal-input input-green" required>
+                                    <select id="selectSumber" class="form-select" required>
                                         <option value="file_mc">MC (Master_Cetak)</option>
                                         <option value="file_daily">MB (Master_Bayar)</option>
                                         <option value="file_arrdebt">ARDEBT (Tunggakan)</option>
@@ -174,11 +193,11 @@
                                     </select>
                                 </div>
                                 <div class="col-7">
-                                    <input type="file" id="inputFileTagihan" class="form-control terminal-input input-green" accept=".txt, .csv" required>
+                                    <input type="file" id="inputFileTagihan" class="form-control" accept=".txt, .csv" required>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-term btn-t-green w-100">
-                                <i class="fas fa-cloud-bolt me-2"></i>INJECT_FINANCE_DATA
+                            <button type="submit" class="btn btn-action w-100" style="background-color: #10b981; color: white;">
+                                <i class="fas fa-cloud-bolt me-2"></i> Ekstraksi Data Keuangan
                             </button>
                         </form>
                     </div>
@@ -186,28 +205,35 @@
             </div>
 
             <div class="col-md-6">
-                <div class="card card-crimson h-100 p-0 border-0">
+                <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <div class="label-cmd" style="color: var(--glow-crimson);">> field_intelligence</div>
-                                <h5 class="fw-bold text-white font-code"><i class="fas fa-bolt-lightning me-2"></i>SBRS_HUB_DATA</h5>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="icon-box icon-box-danger">
+                                    <i class="fas fa-bolt-lightning"></i>
+                                </div>
+                                <div>
+                                    <div class="form-label-modern mb-0">Intelijen Lapangan</div>
+                                    <h5 class="fw-bold mb-0 text-dark">Data Anomali (SBRS)</h5>
+                                </div>
                             </div>
-                            <span class="badge-hacker" style="background: rgba(255, 7, 58, 0.1); color: var(--glow-crimson); border: 1px solid rgba(255, 7, 58, 0.3);">TURBO_JOIN</span>
+                            <span class="badge badge-modern bg-danger bg-opacity-10 text-danger border border-danger-subtle">TURBO JOIN</span>
                         </div>
-                        <p class="small font-code mb-4" style="color: var(--text-muted); font-size: 0.7rem;">Automate anomaly detection via <b>customer.txt</b> and <b>spot_bill.txt</b>.</p>
+                        <p class="text-muted mb-4" style="font-size: 0.85rem; line-height: 1.5;">
+                            Otomatisasi pelacakan anomali lapangan dari paduan dokumen <b>customer.txt</b> dan <b>spot_bill.txt</b>.
+                        </p>
                         
-                        <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formSBRS')" id="formSBRS">
+                        <form onsubmit="handleUpload(event, '/api/import/tagihan', 'formSBRS')" id="formSBRS" class="mt-auto">
                             <div class="mb-2">
-                                <label class="font-code" style="font-size: 0.55rem; color: var(--text-muted);">> CUSTOMER_TXT_SOURCE</label>
-                                <input type="file" name="file_customer" class="form-control terminal-input input-crimson" accept=".txt, .csv" required>
+                                <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 2px;">File Customer (.txt)</label>
+                                <input type="file" name="file_customer" class="form-control" accept=".txt, .csv" required>
                             </div>
                             <div class="mb-3">
-                                <label class="font-code" style="font-size: 0.55rem; color: var(--text-muted);">> SPOTBILL_TXT_SOURCE</label>
-                                <input type="file" name="file_spotbill" class="form-control terminal-input input-crimson" accept=".txt, .csv" required>
+                                <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 2px;">File Spot Bill (.txt)</label>
+                                <input type="file" name="file_spotbill" class="form-control" accept=".txt, .csv" required>
                             </div>
-                            <button type="submit" class="btn btn-term btn-t-crimson w-100">
-                                <i class="fas fa-magnifying-glass-chart me-2"></i>EXECUTE_ANALYTIC_JOIN
+                            <button type="submit" class="btn btn-action w-100" style="background-color: #ef4444; color: white;">
+                                <i class="fas fa-magnifying-glass-chart me-2"></i> Jalankan Analitik Gabungan
                             </button>
                         </form>
                     </div>
@@ -221,47 +247,47 @@
 
 {% block extra_js %}
 <script>
-    // Config SWAL Hacker Dark Mode (Sync with Base)
-    const swalDark = {
-        background: '#0a0e17', 
-        color: '#e2e8f0',
-        confirmButtonColor: '#00ff41',
-        cancelButtonColor: '#1f2937',
-        customClass: { popup: 'border border-secondary border-opacity-25 rounded-0' }
+    // Konfigurasi SweetAlert Corporate SaaS (Sesuai dengan base.html terbaru)
+    const swalModern = {
+        background: '#ffffff', 
+        color: '#0f172a',
+        confirmButtonColor: '#2563eb', // Biru tech company
+        cancelButtonColor: '#e2e8f0',
+        customClass: { popup: 'border-0 rounded-4 shadow-lg' }
     };
 
-    // JAVASCRIPT LOGIC 100% UNCHANGED
+    // FUNGSI JAVASCRIPT: LOGIKA TETAP 100% SAMA, HANYA TEMA POPUP & TEKS LOADING YANG BERUBAH
     async function handleTagihanUpload(event) {
         event.preventDefault();
         const select = document.getElementById('selectSumber');
         const fileInput = document.getElementById('inputFileTagihan');
         const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
         
         const formData = new FormData();
         formData.append(select.value, fileInput.files[0]);
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>[ INJECTING_DATA... ]';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses data...';
 
         try {
             const response = await fetch('/api/import/tagihan', { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.status === 'success') {
-                Swal.fire({ ...swalDark, icon: 'success', iconColor: '#00ff41', title: 'SYS.INJECTION_SUCCESS', text: result.message });
+                Swal.fire({ ...swalModern, icon: 'success', title: 'Berhasil', text: result.message });
                 event.target.reset();
             } else {
-                Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'SYS.INJECTION_FAILED', text: result.message });
+                Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Ekstraksi Gagal', text: result.message });
             }
         } catch (error) {
-            Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'CORE.ERROR', text: 'Koneksi terputus atau file korup!' });
+            Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Kesalahan Jaringan', text: 'Koneksi terputus atau format file tidak didukung.' });
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-cloud-bolt me-2"></i>INJECT_FINANCE_DATA';
+            submitBtn.innerHTML = originalText;
         }
     }
 
-    // JAVASCRIPT LOGIC 100% UNCHANGED
     async function handleUpload(event, url, formId) {
         event.preventDefault();
         const form = document.getElementById(formId);
@@ -270,20 +296,20 @@
         const originalText = submitBtn.innerHTML;
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>[ SYNCING... ]';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyinkronkan...';
 
         try {
             const response = await fetch(url, { method: 'POST', body: formData });
             const result = await response.json();
 
             if (result.status === 'success') {
-                Swal.fire({ ...swalDark, icon: 'success', iconColor: '#00ff41', title: 'SYS.OPTIMIZED', text: result.message });
+                Swal.fire({ ...swalModern, icon: 'success', title: 'Tersinkronisasi', text: result.message });
                 form.reset();
             } else {
-                Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'SYS.SYNC_FAILED', text: result.message });
+                Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Gagal Sinkronisasi', text: result.message });
             }
         } catch (error) {
-            Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'FATAL.ERROR', text: 'Network connection lost!' });
+            Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Gangguan Sistem', text: 'Terjadi masalah pada koneksi ke server.' });
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
