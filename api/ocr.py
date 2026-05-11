@@ -2,14 +2,14 @@ import io
 import os
 from flask import Blueprint, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
-from PIL import Image
+from PIL import Image, ImageOps # Tambahkan ImageOps untuk meluruskan rotasi gambar
 import pytesseract
 
 # Inisialisasi Blueprint untuk modul BAAE Intelligence OCR
 ocr_bp = Blueprint('ocr', __name__)
 
-# Ekstensi file gambar yang diizinkan oleh sistem BAAE
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+# Ekstensi file gambar yang diizinkan oleh sistem BAAE (Ditambah WebP)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 
 def allowed_file(filename):
     """Memvalidasi ekstensi file gambar."""
@@ -24,7 +24,7 @@ def ocr_page():
 def extract_text():
     """
     BAAE Neural Extraction Engine:
-    Memproses gambar dengan Tesseract OCR menggunakan model multi-bahasa global.
+    Memproses gambar dengan Tesseract OCR dengan optimasi pra-pemrosesan.
     """
     try:
         # 1. Validasi keberadaan file
@@ -42,10 +42,16 @@ def extract_text():
         # 2. Proses gambar langsung di memori (Memory-Efficient)
         img = Image.open(file.stream)
         
-        # 3. Eksekusi Mesin Tesseract dengan Dukungan Multi-Bahasa Global
-        # ind: Indonesia, eng: Inggris, jpn: Jepang, kor: Korea, 
-        # chi_sim/tra: China (Simp/Trad), ara: Arab
-        language_pack = 'ind+eng+jpn+kor+chi_sim+chi_tra+ara'
+        # [OPTIMASI 1] Luruskan Orientasi Gambar (Mencegah teks miring/terbalik dari kamera HP)
+        img = ImageOps.exif_transpose(img)
+        
+        # [OPTIMASI 2] Ubah gambar menjadi Grayscale (Hitam-Putih) agar akurasi OCR meningkat tajam
+        if img.mode != 'L':
+            img = img.convert('L')
+        
+        # 3. Eksekusi Mesin Tesseract
+        # [OPTIMASI 3] Dikerucutkan ke Bahasa Indonesia & Inggris agar server tidak Timeout/Crash.
+        language_pack = 'ind+eng'
         
         text_result = pytesseract.image_to_string(img, lang=language_pack)
 
@@ -53,7 +59,7 @@ def extract_text():
         if not text_result.strip():
             return jsonify({
                 "status": "error", 
-                "message": "Neural Error: Gagal mengekstrak teks. Pastikan gambar tajam dan tidak noise."
+                "message": "Neural Error: Gagal mengekstrak teks. Pastikan gambar tajam dan pencahayaan cukup."
             }), 400
 
         # 5. Konversi hasil ke stream file .txt untuk download otomatis
@@ -76,5 +82,5 @@ def extract_text():
         # Menangkap kegagalan inisialisasi model bahasa atau error sistem lainnya
         return jsonify({
             "status": "error", 
-            "message": f"Fatal System Crash (OCR Engine): {str(e)}"
+            "message": f"Fatal System Crash (OCR Engine): Pastikan tesseract-ocr dan tesseract-ocr-ind sudah terinstall di Docker Anda. Detail: {str(e)}"
         }), 500
