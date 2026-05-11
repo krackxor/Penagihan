@@ -5,7 +5,7 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       MODERN SAAS CONVERTER STYLES (FIXED MOBILE TABS)
+       MODERN SAAS CONVERTER STYLES (FIXED ALIGNMENT & TABS)
        ========================================================== */
     
     /* Ikon Box Utama */
@@ -47,7 +47,7 @@
     }
 
     /* =========================================================
-       PERBAIKAN TABS MENU UNTUK MOBILE (GRID 2x2 & SUSUN ATAS BAWAH)
+       PERBAIKAN TABS MENU UNTUK MOBILE (GRID 3 KOLOM)
        ========================================================= */
     .modern-nav-pills {
         background: #f1f5f9;
@@ -55,34 +55,34 @@
         border-radius: var(--radius-md);
         display: flex; 
         gap: 6px;
-        flex-wrap: wrap; /* Izinkan elemen turun ke baris baru */
+        flex-wrap: wrap; 
         justify-content: center;
     }
     
     .modern-nav-pills .nav-item {
-        flex: 1 1 calc(50% - 6px); /* Paksa menjadi 2 kolom di layar HP */
+        flex: 1 1 calc(33.33% - 6px); /* 3 Tab berjajar rapi */
         min-width: 120px;
     }
     
     .modern-nav-pills .nav-link {
         color: var(--text-muted);
         font-weight: 600;
-        font-size: 0.75rem; /* Ukuran font lebih ringkas untuk HP */
+        font-size: 0.75rem; 
         border-radius: 8px;
         padding: 12px 5px; 
         border: none;
         transition: all 0.2s;
         display: flex;
-        flex-direction: column; /* Tumpuk ikon DI ATAS teks */
+        flex-direction: column; 
         align-items: center;
         justify-content: center;
         gap: 6px; 
         width: 100%;
-        white-space: nowrap; /* Cegah teks patah sembarangan */
+        white-space: nowrap; 
     }
     
     .modern-nav-pills .nav-link i {
-        font-size: 1.3rem; /* Ikon diperbesar agar proporsional */
+        font-size: 1.3rem; 
     }
     
     .modern-nav-pills .nav-link:hover {
@@ -98,10 +98,10 @@
     /* Tampilan untuk layar besar (Laptop/PC) */
     @media (min-width: 768px) {
         .modern-nav-pills .nav-item {
-            flex: 1 1 auto; /* Kembali ke ukuran otomatis */
+            flex: 1 1 auto;
         }
         .modern-nav-pills .nav-link {
-            flex-direction: row; /* Jejerkan ikon dan teks ke Samping */
+            flex-direction: row; 
             padding: 10px 20px;
             font-size: 0.85rem;
         }
@@ -177,11 +177,6 @@
                                 <i class="fa-solid fa-layer-group"></i> <span>Gambar ke PDF</span>
                             </button>
                         </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-optimizer" type="button" role="tab">
-                                <i class="fa-solid fa-compress"></i> <span>Kompresi Gambar</span>
-                            </button>
-                        </li>
                     </ul>
                 </div>
 
@@ -229,20 +224,6 @@
                         </form>
                     </div>
 
-                    <div class="tab-pane fade" id="img-optimizer" role="tabpanel">
-                        <form onsubmit="handleConvert(event, '/tools/converter/image-optimizer')">
-                            <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-camera-retro fa-3x upload-icon-main" style="color: #f59e0b; opacity: 0.9;"></i>
-                                <h6 class="fw-bold mb-3">Unggah Gambar Asli</h6>
-                                <input type="file" name="file" class="form-control shadow-sm" accept="image/*" required>
-                                <span class="format-label">Protokol: Pengurangan Ukuran Standar (< 1MB)</span>
-                            </div>
-                            <button type="submit" class="btn btn-warning text-dark btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
-                                <i class="fa-solid fa-compress"></i> <span>Jalankan Kompresi Gambar</span>
-                            </button>
-                        </form>
-                    </div>
-
                 </div>
             </div>
         </div>
@@ -260,7 +241,7 @@
         const originalText = submitBtn.innerHTML;
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> <span>Memproses Permintaan...</span>';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> <span class="ms-2">Memproses Permintaan...</span>';
 
         const swalModern = {
             background: '#ffffff', 
