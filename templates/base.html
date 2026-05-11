@@ -333,6 +333,13 @@
                     <span class="sub-desc">Alat alih media dokumen</span>
                 </div>
             </a>
+            <a href="/tools/optimizer/" class="sub-item mt-1">
+                <div class="sub-icon" style="background: #fef3c7; color: #d97706;"><i class="fa-solid fa-compress"></i></div>
+                <div class="sub-text-wrapper">
+                    <span class="sub-title">Kompresi Gambar</span>
+                    <span class="sub-desc">Perkecil ukuran file foto</span>
+                </div>
+            </a>
         </div>
     </div>
 
@@ -434,7 +441,6 @@
             document.getElementById('turbo-loader').style.display = 'flex';
         };
 
-        // Otomatis menimpa setelan SweetAlert default ke tema putih bersih
         const swalModern = {
             background: '#ffffff', 
             color: '#0f172a',
@@ -442,7 +448,6 @@
             cancelButtonColor: '#e2e8f0',
             customClass: { popup: 'border-0 rounded-4 shadow-lg' }
         };
-        // Anda bisa mengganti pemakaian `swalDark` di file HTML lain dengan `swalModern` ini
     </script>
     
     {% block extra_js %}{% endblock %}
