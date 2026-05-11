@@ -5,10 +5,10 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       MODERN SAAS CONVERTER STYLES
+       MODERN SAAS CONVERTER STYLES (FIXED ALIGNMENT)
        ========================================================== */
     
-    /* Ikon Box Modern */
+    /* Ikon Box Utama */
     .icon-box-primary {
         background: var(--primary-light);
         color: var(--primary);
@@ -17,9 +17,10 @@
         border-radius: 16px;
         font-size: 2rem;
         box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+        margin: 0 auto;
     }
 
-    /* Modern Upload Box */
+    /* Area Upload Modern */
     .upload-box-modern {
         border: 2px dashed var(--border-color);
         border-radius: var(--radius-md);
@@ -28,6 +29,10 @@
         background: #f8fafc;
         transition: all 0.2s ease-in-out;
         position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
     
     .upload-box-modern:hover {
@@ -37,17 +42,17 @@
     
     .upload-box-modern input[type="file"] {
         max-width: 300px;
-        margin: 0 auto;
+        width: 100%;
         background: #ffffff;
     }
 
-    /* Nav Pills Modern (Segmented Control Style) */
+    /* Navigasi Tab (Rapih di Mobile) */
     .modern-nav-pills {
         background: #f1f5f9;
         padding: 6px;
         border-radius: var(--radius-md);
         display: inline-flex;
-        gap: 4px;
+        gap: 6px;
         flex-wrap: wrap;
         justify-content: center;
     }
@@ -57,9 +62,13 @@
         font-weight: 600;
         font-size: 0.85rem;
         border-radius: 8px;
-        padding: 10px 20px;
+        padding: 10px 18px;
         border: none;
         transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px; /* Jarak PASTI antara ikon dan teks */
     }
     
     .modern-nav-pills .nav-link:hover {
@@ -72,11 +81,11 @@
         box-shadow: var(--shadow-sm);
     }
 
-    /* Tombol Aksi */
+    /* Tombol Submit/Convert */
     .btn-action {
         font-weight: 600;
         letter-spacing: 0.3px;
-        padding: 0.75rem 1.5rem;
+        padding: 0.8rem 1.5rem;
         border-radius: var(--radius-sm);
         transition: all 0.2s;
     }
@@ -87,6 +96,12 @@
         color: var(--text-muted);
         margin-top: 15px;
         display: block;
+    }
+    
+    /* Hilangkan margin default ikon besar agar tidak berantakan */
+    .upload-icon-main {
+        display: block;
+        margin: 0 auto 15px auto;
     }
 </style>
 {% endblock %}
@@ -121,22 +136,22 @@
                     <ul class="nav modern-nav-pills" id="pills-tab" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button" role="tab">
-                                <i class="fa-solid fa-file-word me-1"></i> PDF ke Word
+                                <i class="fa-solid fa-file-word"></i> <span>PDF ke Word</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#word-to-pdf" type="button" role="tab">
-                                <i class="fa-solid fa-file-pdf me-1"></i> Word ke PDF
+                                <i class="fa-solid fa-file-pdf"></i> <span>Word ke PDF</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-to-pdf" type="button" role="tab">
-                                <i class="fa-solid fa-layer-group me-1"></i> Gambar ke PDF
+                                <i class="fa-solid fa-layer-group"></i> <span>Gambar ke PDF</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-optimizer" type="button" role="tab">
-                                <i class="fa-solid fa-compress me-1"></i> Kompresi Gambar
+                                <i class="fa-solid fa-compress"></i> <span>Kompresi Gambar</span>
                             </button>
                         </li>
                     </ul>
@@ -147,13 +162,13 @@
                     <div class="tab-pane fade show active" id="pdf-to-word" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/pdf-to-word')">
                             <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-file-pdf fa-3x mb-3" style="color: #ef4444; opacity: 0.9;"></i>
+                                <i class="fa-solid fa-file-pdf fa-3x upload-icon-main" style="color: #ef4444; opacity: 0.9;"></i>
                                 <h6 class="fw-bold mb-3">Unggah File PDF</h6>
-                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept=".pdf" required>
+                                <input type="file" name="file" class="form-control shadow-sm" accept=".pdf" required>
                                 <span class="format-label">Hasil Konversi: Dokumen Microsoft Word (.docx)</span>
                             </div>
-                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn">
-                                <i class="fa-solid fa-arrows-rotate me-2"></i> Konversi ke Word
+                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
+                                <i class="fa-solid fa-arrows-rotate"></i> <span>Mulai Konversi ke Word</span>
                             </button>
                         </form>
                     </div>
@@ -161,13 +176,13 @@
                     <div class="tab-pane fade" id="word-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/word-to-pdf')">
                             <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-file-word fa-3x mb-3" style="color: #2563eb; opacity: 0.9;"></i>
+                                <i class="fa-solid fa-file-word fa-3x upload-icon-main" style="color: #2563eb; opacity: 0.9;"></i>
                                 <h6 class="fw-bold mb-3">Unggah Dokumen Word</h6>
-                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept=".doc, .docx" required>
+                                <input type="file" name="file" class="form-control shadow-sm" accept=".doc, .docx" required>
                                 <span class="format-label">Hasil Konversi: Dokumen PDF Aman (.pdf)</span>
                             </div>
-                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn">
-                                <i class="fa-solid fa-arrows-rotate me-2"></i> Konversi ke PDF
+                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
+                                <i class="fa-solid fa-arrows-rotate"></i> <span>Mulai Konversi ke PDF</span>
                             </button>
                         </form>
                     </div>
@@ -175,13 +190,13 @@
                     <div class="tab-pane fade" id="img-to-pdf" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/image-to-pdf')">
                             <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-images fa-3x mb-3" style="color: #10b981; opacity: 0.9;"></i>
+                                <i class="fa-solid fa-images fa-3x upload-icon-main" style="color: #10b981; opacity: 0.9;"></i>
                                 <h6 class="fw-bold mb-3">Unggah File Gambar</h6>
-                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept="image/png, image/jpeg, image/jpg" required>
+                                <input type="file" name="file" class="form-control shadow-sm" accept="image/png, image/jpeg, image/jpg" required>
                                 <span class="format-label">Hasil Konversi: Dokumen PDF (.pdf)</span>
                             </div>
-                            <button type="submit" class="btn btn-success btn-action w-100 convert-btn">
-                                <i class="fa-solid fa-arrows-rotate me-2"></i> Konversi ke PDF
+                            <button type="submit" class="btn btn-success btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
+                                <i class="fa-solid fa-arrows-rotate"></i> <span>Jadikan Satu File PDF</span>
                             </button>
                         </form>
                     </div>
@@ -189,13 +204,13 @@
                     <div class="tab-pane fade" id="img-optimizer" role="tabpanel">
                         <form onsubmit="handleConvert(event, '/tools/converter/image-optimizer')">
                             <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-camera-retro fa-3x mb-3" style="color: #f59e0b; opacity: 0.9;"></i>
+                                <i class="fa-solid fa-camera-retro fa-3x upload-icon-main" style="color: #f59e0b; opacity: 0.9;"></i>
                                 <h6 class="fw-bold mb-3">Unggah Gambar Asli</h6>
-                                <input type="file" name="file" class="form-control mb-2 shadow-sm" accept="image/*" required>
-                                <span class="format-label">Protokol: Pengurangan Ukuran Standar Email (< 1MB)</span>
+                                <input type="file" name="file" class="form-control shadow-sm" accept="image/*" required>
+                                <span class="format-label">Protokol: Pengurangan Ukuran Standar (< 1MB)</span>
                             </div>
-                            <button type="submit" class="btn btn-warning text-dark btn-action w-100 convert-btn">
-                                <i class="fa-solid fa-compress me-2"></i> Mulai Kompresi Gambar
+                            <button type="submit" class="btn btn-warning text-dark btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
+                                <i class="fa-solid fa-compress"></i> <span>Jalankan Kompresi Gambar</span>
                             </button>
                         </form>
                     </div>
@@ -216,15 +231,15 @@
         const submitBtn = form.querySelector('.convert-btn');
         const originalText = submitBtn.innerHTML;
 
-        // Visual Feedback Status Processing
+        // Visual Feedback Status Processing menggunakan gap Flexbox agar spinner dan tulisan tidak nempel
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> <span>Memproses Permintaan...</span>';
 
         // Konfigurasi SweetAlert Corporate SaaS
         const swalModern = {
             background: '#ffffff', 
             color: '#0f172a',
-            confirmButtonColor: '#2563eb', // Primary Blue
+            confirmButtonColor: '#2563eb', 
             cancelButtonColor: '#e2e8f0',
             customClass: { popup: 'border-0 rounded-4 shadow-lg' }
         };
@@ -242,7 +257,6 @@
                 const a = document.createElement('a');
                 a.href = url;
                 
-                // Ambil header Content-Disposition untuk nama file jika tersedia
                 const contentDisposition = response.headers.get('Content-Disposition');
                 let fileName = 'BAAE_Converted_File'; 
                 if (contentDisposition) {
@@ -270,7 +284,7 @@
                 Swal.fire({
                     ...swalModern,
                     icon: 'error',
-                    confirmButtonColor: '#ef4444', // Danger Red
+                    confirmButtonColor: '#ef4444',
                     title: 'Konversi Gagal',
                     text: result.message || 'Terjadi kesalahan saat memproses file Anda.',
                     confirmButtonText: 'Tutup'
