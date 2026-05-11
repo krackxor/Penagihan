@@ -1,5 +1,7 @@
 import os
-from flask import Blueprint, render_template, request, jsonify
+import io
+import polars as pl
+from flask import Blueprint, render_template, request, jsonify, send_file
 from models import db, MasterPelanggan, MasterPetugas, TransaksiTagihan
 from sqlalchemy import func, desc
 from datetime import datetime
@@ -32,7 +34,7 @@ def list_tagihan():
         MasterPelanggan.alamat,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode,
-        func.sum(TransaksiTagihan.nominal).label('total_nominal'), # Nama label output boleh total_nominal
+        func.sum(TransaksiTagihan.nominal).label('total_nominal'),
         func.count(TransaksiTagihan.id).label('jumlah_lembar')
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
@@ -111,3 +113,65 @@ def get_filters():
         "kelurahan": [k[0] for k in kelurahans if k[0]],
         "rayon": [r[0] for r in rayons if r[0]]
     })
+
+@monitoring_bp.route('/export')
+def export_monitoring():
+    """Fitur Export Menggunakan POLARS untuk kecepatan maksimal"""
+    ab_filter = request.args.get('ab', 'AB Sunter')
+    rayon_filter = request.args.get('rayon')
+    kel_filter = request.args.get('kelurahan')
+    pcez_filter = request.args.get('pcez')
+    periode_raw = request.args.get('periode')
+    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+
+    query = db.session.query(
+        TransaksiTagihan.nomen,
+        MasterPelanggan.nama,
+        MasterPelanggan.pcez,
+        MasterPelanggan.rayon,
+        MasterPelanggan.kelurahan,
+        MasterPelanggan.alamat,
+        MasterPetugas.nama_petugas,
+        TransaksiTagihan.periode,
+        func.sum(TransaksiTagihan.nominal).label('total_nominal'),
+        func.count(TransaksiTagihan.id).label('jumlah_lembar')
+    ).select_from(TransaksiTagihan)\
+     .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
+     .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
+     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_filter)
+
+    if ab_filter != 'all': query = query.filter(MasterPelanggan.ab == ab_filter)
+    if rayon_filter: query = query.filter(MasterPelanggan.rayon == rayon_filter)
+    if kel_filter: query = query.filter(MasterPelanggan.kelurahan == kel_filter)
+    if pcez_filter: query = query.filter(MasterPelanggan.pcez == pcez_filter)
+
+    results = query.group_by(
+        TransaksiTagihan.nomen, MasterPelanggan.nama, MasterPelanggan.pcez,
+        MasterPelanggan.rayon, MasterPelanggan.kelurahan, MasterPelanggan.alamat,
+        MasterPetugas.nama_petugas, TransaksiTagihan.periode
+    ).order_by(desc('total_nominal')).all()
+
+    # Siapkan data untuk Polars
+    data_list = []
+    for r in results:
+        data_list.append({
+            "Nomen": r.nomen,
+            "Nama Pelanggan": r.nama,
+            "Alamat": r.alamat,
+            "Kelurahan": r.kelurahan,
+            "Rayon": r.rayon,
+            "PCEZ": r.pcez,
+            "Nama Petugas": r.nama_petugas or "Belum Diatur",
+            "Periode": r.periode,
+            "Total Tagihan (Rp)": r.total_nominal,
+            "Jumlah Lembar": r.jumlah_lembar
+        })
+
+    # Konversi ke Excel menggunakan Polars (Turbo Speed)
+    df = pl.DataFrame(data_list)
+    output = io.BytesIO()
+    df.write_excel(output, worksheet="Monitoring_Kinerja")
+    output.seek(0)
+    
+    nama_file = f"Data_Monitoring_Kinerja_{ab_filter}_{periode_filter}.xlsx"
+    return send_file(output, download_name=nama_file, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
