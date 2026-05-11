@@ -1,93 +1,79 @@
 {% extends "base.html" %}
 
-{% block title %}Optical Engine - BAAE Nexus{% endblock %}
+{% block title %}Ekstraksi Teks (OCR) - BAAE Nexus{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* BAAE Tactical Upload Box */
-    .upload-box {
-        border: 1px dashed var(--border-hacker);
-        border-radius: 0; /* Tajam/Kaku */
-        padding: 40px 20px;
-        text-align: center;
-        background: rgba(0, 0, 0, 0.4);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-    }
-    .upload-box:hover {
-        background: var(--glow-green-dim);
-        border-color: var(--glow-green);
-        box-shadow: inset 0 0 20px var(--glow-green-dim);
+    /* ==========================================================
+       MODERN SAAS OCR ENGINE STYLES
+       ========================================================== */
+    
+    /* Ikon Box Modern */
+    .icon-box-primary {
+        background: var(--primary-light);
+        color: var(--primary);
+        width: 64px; height: 64px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 16px;
+        font-size: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
     }
 
+    /* Area Unggah Modern */
+    .upload-box-modern {
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 40px 20px;
+        text-align: center;
+        background: #f8fafc;
+        transition: all 0.2s ease-in-out;
+        position: relative;
+    }
+    
+    .upload-box-modern:hover {
+        background: var(--primary-light);
+        border-color: var(--primary);
+    }
+
+    .upload-box-modern input[type="file"] {
+        max-width: 320px;
+        margin: 0 auto;
+        background: #ffffff;
+    }
+
+    /* Pratinjau Gambar */
     #imagePreview {
         max-width: 100%;
         max-height: 320px;
-        border-radius: 0;
+        border-radius: 8px;
         display: none;
         margin: 20px auto 0;
-        border: 1px dashed var(--glow-green);
-        box-shadow: 0 0 15px var(--glow-green-dim);
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-md);
+        object-fit: contain;
     }
 
-    .label-tech {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
-        font-weight: 800;
-        letter-spacing: 1.5px;
-        color: var(--text-muted);
-        text-transform: uppercase;
+    /* Teks Label & Hint */
+    .label-modern {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.5rem;
     }
 
-    /* Industrial Hacker Buttons */
-    .btn-tactical {
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
-        font-size: 0.8rem;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        border-radius: 0;
-        padding: 12px 20px;
-        transition: all 0.3s;
-    }
-    .btn-t-green { 
-        background: var(--glow-green-dim); 
-        color: var(--glow-green); 
-        border: 1px solid var(--glow-green); 
-    }
-    .btn-t-green:hover:not(:disabled) { 
-        background: var(--glow-green); 
-        color: #000; 
-        box-shadow: 0 0 15px var(--glow-green); 
-    }
-    .btn-t-green:disabled {
-        background: rgba(0,0,0,0.5);
-        border-color: var(--border-hacker);
-        color: #555;
-    }
-
-    .hacker-icon-box {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 70px; height: 70px; margin-bottom: 1rem;
-        background: rgba(0, 255, 65, 0.05); border: 1px solid rgba(0, 255, 65, 0.3);
-        border-radius: 0; transform: rotate(45deg);
-    }
-    .hacker-icon-box i { transform: rotate(-45deg); }
-
-    /* Terminal Filter Inputs */
-    .terminal-input {
-        background: rgba(0, 0, 0, 0.5) !important;
-        border: 1px solid var(--border-hacker) !important;
-        border-left: 2px solid var(--glow-green) !important;
-        color: var(--text-main) !important;
-        font-family: 'JetBrains Mono', monospace;
+    .hint-text {
         font-size: 0.75rem;
-        border-radius: 0 !important;
-        transition: all 0.3s;
+        color: var(--text-muted);
+        margin-top: 15px;
     }
-    .terminal-input:focus {
-        border-color: var(--glow-green) !important;
-        box-shadow: 0 0 10px var(--glow-green-dim) !important;
+
+    /* Tombol Aksi */
+    .btn-action {
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--radius-sm);
+        transition: all 0.2s;
     }
 </style>
 {% endblock %}
@@ -96,52 +82,55 @@
 <div class="row justify-content-center mt-3 animate-fade-in">
     <div class="col-md-9 col-lg-7">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-3 font-code" style="font-size: 0.7rem;">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none" style="color: var(--text-muted);">[ SYS_UTILITIES ]</a></li>
-                <li class="breadcrumb-item active fw-bold" style="color: var(--glow-green);" aria-current="page">OPTICAL_ENGINE</li>
+            <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted">Beranda</a></li>
+                <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Utilitas Tambahan</a></li>
+                <li class="breadcrumb-item active text-primary" aria-current="page">Ekstraksi Teks (OCR)</li>
             </ol>
         </nav>
 
-        <div class="card p-0 mb-5 border-0">
+        <div class="card border-0 shadow-sm mb-5">
             <div class="card-body p-4 p-md-5">
+                
                 <div class="text-center mb-5">
-                    <div class="hacker-icon-box">
-                        <i class="fa-solid fa-microchip fa-2x" style="color: var(--glow-green);"></i>
+                    <div class="icon-box-primary mb-3">
+                        <i class="fa-solid fa-file-invoice"></i>
                     </div>
-                    <h3 class="font-code fw-800 mb-1 text-white uppercase tracking-widest">
-                        <span style="color: var(--glow-green);">></span> OPTICAL_CHARACTER_ENGINE
+                    <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
+                        Mesin Ekstraksi Teks (OCR)
                     </h3>
-                    <p class="font-code small mt-2" style="color: var(--text-muted);">[ SECURE_TEXT_EXTRACTION_PROTOCOL ]</p>
+                    <p class="text-muted mt-2" style="font-size: 0.95rem;">
+                        Konversi gambar dokumen, struk, atau faktur menjadi data teks digital.
+                    </p>
                 </div>
                 
                 <form action="/tools/ocr/extract" method="POST" enctype="multipart/form-data" id="formOCR">
-                    <div class="mb-5">
+                    <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label class="label-tech">> scanner_input_source</label>
-                            <span class="font-code fw-bold px-2 py-1" style="font-size: 0.6rem; background: var(--glow-green-dim); color: var(--glow-green); border: 1px solid rgba(0, 255, 65, 0.3);">SYS.READY</span>
+                            <label class="label-modern">Sumber Dokumen</label>
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Sistem Siap</span>
                         </div>
                         
-                        <div class="upload-box">
-                            <i class="fa-solid fa-camera-viewfinder fa-3x mb-3 opacity-50" style="color: var(--glow-green);"></i>
-                            <input type="file" name="file" id="inputFile" class="form-control terminal-input mb-2" accept="image/png, image/jpeg, image/jpg" onchange="previewImage(this)" required>
+                        <div class="upload-box-modern">
+                            <i class="fa-solid fa-camera-viewfinder fa-3x mb-3 text-muted" id="upload-icon"></i>
+                            <h6 class="fw-bold mb-3">Unggah Gambar Dokumen</h6>
                             
-                            <img id="imagePreview" src="" alt="Neural Scan Preview">
+                            <input type="file" name="file" id="inputFile" class="form-control mb-2 shadow-sm" accept="image/png, image/jpeg, image/jpg" onchange="previewImage(this)" required>
                             
-                            <div class="mt-3 font-code" id="upload-hint" style="font-size: 0.65rem; color: var(--text-muted);">
-                                > TARGET_FORMAT: JPG, PNG <br>
-                                > REQUIREMENT: HIGH_CONTRAST_IMAGE
+                            <img id="imagePreview" src="" alt="Pratinjau Dokumen">
+                            
+                            <div class="hint-text" id="upload-hint">
+                                Mendukung format <strong>JPG</strong> dan <strong>PNG</strong>. <br>
+                                Pastikan gambar memiliki pencahayaan yang baik agar hasil teks akurat.
                             </div>
                         </div>
                     </div>
                     
-                    <button type="submit" id="btnSubmit" class="btn btn-tactical btn-t-green w-100">
-                        <i class="fa-solid fa-terminal me-2"></i>Execute Extraction
+                    <button type="submit" id="btnSubmit" class="btn btn-primary btn-action w-100">
+                        <i class="fa-solid fa-microchip me-2"></i> Proses Ekstraksi Dokumen
                     </button>
                 </form>
 
-                <div class="mt-5 pt-4 border-top" style="border-color: var(--border-hacker) !important; text-center">
-                    <p class="font-code text-center mb-0" style="font-size: 0.65rem; color: var(--text-muted);">BAAE CORE ENGINE v14.0 // OPTICAL_MODULE</p>
-                </div>
             </div>
         </div>
     </div>
@@ -150,22 +139,22 @@
 
 {% block extra_js %}
 <script>
-    // Preview Gambar dengan Efek Taktis
+    // Fungsi Pratinjau Gambar Modern
     function previewImage(input) {
         const preview = document.getElementById('imagePreview');
-        const hint = document.getElementById('upload-hint');
+        const icon = document.getElementById('upload-icon');
         
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 preview.src = e.target.result;
                 preview.style.display = 'block';
-                hint.classList.add('opacity-50');
+                icon.style.display = 'none'; // Sembunyikan ikon saat gambar muncul
             }
             reader.readAsDataURL(input.files[0]);
         } else {
             preview.style.display = 'none';
-            hint.classList.remove('opacity-50');
+            icon.style.display = 'inline-block';
         }
     }
 
@@ -174,30 +163,29 @@
         const btn = document.getElementById('btnSubmit');
         const originalText = btn.innerHTML;
         
-        // Disable tombol dan ganti teks ala Terminal
+        // Disable tombol dan tampilkan spinner
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>[ EXTRACTING_DATA... ]';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses Gambar...';
         
-        // Konfigurasi SweetAlert Corporate Hacker (Sync dengan Base)
-        const swalDark = {
-            background: '#0a0e17', 
-            color: '#e2e8f0',
-            confirmButtonColor: '#00ff41',
-            customClass: { popup: 'border border-secondary border-opacity-25 rounded-0' }
+        // Konfigurasi SweetAlert Corporate SaaS
+        const swalModern = {
+            background: '#ffffff', 
+            color: '#0f172a',
+            confirmButtonColor: '#2563eb', // Biru tech company
+            customClass: { popup: 'border-0 rounded-4 shadow-lg' }
         };
         
-        // Timer pemulihan tombol (sesuaikan dengan proses unduhan file .txt)
+        // Timer pemulihan tombol (asumsi proses selesai dan file terunduh)
         setTimeout(() => {
             btn.disabled = false;
             btn.innerHTML = originalText;
             
             Swal.fire({
-                ...swalDark,
+                ...swalModern,
                 icon: 'success',
-                iconColor: '#00ff41',
-                title: 'SYS.EXTRACTION_COMPLETE',
-                text: 'Hasil ekstraksi teks telah diunduh ke sistem lokal.',
-                confirmButtonText: 'ACKNOWLEDGE'
+                title: 'Ekstraksi Selesai',
+                text: 'Teks dari gambar telah berhasil diekstrak dan diunduh ke perangkat Anda.',
+                confirmButtonText: 'Selesai'
             });
         }, 4000);
     };
