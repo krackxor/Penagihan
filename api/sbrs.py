@@ -1,5 +1,5 @@
 import io
-import pandas as pd
+import polars as pl
 from flask import Blueprint, render_template, request, jsonify, send_file
 from models import db, MasterPelanggan, MasterPetugas, DataSBRS
 from sqlalchemy import func, and_, case
@@ -35,14 +35,22 @@ def format_periode(yyyymm):
     return f"{BULAN_ID.get(yyyymm[4:], yyyymm[4:])} {yyyymm[:4]}"
 
 def parse_date(date_str):
-    """Membaca berbagai format tanggal dengan akurat (lintas TXT)."""
-    if not date_str or str(date_str).strip() in ['None', '', 'NaN']: return pd.NaT
+    """Membaca berbagai format tanggal (Tanpa Pandas). Mengembalikan datetime object."""
+    if not date_str or str(date_str).strip() in ['None', '', 'NaN', 'null']: return None
     date_str = str(date_str).strip()
+    
+    # Format '17042026'
     if len(date_str) == 8 and date_str.isdigit():
-        return pd.to_datetime(date_str, format='%d%m%Y', errors='coerce')
-    res = pd.to_datetime(date_str, format='%d/%m/%Y', errors='coerce')
-    if pd.notnull(res): return res
-    return pd.to_datetime(date_str, dayfirst=True, errors='coerce')
+        try: return datetime.strptime(date_str, '%d%m%Y')
+        except: pass
+        
+    # Format Umum '17/04/2026' atau '17-04-2026'
+    formats = ['%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y/%m/%d', '%Y-%m-%d %H:%M:%S']
+    for fmt in formats:
+        try: return datetime.strptime(date_str, fmt)
+        except: continue
+        
+    return None
 
 def safe_f(val):
     """Mencegah error saat kalkulasi volume."""
@@ -50,7 +58,7 @@ def safe_f(val):
     except: return 0.0
 
 def get_case_insensitive(data_dict, key):
-    """Fungsi kebal huruf besar/kecil untuk membaca data TXT."""
+    """Fungsi kebal huruf besar/kecil untuk membaca data TXT/JSONB."""
     if not data_dict: return None
     key_lower = key.lower()
     for k, v in data_dict.items():
@@ -70,7 +78,7 @@ def get_raw_val(raw_data, keys_to_try):
     if not raw_data: return "-"
     for k in keys_to_try:
         for actual_key in [k, k.upper(), k.lower(), k.capitalize()]:
-            if actual_key in raw_data and raw_data[actual_key] and str(raw_data[actual_key]).strip() not in ['None', 'nan', '']:
+            if actual_key in raw_data and raw_data[actual_key] and str(raw_data[actual_key]).strip() not in ['None', 'nan', '', 'null']:
                 return str(raw_data[actual_key]).strip()
     return "-"
 
@@ -112,7 +120,7 @@ def save_catatan():
             raw = record.raw_data or {}
             raw['catatan_desktop'] = catatan
             record.raw_data = raw
-            flag_modified(record, "raw_data") # Memberitahu SQLAlchemy bahwa JSON berubah
+            flag_modified(record, "raw_data")
             db.session.commit()
             return jsonify({"status": "success", "message": "Catatan berhasil disimpan!"})
         return jsonify({"status": "error", "message": "Data tidak ditemukan."}), 404
@@ -190,7 +198,7 @@ def sbrs_summary():
         
         d1 = parse_date(tgl_now)
         d2 = parse_date(tgl_prev)
-        if pd.notnull(d1) and pd.notnull(d2): 
+        if d1 is not None and d2 is not None: 
             total_hb += (d1 - d2).days
 
     master_totals = {
@@ -310,7 +318,6 @@ def sbrs_analisa():
     filtered_data.sort(key=lambda x: x.bulan_ini or 0, reverse=True)
     top_data = filtered_data[:1000]
 
-    # [PERBAIKAN KRITIS]: Ambil Data Histori 3 Bulan
     nomen_list = [str(d.nomen).strip() for d in top_data]
     
     p1_dash = f"{prev_periode_1[:4]}-{prev_periode_1[4:]}"
@@ -467,7 +474,7 @@ def get_sbrs_api_stats():
     return jsonify({"total": stats.total or 0, "zero": int(stats.zero or 0), "ekstrem": int(stats.ekstrem or 0), "turun": int(stats.turun or 0), "periode_text": periode_filter})
 
 # ==========================================
-# FITUR EXPORT EXCEL
+# FITUR EXPORT EXCEL MENGGUNAKAN POLARS (TURBO)
 # ==========================================
 
 @sbrs_bp.route('/export/summary')
@@ -477,7 +484,7 @@ def export_summary():
 
 @sbrs_bp.route('/export/analisa')
 def export_analisa():
-    """Mengunduh SEMUA HEADER ASLI TANPA UBAH URUTAN + Kolom Sinergi."""
+    """Ekspor Data Lengkap (RAW Data JSONB + Kalkulasi) ke Excel menggunakan mesin Polars."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
@@ -520,9 +527,10 @@ def export_analisa():
 
         d1 = parse_date(tgl_now)
         d2 = parse_date(tgl_prev)
-        if pd.notnull(d1) and pd.notnull(d2):
+        if d1 is not None and d2 is not None:
             hb = (d1 - d2).days 
 
+        # Field wajib BAAE
         row_data = {
             "Nomen Sinergi": r.nomen,
             "Nama Pelanggan": r.nama,
@@ -535,17 +543,21 @@ def export_analisa():
             "Hari Baca (HB)": hb
         }
         
+        # Merge sisa raw_data
         for key, value in raw.items():
             if key not in row_data:
                 row_data[key] = value
         
         data_list.append(row_data)
 
-    df = pd.DataFrame(data_list)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Data_Analisa_Lengkap', index=False)
+    # Membangun Data menggunakan Polars! 
+    # Jauh lebih cepat dari pd.DataFrame() dan tidak rakus RAM
+    df = pl.DataFrame(data_list)
     
+    # Menulis File Excel Langsung Menggunakan XlsxWriter (Didukung oleh Polars)
+    output = io.BytesIO()
+    df.write_excel(output, worksheet="Data_Analisa_Lengkap")
     output.seek(0)
+    
     nama_file = f"Data_SBRS_Append_FULL_{ab}_Cycle_{cycle}_{periode_filter}.xlsx"
     return send_file(output, download_name=nama_file, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
