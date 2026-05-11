@@ -21,17 +21,32 @@
     
     .upload-box-modern:hover { background: #fef3c7; border-color: #f59e0b; }
     
+    /* Image Preview Styling */
+    #imagePreview {
+        max-width: 100%;
+        max-height: 250px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        box-shadow: var(--shadow-md);
+        border: 2px solid #fff;
+    }
+    
     /* Tombol Execute */
     .btn-action { 
         font-weight: 600; letter-spacing: 0.3px; padding: 0.8rem 1.5rem; 
         border-radius: var(--radius-sm); transition: all 0.2s; 
     }
     .upload-icon-main { display: block; margin: 0 auto 15px auto; }
+
+    /* HTMX Indicator */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request.btn-action { pointer-events: none; opacity: 0.7; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-3 animate-fade-in">
+<div class="row justify-content-center mt-3 animate-fade-in" x-data="{ imgPreview: null }">
     <div class="col-md-10 col-lg-8">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
@@ -47,15 +62,29 @@
                 <div class="text-center mb-5">
                     <div class="icon-box-warning mb-3"><i class="fa-solid fa-compress"></i></div>
                     <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">Optimasi & Kompresi Gambar</h3>
-                    <p class="text-muted mt-2" style="font-size: 0.95rem;">Perkecil ukuran file gambar untuk mempercepat pengiriman dan hemat penyimpanan.</p>
+                    <p class="text-muted mt-2" style="font-size: 0.95rem;">Perkecil ukuran file gambar secara instan tanpa mengunggah ulang halaman.</p>
                 </div>
 
-                <form onsubmit="handleConvert(event, '/tools/optimizer/compress')">
+                <form hx-post="/tools/optimizer/compress" 
+                      hx-encoding="multipart/form-data" 
+                      hx-swap="none"
+                      @htmx:before-request="Swal.showLoading()"
+                      @htmx:after-request="handleUploadResponse(event)">
+                    
                     <div class="upload-box-modern mb-4">
-                        <i class="fa-solid fa-camera-retro fa-3x upload-icon-main" style="color: #f59e0b; opacity: 0.9;"></i>
-                        <h6 class="fw-bold mb-3">Unggah Gambar Asli</h6>
+                        <template x-if="imgPreview">
+                            <img :src="imgPreview" id="imagePreview" alt="Preview">
+                        </template>
                         
-                        <input type="file" name="file" class="form-control shadow-sm mb-4" accept="image/*" required style="max-width: 300px; width: 100%;">
+                        <template x-if="!imgPreview">
+                            <i class="fa-solid fa-camera-retro fa-3x upload-icon-main" style="color: #f59e0b; opacity: 0.9;"></i>
+                        </template>
+                        
+                        <h6 class="fw-bold mb-3" x-text="imgPreview ? 'Ganti Gambar' : 'Unggah Gambar Asli'"></h6>
+                        
+                        <input type="file" name="file" class="form-control shadow-sm mb-4" accept="image/*" required 
+                               style="max-width: 300px; width: 100%;"
+                               @change="const file = $event.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (e) => { imgPreview = e.target.result }; reader.readAsDataURL(file); }">
                         
                         <div style="max-width: 300px; width: 100%; margin: 0 auto; text-align: left;">
                             <label class="text-muted fw-bold mb-1" style="font-size: 0.75rem; text-transform: uppercase;">Pilih Tingkat Kompresi:</label>
@@ -68,8 +97,10 @@
                         </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-warning text-dark btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
-                        <i class="fa-solid fa-compress"></i> <span>Jalankan Kompresi Gambar</span>
+                    <button type="submit" class="btn btn-warning text-dark btn-action w-100 d-flex align-items-center justify-content-center gap-2">
+                        <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                        <i class="fa-solid fa-compress" x-show="!$el.classList.contains('htmx-request')"></i> 
+                        <span>Jalankan Kompresi Gambar</span>
                     </button>
                 </form>
                 
@@ -81,53 +112,48 @@
 
 {% block extra_js %}
 <script>
-    async function handleConvert(event, endpoint) {
-        event.preventDefault();
-        const form = event.target;
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('.convert-btn');
-        const originalText = submitBtn.innerHTML;
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> <span class="ms-2">Memproses Kompresi...</span>';
-
-        const swalModern = {
-            background: '#ffffff', color: '#0f172a', confirmButtonColor: '#f59e0b', cancelButtonColor: '#e2e8f0',
-            customClass: { popup: 'border-0 rounded-4 shadow-lg' }
-        };
-
-        try {
-            const response = await fetch(endpoint, { method: 'POST', body: formData });
+    /**
+     * Menangani Download File hasil HTMX secara manual
+     */
+    function handleUploadResponse(event) {
+        const xhr = event.detail.xhr;
+        
+        if (xhr.status === 200) {
+            // Konversi response menjadi blob untuk didownload
+            const blob = new Blob([xhr.response], { type: 'image/jpeg' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
             
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                
-                const contentDisposition = response.headers.get('Content-Disposition');
-                let fileName = 'Optimized_Image.jpg'; 
-                if (contentDisposition) {
-                    const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-                    if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
-                }
-                
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                
-                Swal.fire({ ...swalModern, icon: 'success', title: 'Kompresi Selesai!', text: 'Gambar telah diperkecil dan berhasil diunduh.', confirmButtonText: 'Tutup' });
-                form.reset();
-            } else {
-                const result = await response.json();
-                Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Gagal', text: result.message || 'Terjadi kesalahan sistem.', confirmButtonText: 'Tutup' });
+            // Ambil nama file dari header
+            const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+            let fileName = 'BAAE_Optimized.jpg';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (match) fileName = match[1];
             }
-        } catch (error) {
-            Swal.fire({ ...swalModern, icon: 'error', confirmButtonColor: '#ef4444', title: 'Error Jaringan', text: 'Koneksi ke server terputus.', confirmButtonText: 'Tutup' });
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            Swal.fire({
+                ...swalModern,
+                icon: 'success',
+                title: 'Kompresi Selesai!',
+                text: 'Gambar berhasil dioptimasi dan telah diunduh.',
+                confirmButtonText: 'Tutup'
+            });
+            
+            // Reset form lewat Alpine jika diperlukan
+        } else {
+            try {
+                const res = JSON.parse(xhr.responseText);
+                Swal.fire({ ...swalModern, icon: 'error', title: 'Gagal', text: res.message });
+            } catch(e) {
+                Swal.fire({ ...swalModern, icon: 'error', title: 'Error', text: 'Terjadi kesalahan sistem.' });
+            }
         }
     }
 </script>
