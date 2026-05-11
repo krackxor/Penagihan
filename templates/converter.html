@@ -5,132 +5,52 @@
 {% block extra_css %}
 <style>
     /* ==========================================================
-       MODERN SAAS CONVERTER STYLES (FIXED ALIGNMENT & TABS)
+       MODERN SAAS CONVERTER STYLES
        ========================================================== */
-    
-    /* Ikon Box Utama */
     .icon-box-primary {
-        background: var(--primary-light);
-        color: var(--primary);
-        width: 64px; height: 64px;
-        display: inline-flex; align-items: center; justify-content: center;
-        border-radius: 16px;
-        font-size: 2rem;
-        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
-        margin: 0 auto;
+        background: var(--primary-light); color: var(--primary);
+        width: 64px; height: 64px; display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 16px; font-size: 2rem; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1); margin: 0 auto;
     }
 
-    /* Area Upload Modern */
     .upload-box-modern {
-        border: 2px dashed var(--border-color);
-        border-radius: var(--radius-md);
-        padding: 40px 20px;
-        text-align: center;
-        background: #f8fafc;
-        transition: all 0.2s ease-in-out;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        border: 2px dashed var(--border-color); border-radius: var(--radius-md);
+        padding: 40px 20px; text-align: center; background: #f8fafc;
+        transition: all 0.2s ease-in-out; position: relative;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     
-    .upload-box-modern:hover {
-        background: var(--primary-light);
-        border-color: var(--primary);
-    }
+    .upload-box-modern:hover { background: var(--primary-light); border-color: var(--primary); }
     
-    .upload-box-modern input[type="file"] {
-        max-width: 300px;
-        width: 100%;
-        background: #ffffff;
-    }
-
-    /* =========================================================
-       PERBAIKAN TABS MENU UNTUK MOBILE (GRID 3 KOLOM)
-       ========================================================= */
     .modern-nav-pills {
-        background: #f1f5f9;
-        padding: 6px;
-        border-radius: var(--radius-md);
-        display: flex; 
-        gap: 6px;
-        flex-wrap: wrap; 
-        justify-content: center;
+        background: #f1f5f9; padding: 6px; border-radius: var(--radius-md);
+        display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
     }
     
-    .modern-nav-pills .nav-item {
-        flex: 1 1 calc(33.33% - 6px); /* 3 Tab berjajar rapi */
-        min-width: 120px;
-    }
+    .modern-nav-pills .nav-item { flex: 1 1 calc(33.33% - 6px); min-width: 120px; }
     
     .modern-nav-pills .nav-link {
-        color: var(--text-muted);
-        font-weight: 600;
-        font-size: 0.75rem; 
-        border-radius: 8px;
-        padding: 12px 5px; 
-        border: none;
-        transition: all 0.2s;
-        display: flex;
-        flex-direction: column; 
-        align-items: center;
-        justify-content: center;
-        gap: 6px; 
-        width: 100%;
-        white-space: nowrap; 
+        color: var(--text-muted); font-weight: 600; font-size: 0.75rem; 
+        border-radius: 8px; padding: 12px 5px; border: none; transition: all 0.2s;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 6px; width: 100%; white-space: nowrap; 
     }
     
-    .modern-nav-pills .nav-link i {
-        font-size: 1.3rem; 
-    }
-    
-    .modern-nav-pills .nav-link:hover {
-        color: var(--text-main);
-    }
-    
-    .modern-nav-pills .nav-link.active {
-        background: #ffffff;
-        color: var(--primary);
-        box-shadow: var(--shadow-sm);
-    }
+    .modern-nav-pills .nav-link i { font-size: 1.3rem; }
+    .modern-nav-pills .nav-link.active { background: #ffffff; color: var(--primary); box-shadow: var(--shadow-sm); }
 
-    /* Tampilan untuk layar besar (Laptop/PC) */
     @media (min-width: 768px) {
-        .modern-nav-pills .nav-item {
-            flex: 1 1 auto;
-        }
-        .modern-nav-pills .nav-link {
-            flex-direction: row; 
-            padding: 10px 20px;
-            font-size: 0.85rem;
-        }
-        .modern-nav-pills .nav-link i {
-            font-size: 1.1rem;
-        }
+        .modern-nav-pills .nav-item { flex: 1 1 auto; }
+        .modern-nav-pills .nav-link { flex-direction: row; padding: 10px 20px; font-size: 0.85rem; }
     }
 
-    /* Tombol Submit/Convert */
-    .btn-action {
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        padding: 0.8rem 1.5rem;
-        border-radius: var(--radius-sm);
-        transition: all 0.2s;
-    }
+    .btn-action { font-weight: 600; padding: 0.8rem 1.5rem; border-radius: var(--radius-sm); transition: all 0.2s; }
+    .format-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-top: 15px; display: block; }
 
-    .format-label {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        margin-top: 15px;
-        display: block;
-    }
-    
-    .upload-icon-main {
-        display: block;
-        margin: 0 auto 15px auto;
-    }
+    /* HTMX Loading States */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request.btn-action { pointer-events: none; opacity: 0.7; }
 </style>
 {% endblock %}
 
@@ -149,77 +69,68 @@
             <div class="card-body p-4 p-md-5">
                 
                 <div class="text-center mb-5">
-                    <div class="icon-box-primary mb-3">
-                        <i class="fa-solid fa-file-shield"></i>
-                    </div>
-                    <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">
-                        Konverter Format Dokumen
-                    </h3>
-                    <p class="text-muted mt-2" style="font-size: 0.95rem;">
-                        Alat konversi dan optimasi media yang aman dan cepat.
-                    </p>
+                    <div class="icon-box-primary mb-3"><i class="fa-solid fa-file-shield"></i></div>
+                    <h3 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.5px;">Konverter Format Dokumen</h3>
+                    <p class="text-muted mt-2" style="font-size: 0.95rem;">Proses dokumen Anda secara aman tanpa pindah halaman.</p>
                 </div>
 
                 <div class="mb-4">
                     <ul class="nav modern-nav-pills" id="pills-tab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button" role="tab">
-                                <i class="fa-solid fa-file-word"></i> <span>PDF ke Word</span>
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#word-to-pdf" type="button" role="tab">
-                                <i class="fa-solid fa-file-pdf"></i> <span>Word ke PDF</span>
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-to-pdf" type="button" role="tab">
-                                <i class="fa-solid fa-layer-group"></i> <span>Gambar ke PDF</span>
-                            </button>
-                        </li>
+                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pdf-to-word" type="button"><i class="fa-solid fa-file-word"></i> <span>PDF ke Word</span></button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#word-to-pdf" type="button"><i class="fa-solid fa-file-pdf"></i> <span>Word ke PDF</span></button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#img-to-pdf" type="button"><i class="fa-solid fa-layer-group"></i> <span>Gambar ke PDF</span></button></li>
                     </ul>
                 </div>
 
                 <div class="tab-content mt-4" id="pills-tabContent">
                     
-                    <div class="tab-pane fade show active" id="pdf-to-word" role="tabpanel">
-                        <form onsubmit="handleConvert(event, '/tools/converter/pdf-to-word')">
+                    <div class="tab-pane fade show active" id="pdf-to-word" role="tabpanel" x-data="{ fileName: '' }">
+                        <form hx-post="/tools/converter/pdf-to-word" hx-encoding="multipart/form-data" hx-swap="none"
+                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleDownloadResponse(event, 'docx')">
                             <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-file-pdf fa-3x upload-icon-main" style="color: #ef4444; opacity: 0.9;"></i>
-                                <h6 class="fw-bold mb-3">Unggah File PDF</h6>
-                                <input type="file" name="file" class="form-control shadow-sm" accept=".pdf" required>
-                                <span class="format-label">Hasil Konversi: Dokumen Microsoft Word (.docx)</span>
+                                <i class="fa-solid fa-file-pdf fa-3x mb-3" style="color: #ef4444; opacity: 0.9;"></i>
+                                <h6 class="fw-bold mb-3" x-text="fileName ? fileName : 'Unggah File PDF'"></h6>
+                                <input type="file" name="file" class="form-control shadow-sm" accept=".pdf" required style="max-width: 300px; width: 100%;" @change="fileName = $event.target.files[0].name">
+                                <span class="format-label">Output: Microsoft Word (.docx)</span>
                             </div>
-                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
-                                <i class="fa-solid fa-arrows-rotate"></i> <span>Mulai Konversi ke Word</span>
+                            <button type="submit" class="btn btn-primary btn-action w-100 d-flex align-items-center justify-content-center gap-2">
+                                <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                                <i class="fa-solid fa-arrows-rotate" x-show="!$el.classList.contains('htmx-request')"></i> 
+                                <span>Konversi ke Word</span>
                             </button>
                         </form>
                     </div>
 
-                    <div class="tab-pane fade" id="word-to-pdf" role="tabpanel">
-                        <form onsubmit="handleConvert(event, '/tools/converter/word-to-pdf')">
+                    <div class="tab-pane fade" id="word-to-pdf" role="tabpanel" x-data="{ fileName: '' }">
+                        <form hx-post="/tools/converter/word-to-pdf" hx-encoding="multipart/form-data" hx-swap="none"
+                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleDownloadResponse(event, 'pdf')">
                             <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-file-word fa-3x upload-icon-main" style="color: #2563eb; opacity: 0.9;"></i>
-                                <h6 class="fw-bold mb-3">Unggah Dokumen Word</h6>
-                                <input type="file" name="file" class="form-control shadow-sm" accept=".doc, .docx" required>
-                                <span class="format-label">Hasil Konversi: Dokumen PDF Aman (.pdf)</span>
+                                <i class="fa-solid fa-file-word fa-3x mb-3" style="color: #2563eb; opacity: 0.9;"></i>
+                                <h6 class="fw-bold mb-3" x-text="fileName ? fileName : 'Unggah Dokumen Word'"></h6>
+                                <input type="file" name="file" class="form-control shadow-sm" accept=".doc, .docx" required style="max-width: 300px; width: 100%;" @change="fileName = $event.target.files[0].name">
+                                <span class="format-label">Output: Dokumen PDF (.pdf)</span>
                             </div>
-                            <button type="submit" class="btn btn-primary btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
-                                <i class="fa-solid fa-arrows-rotate"></i> <span>Mulai Konversi ke PDF</span>
+                            <button type="submit" class="btn btn-primary btn-action w-100 d-flex align-items-center justify-content-center gap-2">
+                                <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                                <i class="fa-solid fa-arrows-rotate" x-show="!$el.classList.contains('htmx-request')"></i> 
+                                <span>Konversi ke PDF</span>
                             </button>
                         </form>
                     </div>
 
-                    <div class="tab-pane fade" id="img-to-pdf" role="tabpanel">
-                        <form onsubmit="handleConvert(event, '/tools/converter/image-to-pdf')">
+                    <div class="tab-pane fade" id="img-to-pdf" role="tabpanel" x-data="{ fileName: '' }">
+                        <form hx-post="/tools/converter/image-to-pdf" hx-encoding="multipart/form-data" hx-swap="none"
+                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleDownloadResponse(event, 'pdf')">
                             <div class="upload-box-modern mb-4">
-                                <i class="fa-solid fa-images fa-3x upload-icon-main" style="color: #10b981; opacity: 0.9;"></i>
-                                <h6 class="fw-bold mb-3">Unggah File Gambar</h6>
-                                <input type="file" name="file" class="form-control shadow-sm" accept="image/png, image/jpeg, image/jpg" required>
-                                <span class="format-label">Hasil Konversi: Dokumen PDF (.pdf)</span>
+                                <i class="fa-solid fa-images fa-3x mb-3" style="color: #10b981; opacity: 0.9;"></i>
+                                <h6 class="fw-bold mb-3" x-text="fileName ? fileName : 'Unggah File Gambar'"></h6>
+                                <input type="file" name="file" class="form-control shadow-sm" accept="image/*" required style="max-width: 300px; width: 100%;" @change="fileName = $event.target.files[0].name">
+                                <span class="format-label">Output: Dokumen PDF (.pdf)</span>
                             </div>
-                            <button type="submit" class="btn btn-success btn-action w-100 convert-btn d-flex align-items-center justify-content-center gap-2">
-                                <i class="fa-solid fa-arrows-rotate"></i> <span>Jadikan Satu File PDF</span>
+                            <button type="submit" class="btn btn-success btn-action w-100 d-flex align-items-center justify-content-center gap-2">
+                                <span class="htmx-indicator spinner-border spinner-border-sm"></span>
+                                <i class="fa-solid fa-arrows-rotate" x-show="!$el.classList.contains('htmx-request')"></i> 
+                                <span>Jadikan File PDF</span>
                             </button>
                         </form>
                     </div>
@@ -233,81 +144,42 @@
 
 {% block extra_js %}
 <script>
-    async function handleConvert(event, endpoint) {
-        event.preventDefault();
-        const form = event.target;
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('.convert-btn');
-        const originalText = submitBtn.innerHTML;
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> <span class="ms-2">Memproses Permintaan...</span>';
-
-        const swalModern = {
-            background: '#ffffff', 
-            color: '#0f172a',
-            confirmButtonColor: '#2563eb', 
-            cancelButtonColor: '#e2e8f0',
-            customClass: { popup: 'border-0 rounded-4 shadow-lg' }
-        };
-
-        try {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                body: formData
+    function handleDownloadResponse(event, ext) {
+        const xhr = event.detail.xhr;
+        if (xhr.status === 200) {
+            const blob = new Blob([xhr.response], { 
+                type: ext === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
             });
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                
-                const contentDisposition = response.headers.get('Content-Disposition');
-                let fileName = 'BAAE_Converted_File'; 
-                if (contentDisposition) {
-                    const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-                    if (fileNameMatch && fileNameMatch.length === 2) {
-                        fileName = fileNameMatch[1];
-                    }
-                }
-                
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                
-                Swal.fire({
-                    ...swalModern,
-                    icon: 'success',
-                    title: 'Konversi Berhasil',
-                    text: 'Dokumen berhasil diproses dan telah diunduh ke penyimpanan lokal Anda.',
-                    confirmButtonText: 'Selesai'
-                });
-                form.reset();
-            } else {
-                const result = await response.json();
-                Swal.fire({
-                    ...swalModern,
-                    icon: 'error',
-                    confirmButtonColor: '#ef4444',
-                    title: 'Konversi Gagal',
-                    text: result.message || 'Terjadi kesalahan saat memproses file Anda.',
-                    confirmButtonText: 'Tutup'
-                });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+            let fileName = `BAAE_Converted.${ext}`;
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (match) fileName = match[1];
             }
-        } catch (error) {
+
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+
             Swal.fire({
-                ...swalModern,
-                icon: 'error',
-                confirmButtonColor: '#ef4444',
-                title: 'Gangguan Jaringan',
-                text: 'Koneksi ke server terputus. Silakan coba beberapa saat lagi.',
-                confirmButtonText: 'Tutup'
+                ...swalModern, icon: 'success', title: 'Berhasil!',
+                text: 'File Anda telah diproses dan otomatis terunduh.'
             });
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+            
+            // Opsional: reset form setelah berhasil
+            event.target.reset();
+        } else {
+            try {
+                const res = JSON.parse(xhr.responseText);
+                Swal.fire({ ...swalModern, icon: 'error', title: 'Gagal', text: res.message });
+            } catch(e) {
+                Swal.fire({ ...swalModern, icon: 'error', title: 'Error', text: 'Gagal menghubungi server.' });
+            }
         }
     }
 </script>
