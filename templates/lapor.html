@@ -4,52 +4,121 @@
 
 {% block extra_css %}
 <style>
-    /* Styling Laporan Lapangan BAAE */
-    .lapor-card {
-        background: rgba(15, 23, 42, 0.4) !important;
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: 2rem !important;
+    /* ==========================================================
+       TACTICAL FIELD AUDIT STYLES (Sync with Hacker Base)
+       ========================================================== */
+    
+    /* Terminal Input Forms */
+    .terminal-input {
+        background: rgba(0, 0, 0, 0.5) !important;
+        border: 1px solid var(--border-hacker) !important;
+        border-left: 2px solid var(--glow-green) !important;
+        color: var(--text-main) !important;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        border-radius: 0 !important;
+        transition: all 0.3s;
+    }
+    .terminal-input:focus {
+        border-color: var(--glow-green) !important;
+        box-shadow: 0 0 15px var(--glow-green-dim) !important;
     }
 
+    /* Red Input Alert (untuk Janji Bayar) */
+    .terminal-input-alert {
+        border-left: 2px solid var(--glow-crimson) !important;
+        color: var(--glow-crimson) !important;
+    }
+    .terminal-input-alert:focus {
+        border-color: var(--glow-crimson) !important;
+        box-shadow: 0 0 15px rgba(255, 7, 58, 0.2) !important;
+    }
+
+    /* Photo Preview Panel */
     #photoPreview {
         width: 100%;
-        border-radius: 1.5rem;
+        border-radius: 0;
         display: none;
-        margin-bottom: 20px;
-        border: 2px solid rgba(56, 189, 248, 0.3);
-        box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+        margin-top: 15px;
+        border: 1px dashed var(--glow-green);
+        box-shadow: 0 0 20px var(--glow-green-dim);
     }
 
     /* Status Radar GPS */
     .gps-status-box {
-        background: rgba(2, 6, 23, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 1rem;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px dashed var(--border-hacker);
+        border-radius: 0;
         padding: 15px;
         transition: all 0.5s ease;
     }
-    
     .radar-active {
-        border-color: #38bdf8;
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+        border-color: var(--glow-green);
+        background: var(--glow-green-dim);
+        box-shadow: inset 0 0 15px var(--glow-green-dim);
     }
 
-    .label-tech {
+    .label-cmd {
+        font-family: 'JetBrains Mono', monospace;
         font-size: 0.65rem;
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: 1.5px;
-        color: #38bdf8;
+        color: var(--text-muted);
         text-transform: uppercase;
     }
 
-    /* Detail Pelanggan Readout */
+    /* Detail Pelanggan Readout (Telemetry Style) */
     #infoPelanggan {
-        background: rgba(56, 189, 248, 0.05);
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        border-left: 4px solid #38bdf8;
-        border-radius: 1rem;
+        background: rgba(0, 255, 65, 0.05);
+        border: 1px solid var(--border-hacker);
+        border-left: 3px solid var(--glow-green);
+        border-radius: 0;
+    }
+    
+    /* Hacker Button Search */
+    .btn-search-nomen {
+        background: rgba(0, 255, 65, 0.1);
+        color: var(--glow-green);
+        border: 1px solid var(--glow-green);
+        border-radius: 0;
+        transition: all 0.3s;
+    }
+    .btn-search-nomen:hover {
+        background: var(--glow-green);
+        color: #000;
+        box-shadow: 0 0 15px var(--glow-green);
+    }
+
+    /* Master Submit Button */
+    .btn-execute {
+        font-family: 'JetBrains Mono', monospace;
+        background: rgba(255, 7, 58, 0.1);
+        color: var(--glow-crimson);
+        border: 1px solid var(--glow-crimson);
+        font-weight: 800;
+        letter-spacing: 2px;
+        border-radius: 0;
+        transition: all 0.3s;
+    }
+    .btn-execute:hover:not(:disabled) {
+        background: var(--glow-crimson);
+        color: #000;
+        box-shadow: 0 0 25px rgba(255, 7, 58, 0.6);
+    }
+    .btn-execute:disabled {
+        background: rgba(0,0,0,0.5);
+        border-color: var(--border-hacker);
+        color: #555;
+    }
+
+    /* Central Target Icon Box */
+    .target-icon-box {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 70px; height: 70px; margin-bottom: 1rem;
+        background: rgba(255, 7, 58, 0.05); 
+        border: 1px solid rgba(255, 7, 58, 0.3);
+        /* Octagon Cut */
+        clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
     }
 </style>
 {% endblock %}
@@ -58,75 +127,79 @@
 <div class="row justify-content-center mt-2 animate-fade-in">
     <div class="col-lg-6 col-md-8">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-3">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-info">Home</a></li>
-                <li class="breadcrumb-item active fw-bold text-light" aria-current="page">Field Intelligence Audit</li>
+            <ol class="breadcrumb mb-3 font-code" style="font-size: 0.7rem;">
+                <li class="breadcrumb-item"><a href="/monitoring/" class="text-decoration-none" style="color: var(--text-muted);">[ SYS_RADAR ]</a></li>
+                <li class="breadcrumb-item active fw-bold" style="color: var(--glow-crimson);" aria-current="page">FIELD_AUDIT</li>
             </ol>
         </nav>
 
-        <div class="card lapor-card mb-5 border-0 shadow-2xl">
+        <div class="card mb-5 p-0">
             <div class="card-body p-4 p-md-5">
                 <div class="text-center mb-5">
-                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-3" 
-                         style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); box-shadow: 0 0 30px rgba(56, 189, 248, 0.2); width: 80px; height: 80px;">
-                        <i class="fa-solid fa-crosshairs fa-2x text-info animate-pulse"></i>
+                    <div class="target-icon-box">
+                        <i class="fa-solid fa-crosshairs fa-2x animate-pulse" style="color: var(--glow-crimson);"></i>
                     </div>
-                    <h3 class="fw-800 text-white mb-1 uppercase tracking-tight">Input Laporan Kunjungan</h3>
-                    <p class="text-slate-400 small mb-0">Verifikasi lokasi via BAAE Global Satellite</p>
+                    <h3 class="font-code fw-800 text-white mb-1 uppercase tracking-tight">
+                        <span style="color: var(--glow-crimson);">></span> FIELD_REPORT_LOG
+                    </h3>
+                    <p class="font-code small mb-0" style="color: var(--text-muted);">[ VERIFY_NODE_VIA_SATELLITE ]</p>
                 </div>
 
                 <form id="formLapor" enctype="multipart/form-data">
+                    
                     <div class="mb-4">
-                        <label class="label-tech mb-2 d-block">Identitas Target (NOMEN)</label>
+                        <label class="label-cmd">> target_identity_nomen</label>
                         <div class="input-group">
                             <input type="number" name="nomen" id="inputNomen" 
-                                   class="form-control form-control-lg" 
-                                   placeholder="8 Digit Nomor Pelanggan" 
+                                   class="form-control terminal-input" 
+                                   placeholder="8_DIGIT_ID..." 
                                    value="{{ request.args.get('nomen', '') }}" required>
-                            <button class="btn btn-info px-4" type="button" id="btnCek" onclick="cekDataPelanggan()">
+                            <button class="btn btn-search-nomen px-4" type="button" id="btnCek" onclick="cekDataPelanggan()">
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
                         
-                        <div id="infoPelanggan" class="mt-4 p-3 d-none">
+                        <div id="infoPelanggan" class="mt-3 p-3 d-none">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 class="fw-800 text-white mb-1" id="dispNama" style="letter-spacing: 0.5px;">DATA LOADING...</h6>
-                                    <div class="small text-info opacity-75" id="dispKel">Kelurahan</div>
+                                    <h6 class="font-code fw-800 text-white mb-1" id="dispNama" style="letter-spacing: 0.5px;">[ FETCHING_DATA... ]</h6>
+                                    <div class="font-code small" style="color: var(--glow-green);" id="dispKel">Kelurahan</div>
                                 </div>
-                                <span class="badge bg-info bg-opacity-20 text-info border border-info border-opacity-30 px-3 py-2 rounded-pill" id="dispPcez" style="font-size: 0.65rem;">PCEZ</span>
+                                <span class="font-code" style="background: var(--glow-green-dim); color: var(--glow-green); border: 1px solid rgba(0,255,65,0.3); padding: 4px 8px; font-size: 0.65rem;" id="dispPcez">PCEZ</span>
                             </div>
-                            <hr class="my-3 border-secondary border-opacity-20">
-                            <div class="small text-slate-300">
-                                <i class="fa-solid fa-user-shield text-emerald-400 me-2"></i>
-                                <span class="opacity-50">Field Engineer:</span> <strong id="dispPetugas" class="text-white">-</strong>
+                            <hr class="my-3" style="border-color: rgba(0, 255, 65, 0.2);">
+                            <div class="font-code small" style="color: var(--text-muted);">
+                                <i class="fa-solid fa-user-shield me-2" style="color: var(--text-main);"></i>
+                                <span>FIELD_ENGINEER:</span> <strong id="dispPetugas" class="text-white">-</strong>
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="label-tech mb-2 d-block">Hasil Investigasi Lapangan</label>
-                        <select name="hasil_kunjungan" id="hasilKunjungan" class="form-select form-select-lg" onchange="toggleJanjiBayar()" required>
-                            <option value="">-- Pilih Hasil Temuan --</option>
-                            <option value="JANJI BAYAR">📝 Janji Bayar</option>
-                            <option value="RUMAH KOSONG">🏠 Rumah Kosong / Tutup</option>
-                            <option value="METER TERTIMBUN">🚧 Meter Tertimbun / Rusak</option>
-                            <option value="PENGGUNAAN NORMAL">✅ Penggunaan Normal (SBRS)</option>
-                            <option value="SUDAH BAYAR">💰 Sudah Bayar (Ada Bukti)</option>
+                        <label class="label-cmd">> field_investigation_result</label>
+                        <select name="hasil_kunjungan" id="hasilKunjungan" class="form-select terminal-input" onchange="toggleJanjiBayar()" required>
+                            <option value="">[ -- SELECT_STATUS -- ]</option>
+                            <option value="JANJI BAYAR">📝 JANJI_BAYAR</option>
+                            <option value="RUMAH KOSONG">🏠 RUMAH_KOSONG / TUTUP</option>
+                            <option value="METER TERTIMBUN">🚧 METER_TERTIMBUN / RUSAK</option>
+                            <option value="PENGGUNAAN NORMAL">✅ PENGGUNAAN_NORMAL (SBRS)</option>
+                            <option value="SUDAH BAYAR">💰 SUDAH_BAYAR (ADA BUKTI)</option>
                         </select>
                     </div>
 
                     <div class="mb-4 d-none" id="groupJanji">
-                        <label class="label-tech mb-2 d-block text-rose-400">Jadwal Janji Bayar</label>
-                        <input type="date" name="tgl_janji_bayar" class="form-control form-control-lg border-danger" style="background: rgba(244, 63, 94, 0.05) !important;">
+                        <label class="label-cmd" style="color: var(--glow-crimson);">> set_payment_schedule</label>
+                        <input type="date" name="tgl_janji_bayar" class="form-control terminal-input terminal-input-alert">
                     </div>
 
                     <div class="mb-4">
-                        <label class="label-tech mb-2 d-block">Bukti Visual (Neural Capture)</label>
-                        <div class="p-3 gps-status-box mb-3">
-                             <input type="file" name="foto" id="inputFoto" class="form-control mb-1" 
-                                   accept="image/*" capture="environment" onchange="previewImage(this)" required>
-                             <div class="extra-small text-slate-500 mt-2"><i class="fa-solid fa-info-circle me-1 text-info"></i> Ambil foto objek atau meteran dengan pencahayaan cukup.</div>
+                        <label class="label-cmd">> visual_evidence_capture</label>
+                        <div class="p-3 gps-status-box mb-2">
+                             <input type="file" name="foto" id="inputFoto" class="form-control terminal-input mb-1" 
+                                    accept="image/*" capture="environment" onchange="previewImage(this)" required>
+                             <div class="font-code mt-2" style="font-size: 0.6rem; color: var(--text-muted);">
+                                <i class="fa-solid fa-info-circle me-1" style="color: var(--glow-green);"></i> SYSTEM_REQ: Ensure adequate lighting for optical engine.
+                             </div>
                         </div>
                         <img id="photoPreview" src="" alt="Capture Preview">
                     </div>
@@ -134,26 +207,22 @@
                     <div class="mb-5">
                         <div id="gpsStatus" class="gps-status-box d-flex align-items-center justify-content-between">
                             <div class="d-flex align-items-center">
-                                <i class="fas fa-satellite-dish fa-spin me-3 text-warning" id="gpsIcon" style="font-size: 1.2rem;"></i>
+                                <i class="fas fa-satellite-dish fa-spin me-3" id="gpsIcon" style="font-size: 1.2rem; color: #ffbd2e;"></i>
                                 <div>
-                                    <div class="label-tech" style="color: #94a3b8; font-size: 0.6rem;">GEO-LOCATION STATUS</div>
-                                    <span id="gpsText" class="small fw-bold text-white">Menghubungkan Satelit...</span>
+                                    <div class="label-cmd" style="font-size: 0.55rem;">GEO_LOCATION_RADAR</div>
+                                    <span id="gpsText" class="font-code small fw-bold text-white">Establishing satellite link...</span>
                                 </div>
                             </div>
-                            <div id="gpsPulse" class="rounded-circle bg-warning animate-pulse" style="width: 10px; height: 10px; box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);"></div>
+                            <div id="gpsPulse" class="rounded-circle animate-pulse" style="width: 10px; height: 10px; background: #ffbd2e; box-shadow: 0 0 10px rgba(255, 189, 46, 0.5);"></div>
                         </div>
                         <input type="hidden" name="lat" id="lat">
                         <input type="hidden" name="lng" id="lng">
                     </div>
 
-                    <button type="submit" id="btnSubmit" class="btn btn-info btn-lg w-100 py-3 fw-800 rounded-pill shadow-lg" disabled>
-                        <i class="fas fa-cloud-arrow-up me-2"></i>KIRIM LAPORAN AUDIT
+                    <button type="submit" id="btnSubmit" class="btn btn-execute btn-lg w-100 py-3" disabled>
+                        <i class="fas fa-cloud-arrow-up me-2"></i> UPLOAD_REPORT
                     </button>
                 </form>
-
-                <div class="mt-5 pt-4 border-top border-secondary border-opacity-10 text-center">
-                    <p class="extra-small text-slate-600 mb-0">BAAE Engine v14.0 | System Integrity: Secured</p>
-                </div>
             </div>
         </div>
     </div>
@@ -162,12 +231,13 @@
 
 {% block extra_js %}
 <script>
-    // Config SWAL Dark Mode
+    // Config SWAL Dark Mode Hacker (Sync dengan base.html)
     const swalDark = {
-        background: '#0f172a',
-        color: '#f8fafc',
-        confirmButtonColor: '#38bdf8',
-        cancelButtonColor: '#334155'
+        background: '#0a0e17', 
+        color: '#e2e8f0',
+        confirmButtonColor: '#00ff41', // Matrix green
+        cancelButtonColor: '#1f2937',
+        customClass: { popup: 'border border-secondary border-opacity-25 rounded-0' }
     };
 
     // 1. Ambil Lokasi GPS (Radar System)
@@ -183,20 +253,21 @@
                 const gpsIcon = document.getElementById('gpsIcon');
                 const gpsPulse = document.getElementById('gpsPulse');
                 
+                // Ubah Tampilan Menjadi Hijau Aktif
                 statusBox.classList.add('radar-active');
                 gpsIcon.classList.replace('fa-satellite-dish', 'fa-location-dot');
-                gpsIcon.classList.replace('text-warning', 'text-info');
+                gpsIcon.style.color = 'var(--glow-green)'; // Override color to hacker green
                 gpsIcon.classList.remove('fa-spin');
                 
-                gpsPulse.classList.replace('bg-warning', 'bg-info');
-                gpsPulse.style.boxShadow = "0 0 15px #38bdf8";
+                gpsPulse.style.background = 'var(--glow-green)';
+                gpsPulse.style.boxShadow = "0 0 15px var(--glow-green)";
                 
-                document.getElementById('gpsText').innerHTML = `<span class="text-info">LOKASI TERKUNCI:</span> ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('gpsText').innerHTML = `<span style="color: var(--glow-green);">COORD_LOCKED:</span> ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                 
                 document.getElementById('btnSubmit').disabled = false;
             }, function(error) {
-                document.getElementById('gpsText').innerText = "GPS ERROR: Izinkan Lokasi di Browser!";
-                Swal.fire({ ...swalDark, icon: 'warning', title: 'Radar Offline', text: 'Sistem membutuhkan koordinat GPS untuk validasi data lapangan.' });
+                document.getElementById('gpsText').innerText = "SYS.ERR: Location access denied!";
+                Swal.fire({ ...swalDark, icon: 'warning', iconColor: '#ffbd2e', title: 'RADAR_OFFLINE', text: 'System requires GPS coordinates for field validation.' });
             }, { enableHighAccuracy: true });
         }
     }
@@ -221,7 +292,7 @@
                 document.getElementById('dispKel').innerText = `REGION: ${data.kelurahan}`;
                 document.getElementById('dispPetugas').innerText = data.petugas;
             } else {
-                Swal.fire({ ...swalDark, icon: 'info', title: 'Record Void', text: 'Nomor Pelanggan tidak terdaftar dalam database BAAE.' });
+                Swal.fire({ ...swalDark, icon: 'info', iconColor: '#38bdf8', title: 'RECORD_VOID', text: 'Nomor Pelanggan tidak terdaftar dalam database.' });
                 document.getElementById('infoPelanggan').classList.add('d-none');
             }
         } catch (e) {
@@ -254,14 +325,14 @@
         e.preventDefault();
         
         if (!document.getElementById('lat').value) {
-            return Swal.fire({ ...swalDark, icon: 'error', title: 'GPS Not Found', text: 'Tunggu hingga radar satelit mengunci lokasi Anda.' });
+            return Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'GPS_NOT_FOUND', text: 'Wait for the satellite radar to lock your location.' });
         }
 
         const formData = new FormData(this);
         Swal.fire({
             ...swalDark,
-            title: 'SINKRONISASI DATA...',
-            html: '<p class="text-info">Mengirimkan laporan intelijen ke BAAE Central Server</p>',
+            title: 'SYNCING_DATA...',
+            html: '<p style="color: var(--glow-green); font-family: \'JetBrains Mono\', monospace; font-size: 0.8rem;">Uploading field intelligence to Central Server</p>',
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
         });
@@ -274,14 +345,15 @@
                 Swal.fire({
                     ...swalDark,
                     icon: 'success',
-                    title: 'Sinkronisasi Berhasil',
+                    iconColor: '#00ff41',
+                    title: 'SYS.SYNC_SUCCESS',
                     text: result.message
                 }).then(() => { window.location.href = '/monitoring/'; });
             } else {
-                Swal.fire({ ...swalDark, icon: 'error', title: 'Gagal Simpan', text: result.message });
+                Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'SYS.SAVE_FAIL', text: result.message });
             }
         } catch (err) {
-            Swal.fire({ ...swalDark, icon: 'error', title: 'Network Fatal', text: 'Koneksi terputus. Pastikan sinyal di lapangan stabil.' });
+            Swal.fire({ ...swalDark, icon: 'error', iconColor: '#ff073a', confirmButtonColor: '#ff073a', title: 'NETWORK_FATAL', text: 'Connection lost. Check field signal integrity.' });
         }
     };
 
