@@ -7,8 +7,6 @@
     /* ==========================================================
        MODERN SAAS OCR ENGINE STYLES
        ========================================================== */
-    
-    /* Ikon Box Modern */
     .icon-box-primary {
         background: var(--primary-light);
         color: var(--primary);
@@ -19,7 +17,6 @@
         box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
     }
 
-    /* Area Unggah Modern */
     .upload-box-modern {
         border: 2px dashed var(--border-color);
         border-radius: var(--radius-md);
@@ -35,39 +32,19 @@
         border-color: var(--primary);
     }
 
-    .upload-box-modern input[type="file"] {
-        max-width: 320px;
-        margin: 0 auto;
-        background: #ffffff;
-    }
-
-    /* Pratinjau Gambar */
     #imagePreview {
         max-width: 100%;
         max-height: 320px;
         border-radius: 8px;
-        display: none;
         margin: 20px auto 0;
         border: 1px solid var(--border-color);
         box-shadow: var(--shadow-md);
         object-fit: contain;
     }
 
-    /* Teks Label & Hint */
-    .label-modern {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--text-main);
-        margin-bottom: 0.5rem;
-    }
+    .label-modern { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+    .hint-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 15px; }
 
-    .hint-text {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        margin-top: 15px;
-    }
-
-    /* Tombol Aksi */
     .btn-action {
         font-weight: 600;
         letter-spacing: 0.3px;
@@ -75,11 +52,16 @@
         border-radius: var(--radius-sm);
         transition: all 0.2s;
     }
+
+    /* Progress bar styling untuk HTMX */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request.btn-action { pointer-events: none; opacity: 0.8; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-3 animate-fade-in">
+<div class="row justify-content-center mt-3 animate-fade-in" x-data="{ imageSrc: null }">
     <div class="col-md-9 col-lg-7">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-4" style="font-size: 0.85rem; font-weight: 500;">
@@ -100,34 +82,48 @@
                         Mesin Ekstraksi Teks (OCR)
                     </h3>
                     <p class="text-muted mt-2" style="font-size: 0.95rem;">
-                        Konversi gambar dokumen, struk, atau faktur menjadi data teks digital.
+                        Konversi gambar dokumen menjadi data teks digital secara instan.
                     </p>
                 </div>
                 
-                <form action="/tools/ocr/extract" method="POST" enctype="multipart/form-data" id="formOCR">
+                <form hx-post="/tools/ocr/extract" 
+                      hx-encoding="multipart/form-data"
+                      hx-swap="none"
+                      @htmx:before-request="Swal.showLoading()"
+                      @htmx:after-request="handleOcrResponse(event)">
+                      
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="label-modern">Sumber Dokumen</label>
-                            <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Sistem Siap</span>
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-1">Mesin Siap</span>
                         </div>
                         
                         <div class="upload-box-modern">
-                            <i class="fa-solid fa-camera-viewfinder fa-3x mb-3 text-muted" id="upload-icon"></i>
-                            <h6 class="fw-bold mb-3">Unggah Gambar Dokumen</h6>
+                            <template x-if="!imageSrc">
+                                <i class="fa-solid fa-camera-viewfinder fa-3x mb-3 text-muted"></i>
+                            </template>
                             
-                            <input type="file" name="file" id="inputFile" class="form-control mb-2 shadow-sm" accept="image/png, image/jpeg, image/jpg" onchange="previewImage(this)" required>
+                            <h6 class="fw-bold mb-3" x-show="!imageSrc">Unggah Gambar Dokumen</h6>
                             
-                            <img id="imagePreview" src="" alt="Pratinjau Dokumen">
+                            <input type="file" name="file" id="inputFile" 
+                                   class="form-control mb-2 shadow-sm" 
+                                   accept="image/*" 
+                                   @change="const file = $event.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (e) => { imageSrc = e.target.result }; reader.readAsDataURL(file); }"
+                                   required>
                             
-                            <div class="hint-text" id="upload-hint">
-                                Mendukung format <strong>JPG</strong> dan <strong>PNG</strong>. <br>
-                                Pastikan gambar memiliki pencahayaan yang baik agar hasil teks akurat.
+                            <img id="imagePreview" :src="imageSrc" x-show="imageSrc" x-cloak alt="Pratinjau Dokumen">
+                            
+                            <div class="hint-text">
+                                Mendukung format <strong>JPG, PNG, WebP</strong>. <br>
+                                Gunakan gambar yang tajam untuk akurasi maksimal.
                             </div>
                         </div>
                     </div>
                     
-                    <button type="submit" id="btnSubmit" class="btn btn-primary btn-action w-100">
-                        <i class="fa-solid fa-microchip me-2"></i> Proses Ekstraksi Dokumen
+                    <button type="submit" class="btn btn-primary btn-action w-100" id="btnSubmit">
+                        <span class="htmx-indicator spinner-border spinner-border-sm me-2"></span>
+                        <i class="fa-solid fa-microchip me-2" x-show="!$el.classList.contains('htmx-request')"></i> 
+                        <span>Proses Ekstraksi Dokumen</span>
                     </button>
                 </form>
 
@@ -139,55 +135,58 @@
 
 {% block extra_js %}
 <script>
-    // Fungsi Pratinjau Gambar Modern
-    function previewImage(input) {
-        const preview = document.getElementById('imagePreview');
-        const icon = document.getElementById('upload-icon');
+    /**
+     * Menangani respon dari server setelah proses OCR HTMX selesai
+     */
+    function handleOcrResponse(event) {
+        const xhr = event.detail.xhr;
         
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                preview.src = e.target.result;
-                preview.style.display = 'block';
-                icon.style.display = 'none'; // Sembunyikan ikon saat gambar muncul
+        if (xhr.status === 200) {
+            // Karena backend mengirim file (send_file), kita harus memicu download secara manual
+            // Jika menggunakan HTMX hx-post untuk file download.
+            const blob = new Blob([xhr.response], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            // Ambil nama file dari header Content-Disposition
+            const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+            let fileName = 'Hasil_Ekstraksi_BAAE.txt';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (match) fileName = match[1];
             }
-            reader.readAsDataURL(input.files[0]);
-        } else {
-            preview.style.display = 'none';
-            icon.style.display = 'inline-block';
-        }
-    }
 
-    // Handle Submission & Loading State
-    document.getElementById('formOCR').onsubmit = function() {
-        const btn = document.getElementById('btnSubmit');
-        const originalText = btn.innerHTML;
-        
-        // Disable tombol dan tampilkan spinner
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses Gambar...';
-        
-        // Konfigurasi SweetAlert Corporate SaaS
-        const swalModern = {
-            background: '#ffffff', 
-            color: '#0f172a',
-            confirmButtonColor: '#2563eb', // Biru tech company
-            customClass: { popup: 'border-0 rounded-4 shadow-lg' }
-        };
-        
-        // Timer pemulihan tombol (asumsi proses selesai dan file terunduh)
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
             
             Swal.fire({
                 ...swalModern,
                 icon: 'success',
-                title: 'Ekstraksi Selesai',
-                text: 'Teks dari gambar telah berhasil diekstrak dan diunduh ke perangkat Anda.',
-                confirmButtonText: 'Selesai'
+                title: 'Berhasil!',
+                text: 'Teks telah diekstrak dan file berhasil diunduh.'
             });
-        }, 4000);
-    };
+        } else {
+            // Tangani error (JSON)
+            try {
+                const errorData = JSON.parse(xhr.responseText);
+                Swal.fire({
+                    ...swalModern,
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: errorData.message || 'Terjadi kesalahan pada mesin neural.'
+                });
+            } catch(e) {
+                Swal.fire({
+                    ...swalModern,
+                    icon: 'error',
+                    title: 'Sistem Sibuk',
+                    text: 'Gagal menghubungi server OCR. Silakan coba lagi.'
+                });
+            }
+        }
+    }
 </script>
 {% endblock %}
