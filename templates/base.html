@@ -3,345 +3,265 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}BAAE Nexus | Tactical Engine{% endblock %}</title>
+    <title>{% block title %}BAAE Nexus | Enterprise System{% endblock %}</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
         /* ==========================================================
-           1. CORE THEME: HACKER SLATE & NEON ACCENTS
+           1. CORE THEME: MODERN TECH COMPANY / SAAS
            ========================================================== */
         :root {
-            --bg-void: #0a0e17;       
-            --bg-terminal: rgba(13, 18, 28, 0.85); 
-            --border-hacker: #1f2937; 
-            --text-main: #e2e8f0;      
-            --text-muted: #64748b;    
+            --bg-main: #f8fafc;       /* Abu-abu terang untuk latar belakang utama */
+            --bg-card: #ffffff;       /* Putih bersih untuk card dan panel */
+            --border-color: #e2e8f0;  /* Garis batas yang lembut */
             
-            --glow-green: #00ff41;    /* Matrix Green */
-            --glow-green-dim: rgba(0, 255, 65, 0.1);
+            --text-main: #0f172a;     /* Teks gelap elegan (bukan hitam pekat) */
+            --text-muted: #64748b;    /* Teks sekunder abu-abu */
             
-            --glow-crimson: #ff073a;  /* Alert/Target Red */
+            --primary: #2563eb;       /* Biru utama (Tech Blue) */
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
             
-            --cyber-cut: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
-            --menu-cut: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+            --success: #10b981;       /* Hijau sukses modern */
+            --danger: #ef4444;        /* Merah peringatan lembut */
+            --warning: #f59e0b;       /* Kuning/Oranye peringatan */
+            
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-void);
+            background-color: var(--bg-main);
             color: var(--text-main);
             padding-bottom: 110px;
             overflow-x: hidden;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            background-image: 
-                radial-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px);
-            background-size: 30px 30px;
         }
 
-        .font-mono { font-family: 'JetBrains Mono', monospace !important; }
+        /* Menghapus gaya monospace bawaan tema lama */
+        .font-mono { font-family: 'Inter', sans-serif !important; }
 
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: var(--bg-void); }
-        ::-webkit-scrollbar-thumb { background: #334155; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--glow-green); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         /* ==========================================================
-           2. SCI-FI PANELS & CARDS
+           2. MODERN PANELS & CARDS
            ========================================================== */
         .card, .bg-white, .bg-light, .table-container {
-            background: var(--bg-terminal) !important;
-            border: none !important;
-            border-top: 2px solid var(--border-hacker) !important;
-            border-left: 1px solid var(--border-hacker) !important;
-            clip-path: var(--cyber-cut);
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--radius-md) !important;
+            box-shadow: var(--shadow-sm);
             color: var(--text-main) !important;
-            backdrop-filter: blur(10px);
-            position: relative;
+            transition: box-shadow 0.2s ease;
         }
         
-        .card::after {
-            content: ''; position: absolute; bottom: 0; left: 0; width: 0%; height: 2px;
-            background: var(--glow-green); transition: width 0.3s ease;
+        .card:hover {
+            box-shadow: var(--shadow-md);
         }
-        .card:hover::after { width: 100%; }
 
         .form-control, .form-select {
-            background-color: rgba(0,0,0,0.4) !important;
-            border: 1px solid var(--border-hacker) !important;
-            border-left: 2px solid var(--glow-green) !important; 
+            background-color: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
             color: var(--text-main) !important;
-            border-radius: 0 !important;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            border-radius: var(--radius-sm) !important;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            padding: 0.6rem 1rem;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
         }
+        
         .form-control:focus, .form-select:focus {
-            box-shadow: none !important;
-            background-color: #000 !important;
-            border-color: var(--glow-green) !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
+            border-color: var(--primary) !important;
         }
 
         /* ==========================================================
-           3. TACTICAL HEADER (ENHANCED BRAND ICON)
+           3. CLEAN HEADER
            ========================================================== */
         .nexus-header {
-            padding: 1rem 1.5rem;
+            padding: 1rem 2rem;
             display: flex; justify-content: space-between; align-items: center;
-            background: rgba(10, 14, 23, 0.9);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 20px) 100%, 20px 100%, 0 calc(100% - 10px));
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
             position: sticky; top: 0; z-index: 50;
+            box-shadow: var(--shadow-sm);
         }
         .brand-wrapper { display: flex; align-items: center; gap: 12px; }
         
-        /* Cool Terminal Brand Icon */
         .brand-icon {
-            width: 36px; height: 36px;
+            width: 38px; height: 38px;
             display: flex; align-items: center; justify-content: center;
-            background: rgba(0, 255, 65, 0.1);
-            border: 1px solid var(--glow-green);
-            color: var(--glow-green); 
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 900; font-size: 1rem;
-            clip-path: polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%);
-            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.2);
-            text-shadow: 0 0 5px var(--glow-green);
-        }
-        .brand-icon::after {
-            content: '_'; animation: blink 1s step-end infinite;
+            background: var(--primary);
+            border-radius: 10px;
+            color: white; 
+            font-size: 1.2rem;
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
         }
 
         .brand-title {
-            font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 800;
-            margin: 0; letter-spacing: 2px;
+            font-family: 'Inter', sans-serif; 
+            font-size: 1.25rem; font-weight: 700;
+            margin: 0; color: var(--text-main);
+            letter-spacing: -0.5px;
         }
 
         .system-status {
-            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 700;
-            color: var(--text-main); display: flex; align-items: center; gap: 8px;
-            border: 1px solid var(--border-hacker); padding: 4px 12px;
-            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            font-size: 0.75rem; font-weight: 600;
+            color: var(--success); display: flex; align-items: center; gap: 8px;
+            background: #ecfdf5; padding: 6px 14px;
+            border-radius: 20px; border: 1px solid #d1fae5;
         }
         .blink-dot {
-            width: 6px; height: 6px; background: var(--glow-green);
-            box-shadow: 0 0 8px var(--glow-green); animation: blink 1s step-end infinite;
+            width: 8px; height: 8px; background: var(--success);
+            border-radius: 50%; animation: pulse-soft 2s infinite;
+        }
+
+        @keyframes pulse-soft {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
         /* ==========================================================
-           4. BOTTOM NAV & BUTTONS
+           4. BOTTOM NAV (APP STYLE)
            ========================================================== */
         .bottom-nav {
-            position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%);
-            width: 96%; max-width: 480px;
-            background: rgba(13, 18, 28, 0.95); 
-            backdrop-filter: blur(15px);
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0.2rem 1.5rem;
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 500px;
+            background: rgba(255, 255, 255, 0.95); 
+            backdrop-filter: blur(10px);
+            display: flex; justify-content: space-around; align-items: center;
+            padding: 0.5rem 1rem;
             z-index: 9999;
-            clip-path: polygon(20px 0, calc(100% - 20px) 0, 100% 100%, 0 100%);
-            border-top: 2px solid var(--border-hacker);
-            filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8));
+            border-radius: 30px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
         }
         
         .nav-item {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: var(--text-muted); text-decoration: none; cursor: pointer;
-            width: 65px; height: 60px;
-            font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 700;
+            width: 60px; height: 55px;
+            font-size: 0.65rem; font-weight: 600;
             transition: all 0.2s; position: relative;
         }
-        .nav-item i { font-size: 1.15rem; margin-bottom: 4px; transition: all 0.2s; }
+        .nav-item i { font-size: 1.25rem; margin-bottom: 4px; transition: all 0.2s; }
         
-        .nav-item:hover { color: var(--text-main); }
-        .nav-item:hover i { filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+        .nav-item:hover { color: var(--primary); }
         
-        .nav-item.active { color: var(--glow-green); }
-        .nav-item.active i { 
-            transform: scale(1.1); 
-            filter: drop-shadow(0 0 8px var(--glow-green)); 
-        }
-        .nav-item.active::before {
-            content: '['; position: absolute; left: 2px; top: 12px;
-            color: var(--glow-green); font-size: 1rem; opacity: 0.8;
-        }
-        .nav-item.active::after {
-            content: ']'; position: absolute; right: 2px; top: 12px;
-            color: var(--glow-green); font-size: 1rem; opacity: 0.8;
-        }
+        .nav-item.active { color: var(--primary); }
+        .nav-item.active i { transform: translateY(-2px); }
 
-        /* ----------------------------------------------------------
-           THE TARGET BUTTON (Enhanced Hover & Glow)
-           ---------------------------------------------------------- */
-        .fab-wrapper { transform: translateY(-15px); }
+        /* Floating Action Button (FAB) */
+        .fab-wrapper { transform: translateY(-20px); }
         .fab-btn {
-            background: #000;
-            width: 55px; height: 55px; margin: 0 auto;
+            background: var(--primary);
+            width: 60px; height: 60px; margin: 0 auto;
             display: flex; align-items: center; justify-content: center;
-            color: var(--glow-crimson);
-            /* Double border effect for hardware feel */
-            border: 2px solid rgba(255, 7, 58, 0.4);
-            outline: 1px solid rgba(255, 7, 58, 0.1);
-            outline-offset: -5px;
-            clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            /* Pulsing Crimson Glow */
-            animation: pulse-crimson 2s infinite alternate;
+            color: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.4);
+            transition: all 0.3s ease;
         }
-        
-        @keyframes pulse-crimson {
-            0% { box-shadow: 0 0 10px rgba(255, 7, 58, 0.2), inset 0 0 5px rgba(255, 7, 58, 0.1); }
-            100% { box-shadow: 0 0 20px rgba(255, 7, 58, 0.6), inset 0 0 15px rgba(255, 7, 58, 0.4); }
+        .fab-btn:hover {
+            transform: scale(1.05);
+            background: var(--primary-hover);
         }
-
-        .fab-btn i { font-size: 1.4rem; margin: 0; transition: transform 0.5s ease; filter: drop-shadow(0 0 5px var(--glow-crimson)); }
-        
-        /* Active & Hover States */
-        .nav-item.active .fab-btn, .fab-wrapper:hover .fab-btn {
-            background: rgba(255, 7, 58, 0.2);
-            border-color: var(--glow-crimson);
-            outline-color: var(--glow-crimson);
-            color: #fff;
-            animation: none; /* Stop pulsing on hover */
-            box-shadow: 0 0 25px rgba(255, 7, 58, 0.8), inset 0 0 20px rgba(255, 7, 58, 0.6);
-        }
-        /* Putar ikon secara penuh seperti lensa kamera mengunci */
-        .nav-item.active .fab-btn i, .fab-wrapper:hover .fab-btn i { 
-            transform: rotate(90deg) scale(1.1); 
-            filter: drop-shadow(0 0 8px #fff);
-            color: #fff;
-        }
+        .fab-btn i { font-size: 1.5rem; }
+        .nav-item.active .fab-btn { color: white; }
 
         /* ==========================================================
-           5. HUD OVERLAYS (ENHANCED SUB-ICONS)
+           5. OVERLAY MENUS (DROPDOWN STYLE)
            ========================================================== */
         .actions-overlay {
-            position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%) translateY(20px);
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
             width: 280px;
-            background: rgba(13, 18, 28, 0.98);
-            clip-path: var(--menu-cut);
-            border: none; padding: 1px; 
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
             z-index: 10000; opacity: 0; pointer-events: none;
-            transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .actions-overlay-inner {
-            background: #0a0e17;
-            clip-path: var(--menu-cut);
-            padding: 15px; height: 100%;
-        }
-        .actions-overlay.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); background: var(--glow-green); }
+        .actions-overlay-inner { padding: 15px; }
+        .actions-overlay.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
         
         .menu-title { 
-            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 800; 
-            color: var(--text-main); text-transform: uppercase; letter-spacing: 2px;
-            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.75rem; font-weight: 700; color: var(--text-muted); 
+            text-transform: uppercase; margin-bottom: 12px;
+            padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
         }
-        .menu-title::after { content: ''; flex-grow: 1; height: 1px; background: var(--border-hacker); margin-left: 10px; }
         
         .sub-item {
-            display: flex; align-items: center; gap: 12px; padding: 10px;
-            color: var(--text-muted); text-decoration: none; 
-            transition: all 0.2s; position: relative;
-        }
-        .sub-item::before {
-            content: ''; position: absolute; left: 0; top: 10%; height: 80%; width: 2px;
-            background: var(--glow-green); transform: scaleY(0); transition: transform 0.2s;
+            display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+            color: var(--text-main); text-decoration: none; 
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
         }
         
-        /* Cool Mechanical Key Sub-Icons */
         .sub-icon { 
-            font-size: 0.95rem; width: 34px; height: 34px; 
+            font-size: 1rem; width: 36px; height: 36px; 
             display: flex; align-items: center; justify-content: center;
-            background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent);
-            border: 1px solid var(--border-hacker);
-            border-bottom: 2px solid var(--border-hacker); /* Kesan timbul 3D */
-            border-radius: 4px;
-            color: var(--text-muted);
-            transition: all 0.2s ease;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 8px;
         }
         
-        .sub-item:hover::before { transform: scaleY(1); }
-        .sub-item:hover { background: rgba(255,255,255,0.02); color: var(--text-main); padding-left: 15px; }
-        
-        /* Inner Glow on Sub-Icon Hover */
-        .sub-item:hover .sub-icon { 
-            color: var(--glow-green); 
-            border-color: rgba(0, 255, 65, 0.4);
-            border-bottom-color: var(--glow-green);
-            background: rgba(0, 255, 65, 0.05);
-            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.2), 0 0 8px rgba(0, 255, 65, 0.3);
-            filter: drop-shadow(0 0 2px var(--glow-green));
-        }
+        .sub-item:hover { background: #f8fafc; color: var(--primary); }
+        .sub-item:hover .sub-icon { background: var(--primary); color: white; }
         
         .sub-text-wrapper { display: flex; flex-direction: column; }
-        .sub-title { font-size: 0.8rem; font-weight: 600; font-family: 'Inter', sans-serif;}
-        .sub-desc { font-size: 0.55rem; font-family: 'JetBrains Mono', monospace; color: #475569;}
-        .sub-item:hover .sub-desc { color: var(--glow-green); }
+        .sub-title { font-size: 0.9rem; font-weight: 600; }
+        .sub-desc { font-size: 0.7rem; color: var(--text-muted); }
 
         .menu-backdrop {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); z-index: 9998;
+            background: rgba(15, 23, 42, 0.4); z-index: 9998;
             opacity: 0; pointer-events: none; transition: opacity 0.3s;
             backdrop-filter: blur(2px);
         }
         .menu-backdrop.show { opacity: 1; pointer-events: auto; }
 
-        @keyframes blink { 50% { opacity: 0; } }
-
         /* ==========================================================
-           6. ULTRA-HACKER LOADING SCREEN
+           6. MODERN LOADING SCREEN
            ========================================================== */
         #turbo-loader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(10, 14, 23, 0.98); 
+            background: rgba(255, 255, 255, 0.9); 
             backdrop-filter: blur(5px);
             display: none; z-index: 99999;
             justify-content: center; align-items: center; flex-direction: column;
         }
-
-        .radar-ring {
-            width: 80px; height: 80px;
-            border: 2px solid rgba(0, 255, 65, 0.1);
-            border-top: 2px solid var(--glow-green);
-            border-right: 2px solid var(--glow-green);
+        .spinner-modern {
+            width: 50px; height: 50px;
+            border: 4px solid var(--primary-light);
+            border-top: 4px solid var(--primary);
             border-radius: 50%;
-            animation: radar-spin 0.8s linear infinite;
-            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
-            position: relative;
-            margin-bottom: 25px;
+            animation: spin 1s linear infinite;
         }
-        .radar-ring::before {
-            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 10px; height: 10px; background: var(--glow-green); border-radius: 50%;
-            box-shadow: 0 0 10px var(--glow-green);
-        }
-        @keyframes radar-spin { 100% { transform: rotate(360deg); } }
-
-        .hacker-load {
-            font-family: 'JetBrains Mono', monospace; 
-            font-size: 1rem; font-weight: 800; 
-            color: var(--text-main);
-            letter-spacing: 3px;
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .hacker-bar {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem; color: var(--glow-green);
-            margin-top: 8px; letter-spacing: 2px;
-            display: inline-block;
-            overflow: hidden;
-            white-space: nowrap;
-            animation: typing-bar 1.5s steps(20, end) infinite;
+        .loader-text {
+            margin-top: 15px; font-weight: 600; color: var(--text-main); font-size: 0.9rem;
         }
-        @keyframes typing-bar { 0% { width: 0; } 100% { width: 150px; } }
-        .hacker-load::after { content: '_'; animation: blink 1s infinite; color: var(--glow-green); }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -351,26 +271,26 @@
     
     <div id="radarMenu" class="actions-overlay">
         <div class="actions-overlay-inner">
-            <div class="menu-title">SYS.RADAR</div>
+            <div class="menu-title">Laporan Utama</div>
             <a href="/monitoring/" class="sub-item">
-                <div class="sub-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+                <div class="sub-icon"><i class="fa-solid fa-chart-pie"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">General Radar</span>
-                    <span class="sub-desc">> TARGET_INTELLIGENCE</span>
+                    <span class="sub-title">Dashboard Kinerja</span>
+                    <span class="sub-desc">Ringkasan tagihan & piutang</span>
                 </div>
             </a>
             <a href="/monitoring/top-500/" class="sub-item mt-1">
-                <div class="sub-icon"><i class="fa-solid fa-crown"></i></div>
+                <div class="sub-icon"><i class="fa-solid fa-ranking-star"></i></div>
                 <div class="sub-text-wrapper">
                     <span class="sub-title">Top 500 Pareto</span>
-                    <span class="sub-desc">> BOUNTY_RANKS</span>
+                    <span class="sub-desc">Pelanggan prioritas tinggi</span>
                 </div>
             </a>
             <a href="/monitoring/daily" class="sub-item mt-1">
-                <div class="sub-icon"><i class="fa-solid fa-calendar-day"></i></div>
+                <div class="sub-icon"><i class="fa-solid fa-calendar-check"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">Daily Collection</span>
-                    <span class="sub-desc">> MB_TRACKER_EXCEL</span>
+                    <span class="sub-title">Koleksi Harian</span>
+                    <span class="sub-desc">Pelacakan pembayaran</span>
                 </div>
             </a>
         </div>
@@ -378,19 +298,19 @@
     
     <div id="sbrsMenu" class="actions-overlay">
         <div class="actions-overlay-inner">
-            <div class="menu-title">SYS.ANALYTIC</div>
+            <div class="menu-title">Analitik SBRS</div>
             <a href="/sbrs/summary" class="sub-item">
-                <div class="sub-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+                <div class="sub-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">Anomaly Summary</span>
-                    <span class="sub-desc">> REQ_AGGREGATE_DATA</span>
+                    <span class="sub-title">Ringkasan Anomali</span>
+                    <span class="sub-desc">Agregasi data lapangan</span>
                 </div>
             </a>
             <a href="/sbrs/analisa" class="sub-item mt-1">
                 <div class="sub-icon"><i class="fa-solid fa-microscope"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">Detail Investigation</span>
-                    <span class="sub-desc">> TRACK_ANOMALIES_3M</span>
+                    <span class="sub-title">Investigasi Detail</span>
+                    <span class="sub-desc">Pelacakan anomali 3 bulan</span>
                 </div>
             </a>
         </div>
@@ -398,19 +318,19 @@
 
     <div id="toolsMenu" class="actions-overlay">
         <div class="actions-overlay-inner">
-            <div class="menu-title">SYS.UTILITIES</div>
+            <div class="menu-title">Utilitas Tambahan</div>
             <a href="/tools/ocr/" class="sub-item">
-                <div class="sub-icon"><i class="fa-solid fa-expand"></i></div>
+                <div class="sub-icon"><i class="fa-solid fa-file-invoice"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">Optical Engine</span>
-                    <span class="sub-desc">> EXTRACT_IMG_TEXT</span>
+                    <span class="sub-title">Ekstraksi Teks (OCR)</span>
+                    <span class="sub-desc">Ubah gambar menjadi data</span>
                 </div>
             </a>
             <a href="/tools/converter/" class="sub-item mt-1">
-                <div class="sub-icon"><i class="fa-solid fa-file-shield"></i></div>
+                <div class="sub-icon"><i class="fa-solid fa-file-pdf"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">Format Override</span>
-                    <span class="sub-desc">> RUN_CONVERSION</span>
+                    <span class="sub-title">Konverter Format</span>
+                    <span class="sub-desc">Alat alih media dokumen</span>
                 </div>
             </a>
         </div>
@@ -418,19 +338,19 @@
 
     <div id="adminMenu" class="actions-overlay">
         <div class="actions-overlay-inner">
-            <div class="menu-title">COMMAND_CENTER</div>
+            <div class="menu-title">Manajemen Sistem</div>
             <a href="/upload" class="sub-item">
-                <div class="sub-icon"><i class="fa-solid fa-server"></i></div>
+                <div class="sub-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">Database Sync</span>
-                    <span class="sub-desc">> UPLOAD_TARGET_CID</span>
+                    <span class="sub-title">Sinkronisasi Data</span>
+                    <span class="sub-desc">Unggah file operasional</span>
                 </div>
             </a>
             <a href="/admin/database" class="sub-item mt-1">
-                <div class="sub-icon"><i class="fa-solid fa-database"></i></div>
+                <div class="sub-icon" style="background: #fee2e2; color: #ef4444;"><i class="fa-solid fa-database"></i></div>
                 <div class="sub-text-wrapper">
-                    <span class="sub-title">Core Override</span>
-                    <span class="sub-desc">> DB_MAINTENANCE</span>
+                    <span class="sub-title">Kontrol Database</span>
+                    <span class="sub-desc">Pemeliharaan sistem inti</span>
                 </div>
             </a>
         </div>
@@ -438,11 +358,11 @@
 
     <header class="nexus-header">
         <div class="brand-wrapper">
-            <div class="brand-icon">></div>
-            <h1 class="brand-title">BAAE_NEXUS</h1>
+            <div class="brand-icon"><i class="fa-solid fa-layer-group"></i></div>
+            <h1 class="brand-title">BAAE Nexus</h1>
         </div>
-        <div class="system-status font-mono">
-            <div class="blink-dot"></div> ENGINE_ONLINE
+        <div class="system-status">
+            <div class="blink-dot"></div> Sistem Aktif
         </div>
     </header>
 
@@ -451,40 +371,39 @@
     </main>
 
     <div id="turbo-loader">
-        <div class="radar-ring"></div>
-        <div class="hacker-load">SYSTEM_OVERRIDE</div>
-        <div class="hacker-bar">[|||||||||||||||||]</div>
+        <div class="spinner-modern"></div>
+        <div class="loader-text">Memproses Permintaan...</div>
     </div>
 
     <footer class="footer mt-auto py-4 text-center">
-        <span class="font-mono text-muted" style="font-size: 0.65rem;">BAAE_SYSTEM v14.0 // KHOIRUL ANWAR // © 2026</span>
+        <span class="text-muted" style="font-size: 0.8rem;">BAAE System v14.0 &copy; 2026 Khoirul Anwar</span>
     </footer>
 
     <nav class="bottom-nav">
         <div class="nav-item {% if request.path.startswith('/monitoring') or request.path == '/' %}active{% endif %}" onclick="toggleMenu('radarMenu')">
-            <i class="fa-solid fa-tower-broadcast"></i>
-            <span class="nav-label">Radar</span>
+            <i class="fa-solid fa-chart-pie"></i>
+            <span class="nav-label">Dashboard</span>
         </div>
         
         <div class="nav-item {% if request.path.startswith('/sbrs') %}active{% endif %}" onclick="toggleMenu('sbrsMenu')">
-            <i class="fa-solid fa-chart-column"></i>
-            <span class="nav-label">Data</span>
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            <span class="nav-label">Analitik</span>
         </div>
         
         <a href="/lapor" class="nav-item fab-wrapper {% if request.path == '/lapor' %}active{% endif %}">
             <div class="fab-btn">
-                <i class="fa-solid fa-crosshairs"></i>
+                <i class="fa-solid fa-plus"></i>
             </div>
-            <span class="nav-label mt-1" style="color: var(--glow-crimson);">Lapor</span>
+            <span class="nav-label mt-1" style="color: var(--primary);">Lapor</span>
         </a>
         
         <div class="nav-item {% if request.path.startswith('/tools') %}active{% endif %}" onclick="toggleMenu('toolsMenu')">
-            <i class="fa-solid fa-terminal"></i>
-            <span class="nav-label">Tools</span>
+            <i class="fa-solid fa-toolbox"></i>
+            <span class="nav-label">Alat</span>
         </div>
         
         <div class="nav-item {% if request.path.startswith('/admin') or request.path == '/upload' %}active{% endif %}" onclick="toggleMenu('adminMenu')">
-            <i class="fa-solid fa-shield-virus"></i>
+            <i class="fa-solid fa-gear"></i>
             <span class="nav-label">Admin</span>
         </div>
     </nav>
@@ -514,6 +433,16 @@
         window.onbeforeunload = function() {
             document.getElementById('turbo-loader').style.display = 'flex';
         };
+
+        // Otomatis menimpa setelan SweetAlert default ke tema putih bersih
+        const swalModern = {
+            background: '#ffffff', 
+            color: '#0f172a',
+            confirmButtonColor: '#2563eb', 
+            cancelButtonColor: '#e2e8f0',
+            customClass: { popup: 'border-0 rounded-4 shadow-lg' }
+        };
+        // Anda bisa mengganti pemakaian `swalDark` di file HTML lain dengan `swalModern` ini
     </script>
     
     {% block extra_js %}{% endblock %}
