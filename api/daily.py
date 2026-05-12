@@ -36,22 +36,21 @@ def parse_db_date(date_str):
 def index():
     try:
         # 1. IDENTIFIKASI PERIODE
-        # Contoh: Jika periode_input = April 2026 (2026-04)
         periode_input = request.args.get('periode') 
         curr_mon_date = datetime.strptime(periode_input, '%Y-%m') if periode_input else datetime.now()
         
-        # Target N-1 (Bulan Tagihan Asli: Maret 2026)
+        # Target N-1 (Bulan Tagihan Asli: Maret 2026 jika sekarang April)
         target_date = safe_month_math(curr_mon_date)
         t_month, t_year = target_date.month, target_date.year
-        t_year_short = str(t_year)[2:] # 2026 -> 26
+        t_year_short = str(t_year)[2:] 
         
-        # String Matcher untuk Data di Database & File
-        p_target_db = curr_mon_date.strftime('%Y%m')         # 202604 (MC/MB yang sudah di-shift)
-        p_mb_rek = f"{t_month:02d}{t_year}"                  # 032026 (Bulan Rekening di file MB)
-        p_bill_period = f"1/{t_month}/{t_year_short}"        # 1/3/26 (Bill Period di file Daily)
+        # String Matcher
+        p_target_db = curr_mon_date.strftime('%Y%m')         
+        p_mb_rek = f"{t_month:02d}{t_year}"                  
+        p_bill_period = f"1/{t_month}/{t_year_short}"        
 
         # ==========================================
-        # 2. PROSES TARGET (MC - MASTER CETAK)
+        # 2. PROSES MC (TARGET)
         # ==========================================
         mc_query = db.session.query(
             TransaksiTagihan.nomen,
@@ -63,19 +62,17 @@ def index():
         targets = {
             '34': {'rp': 0, 'count': 0}, 
             '35': {'rp': 0, 'count': 0}, 
-            'total': {'rp': 0, 'count': 0} # INI ADALAH AB SUNTER
+            'total': {'rp': 0, 'count': 0} 
         }
-        mc_nominal_map = {} # Untuk referensi nominal Daily
+        mc_nominal_map = {} 
 
         for nomen, nom, raw_cid in mc_query:
-            # FILTER: CUST_TYPE harus 'R' atau 'REGULAR'
             cust_type = get_val(raw_cid, ['CUST_TYPE', 'TypeCust1', 'TIPEPLGGN']).upper()
             if cust_type == 'R' or 'REG' in cust_type:
                 cc = get_val(raw_cid, ['CC', 'Cc'])
                 val = float(nom or 0)
                 nomen_key = str(nomen).strip()
                 
-                # Simpan di Map untuk digunakan oleh Daily MB nanti
                 mc_nominal_map[nomen_key] = val
 
                 if '34' in cc:
@@ -85,7 +82,6 @@ def index():
                     targets['35']['rp'] += val
                     targets['35']['count'] += 1
                 
-                # Akumulasi AB SUNTER (Gabungan 34 & 35)
                 if '34' in cc or '35' in cc:
                     targets['total']['rp'] += val
                     targets['total']['count'] += 1
@@ -112,8 +108,6 @@ def index():
             dt_bayar = parse_db_date(tgl)
             if not dt_bayar: continue
 
-            # --- A. LOGIKA UNDUE ---
-            # Pembayaran dilakukan di bulan yang sama dengan bulan rekening (Maret bayar di Maret)
             b_rek = get_val(raw_mb, ['BULAN_REK', 'BulanRek'])
             if b_rek == p_mb_rek and dt_bayar.month == t_month:
                 val = float(nom_mb or 0)
@@ -124,17 +118,13 @@ def index():
                     undue['total']['rp'] += val
                     undue['total']['count'] += 1
 
-            # --- B. LOGIKA DAILY COLLECTION ---
             b_period = get_val(raw_mb, ['BILL_PERIOD', 'BillPeriod'])
             b_type = get_val(raw_mb, ['BILL_TYPE', 'BillType']).upper()
             t_cust = get_val(raw_mb, ['TypeCust1', 'TYPE_CUST_1']).upper()
 
-            # Filter: Bill Period (1/3/26), WATER, REGULAR, dan Bayar di bulan April
             if p_bill_period in b_period and 'WATER' in b_type and 'REG' in t_cust:
                 if dt_bayar.month == curr_mon_date.month:
-                    # NOMINAL DIAMBIL DARI MC (Sesuai Instruksi)
                     val_mc = mc_nominal_map.get(nomen_key, 0)
-                    
                     if val_mc > 0:
                         unit = '34' if '34' in cc else ('35' if '35' in cc else None)
                         if unit:
@@ -159,18 +149,23 @@ def index():
             kum['total'] += (d34['rp'] + d35['rp'])
 
             def calc_coll(k_val, u_val, t_val):
-                # Efisiensi Penagihan = (Kumulatif Bayar + Pembayaran Undue) / Total Target MC
                 return ((k_val + u_val) / t_val * 100) if t_val > 0 else 0
 
+            # PERBAIKAN: Menambahkan kunci yang dicari oleh template (u34_coll_mar, dll)
             table_data.append({
                 'tgl': f"{d:02d}",
                 'u34_cust': d34['cust'], 'u34_rp': d34['rp'], 'u34_kum': kum['34'], 
                 'u34_coll': calc_coll(kum['34'], undue['34']['rp'], targets['34']['rp']),
+                'u34_coll_mar': 0.0, # Tambahkan nilai default agar tidak error
+                
                 'u35_cust': d35['cust'], 'u35_rp': d35['rp'], 'u35_kum': kum['35'], 
                 'u35_coll': calc_coll(kum['35'], undue['35']['rp'], targets['35']['rp']),
+                'u35_coll_mar': 0.0, # Tambahkan nilai default
+                
                 'tot_cust': d34['cust'] + d35['cust'],
                 'tot_rp': d34['rp'] + d35['rp'],
-                'tot_coll': calc_coll(kum['total'], undue['total']['rp'], targets['total']['rp'])
+                'tot_coll': calc_coll(kum['total'], undue['total']['rp'], targets['total']['rp']),
+                'tot_coll_mar': 0.0 # Tambahkan nilai default
             })
 
         return render_template('daily.html', 
