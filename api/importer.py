@@ -3,16 +3,20 @@ import gc
 import json
 import re
 import csv
+import sys
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
 from models import db
 
+# Naikkan batas memori baca CSV untuk menghindari error pembacaan
+csv.field_size_limit(sys.maxsize)
+
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================================
-# 1. STRATEGI ANTI-GAGAL & HEMAT RAM EKSTREM (CSV STREAMING)
+# 1. STRATEGI ANTI-GAGAL & PENJINAK BOM (BOMB DEFUSER)
 # ==========================================================
 
 def get_current_periode():
@@ -35,7 +39,6 @@ def get_val(row_dict, possible_keys, default=''):
     return default
 
 def clean_nomen(val):
-    """Nomen dibersihkan dari kutip dan spasi, tapi TIDAK dipotong 8 digit"""
     if not val: return None
     s = str(val).replace('"', '').strip().upper().split('.')[0]
     s = s.replace('K', '')
@@ -76,8 +79,26 @@ def parse_float(val):
         return float(v_str)
     except: return 0.0
 
+def get_safe_json(row_dict):
+    """
+    PENJINAK BOM: Mencegah Postgres meledak karena Unclosed Quotes di TXT.
+    Jika satu baris melampaui 50KB (sangat tidak wajar), berarti file rusak di baris itu.
+    """
+    try:
+        s = json.dumps(row_dict)
+        if len(s) > 50000: 
+            return '{"info": "Data terpotong otomatis karena format kutip ganda (quotes) rusak dari pusat."}'
+        return s
+    except:
+        return '{}'
+
+def clean_file_stream(f):
+    """PENJINAK BOM 2: Membuang Karakter Null Byte yang mematikan Postgres"""
+    for line in f:
+        yield line.replace('\x00', '').replace('\0', '')
+
 def process_mega_file(file, logic_func, chunk_size=500, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING: Anti-Crash untuk Membaca File Raksasa"""
+    """MESIN PURE PYTHON STREAMING: Anti-Crash untuk VPS RAM Rendah"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -88,7 +109,8 @@ def process_mega_file(file, logic_func, chunk_size=500, default_sep=';'):
 
     try:
         with open(temp_path, 'r', encoding='utf-8', errors='ignore') as f:
-            reader = csv.DictReader(f, delimiter=smart_sep, quotechar='"')
+            # Gunakan clean_file_stream untuk membuang null bytes \x00
+            reader = csv.DictReader(clean_file_stream(f), delimiter=smart_sep, quotechar='"')
             
             # --- STRATEGI HEADER SANITIZATION ---
             if reader.fieldnames:
@@ -194,7 +216,7 @@ def handle_cid_upload(file_cid):
                 "fax": get_val(row, ['FAX']),
                 "latitude": get_val(row, ['LATITUDE', 'LAT']),
                 "longitude": get_val(row, ['LONGITUDE', 'LONG']),
-                "raw_data": json.dumps(row)
+                "raw_data": get_safe_json(row)
             })
             
         if cid_entries:
@@ -251,7 +273,7 @@ def handle_mc_upload(file_mc):
                 "zona_novak": get_val(row, ['ZONA_NOVAK', 'ZONA']),
                 "notagihan": get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN']),
                 "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN'])),
-                "raw_data": json.dumps(row)
+                "raw_data": get_safe_json(row)
             })
             
         if mc_entries:
@@ -293,7 +315,7 @@ def handle_mb_upload(file_mb):
                 "denda": parse_float(get_val(row, ['DENDA'])),
                 "lks_bayar": get_val(row, ['LKS_BAYAR', 'PAY_LOC']),
                 "notagihan": get_val(row, ['NOTAGIHAN', 'BILL_ID']),
-                "raw_data": json.dumps(row)
+                "raw_data": get_safe_json(row)
             })
             lunas_entries.append({"n": nomen, "p": periode_target})
             
@@ -348,7 +370,7 @@ def handle_daily_upload(file_daily):
                 "bill_id": get_val(row, ['BILL_ID', 'NOTAGIHAN']),
                 "ab": get_val(row, ['AB', 'WILAYAH']),
                 "status": get_val(row, ['STATUS']),
-                "raw_data": json.dumps(row)
+                "raw_data": get_safe_json(row)
             })
             
             status_flag = get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG'])
@@ -416,7 +438,7 @@ def handle_mainbill_upload(file_mainbill):
                 "start_read_stan": get_val(row, ['START_READ_STAN', 'STAN_AWAL']),
                 "end_read": end_read_raw,
                 "hari_baca": get_val(row, ['HARI_BACA', 'HB']),
-                "raw_data": json.dumps(row)
+                "raw_data": get_safe_json(row)
             })
             
         if mb_entries:
@@ -453,7 +475,7 @@ def handle_sbrs_upload(file_cust, file_spot):
     lookup_cust = {}
 
     with open(cust_temp_path, 'r', encoding='utf-8', errors='ignore') as f:
-        reader = csv.DictReader(f, delimiter=smart_sep_cust, quotechar='"')
+        reader = csv.DictReader(clean_file_stream(f), delimiter=smart_sep_cust, quotechar='"')
         if reader.fieldnames:
             reader.fieldnames = [str(col).replace('\ufeff', '').replace('"', '').strip().upper() for col in reader.fieldnames]
         for row in reader:
@@ -515,7 +537,7 @@ def handle_sbrs_upload(file_cust, file_spot):
                 "nomen": nomen, "periode": periode_sbrs,
                 "nama": nama_pel, "ab": ab_pel, "kelurahan": gv(['KEL', 'KELURAHAN']),
                 "pcez": pc_ez, "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
-                "kategori_anomali": kat, "raw_data": json.dumps(merged_row), "status_audit": 0
+                "kategori_anomali": kat, "raw_data": get_safe_json(merged_row), "status_audit": 0
             })
 
         if master_provision:
@@ -559,7 +581,7 @@ def handle_arrdebt_upload(file_arrdebt):
             if not periode: periode = "000000"
             nominal = parse_float(get_val(row, ['BILL_AMT', 'WATER']))
             
-            arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": json.dumps(row)})
+            arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": get_safe_json(row)})
             tagihan_entries.append({"nomen": nomen, "periode": periode, "total_tagihan": nominal, "status_lunas": 0})
 
         if arr_entries:
