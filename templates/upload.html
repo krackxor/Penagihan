@@ -97,7 +97,7 @@
                         </p>
                         
                         <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
                               id="formCID" class="mt-auto">
                             <div class="mb-3">
                                 <input type="file" name="file_cid" class="form-control" accept=".txt, .csv" required>
@@ -127,7 +127,7 @@
                         </p>
                         
                         <form hx-post="/api/import/petugas" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
                               id="formPetugas" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
@@ -169,7 +169,7 @@
                         </p>
                         
                         <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
                               id="formTagihan" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
@@ -213,7 +213,7 @@
                         </p>
                         
                         <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="Swal.showLoading()" @htmx:after-request="handleSyncResponse(event)" 
+                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
                               id="formSBRS" class="mt-auto">
                             <div class="mb-2">
                                 <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 2px;">File Customer (.txt)</label>
@@ -247,6 +247,80 @@
         cancelButtonColor: '#e2e8f0',
         customClass: { popup: 'border-0 rounded-4 shadow-lg' }
     };
+
+    let uploadStartTime;
+
+    // Fungsi untuk memunculkan SweetAlert dengan custom UI Progress Bar
+    function showUploadProgressAlert() {
+        uploadStartTime = new Date().getTime();
+        Swal.fire({
+            ...swalModern,
+            title: 'Mentransfer Data...',
+            html: `
+                <div class="mt-3 text-start px-2">
+                    <div class="progress shadow-sm" style="height: 14px; border-radius: 10px; background-color: #e2e8f0;">
+                        <div id="swal-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%; transition: width 0.2s ease;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2" style="font-size: 0.85rem; font-weight: 600;">
+                        <span id="swal-progress-text" class="text-primary">0%</span>
+                        <span id="swal-eta-text" class="text-muted">Menghitung estimasi...</span>
+                    </div>
+                    <div id="swal-db-status" class="mt-3 pt-3 border-top text-center text-warning fw-bold d-none" style="font-size: 0.85rem;">
+                        <i class="fas fa-database fa-spin me-2"></i> File diunggah! Sedang merakit data ke PostgreSQL...
+                    </div>
+                </div>
+            `,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false
+        });
+    }
+
+    // HTMX Event Listener untuk melacak progress upload jaringan
+    document.body.addEventListener('htmx:xhr:progress', function(event) {
+        const loaded = event.detail.loaded;
+        const total = event.detail.total;
+
+        if (total > 0) {
+            const percent = Math.round((loaded / total) * 100);
+            
+            // Kalkulasi Kecepatan dan Estimasi (ETA)
+            const timeElapsed = (new Date().getTime() - uploadStartTime) / 1000;
+            const uploadSpeed = loaded / timeElapsed; // bytes per second
+            const timeRemaining = (total - loaded) / uploadSpeed; // seconds
+
+            let etaStr = "Menghitung...";
+            // Tunggu 2 detik agar kalkulasi stabil
+            if (timeRemaining > 0 && timeElapsed > 2) {
+                if (timeRemaining > 60) {
+                    etaStr = Math.ceil(timeRemaining / 60) + " menit tersisa";
+                } else {
+                    etaStr = Math.ceil(timeRemaining) + " detik tersisa";
+                }
+            }
+
+            // Update UI
+            const progressBar = document.getElementById('swal-progress-bar');
+            const progressText = document.getElementById('swal-progress-text');
+            const etaText = document.getElementById('swal-eta-text');
+            const dbStatus = document.getElementById('swal-db-status');
+
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (progressText) progressText.innerText = percent + '%';
+
+            if (percent < 100) {
+                if (etaText) etaText.innerText = "Estimasi: " + etaStr;
+            } else {
+                // Ketika Upload (Jaringan) 100% selesai, sistem beralih ke proses Database
+                if (etaText) etaText.innerText = "Transfer selesai!";
+                if (progressBar) {
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-warning'); // Ubah warna jadi kuning saat insert DB
+                }
+                if (dbStatus) dbStatus.classList.remove('d-none');
+            }
+        }
+    });
 
     // Satu fungsi global menangani semua response HTMX
     function handleSyncResponse(event) {
