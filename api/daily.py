@@ -151,21 +151,22 @@ def index():
             def calc_coll(k_val, u_val, t_val):
                 return ((k_val + u_val) / t_val * 100) if t_val > 0 else 0
 
-            # PERBAIKAN: Menambahkan kunci yang dicari oleh template (u34_coll_mar, dll)
+            # PERBAIKAN: Menambahkan kunci 'var_tot' dan atribut coll_mar yang dibutuhkan template
             table_data.append({
                 'tgl': f"{d:02d}",
                 'u34_cust': d34['cust'], 'u34_rp': d34['rp'], 'u34_kum': kum['34'], 
                 'u34_coll': calc_coll(kum['34'], undue['34']['rp'], targets['34']['rp']),
-                'u34_coll_mar': 0.0, # Tambahkan nilai default agar tidak error
+                'u34_coll_mar': 0.0,
                 
                 'u35_cust': d35['cust'], 'u35_rp': d35['rp'], 'u35_kum': kum['35'], 
                 'u35_coll': calc_coll(kum['35'], undue['35']['rp'], targets['35']['rp']),
-                'u35_coll_mar': 0.0, # Tambahkan nilai default
+                'u35_coll_mar': 0.0,
                 
                 'tot_cust': d34['cust'] + d35['cust'],
                 'tot_rp': d34['rp'] + d35['rp'],
                 'tot_coll': calc_coll(kum['total'], undue['total']['rp'], targets['total']['rp']),
-                'tot_coll_mar': 0.0 # Tambahkan nilai default
+                'tot_coll_mar': 0.0,
+                'var_tot': 0.0 # <--- INI PERBAIKAN UNTUK ERROR TERAKHIR
             })
 
         return render_template('daily.html', 
