@@ -126,7 +126,6 @@ def sbrs_summary():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # PERBAIKAN: Gunakan Helper Function agar penanggalan akurat (100% aman)
     prev_periode = get_prev_month(periode_filter, 1)
 
     base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
@@ -495,7 +494,6 @@ def export_analisa():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # PERBAIKAN V18: Kalkulasi N-1 yang 100% akurat
     prev_periode = get_prev_month(periode_filter, 1)
 
     query = db.session.query(DataSBRS.nomen, DataSBRS.nama, DataSBRS.kelurahan, DataSBRS.pcez, DataSBRS.kategori_anomali, DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
@@ -537,6 +535,7 @@ def export_analisa():
             "Nama Pelanggan": r.nama,
             "Kelurahan": r.kelurahan,
             "Wilayah PCEZ": r.pcez,
+            "Kategori Anomali": r.kategori_anomali,
             "Vol Lapangan (m3)": safe_f(get_case_insensitive(raw, 'Curr_Read_1')) - safe_f(get_case_insensitive(raw, 'Prev_Read_1')),
             "Vol Sistem Pusat (m3)": safe_f(get_case_insensitive(raw, 'cmr_reading')) - safe_f(get_case_insensitive(raw, 'cmr_prev_read')),
             "Vol Cetak Tagihan (m3)": safe_f(get_case_insensitive(raw, 'SB_Stand')) - safe_f(get_case_insensitive(raw, 'Prev_Read_1')),
@@ -544,14 +543,15 @@ def export_analisa():
             "Hari Baca (HB)": hb
         }
         
-        # Merge sisa raw_data dan cegah Polars error (ubah list/dict jadi string)
+        # PROTEKSI V18: Filter Tipe Data untuk Mencegah Polars Crash
         for key, value in raw.items():
             if key not in row_data:
-                # PERBAIKAN V18: Type-safe dictionary agar Polars tidak crash
-                if isinstance(value, (dict, list)):
-                    row_data[key] = str(value)
+                if value is None:
+                    row_data[key] = ""
+                elif isinstance(value, (int, float)):
+                    row_data[key] = value # Biarkan angka tetap angka
                 else:
-                    row_data[key] = value
+                    row_data[key] = str(value) # Paksa tipe campuran/aneh jadi Teks
         
         data_list.append(row_data)
 
