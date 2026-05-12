@@ -23,8 +23,7 @@ def list_tagihan():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # KUNCI V18: Nama kolom disinkronkan menjadi 'nominal' sesuai models.py
-    # select_from(TransaksiTagihan) menjamin PostgreSQL memulai pencarian dari tabel transaksi
+    # KUNCI V18: Kolom nominal di TransaksiTagihan bernama 'total_tagihan'
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -34,7 +33,7 @@ def list_tagihan():
         MasterPelanggan.alamat,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode,
-        func.sum(TransaksiTagihan.nominal).label('total_nominal'),
+        func.sum(TransaksiTagihan.total_tagihan).label('total_nominal'),
         func.count(TransaksiTagihan.id).label('jumlah_lembar')
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
@@ -51,7 +50,7 @@ def list_tagihan():
     if pcez_filter:
         query = query.filter(MasterPelanggan.pcez == pcez_filter)
 
-    # Group By wajib mencakup semua kolom non-agregat (Wajib untuk PostgreSQL)
+    # Group By wajib mencakup semua kolom non-agregat (Standar ketat PostgreSQL)
     results = query.group_by(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -77,9 +76,9 @@ def summary_stats():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # Hitung Nominal & Lembar (Berdasarkan nominal sesuai models.py)
+    # Hitung Nominal & Lembar
     stats = db.session.query(
-        func.sum(TransaksiTagihan.nominal), 
+        func.sum(TransaksiTagihan.total_tagihan), 
         func.count(TransaksiTagihan.id)
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan)\
@@ -104,7 +103,7 @@ def summary_stats():
 
 @monitoring_bp.route('/get-filters')
 def get_filters():
-    """API pendukung filter dropdown wilayah (Dinonaktifkan query raw_data untuk kecepatan)."""
+    """API pendukung filter dropdown wilayah."""
     ab = request.args.get('ab', 'AB Sunter')
     kelurahans = db.session.query(MasterPelanggan.kelurahan).filter(MasterPelanggan.ab == ab).distinct().all()
     rayons = db.session.query(MasterPelanggan.rayon).filter(MasterPelanggan.ab == ab).distinct().all()
@@ -133,7 +132,7 @@ def export_monitoring():
         MasterPelanggan.alamat,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode,
-        func.sum(TransaksiTagihan.nominal).label('total_nominal'),
+        func.sum(TransaksiTagihan.total_tagihan).label('total_nominal'),
         func.count(TransaksiTagihan.id).label('jumlah_lembar')
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
