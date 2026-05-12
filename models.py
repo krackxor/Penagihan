@@ -119,6 +119,7 @@ class DataDaily(db.Model):
     __tablename__ = 'data_daily'
     id = db.Column(db.Integer, primary_key=True)
     nomen = db.Column(db.String(50), nullable=False, index=True)
+    periode = db.Column(db.String(10), index=True) # Tambahan: Memudahkan filter by periode
     
     pay_dt = db.Column(db.String(50))
     bill_period = db.Column(db.String(50))
