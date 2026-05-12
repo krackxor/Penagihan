@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, request
 from datetime import datetime, timedelta
 import calendar
 from models import db, TransaksiTagihan, MasterPelanggan, DataMB
-from sqlalchemy import text
 
 daily_bp = Blueprint('daily', __name__)
 
@@ -34,7 +33,7 @@ def index():
         else:
             curr_mon_date = datetime.strptime(periode_input, '%Y-%m')
 
-        # 2. HITUNG BULAN N-1 SECARA DINAMIS (Tidak dipaksa bulan 3 lagi!)
+        # 2. HITUNG BULAN N-1 SECARA DINAMIS
         first_day_curr = curr_mon_date.replace(day=1)
         target_date = first_day_curr - timedelta(days=1)
         
@@ -45,7 +44,14 @@ def index():
         # String Matcher untuk Filter (Dinamis sesuai pilihan user)
         p_target_db = curr_mon_date.strftime('%Y%m')         # e.g. 202604
         p_mb_rek = f"{t_month:02d}{t_year}"                  # e.g. 032026
-        p_bill_period = f"1/{t_month}/{t_year_short}"        # e.g. 1/3/26
+        
+        # VARIANT TANGGAL (Mengatasi 01/03/2026 vs 1/3/26)
+        date_variants = [
+            f"{t_month}/{t_year % 100}",      # 3/26
+            f"{t_month:02d}/{t_year % 100}",   # 03/26
+            f"{t_month}/{t_year}",            # 3/2026
+            f"{t_month:02d}/{t_year}"          # 03/2026
+        ]
 
         # ==========================================
         # 3. PROSES TARGET (MC - MASTER CETAK)
@@ -62,9 +68,10 @@ def index():
         mc_nominal_map = {} 
 
         for nomen, nom, raw_cid, cid_cc in mc_query:
-            # Filter Longgar: R, REG, atau REGULAR
+            # Karena sudah distandarisasi di importer.py, kita cukup cek 'REGULAR'
+            # Namun, kita tetap menggunakan filter longgar untuk keamanan
             tipe = str(get_val(raw_cid, ['CUST_TYPE', 'TypeCust1', 'TIPEPLGGN', 'tipeplggn'])).upper()
-            if 'R' == tipe or 'REG' in tipe:
+            if tipe == 'R' or 'REG' in tipe:
                 cc = str(cid_cc or "").strip()
                 val = float(nom or 0)
                 nomen_key = str(nomen).strip()
@@ -83,7 +90,6 @@ def index():
         # ==========================================
         # 4. CEK APAKAH DATA ADA?
         # ==========================================
-        # Jika total target masih 0, artinya user belum upload MC untuk periode ini.
         data_tersedia = True if targets['total']['count'] > 0 else False
 
         # ==========================================
@@ -125,7 +131,10 @@ def index():
                 b_type = get_val(raw_mb, ['BILL_TYPE', 'BillType']).upper()
                 t_cust = get_val(raw_mb, ['TypeCust1', 'TYPE_CUST_1', 'CUST_TYPE']).upper()
 
-                if p_bill_period in b_period and 'WATER' in b_type and ('REG' in t_cust or 'R' == t_cust):
+                # Cek apakah Bill Period mengandung salah satu varian tanggal yang diizinkan
+                match_period = any(v in b_period for v in date_variants)
+
+                if match_period and 'WATER' in b_type and ('REG' in t_cust or 'R' == t_cust):
                     if dt_bayar.month == curr_mon_date.month:
                         val_mc = mc_nominal_map.get(nomen_key, 0)
                         if val_mc > 0:
@@ -175,7 +184,7 @@ def index():
                                targets=targets, 
                                undue=undue, 
                                current=current_total,
-                               data_ready=data_tersedia) # Kirim status ke template
+                               data_ready=data_tersedia) 
 
     except Exception as e:
         import traceback
