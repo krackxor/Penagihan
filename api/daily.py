@@ -1,15 +1,14 @@
 from flask import Blueprint, render_template, request
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
-
-# Import sesuai struktur proyek
 from models import db, TransaksiTagihan, MasterPelanggan, DataMB
+from sqlalchemy import text
 
 daily_bp = Blueprint('daily', __name__)
 
-# --- FUNGSI HELPER AMAN ---
+# --- FUNGSI HELPER ---
 def get_val(data, keys):
-    """Mencari nilai di JSON tanpa peduli huruf besar atau kecil (Anti-0)"""
+    """Mencari nilai di JSON (JSONB Support) tanpa case sensitive"""
     if not data or not isinstance(data, dict): return ""
     for k in keys:
         for option in [k, k.upper(), k.lower(), k.capitalize()]:
@@ -19,19 +18,18 @@ def get_val(data, keys):
     return ""
 
 def safe_month_math(date_obj, minus_months):
-    """Mundur X bulan secara aman dari date_obj"""
-    m = date_obj.month - minus_months
-    y = date_obj.year
-    while m < 1:
-        m += 12
-        y -= 1
-    return date_obj.replace(year=y, month=m, day=1)
+    """Logika mundur bulan untuk menentukan target (N-1)"""
+    first_of_current = date_obj.replace(day=1)
+    target_date = first_of_current - timedelta(days=1)
+    # Jika butuh mundur lebih dari 1 bulan, bisa di-loop, tapi di sini cukup 1
+    return target_date
 
 def parse_db_date(date_str):
-    """Menerjemahkan string tanggal dari database secara luwes"""
+    """Parsing tanggal bayar secara cerdas dari berbagai format database"""
     if not date_str: return None
     s = str(date_str).strip()
-    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%Y%m%d'):
+    # Prioritas format: ISO, Indo, atau Compact
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y%m%d', '%d-%m-%Y'):
         try: return datetime.strptime(s[:10], fmt)
         except: continue
     return None
@@ -43,19 +41,17 @@ def index():
         periode_input = request.args.get('periode') 
         curr_mon_date = datetime.strptime(periode_input, '%Y-%m') if periode_input else datetime.now()
 
-        # Logika Periode (N-1)
+        # Logika Target Periode (N-1)
         target_date = safe_month_math(curr_mon_date, 1)
         t_month, t_year = target_date.month, target_date.year
         
-        # Format String Filter 
-        p_mc = target_date.strftime('%Y%m')                  # YYYYMM (e.g. 202603)
-        p_mb_rek = f"{t_month:02d}{t_year}"                  # MMYYYY (e.g. 032026)
-        p_bill_period = f"01/{t_month:02d}/{t_year}"         # 01/MM/YYYY (e.g. 01/03/2026)
+        # Format Filter Database
+        p_mc = target_date.strftime('%Y%m')                  # e.g. 202604
+        p_mb_rek = f"{t_month:02d}{t_year}"                  # e.g. 042026
+        p_bill_period = f"01/{t_month:02d}/{t_year}"          # e.g. 01/04/2026
 
         # ==========================================
-        # 2. PROSES MC (MASTER CETAK) - TARGET
-        # Filter: CUST_TYPE = 'R'
-        # Unit: 34/35 dari CC di CID
+        # 2. PROSES TARGET (MC - MASTER CETAK)
         # ==========================================
         mc_query = db.session.query(
             TransaksiTagihan.nomen,
@@ -65,12 +61,12 @@ def index():
          .filter(TransaksiTagihan.periode == p_mc).all()
 
         targets = {'34': {'rp': 0, 'count': 0}, '35': {'rp': 0, 'count': 0}, 'total': {'rp': 0, 'count': 0}}
-        mc_nominal_map = {} # Kamus untuk Daily (Nominal harus dari MC)
+        mc_nominal_map = {} # Kunci performa: Map Nomen -> Nominal
 
         for nomen, nom, raw_cid in mc_query:
-            # Filter CUST_TYPE = 'R'
+            # Filter hanya tipe Regular (R)
             if get_val(raw_cid, ['CUST_TYPE', 'TypeCust']) == 'R':
-                cc = get_val(raw_cid, ['CC'])
+                cc = get_val(raw_cid, ['CC', 'Cc'])
                 unit = '34' if '34' in cc else '35'
                 val = float(nom or 0)
                 
@@ -79,14 +75,14 @@ def index():
                 targets['total']['rp'] += val
                 targets['total']['count'] += 1
                 
-                # Simpan nominal MC untuk referensi Daily nanti
+                # Simpan di map untuk lookup MB nanti
                 mc_nominal_map[str(nomen).strip()] = val
 
         # ==========================================
-        # 3. PROSES MB (UNDUE) 
-        # Filter: BULAN_REK = MMYYYY & Tgl Bayar di bulan yang sama
+        # 3. PROSES REALISASI (MB - MASTER BAYAR)
         # ==========================================
-        mb_undue_query = db.session.query(
+        # Ambil data MB yang relevan dengan periode target
+        mb_query = db.session.query(
             DataMB.nomen,
             DataMB.nominal,
             DataMB.tgl_bayar,
@@ -95,73 +91,73 @@ def index():
         ).join(MasterPelanggan, DataMB.nomen == MasterPelanggan.nomen).all()
 
         undue = {'34': {'rp': 0, 'count': 0}, '35': {'rp': 0, 'count': 0}, 'total': {'rp': 0, 'count': 0}}
-        
-        # Penampung data harian (Current)
-        current_total = {'34': 0, '35': 0, 'total': 0}
         daily_map = {i: {'34': {'cust': 0, 'rp': 0}, '35': {'cust': 0, 'rp': 0}} for i in range(1, 32)}
+        current_total = {'34': 0, '35': 0, 'total': 0}
 
-        for nomen_mb, nom_mb, tgl, raw_mb, raw_cid in mb_undue_query:
+        for nomen_mb, nom_mb, tgl, raw_mb, raw_cid in mb_query:
             nomen_key = str(nomen_mb).strip()
-            cc = get_val(raw_cid, ['CC'])
+            cc = get_val(raw_cid, ['CC', 'Cc'])
             unit = '34' if '34' in cc else '35'
             dt_bayar = parse_db_date(tgl)
             if not dt_bayar: continue
 
-            # LOGIKA UNDUE (Bayar di bulan N-1)
-            b_rek = get_val(raw_mb, ['BULAN_REK'])
-            if b_rek == p_mb_rek and dt_bayar.month == t_month and dt_bayar.year == t_year:
+            # A. LOGIKA UNDUE (Bayar di bulan N-1 atau sebelumnya untuk periode ini)
+            b_rek = get_val(raw_mb, ['BULAN_REK', 'BulanRek'])
+            if b_rek == p_mb_rek and dt_bayar < curr_mon_date.replace(day=1):
                 val = float(nom_mb or 0)
                 undue[unit]['rp'] += val
                 undue[unit]['count'] += 1
                 undue['total']['rp'] += val
                 undue['total']['count'] += 1
 
-            # LOGIKA DAILY (Bayar di bulan N)
-            b_period = get_val(raw_mb, ['BILL_PERIOD'])
-            b_type = get_val(raw_mb, ['BILL_TYPE'])
-            t_cust = get_val(raw_mb, ['TypeCust1'])
+            # B. LOGIKA DAILY COLLECTION (Bayar di bulan berjalan (N) untuk periode N-1)
+            b_period = get_val(raw_mb, ['BILL_PERIOD', 'BillPeriod'])
+            b_type = get_val(raw_mb, ['BILL_TYPE', 'BillType'])
+            t_cust = get_val(raw_mb, ['TypeCust1', 'TYPE_CUST_1'])
 
-            if b_period == p_bill_period and b_type == 'WATER' and t_cust == 'REGULAR':
+            # Filter Standar: Water & Regular
+            if b_period == p_bill_period and (not b_type or 'WATER' in b_type.upper()) and (not t_cust or 'REGULAR' in t_cust.upper()):
                 if dt_bayar.month == curr_mon_date.month and dt_bayar.year == curr_mon_date.year:
-                    # AMBIL NOMINAL DARI MASTER CETAK (MC)
-                    val_mc = mc_nominal_map.get(nomen_key, 0)
+                    # Ambil nominal ASLI dari MC (untuk akurasi % Collection)
+                    val_mc = mc_nominal_map.get(nomen_key, float(nom_mb or 0))
                     
                     current_total[unit] += val_mc
                     current_total['total'] += val_mc
                     
                     d = dt_bayar.day
-                    daily_map[d][unit]['cust'] += 1
-                    daily_map[d][unit]['rp'] += val_mc
+                    if d in daily_map:
+                        daily_map[d][unit]['cust'] += 1
+                        daily_map[d][unit]['rp'] += val_mc
 
         # ==========================================
-        # 4. RANGKAI DATA UNTUK TABEL
+        # 4. FINALISASI DATA TABEL (KUMULATIF)
         # ==========================================
         table_data = []
-        kum_now = {'34': 0, '35': 0, 'total': 0}
-        last_day = calendar.monthrange(curr_mon_date.year, curr_mon_date.month)[1]
+        kum = {'34': 0, '35': 0, 'total': 0}
+        _, last_day = calendar.monthrange(curr_mon_date.year, curr_mon_date.month)
 
         for d in range(1, last_day + 1):
-            r34_n, r35_n = daily_map[d]['34'], daily_map[d]['35']
-            kum_now['34'] += r34_n['rp']
-            kum_now['35'] += r35_n['rp']
-            kum_now['total'] += (r34_n['rp'] + r35_n['rp'])
+            d34, d35 = daily_map[d]['34'], daily_map[d]['35']
+            kum['34'] += d34['rp']
+            kum['35'] += d35['rp']
+            kum['total'] += (d34['rp'] + d35['rp'])
 
-            def calc_ratio(k_val, u_val, t_val):
-                return (k_val + u_val) / t_val if t_val > 0 else 0
+            def get_coll(k_val, u_val, t_val):
+                return ((k_val + u_val) / t_val * 100) if t_val > 0 else 0
 
             table_data.append({
                 'tgl': f"{d:02d}",
-                'u34_cust': r34_n['cust'], 'u34_rp': r34_n['rp'], 'u34_kum': kum_now['34'], 
-                'u34_coll': calc_ratio(kum_now['34'], undue['34']['rp'], targets['34']['rp']),
-                'u34_coll_mar': 0, # Placeholder
+                'u34_cust': d34['cust'], 'u34_rp': d34['rp'], 'u34_kum': kum['34'], 
+                'u34_coll': get_coll(kum['34'], undue['34']['rp'], targets['34']['rp']),
+                'u34_coll_mar': 0, # Diisi jika ada data pembanding tahun lalu
                 
-                'u35_cust': r35_n['cust'], 'u35_rp': r35_n['rp'], 'u35_kum': kum_now['35'], 
-                'u35_coll': calc_ratio(kum_now['35'], undue['35']['rp'], targets['35']['rp']),
+                'u35_cust': d35['cust'], 'u35_rp': d35['rp'], 'u35_kum': kum['35'], 
+                'u35_coll': get_coll(kum['35'], undue['35']['rp'], targets['35']['rp']),
                 'u35_coll_mar': 0,
                 
-                'tot_cust': r34_n['cust'] + r35_n['cust'],
-                'tot_rp': r34_n['rp'] + r35_n['rp'],
-                'tot_coll': calc_ratio(kum_now['total'], undue['total']['rp'], targets['total']['rp']),
+                'tot_cust': d34['cust'] + d35['cust'],
+                'tot_rp': d34['rp'] + d35['rp'],
+                'tot_coll': get_coll(kum['total'], undue['total']['rp'], targets['total']['rp']),
                 'tot_coll_mar': 0, 'var_tot': 0
             })
 
@@ -176,4 +172,4 @@ def index():
 
     except Exception as e:
         import traceback
-        return f"<div style='background:#0f172a;color:#ef4444;padding:20px;font-family:monospace;border-radius:10px'><h3>[500_LOGIC_ERROR]</h3><pre>{traceback.format_exc()}</pre></div>", 500
+        return f"<div style='background:#0f172a;color:#ef4444;padding:20px;font-family:monospace;border-radius:10px'><h3>[V18_CALC_ERROR]</h3><pre>{traceback.format_exc()}</pre></div>", 500
