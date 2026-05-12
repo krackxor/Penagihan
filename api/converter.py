@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 from PIL import Image, ImageOps
 from pdf2docx import Converter
 
-# Inisialisasi Blueprint untuk modul Converter
+# Inisialisasi Blueprint
 converter_bp = Blueprint('converter', __name__)
 
 @converter_bp.route('/')
@@ -18,33 +18,30 @@ def converter_page():
 
 @converter_bp.route('/pdf-to-word', methods=['POST'])
 def pdf_to_word():
-    """Konversi file PDF ke Word (.docx) dengan Auto-Cleanup"""
+    """Konversi file PDF ke Word (.docx) dengan Protokol Pembersihan Instan"""
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
     
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({"status": "error", "message": "Tidak ada file yang dipilih"}), 400
-        
-    if not file.filename.lower().endswith('.pdf'):
-        return jsonify({"status": "error", "message": "Format harus .pdf!"}), 400
+    if file.filename == '' or not file.filename.lower().endswith('.pdf'):
+        return jsonify({"status": "error", "message": "Harap unggah file berformat .pdf!"}), 400
     
-    # Buat folder sementara untuk proses konversi
+    # Gunakan folder sementara yang aman
     temp_dir = tempfile.mkdtemp()
     try:
-        safe_filename = secure_filename(file.filename)
-        pdf_path = os.path.join(temp_dir, safe_filename)
-        docx_filename = safe_filename.rsplit('.', 1)[0] + "_Sinergi.docx"
-        docx_path = os.path.join(temp_dir, docx_filename)
+        safe_name = secure_filename(file.filename)
+        pdf_path = os.path.join(temp_dir, safe_name)
+        docx_name = safe_name.rsplit('.', 1)[0] + "_Sinergi.docx"
+        docx_path = os.path.join(temp_dir, docx_name)
         
         file.save(pdf_path)
         
-        # Eksekusi konversi
+        # Eksekusi Mesin Konversi
         cv = Converter(pdf_path)
-        cv.convert(docx_path)
+        cv.convert(docx_path, start=0, multi_processing=True)
         cv.close()
         
-        # Baca hasil ke memori agar folder bisa langsung dihapus
+        # Stream file langsung ke memori (BytesIO)
         return_data = io.BytesIO()
         with open(docx_path, 'rb') as f:
             return_data.write(f.read())
@@ -53,44 +50,41 @@ def pdf_to_word():
         return send_file(
             return_data, 
             as_attachment=True, 
-            download_name=docx_filename,
+            download_name=docx_name,
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Gagal konversi PDF ke Word: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"Kegagalan Konversi PDF: {str(e)}"}), 500
     finally:
-        # HAPUS SAMPAH: Bersihkan folder temporary secara total
+        # PENGHANCUR SAMPAH: Hapus seluruh folder temp
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 @converter_bp.route('/word-to-pdf', methods=['POST'])
 def word_to_pdf():
-    """Konversi file Word (.docx / .doc) ke PDF menggunakan LibreOffice (Headless)"""
+    """Konversi file Word ke PDF menggunakan Headless LibreOffice"""
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
         
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({"status": "error", "message": "Tidak ada file yang dipilih"}), 400
-        
     if not file.filename.lower().endswith(('.docx', '.doc')):
         return jsonify({"status": "error", "message": "Format harus .docx atau .doc!"}), 400
     
     temp_dir = tempfile.mkdtemp()
     try:
-        safe_filename = secure_filename(file.filename)
-        docx_path = os.path.join(temp_dir, safe_filename)
+        safe_name = secure_filename(file.filename)
+        docx_path = os.path.join(temp_dir, safe_name)
         file.save(docx_path)
         
-        # Jalankan LibreOffice Headless
+        # Jalankan LibreOffice Headless (Pastikan apt-get install libreoffice sudah ada di Dockerfile)
+        # Kami menggunakan '--nodefault' dan '--nofirststartwizard' agar lebih ringan
         subprocess.run([
-            'libreoffice', '--headless', '--convert-to', 'pdf', docx_path, '--outdir', temp_dir
-        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            'libreoffice', '--headless', '--invisible', '--nodefault', 
+            '--convert-to', 'pdf', docx_path, '--outdir', temp_dir
+        ], check=True, timeout=60) # Timeout 60 detik untuk file besar
         
-        pdf_filename = safe_filename.rsplit('.', 1)[0] + ".pdf"
-        pdf_path = os.path.join(temp_dir, pdf_filename)
-        final_pdf_name = safe_filename.rsplit('.', 1)[0] + "_Sinergi.pdf"
+        pdf_name = safe_name.rsplit('.', 1)[0] + ".pdf"
+        pdf_path = os.path.join(temp_dir, pdf_name)
         
-        # Baca hasil ke memori
         return_data = io.BytesIO()
         with open(pdf_path, 'rb') as f:
             return_data.write(f.read())
@@ -99,50 +93,46 @@ def word_to_pdf():
         return send_file(
             return_data, 
             as_attachment=True, 
-            download_name=final_pdf_name,
+            download_name=f"{safe_name.rsplit('.', 1)[0]}_Sinergi.pdf",
             mimetype='application/pdf'
         )
     except Exception as e:
-        return jsonify({"status": "error", "message": "Gagal memproses dengan LibreOffice. Pastikan LibreOffice terinstall di Docker."}), 500
+        return jsonify({"status": "error", "message": "Gagal memproses Word ke PDF. Pastikan LibreOffice terpasang di sistem."}), 500
     finally:
-        # HAPUS SAMPAH
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 @converter_bp.route('/image-to-pdf', methods=['POST'])
 def image_to_pdf():
-    """Konversi Gambar ke PDF murni di dalam RAM (Tanpa SSD)"""
+    """Konversi Gambar ke PDF murni di dalam RAM (Zero-Disk Usage)"""
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "File tidak ditemukan"}), 400
         
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({"status": "error", "message": "Tidak ada file yang dipilih"}), 400
-        
     if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-        return jsonify({"status": "error", "message": "Format harus gambar!"}), 400
+        return jsonify({"status": "error", "message": "Format file tidak didukung!"}), 400
     
     try:
-        # Buka gambar dan perbaiki rotasi otomatis (EXIF)
+        # Load gambar ke Pillow langsung dari stream Flask
         img = Image.open(file.stream)
+        
+        # Koreksi Orientasi Otomatis (Cegah gambar miring dari HP)
         img = ImageOps.exif_transpose(img)
         
-        # Wajib ke RGB untuk PDF
-        if img.mode != "RGB":
+        # Konversi ke RGB (PENTING: PDF tidak mendukung mode RGBA/Transparency)
+        if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
             
-        # Simpan ke stream RAM
         pdf_io = io.BytesIO()
-        img.save(pdf_io, "PDF", resolution=100.0)
+        # Simpan sebagai PDF ke RAM dengan kualitas optimal
+        img.save(pdf_io, "PDF", resolution=100.0, save_all=True)
         pdf_io.seek(0)
         
-        safe_filename = secure_filename(file.filename)
-        pdf_filename = safe_filename.rsplit('.', 1)[0] + "_Sinergi.pdf"
-        
+        safe_name = secure_filename(file.filename)
         return send_file(
             pdf_io, 
             as_attachment=True, 
-            download_name=pdf_filename,
+            download_name=f"{safe_name.rsplit('.', 1)[0]}_Sinergi.pdf",
             mimetype='application/pdf'
         )
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Gagal konversi gambar ke PDF: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"Gagal konversi gambar: {str(e)}"}), 500
