@@ -24,10 +24,8 @@ class MasterPelanggan(db.Model):
     """Tabel Induk Pelanggan: Data permanen dari CID (Jalur Cepat 28 Kolom + JSONB)."""
     __tablename__ = 'master_pelanggan'
     
-    # Kunci Utama (Diperbesar ke 50 agar aman dari ID panjang)
     nomen = db.Column(db.String(50), primary_key=True) 
     
-    # Identitas & Status
     norek = db.Column(db.String(50))
     nama = db.Column(db.String(150))
     status = db.Column(db.String(50))
@@ -35,14 +33,12 @@ class MasterPelanggan(db.Model):
     custclass = db.Column(db.String(100))
     tarif = db.Column(db.String(20))
     
-    # Lokasi & Wilayah
     alamat = db.Column(db.Text)
     kodepos = db.Column(db.String(10))
     kelurahan = db.Column(db.String(100), index=True)
     kecamatan = db.Column(db.String(100))
     kota = db.Column(db.String(100))
     
-    # Pengelompokan Area
     ab = db.Column(db.String(50), default='AB Sunter', index=True)
     regional = db.Column(db.String(50))
     cc = db.Column(db.String(20))
@@ -52,11 +48,9 @@ class MasterPelanggan(db.Model):
     rayon = db.Column(db.String(50), index=True)
     cycle = db.Column(db.String(20))
     
-    # Data Meter
     merk = db.Column(db.String(50))
     serial = db.Column(db.String(100))
     
-    # Kontak & Koordinat
     hp = db.Column(db.String(50))
     tlp = db.Column(db.String(50))
     wa = db.Column(db.String(50))
@@ -65,7 +59,6 @@ class MasterPelanggan(db.Model):
     latitude = db.Column(db.String(50))
     longitude = db.Column(db.String(50))
     
-    # Brankas penyimpan 50+ Kolom aslinya
     raw_data = db.Column(JSONB) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -76,20 +69,18 @@ class TransaksiTagihan(db.Model):
     """Tabel Tagihan MC: Menampung rincian tagihan beserta alamat penagihan."""
     __tablename__ = 'transaksi_tagihan'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
-    periode = db.Column(db.String(10), index=True) # YYYYMM
+    # FIX V18: Dibuat Soft-Link agar tidak ikut terhapus saat CID di-truncate
+    nomen = db.Column(db.String(50), index=True)
+    periode = db.Column(db.String(10), index=True) 
     
-    # --- KOLOM JALUR CEPAT MC ---
     alm1_pel = db.Column(db.Text)
     zona_novak = db.Column(db.String(50))
     notagihan = db.Column(db.String(50))
-    total_tagihan = db.Column(db.Float, nullable=False, default=0) # Sebelumnya: nominal
+    total_tagihan = db.Column(db.Float, nullable=False, default=0) 
     
-    # Kolom opsional historis
     sumber = db.Column(db.String(10), index=True, default='MC') 
     status_lunas = db.Column(db.Integer, default=0, index=True) 
     
-    # Gudang Data MC Lengkap
     raw_data = db.Column(JSONB)
 
     __table_args__ = (
@@ -103,11 +94,10 @@ class DataMB(db.Model):
     """Tabel Master Bayar: Rekap pembayaran bulanan pelanggan."""
     __tablename__ = 'data_mb'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
-    periode = db.Column(db.String(10), index=True) # Target Laporan YYYYMM
+    nomen = db.Column(db.String(50), index=True)
+    periode = db.Column(db.String(10), index=True) 
     
-    # --- KOLOM JALUR CEPAT MB ---
-    bulan_rek = db.Column(db.String(20)) # MMYYYY Asli dari file
+    bulan_rek = db.Column(db.String(20)) 
     tgl_bayar = db.Column(db.String(50))
     nominal = db.Column(db.Float, default=0)
     denda = db.Column(db.Float, default=0)
@@ -130,7 +120,6 @@ class DataDaily(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nomen = db.Column(db.String(50), nullable=False, index=True)
     
-    # --- KOLOM JALUR CEPAT DAILY LENGKAP ---
     pay_dt = db.Column(db.String(50))
     bill_period = db.Column(db.String(50))
     pay_amt = db.Column(db.Float, default=0)
@@ -156,10 +145,9 @@ class DataMainbill(db.Model):
     """Tabel MainBill: Semua rincian teknis pembacaan meter masuk Jalur Cepat."""
     __tablename__ = 'data_mainbill'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
-    periode = db.Column(db.String(10), index=True) # Hasil ekstrak END_READ YYYYMM
+    nomen = db.Column(db.String(50), index=True)
+    periode = db.Column(db.String(10), index=True) 
     
-    # --- SEMUA DATA MAINBILL MASUK JALUR CEPAT ---
     jenis_pelanggan = db.Column(db.String(100))
     cc = db.Column(db.String(20))
     pcezbk = db.Column(db.String(20))
@@ -187,10 +175,9 @@ class DataSBRS(db.Model):
     """Tabel Analisa SBRS: Mendukung Denormalisasi Turbo & Zero Data Loss."""
     __tablename__ = 'data_sbrs'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
-    periode = db.Column(db.String(10), nullable=False, index=True) # YYYYMM
+    nomen = db.Column(db.String(50), index=True)
+    periode = db.Column(db.String(10), nullable=False, index=True) 
     
-    # --- KOLOM TURBO ---
     nama = db.Column(db.String(150))
     alamat = db.Column(db.Text)
     pcez = db.Column(db.String(20), index=True)
@@ -201,13 +188,11 @@ class DataSBRS(db.Model):
     
     raw_data = db.Column(JSONB) 
     
-    # --- DATA KONSUMSI ---
     stand_meter = db.Column(db.Float, default=0)
     bulan_ini = db.Column(db.Float, default=0)
     rata_rata = db.Column(db.Float, default=15)
     kategori_anomali = db.Column(db.String(50), index=True)
     
-    # --- FITUR AUDIT LAPANGAN ---
     status_audit = db.Column(db.Integer, default=0, index=True)
     tgl_audit = db.Column(db.DateTime)
     catatan_lapangan = db.Column(db.Text)
@@ -227,7 +212,7 @@ class DataArrdebt(db.Model):
     """Tabel Tunggakan: Menyimpan data tunggakan (Arrears Debt) historis."""
     __tablename__ = 'data_arrdebt'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
+    nomen = db.Column(db.String(50), index=True)
     periode = db.Column(db.String(10), index=True)
     nominal = db.Column(db.Float)
     
@@ -245,7 +230,7 @@ class AnalisaAuditor(db.Model):
     """Tabel Riwayat Kunjungan Petugas Lapangan."""
     __tablename__ = 'analisa_auditor'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
+    nomen = db.Column(db.String(50), index=True)
     hasil_kunjungan = db.Column(db.String(100), index=True)
     foto_bukti = db.Column(db.String(255))
     tgl_janji_bayar = db.Column(db.Date)
