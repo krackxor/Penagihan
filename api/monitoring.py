@@ -15,13 +15,16 @@ def get_current_periode():
 @monitoring_bp.route('/')
 def list_tagihan():
     """Halaman Utama Monitoring dengan Fix Explicit Join & Optimasi V18."""
-    ab_filter = request.args.get('ab', 'AB Sunter')
+    ab_filter = request.args.get('ab', 'all')
     rayon_filter = request.args.get('rayon')
     kel_filter = request.args.get('kelurahan')
     pcez_filter = request.args.get('pcez')
     
     periode_raw = request.args.get('periode')
-    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+    if not periode_raw or periode_raw.lower() == 'all':
+        periode_filter = 'all'
+    else:
+        periode_filter = periode_raw.replace('-', '')
     
     # KUNCI V18: Kolom nominal di TransaksiTagihan bernama 'total_tagihan'
     query = db.session.query(
@@ -38,9 +41,12 @@ def list_tagihan():
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
-     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_filter)
+     .filter(TransaksiTagihan.status_lunas == 0)
 
-    # --- Eksekusi Filter Dropdown ---
+    # --- Eksekusi Filter ---
+    if periode_filter != 'all':
+        query = query.filter(TransaksiTagihan.periode == periode_filter)
+        
     if ab_filter != 'all':
         query = query.filter(MasterPelanggan.ab == ab_filter)
     if rayon_filter:
@@ -62,51 +68,75 @@ def list_tagihan():
         TransaksiTagihan.periode
     ).order_by(desc('total_nominal')).all()
 
+    # LOGIKA DATA READY: Jika hasil query kosong
+    data_ready = True if results else False
+
     return render_template('monitoring.html', 
                            data=results, 
                            current_ab=ab_filter,
                            current_rayon=rayon_filter,
                            current_kel=kel_filter,
-                           periode_aktif=periode_filter)
+                           periode_aktif=periode_filter,
+                           data_ready=data_ready)
 
 @monitoring_bp.route('/summary')
 def summary_stats():
     """API Summary untuk Widget Dashboard dengan Explicit JOIN."""
-    ab = request.args.get('ab', 'AB Sunter')
+    ab = request.args.get('ab', 'all')
     periode_raw = request.args.get('periode')
-    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+    if not periode_raw or periode_raw.lower() == 'all':
+        periode_filter = 'all'
+    else:
+        periode_filter = periode_raw.replace('-', '')
     
-    # Hitung Nominal & Lembar (Ditambah Explicit JOIN agar SQLAlchemy tidak bingung)
-    stats = db.session.query(
+    # Hitung Nominal & Lembar
+    query_stats = db.session.query(
         func.sum(TransaksiTagihan.total_tagihan), 
         func.count(TransaksiTagihan.id)
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
-     .filter(MasterPelanggan.ab == ab if ab != 'all' else True, 
-             TransaksiTagihan.periode == periode_filter, 
-             TransaksiTagihan.status_lunas == 0).first()
+     .filter(TransaksiTagihan.status_lunas == 0)
 
-    # Hitung Pelanggan Unik (Nomen)
-    total_plg = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
+    # Hitung Pelanggan Unik
+    query_plg = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
                   .select_from(TransaksiTagihan)\
                   .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
-                  .filter(MasterPelanggan.ab == ab if ab != 'all' else True, 
-                          TransaksiTagihan.periode == periode_filter, 
-                          TransaksiTagihan.status_lunas == 0).scalar() or 0
+                  .filter(TransaksiTagihan.status_lunas == 0)
+
+    # Filter Wilayah dan Periode
+    if ab != 'all':
+        query_stats = query_stats.filter(MasterPelanggan.ab == ab)
+        query_plg = query_plg.filter(MasterPelanggan.ab == ab)
+        
+    if periode_filter != 'all':
+        query_stats = query_stats.filter(TransaksiTagihan.periode == periode_filter)
+        query_plg = query_plg.filter(TransaksiTagihan.periode == periode_filter)
+
+    stats = query_stats.first()
+    total_plg = query_plg.scalar() or 0
                    
     return jsonify({
         "total_nominal": float(stats[0] or 0),
         "total_lembar": stats[1] or 0,
         "total_pelanggan": total_plg,
-        "periode_text": periode_filter
+        "periode_text": periode_filter,
+        "data_exists": True if total_plg > 0 else False
     })
 
 @monitoring_bp.route('/get-filters')
 def get_filters():
     """API pendukung filter dropdown wilayah."""
     ab = request.args.get('ab', 'AB Sunter')
-    kelurahans = db.session.query(MasterPelanggan.kelurahan).filter(MasterPelanggan.ab == ab).distinct().all()
-    rayons = db.session.query(MasterPelanggan.rayon).filter(MasterPelanggan.ab == ab).distinct().all()
+    
+    query_kel = db.session.query(MasterPelanggan.kelurahan).distinct()
+    query_ray = db.session.query(MasterPelanggan.rayon).distinct()
+    
+    if ab != 'all':
+        query_kel = query_kel.filter(MasterPelanggan.ab == ab)
+        query_ray = query_ray.filter(MasterPelanggan.ab == ab)
+
+    kelurahans = query_kel.all()
+    rayons = query_ray.all()
     
     return jsonify({
         "kelurahan": [k[0] for k in kelurahans if k[0]],
@@ -116,12 +146,16 @@ def get_filters():
 @monitoring_bp.route('/export')
 def export_monitoring():
     """Fitur Export Menggunakan POLARS (Dilengkapi Proteksi Data Kosong)"""
-    ab_filter = request.args.get('ab', 'AB Sunter')
+    ab_filter = request.args.get('ab', 'all')
     rayon_filter = request.args.get('rayon')
     kel_filter = request.args.get('kelurahan')
     pcez_filter = request.args.get('pcez')
+    
     periode_raw = request.args.get('periode')
-    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+    if not periode_raw or periode_raw.lower() == 'all':
+        periode_filter = 'all'
+    else:
+        periode_filter = periode_raw.replace('-', '')
 
     query = db.session.query(
         TransaksiTagihan.nomen,
@@ -137,12 +171,18 @@ def export_monitoring():
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
-     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_filter)
+     .filter(TransaksiTagihan.status_lunas == 0)
 
-    if ab_filter != 'all': query = query.filter(MasterPelanggan.ab == ab_filter)
-    if rayon_filter: query = query.filter(MasterPelanggan.rayon == rayon_filter)
-    if kel_filter: query = query.filter(MasterPelanggan.kelurahan == kel_filter)
-    if pcez_filter: query = query.filter(MasterPelanggan.pcez == pcez_filter)
+    if periode_filter != 'all':
+        query = query.filter(TransaksiTagihan.periode == periode_filter)
+    if ab_filter != 'all': 
+        query = query.filter(MasterPelanggan.ab == ab_filter)
+    if rayon_filter: 
+        query = query.filter(MasterPelanggan.rayon == rayon_filter)
+    if kel_filter: 
+        query = query.filter(MasterPelanggan.kelurahan == kel_filter)
+    if pcez_filter: 
+        query = query.filter(MasterPelanggan.pcez == pcez_filter)
 
     results = query.group_by(
         TransaksiTagihan.nomen, MasterPelanggan.nama, MasterPelanggan.pcez,
@@ -162,7 +202,7 @@ def export_monitoring():
             "PCEZ": r.pcez,
             "Nama Petugas": r.nama_petugas or "Belum Diatur",
             "Periode": r.periode,
-            "Total Tagihan (Rp)": r.total_nominal,
+            "Total Tagihan (Rp)": float(r.total_nominal or 0),
             "Jumlah Lembar": r.jumlah_lembar
         })
 
