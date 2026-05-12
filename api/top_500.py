@@ -16,19 +16,18 @@ def get_current_periode():
 def index():
     """
     Rute Utama Top 500 Tunggakan (Terintegrasi dengan Sinergi V18).
-    Menggunakan Explicit Join murni, tanpa menarik raw_data (JSONB) agar loading super cepat.
     """
-    # 1. Ambil Parameter Filter dari URL (Default: 'all')
+    # 1. Ambil Parameter Filter
     ab_filter = request.args.get('ab', 'all')
     periode_raw = request.args.get('periode') 
     
-    # 2. Pembersihan Format Periode Dinamis
+    # 2. Penentuan Periode (Dinamis, tidak dipaksa jika user ingin melihat semua)
     if not periode_raw or periode_raw.lower() == 'all':
         periode_bersih = 'all'
     else:
         periode_bersih = periode_raw.replace('-', '')
 
-    # 3. Query Data dengan Trik Explicit JOIN & Filter Petugas TAGIHAN
+    # 3. Query Dasar
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -42,14 +41,14 @@ def index():
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
      .filter(TransaksiTagihan.status_lunas == 0)
     
-    # 4. Terapkan Filter Dinamis
+    # 4. Terapkan Filter Periode & Wilayah Secara Ketat
     if periode_bersih != 'all':
         query = query.filter(TransaksiTagihan.periode == periode_bersih)
         
     if ab_filter != 'all':
         query = query.filter(MasterPelanggan.ab == ab_filter)
 
-    # 5. Group By & Order By
+    # 5. Eksekusi Query
     results = query.group_by(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -59,20 +58,22 @@ def index():
         TransaksiTagihan.periode
     ).order_by(desc('total_nominal')).limit(500).all()
 
-    # 6. Render ke Template
+    # 6. LOGIKA "DATA READY": Cek apakah ada data yang ditemukan?
+    # Jika hasil query kosong, maka data_ready = False
+    data_ready = True if results else False
+
+    # 7. Render ke Template dengan Flag data_ready
     return render_template(
         'top_500.html', 
         data=results, 
         current_ab=ab_filter, 
-        periode_aktif=periode_bersih
+        periode_aktif=periode_bersih,
+        data_ready=data_ready
     )
 
 @top_500_bp.route('/api/stats')
 def api_stats():
-    """
-    Rute tambahan (API JSON) untuk widget summary Top 500.
-    Menghitung total uang tunggakan dan jumlah pelanggan yang belum lunas.
-    """
+    """Rute API untuk widget summary."""
     ab_filter = request.args.get('ab', 'all')
     periode_raw = request.args.get('periode')
     
@@ -81,43 +82,29 @@ def api_stats():
     else:
         periode_bersih = periode_raw.replace('-', '')
 
-    # Query Base
     total_uang_query = db.session.query(func.sum(TransaksiTagihan.total_tagihan))\
                          .select_from(TransaksiTagihan)\
                          .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
                          .filter(TransaksiTagihan.status_lunas == 0)
 
-    total_pelanggan_query = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
-                              .select_from(TransaksiTagihan)\
-                              .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
-                              .filter(TransaksiTagihan.status_lunas == 0)
-
-    # Terapkan filter dinamis
     if periode_bersih != 'all':
         total_uang_query = total_uang_query.filter(TransaksiTagihan.periode == periode_bersih)
-        total_pelanggan_query = total_pelanggan_query.filter(TransaksiTagihan.periode == periode_bersih)
 
     if ab_filter != 'all':
         total_uang_query = total_uang_query.filter(MasterPelanggan.ab == ab_filter)
-        total_pelanggan_query = total_pelanggan_query.filter(MasterPelanggan.ab == ab_filter)
 
     total_uang = total_uang_query.scalar() or 0
-    total_pelanggan = total_pelanggan_query.scalar() or 0
 
     return jsonify({
         "status": "success",
         "periode": periode_bersih,
-        "wilayah": ab_filter,
-        "total_tunggakan_tercatat": int(total_pelanggan),
-        "total_nominal_rp": float(total_uang)
+        "total_nominal_rp": float(total_uang),
+        "data_exists": True if total_uang > 0 else False
     })
 
 @top_500_bp.route('/export')
 def export_top500():
-    """
-    Export Data Top 500 ke Excel menggunakan Polars Engine!
-    (Terlindungi dari jebakan list kosong)
-    """
+    """Export ke Excel dengan proteksi data kosong."""
     ab_filter = request.args.get('ab', 'all')
     periode_raw = request.args.get('periode') 
     
@@ -150,34 +137,30 @@ def export_top500():
         MasterPelanggan.pcez, MasterPetugas.nama_petugas, TransaksiTagihan.periode
     ).order_by(desc('total_nominal')).limit(500).all()
 
-    # Mapping hasil query ke dalam list dictionary untuk Polars
     data_list = []
-    for rank, r in enumerate(results, start=1):
-        data_list.append({
-            "Peringkat": rank,
-            "Nomen Sinergi": r.nomen,
-            "Nama Pelanggan": r.nama,
-            "Kelurahan": r.kelurahan,
-            "Wilayah PCEZ": r.pcez,
-            "Petugas Lapangan": r.nama_petugas or "Belum Diatur",
-            "Total Tunggakan (Rp)": float(r.total_nominal or 0),
-            "Periode": r.periode
-        })
+    if not results:
+        data_list = [{"Pesan": "Data Belum Tersedia untuk periode/wilayah ini"}]
+    else:
+        for rank, r in enumerate(results, start=1):
+            data_list.append({
+                "Peringkat": rank,
+                "Nomen": r.nomen,
+                "Nama": r.nama,
+                "Kelurahan": r.kelurahan,
+                "PCEZ": r.pcez,
+                "Petugas": r.nama_petugas or "-",
+                "Nominal": float(r.total_nominal or 0),
+                "Periode": r.periode
+            })
 
-    # PROTEKSI V18: Cegah Polars Crash jika data kosong (Tidak ada tunggakan)
-    if not data_list:
-        data_list = [{"Info": "Tidak ada data tunggakan untuk filter wilayah/periode ini"}]
-
-    # Konversi ke Excel menggunakan mesin Polars
     df = pl.DataFrame(data_list)
     output = io.BytesIO()
-    df.write_excel(output, worksheet="Top_500_Pareto")
+    df.write_excel(output)
     output.seek(0)
     
-    nama_file = f"Data_Top_500_{ab_filter}_{periode_bersih}.xlsx"
     return send_file(
         output, 
-        download_name=nama_file, 
+        download_name=f"Top_500_{periode_bersih}.xlsx",
         as_attachment=True, 
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
