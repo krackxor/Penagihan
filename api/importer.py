@@ -11,8 +11,29 @@ from models import db, DataSBRS
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================
-# FUNGSI HELPER UMUM
+# FUNGSI HELPER UMUM & AUTO-SNIFFER (CERDAS)
 # ==========================================
+def detect_separator(filepath, default='|'):
+    """Deteksi otomatis pemisah kolom dengan membaca baris pertama file."""
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            first_line = f.readline()
+            # Hitung kandidat separator
+            counts = {
+                '|': first_line.count('|'),
+                ';': first_line.count(';'),
+                ',': first_line.count(',')
+            }
+            # Cari separator dengan jumlah penggunaan terbanyak di baris pertama
+            best_sep = max(counts, key=counts.get)
+            
+            # Pastikan separator memang ada
+            if counts[best_sep] > 0:
+                return best_sep
+            return default
+    except Exception:
+        return default
+
 def clean_nomen(val):
     """Membersihkan Nomen: Ambil 8 digit angka terakhir, bebas huruf/spasi"""
     if not val or val is None: return None
@@ -66,16 +87,19 @@ def parse_float(val):
         return float(v_str)
     except: return 0.0
 
-def process_mega_file(file, logic_func, chunk_size=20000, sep='|'):
-    """Mesin Polars Batched Reader untuk Hemat RAM (V18 Standard)"""
+def process_mega_file(file, logic_func, chunk_size=20000, default_sep='|'):
+    """Mesin Polars Batched Reader untuk Hemat RAM (V18 Standard) dilengkapi Sniffer"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
     file.save(temp_path)
 
+    # Deteksi pemisah (separator) cerdas secara otomatis
+    smart_sep = detect_separator(temp_path, default=default_sep)
+
     try:
         reader = pl.read_csv_batched(
-            temp_path, separator=sep, infer_schema_length=0, 
+            temp_path, separator=smart_sep, infer_schema_length=0, 
             quote_char='"', batch_size=chunk_size, ignore_errors=True
         )
         total = 0
@@ -137,8 +161,11 @@ def handle_sbrs_upload(file_cust, file_spot):
     cust_temp_path = os.path.join('instance', cust_filename)
     file_cust.save(cust_temp_path)
     
+    # Deteksi pemisah khusus untuk file customer.txt
+    smart_sep_cust = detect_separator(cust_temp_path, default=';')
+
     lookup_cust = {}
-    cust_reader = pl.read_csv_batched(cust_temp_path, separator=';', infer_schema_length=0, quote_char='"', batch_size=50000)
+    cust_reader = pl.read_csv_batched(cust_temp_path, separator=smart_sep_cust, infer_schema_length=0, quote_char='"', batch_size=50000)
     c_batches = cust_reader.next_batches(1)
     
     while c_batches:
@@ -233,7 +260,7 @@ def handle_sbrs_upload(file_cust, file_spot):
             return len(sbrs_entries)
         return 0
 
-    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=20000, sep=';')
+    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=20000, default_sep=';')
     lookup_cust.clear()
     gc.collect()
     return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
@@ -274,7 +301,7 @@ def handle_arrdebt_upload(file_arrdebt):
             
         return len(arr_entries)
 
-    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, sep=';')
+    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, default_sep=';')
     return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan."})
 
 
@@ -344,9 +371,9 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
-    # Bersihkan Data Lama sebelum insert (Karakteristik Master Data)
-    db.session.execute(text("TRUNCATE TABLE master_pelanggan CASCADE"))
-    total = process_mega_file(file_cid, cid_logic, sep='|')
+    # PERHATIAN: Baris TRUNCATE di bawah ini telah DIMATIKAN untuk mencegah error Server Closed Connection.
+    # db.session.execute(text("TRUNCATE TABLE master_pelanggan CASCADE"))
+    total = process_mega_file(file_cid, cid_logic, default_sep='|')
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui (Full 28 Kolom)."})
 
 
@@ -391,7 +418,7 @@ def handle_mc_upload(file_mc):
             return len(mc_entries)
         return 0
 
-    total = process_mega_file(file_mc, mc_logic, sep='|')
+    total = process_mega_file(file_mc, mc_logic, default_sep='|')
     return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 
@@ -439,7 +466,7 @@ def handle_mb_upload(file_mb):
             return len(mb_entries)
         return 0
 
-    total_bayar = process_mega_file(file_mb, mb_logic, sep='|')
+    total_bayar = process_mega_file(file_mb, mb_logic, default_sep='|')
     return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} dilunaskan."})
 
 
@@ -502,7 +529,7 @@ def handle_daily_upload(file_daily):
             return len(mb_entries)
         return 0
 
-    total = process_mega_file(file_daily, daily_logic, sep='|')
+    total = process_mega_file(file_daily, daily_logic, default_sep='|')
     return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} pembayaran disinkronkan ke DB."})
 
 
@@ -563,5 +590,5 @@ def handle_mainbill_upload(file_mainbill):
             return len(mb_entries)
         return 0
 
-    total = process_mega_file(file_mainbill, mainbill_logic, sep='|')
+    total = process_mega_file(file_mainbill, mainbill_logic, default_sep='|')
     return jsonify({"status": "success", "message": f"MainBill Sukses! {total} rincian meter lapangan disimpan."})
