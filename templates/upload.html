@@ -97,7 +97,7 @@
                         </p>
                         
                         <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
+                              hx-on::before-request="showUploadProgressAlert()" hx-on::after-request="handleSyncResponse(event)" 
                               id="formCID" class="mt-auto">
                             <div class="mb-3">
                                 <input type="file" name="file_cid" class="form-control" accept=".txt, .csv" required>
@@ -127,7 +127,7 @@
                         </p>
                         
                         <form hx-post="/api/import/petugas" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
+                              hx-on::before-request="showUploadProgressAlert()" hx-on::after-request="handleSyncResponse(event)" 
                               id="formPetugas" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
@@ -169,7 +169,7 @@
                         </p>
                         
                         <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
+                              hx-on::before-request="showUploadProgressAlert()" hx-on::after-request="handleSyncResponse(event)" 
                               id="formTagihan" class="mt-auto">
                             <div class="row g-2 mb-3">
                                 <div class="col-5">
@@ -213,7 +213,7 @@
                         </p>
                         
                         <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-swap="none"
-                              @htmx:before-request="showUploadProgressAlert()" @htmx:after-request="handleSyncResponse(event)" 
+                              hx-on::before-request="showUploadProgressAlert()" hx-on::after-request="handleSyncResponse(event)" 
                               id="formSBRS" class="mt-auto">
                             <div class="mb-2">
                                 <label class="form-label text-muted" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 2px;">File Customer (.txt)</label>
