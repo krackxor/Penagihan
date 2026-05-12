@@ -93,6 +93,20 @@ def sync_database_schema(app):
                 tagihan_cols = [c['name'] for c in inspector.get_columns('transaksi_tagihan')]
                 tagihan_constraints = [c['name'] for c in inspector.get_unique_constraints('transaksi_tagihan')]
                 
+                # --- OBAT ANTI-ERROR V18 (BAGIAN INI YANG HILANG SEBELUMNYA) ---
+                # Otomatis me-rename kolom 'nominal' menjadi 'total_tagihan' di PostgreSQL
+                if 'nominal' in tagihan_cols and 'total_tagihan' not in tagihan_cols:
+                    try:
+                        conn.execute(text("ALTER TABLE transaksi_tagihan RENAME COLUMN nominal TO total_tagihan;"))
+                        conn.commit()
+                    except Exception as e: 
+                        print(f"Gagal rename kolom nominal: {e}")
+                elif 'total_tagihan' not in tagihan_cols:
+                    try:
+                        conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN total_tagihan FLOAT;"))
+                        conn.commit()
+                    except Exception: pass
+
                 if 'raw_data' not in tagihan_cols:
                     try:
                         conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN raw_data JSONB"))
@@ -109,7 +123,7 @@ def sync_database_schema(app):
                         conn.commit()
                     except Exception: pass
 
-            # --- 4. CREATE: data_mb (Diperbaiki Sinkron dengan importer.py) ---
+            # --- 4. CREATE: data_mb ---
             if 'data_mb' not in tables:
                 try:
                     conn.execute(text("""
@@ -137,7 +151,7 @@ def sync_database_schema(app):
                     conn.commit()
                 except Exception: pass
 
-            # --- 6. CREATE: data_mainbill (Diperbaiki 14 Kolom Jalur Cepat) ---
+            # --- 6. CREATE: data_mainbill (14 Kolom Jalur Cepat) ---
             if 'data_mainbill' not in tables:
                 try:
                     conn.execute(text("""
