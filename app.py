@@ -18,9 +18,8 @@ from api.search import search_bp # Blueprint Global Search
 
 def sync_database_schema(app):
     """
-    Fungsi Sinergi Self-Healing V5.18: Sinkronisasi Multi-Tabel Ekstrem (Anti-Crash).
-    Menjamin tabel CID, SBRS, MC, MB, Arrdebt, dan MainBill 
-    memiliki struktur dan gembok unik yang siap menelan format JSONB.
+    Fungsi Sinergi Self-Healing V5.18: Sinkronisasi Multi-Tabel Ekstrem.
+    Memastikan struktur tabel sinkron 100% dengan mesin Importer Polars.
     """
     with app.app_context():
         inspector = inspect(db.engine)
@@ -49,10 +48,13 @@ def sync_database_schema(app):
                             conn.commit()
                         except Exception: pass
                 
-                # --- OPTIMASI SEARCH: Tambahkan Index agar Pencarian Global < 100ms ---
+                # --- OPTIMASI SEARCH V18: Tambahkan Index agar Pencarian Global < 100ms ---
                 try:
                     conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_nomen ON master_pelanggan (nomen);"))
                     conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_nama ON master_pelanggan (nama);"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_serial ON master_pelanggan (serial);"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_wa ON master_pelanggan (wa);"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_hp ON master_pelanggan (hp);"))
                     conn.commit()
                 except Exception: pass
 
@@ -107,13 +109,14 @@ def sync_database_schema(app):
                         conn.commit()
                     except Exception: pass
 
-            # --- 4. CREATE: data_mb ---
+            # --- 4. CREATE: data_mb (Diperbaiki Sinkron dengan importer.py) ---
             if 'data_mb' not in tables:
                 try:
                     conn.execute(text("""
                         CREATE TABLE data_mb (
                             id SERIAL PRIMARY KEY, nomen VARCHAR(50), periode VARCHAR(10),
-                            tgl_bayar VARCHAR(50), nominal FLOAT, denda FLOAT, lks_bayar VARCHAR(100),
+                            bulan_rek VARCHAR(20), tgl_bayar VARCHAR(50), nominal FLOAT, 
+                            denda FLOAT, lks_bayar VARCHAR(100), notagihan VARCHAR(100),
                             raw_data JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             CONSTRAINT uix_mb_nomen_periode UNIQUE (nomen, periode)
                         )
@@ -134,14 +137,17 @@ def sync_database_schema(app):
                     conn.commit()
                 except Exception: pass
 
-            # --- 6. CREATE: data_mainbill ---
+            # --- 6. CREATE: data_mainbill (Diperbaiki 14 Kolom Jalur Cepat) ---
             if 'data_mainbill' not in tables:
                 try:
                     conn.execute(text("""
                         CREATE TABLE data_mainbill (
                             id SERIAL PRIMARY KEY, nomen VARCHAR(50), periode VARCHAR(10),
-                            total_tagihan FLOAT, konsumsi FLOAT, raw_data JSONB,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            jenis_pelanggan VARCHAR(50), cc VARCHAR(50), pcezbk VARCHAR(50), 
+                            tarif VARCHAR(50), bill_cycle VARCHAR(50), read_method VARCHAR(50), 
+                            konsumsi FLOAT, tagihan_air FLOAT, start_read VARCHAR(50), 
+                            start_read_stan VARCHAR(50), end_read VARCHAR(50), hari_baca VARCHAR(50), 
+                            raw_data JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             CONSTRAINT uix_mainbill_nomen_periode UNIQUE (nomen, periode)
                         )
                     """))
