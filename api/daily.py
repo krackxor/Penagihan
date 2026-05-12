@@ -52,9 +52,10 @@ def index():
         # 2. PROSES TARGET (MC - MASTER CETAK)
         # Filter: CUST_TYPE = 'R', Kategori: 34 & 35
         # ==========================================
+        # PERBAIKAN V18: Menggunakan 'total_tagihan' (Baris ini yang membuat sistem crash sebelumnya)
         mc_query = db.session.query(
             TransaksiTagihan.nomen,
-            TransaksiTagihan.nominal,
+            TransaksiTagihan.total_tagihan,
             MasterPelanggan.raw_data
         ).join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
          .filter(TransaksiTagihan.periode == p_mc).all()
@@ -80,6 +81,7 @@ def index():
         # ==========================================
         # 3. PROSES REALISASI (MB - MASTER BAYAR)
         # ==========================================
+        # Note: Tabel DataMB memang memiliki kolom bernama 'nominal' di app.py, jadi ini aman.
         mb_query = db.session.query(
             DataMB.nomen,
             DataMB.nominal,
