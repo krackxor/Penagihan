@@ -1,11 +1,14 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from sqlalchemy import Index, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB # Penting untuk kontainer 50+ Header
+from sqlalchemy.dialects.postgresql import JSONB
 
 # Inisialisasi database
 db = SQLAlchemy()
 
+# ==========================================================
+# 0. DATABASE PETUGAS
+# ==========================================================
 class MasterPetugas(db.Model):
     """Tabel Petugas: Satu PCEZ bisa punya banyak peran (Tagihan/SBRS)."""
     __tablename__ = 'master_petugas'
@@ -14,52 +17,177 @@ class MasterPetugas(db.Model):
     nama_petugas = db.Column(db.String(100), nullable=False)
     peran = db.Column(db.String(20), index=True) # TAGIHAN, PENCATATAN, SBRS
 
+# ==========================================================
+# 1. DATABASE MASTER PELANGGAN (CID)
+# ==========================================================
 class MasterPelanggan(db.Model):
-    """Tabel Induk Pelanggan: Data permanen dari CID (Dilengkapi JSONB untuk 50 Header)."""
+    """Tabel Induk Pelanggan: Data permanen dari CID (Jalur Cepat 28 Kolom + JSONB)."""
     __tablename__ = 'master_pelanggan'
-    nomen = db.Column(db.String(8), primary_key=True) # PK otomatis Index
-    nama = db.Column(db.String(150))
-    ab = db.Column(db.String(50), default='AB Sunter', index=True)
-    rayon = db.Column(db.String(50), index=True)
-    kelurahan = db.Column(db.String(100), index=True)
-    pcez = db.Column(db.String(20), index=True)
-    alamat = db.Column(db.Text)
-    tarif = db.Column(db.String(20))
-    hp = db.Column(db.String(20))
-    wa = db.Column(db.String(20))
-    latitude = db.Column(db.Float)
-    longitude = db.Column(db.Float)
     
-    # KUNCI SINERGI V18: Brankas penyimpan 50+ Kolom CID
+    # Kunci Utama (Diperbesar ke 50 agar aman dari ID panjang)
+    nomen = db.Column(db.String(50), primary_key=True) 
+    
+    # Identitas & Status
+    norek = db.Column(db.String(50))
+    nama = db.Column(db.String(150))
+    status = db.Column(db.String(50))
+    tipeplggn = db.Column(db.String(50))
+    custclass = db.Column(db.String(100))
+    tarif = db.Column(db.String(20))
+    
+    # Lokasi & Wilayah
+    alamat = db.Column(db.Text)
+    kodepos = db.Column(db.String(10))
+    kelurahan = db.Column(db.String(100), index=True)
+    kecamatan = db.Column(db.String(100))
+    kota = db.Column(db.String(100))
+    
+    # Pengelompokan Area
+    ab = db.Column(db.String(50), default='AB Sunter', index=True)
+    regional = db.Column(db.String(50))
+    cc = db.Column(db.String(20))
+    kode_pa_pc = db.Column(db.String(20))
+    zona_novak = db.Column(db.String(50))
+    pcez = db.Column(db.String(20), index=True)
+    rayon = db.Column(db.String(50), index=True)
+    cycle = db.Column(db.String(20))
+    
+    # Data Meter
+    merk = db.Column(db.String(50))
+    serial = db.Column(db.String(100))
+    
+    # Kontak & Koordinat
+    hp = db.Column(db.String(50))
+    tlp = db.Column(db.String(50))
+    wa = db.Column(db.String(50))
+    email = db.Column(db.String(100))
+    fax = db.Column(db.String(50))
+    latitude = db.Column(db.String(50))
+    longitude = db.Column(db.String(50))
+    
+    # Brankas penyimpan 50+ Kolom aslinya
     raw_data = db.Column(JSONB) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+# ==========================================================
+# 2. DATABASE TRANSAKSI TAGIHAN (MC)
+# ==========================================================
 class TransaksiTagihan(db.Model):
-    """Tabel Tagihan: Menampung jutaan baris data MC & ARDEBT (Sumber Top 500)."""
+    """Tabel Tagihan MC: Menampung rincian tagihan beserta alamat penagihan."""
     __tablename__ = 'transaksi_tagihan'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
-    nominal = db.Column(db.Float, nullable=False)
+    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
     periode = db.Column(db.String(10), index=True) # YYYYMM
-    sumber = db.Column(db.String(10), index=True) # MC / MB / ARDEBT
-    status_lunas = db.Column(db.Integer, default=0, index=True) # 0=Belum, 1=Lunas
-    tgl_bayar = db.Column(db.String(50))
     
-    # KUNCI SINERGI V18: Brankas penyimpan puluhan Kolom MC
+    # --- KOLOM JALUR CEPAT MC ---
+    alm1_pel = db.Column(db.Text)
+    zona_novak = db.Column(db.String(50))
+    notagihan = db.Column(db.String(50))
+    total_tagihan = db.Column(db.Float, nullable=False, default=0) # Sebelumnya: nominal
+    
+    # Kolom opsional historis
+    sumber = db.Column(db.String(10), index=True, default='MC') 
+    status_lunas = db.Column(db.Integer, default=0, index=True) 
+    
+    # Gudang Data MC Lengkap
     raw_data = db.Column(JSONB)
 
     __table_args__ = (
-        # Gembok unik ini WAJIB ada agar Upsert MC tidak Crash
         UniqueConstraint('nomen', 'periode', name='uix_tagihan_nomen_periode'),
     )
 
+# ==========================================================
+# 3. DATABASE PEMBAYARAN BULANAN (MB)
+# ==========================================================
+class DataMB(db.Model):
+    """Tabel Master Bayar: Rekap pembayaran bulanan pelanggan."""
+    __tablename__ = 'data_mb'
+    id = db.Column(db.Integer, primary_key=True)
+    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
+    periode = db.Column(db.String(10), index=True) # Target Laporan YYYYMM
+    
+    # --- KOLOM JALUR CEPAT MB ---
+    bulan_rek = db.Column(db.String(20)) # MMYYYY Asli dari file
+    tgl_bayar = db.Column(db.String(50))
+    nominal = db.Column(db.Float, default=0)
+    denda = db.Column(db.Float, default=0)
+    lks_bayar = db.Column(db.String(100))
+    notagihan = db.Column(db.String(50))
+    
+    raw_data = db.Column(JSONB)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('nomen', 'periode', name='uix_mb_nomen_periode'),
+    )
+
+# ==========================================================
+# 4. DATABASE TRANSAKSI HARIAN (DAILY)
+# ==========================================================
+class DataDaily(db.Model):
+    """Tabel Koleksi Harian: Rekam jejak transaksi Water & Non-Water per hari."""
+    __tablename__ = 'data_daily'
+    id = db.Column(db.Integer, primary_key=True)
+    nomen = db.Column(db.String(50), nullable=False, index=True)
+    
+    # --- KOLOM JALUR CEPAT DAILY LENGKAP ---
+    pay_dt = db.Column(db.String(50))
+    bill_period = db.Column(db.String(50))
+    pay_amt = db.Column(db.Float, default=0)
+    pay_status_flg = db.Column(db.String(20))
+    bill_type = db.Column(db.String(50))
+    typecust1 = db.Column(db.String(50))
+    pay_loc = db.Column(db.String(100))
+    bill_id = db.Column(db.String(50))
+    ab = db.Column(db.String(50))
+    status = db.Column(db.String(50))
+    
+    raw_data = db.Column(JSONB)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('nomen', 'bill_id', name='uix_daily_nomen_bill'),
+    )
+
+# ==========================================================
+# 5. DATABASE MAINBILL (RINCIAN METER)
+# ==========================================================
+class DataMainbill(db.Model):
+    """Tabel MainBill: Semua rincian teknis pembacaan meter masuk Jalur Cepat."""
+    __tablename__ = 'data_mainbill'
+    id = db.Column(db.Integer, primary_key=True)
+    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
+    periode = db.Column(db.String(10), index=True) # Hasil ekstrak END_READ YYYYMM
+    
+    # --- SEMUA DATA MAINBILL MASUK JALUR CEPAT ---
+    jenis_pelanggan = db.Column(db.String(100))
+    cc = db.Column(db.String(20))
+    pcezbk = db.Column(db.String(20))
+    tarif = db.Column(db.String(20))
+    bill_cycle = db.Column(db.String(20))
+    read_method = db.Column(db.String(50))
+    konsumsi = db.Column(db.Float, default=0)
+    tagihan_air = db.Column(db.Float, default=0)
+    start_read = db.Column(db.String(50))
+    start_read_stan = db.Column(db.String(50))
+    end_read = db.Column(db.String(50))
+    hari_baca = db.Column(db.String(20))
+    
+    raw_data = db.Column(JSONB)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('nomen', 'periode', name='uix_mainbill_nomen_periode'),
+    )
+
+# ==========================================================
+# 6. DATABASE SPOT BILL (SBRS)
+# ==========================================================
 class DataSBRS(db.Model):
-    """
-    Tabel Analisa SBRS: Mendukung Denormalisasi Turbo & Zero Data Loss.
-    """
+    """Tabel Analisa SBRS: Mendukung Denormalisasi Turbo & Zero Data Loss."""
     __tablename__ = 'data_sbrs'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
+    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
     periode = db.Column(db.String(10), nullable=False, index=True) # YYYYMM
     
     # --- KOLOM TURBO ---
@@ -71,7 +199,6 @@ class DataSBRS(db.Model):
     ab = db.Column(db.String(50), default='AB Sunter', index=True)
     kelurahan = db.Column(db.String(100), index=True)
     
-    # --- KONTAINER DATA ASLI ---
     raw_data = db.Column(JSONB) 
     
     # --- DATA KONSUMSI ---
@@ -93,29 +220,14 @@ class DataSBRS(db.Model):
         UniqueConstraint('nomen', 'periode', name='uix_sbrs_nomen_periode'),
     )
 
-class DataMB(db.Model):
-    """Tabel Master Bayar: Penyapu bersih halaman Top 500 Tunggakan."""
-    __tablename__ = 'data_mb'
-    id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
-    periode = db.Column(db.String(10), index=True)
-    tgl_bayar = db.Column(db.String(50))
-    nominal = db.Column(db.Float)
-    denda = db.Column(db.Float)
-    lks_bayar = db.Column(db.String(100))
-    
-    raw_data = db.Column(JSONB)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    __table_args__ = (
-        UniqueConstraint('nomen', 'periode', name='uix_mb_nomen_periode'),
-    )
-
+# ==========================================================
+# 7. DATABASE ARREARS DEBT (TUNGGAKAN)
+# ==========================================================
 class DataArrdebt(db.Model):
-    """Tabel Tunggakan: Menyimpan data tunggakan (Arrears Debt) historis PAM JAYA."""
+    """Tabel Tunggakan: Menyimpan data tunggakan (Arrears Debt) historis."""
     __tablename__ = 'data_arrdebt'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
+    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
     periode = db.Column(db.String(10), index=True)
     nominal = db.Column(db.Float)
     
@@ -126,27 +238,14 @@ class DataArrdebt(db.Model):
         UniqueConstraint('nomen', 'periode', name='uix_arrdebt_nomen_periode'),
     )
 
-class DataMainbill(db.Model):
-    """Tabel MainBill: Data Final Matang dari SBRS sebelum jadi MC."""
-    __tablename__ = 'data_mainbill'
-    id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
-    periode = db.Column(db.String(10), index=True)
-    total_tagihan = db.Column(db.Float)
-    konsumsi = db.Column(db.Float)
-    
-    raw_data = db.Column(JSONB)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    __table_args__ = (
-        UniqueConstraint('nomen', 'periode', name='uix_mainbill_nomen_periode'),
-    )
-
+# ==========================================================
+# 8. DATABASE AUDITOR (LAPANGAN)
+# ==========================================================
 class AnalisaAuditor(db.Model):
     """Tabel Riwayat Kunjungan Petugas Lapangan."""
     __tablename__ = 'analisa_auditor'
     id = db.Column(db.Integer, primary_key=True)
-    nomen = db.Column(db.String(8), db.ForeignKey('master_pelanggan.nomen'), index=True)
+    nomen = db.Column(db.String(50), db.ForeignKey('master_pelanggan.nomen'), index=True)
     hasil_kunjungan = db.Column(db.String(100), index=True)
     foto_bukti = db.Column(db.String(255))
     tgl_janji_bayar = db.Column(db.Date)
