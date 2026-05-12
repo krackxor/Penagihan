@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Pencarian Global - BAAE Nexus{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Desain Spotlight Search Modern (Mirip MacOS) */
+    .search-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .search-input-wrapper {
+        position: relative;
+        box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.15);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+    
+    .search-input-main {
+        width: 100%;
+        padding: 20px 20px 20px 60px;
+        font-size: 1.25rem;
+        border: 2px solid var(--primary-light);
+        border-radius: var(--radius-lg);
+        color: var(--text-main);
+        transition: all 0.3s ease;
+        background-color: var(--bg-card);
+    }
+    
+    .search-input-main:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.5rem;
+        color: var(--primary);
+    }
+    
+    .search-spinner {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+
+    /* Kartu Hasil Pencarian */
+    .result-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .result-card:hover {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+    }
+    
+    .nomen-badge {
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 0.9rem;
+        padding: 6px 12px;
+        border-radius: 8px;
+        display: inline-block;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        background: var(--bg-main);
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 10px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .detail-item { font-size: 0.8rem; }
+    
+    .detail-label {
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+        display: block;
+        font-size: 0.7rem;
+    }
+    
+    .detail-value {
+        color: var(--text-main);
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-container mt-4 animate-fade-in" x-data="universalSearch()">
+    
+    <div class="text-center mb-4">
+        <h2 class="fw-bold" style="color: var(--text-main); letter-spacing: -1px;">Global Search</h2>
+        <p class="text-muted">Cari instan berdasarkan Nomen, Nama, Alamat, No Meter, atau WA</p>
+    </div>
+
+    <div class="search-input-wrapper mb-5">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" class="search-input-main" 
+               placeholder="Mulai ketik data pelanggan..." 
+               x-model.debounce.500ms="keyword" 
+               @input="performSearch()"
+               autocomplete="off" autofocus>
+               
+        <div class="search-spinner" x-show="loading" x-cloak>
+            <i class="fa-solid fa-circle-notch fa-spin fs-4 text-primary"></i>
+        </div>
+    </div>
+
+    <div class="text-center text-muted py-4" x-show="keyword.length > 0 && keyword.length < 3" x-cloak>
+        <i class="fa-solid fa-keyboard fa-2x mb-3 opacity-25"></i>
+        <p>Ketik minimal 3 karakter untuk memulai pencarian...</p>
+    </div>
+
+    <div class="text-center text-muted py-5" x-show="!loading && keyword.length >= 3 && results.length === 0" x-cloak>
+        <i class="fa-solid fa-box-open fa-3x mb-3 opacity-25"></i>
+        <h6 class="fw-bold text-dark">Data Tidak Ditemukan</h6>
+        <p class="small">Pastikan penulisan kata kunci sudah benar atau data sudah di-upload.</p>
+    </div>
+
+    <template x-for="item in results" :key="item.nomen">
+        <div class="result-card animate-fade-in">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="nomen-badge mb-2" x-text="item.nomen"></div>
+                    <h5 class="fw-bold text-dark mb-1" x-text="item.nama"></h5>
+                    <div class="text-muted" style="font-size: 0.85rem;">
+                        <i class="fa-solid fa-location-dot text-danger me-1"></i> <span x-text="item.alamat"></span>
+                    </div>
+                </div>
+                <a :href="'/lapor?nomen=' + item.nomen" class="btn btn-sm btn-outline-primary fw-bold px-3 rounded-pill">
+                    <i class="fa-solid fa-clipboard-list me-1"></i> Lapor
+                </a>
+            </div>
+
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fa-solid fa-route text-primary me-1"></i> Rute (PCEZ)</span>
+                    <span class="detail-value" x-text="item.pcez"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fa-solid fa-map text-success me-1"></i> Kelurahan</span>
+                    <span class="detail-value" x-text="item.kelurahan"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fa-solid fa-gauge-high text-warning me-1"></i> No Meter</span>
+                    <span class="detail-value" x-text="item.no_meter"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fa-brands fa-whatsapp text-success me-1"></i> No HP / WA</span>
+                    <span class="detail-value" x-text="item.no_hp"></span>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <div class="text-center text-muted py-5" x-show="keyword.length === 0" x-cloak>
+        <i class="fa-solid fa-satellite-dish fa-3x mb-3" style="color: #cbd5e1;"></i>
+        <h6 class="fw-bold text-dark mb-0">Mesin Pencari Siaga</h6>
+        <p class="small">Sistem akan mencari secara otomatis tanpa perlu menekan tombol Enter.</p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('universalSearch', () => ({
+            keyword: '',
+            results: [],
+            loading: false,
+
+            async performSearch() {
+                // Jangan kirim request jika kurang dari 3 huruf
+                if (this.keyword.length < 3) {
+                    this.results = [];
+                    return;
+                }
+                
+                this.loading = true;
+                try {
+                    // Tembak API search.py yang baru kita buat
+                    const response = await fetch(`/search/api/query?q=${encodeURIComponent(this.keyword)}`);
+                    this.results = await response.json();
+                } catch (error) {
+                    console.error("Koneksi API Gagal:", error);
+                    this.results = [];
+                } finally {
+                    this.loading = false;
+                }
+            }
+        }));
+    });
+</script>
+{% endblock %}
