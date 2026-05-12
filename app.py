@@ -14,7 +14,7 @@ from api.admin import admin_bp # Blueprint Admin Control (V18)
 from api.ocr import ocr_bp # Blueprint Tools OCR
 from api.converter import converter_bp # Blueprint Konversi Dokumen
 from api.optimizer import optimizer_bp # Blueprint Kompresi Gambar
-from api.search import search_bp # <--- [BARU] Blueprint Global Search
+from api.search import search_bp # Blueprint Global Search
 
 def sync_database_schema(app):
     """
@@ -48,6 +48,13 @@ def sync_database_schema(app):
                             conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
                             conn.commit()
                         except Exception: pass
+                
+                # --- OPTIMASI SEARCH: Tambahkan Index agar Pencarian Global < 100ms ---
+                try:
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_nomen ON master_pelanggan (nomen);"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_nama ON master_pelanggan (nama);"))
+                    conn.commit()
+                except Exception: pass
 
             # --- 2. HEALING: data_sbrs ---
             if 'data_sbrs' in tables:
@@ -150,7 +157,7 @@ def create_app():
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     app_flask.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app_flask.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app_flask.config['SECRET_KEY'] = 'sinergi-pam-jaya-2026'
+    app_flask.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'sinergi-pam-jaya-2026')
     
     app_flask.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'kunjungan')
     app_flask.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024 # 1 GB
@@ -172,9 +179,9 @@ def create_app():
     app_flask.register_blueprint(ocr_bp, url_prefix='/tools/ocr')
     app_flask.register_blueprint(converter_bp, url_prefix='/tools/converter')
     app_flask.register_blueprint(optimizer_bp, url_prefix='/tools/optimizer')
-    app_flask.register_blueprint(search_bp, url_prefix='/search') # <--- [BARU] Registrasi URL Global Search
+    app_flask.register_blueprint(search_bp, url_prefix='/search')
 
-    # --- 5. NAVIGASI UTAMA (FIX 404 NOT FOUND) ---
+    # --- 5. NAVIGASI UTAMA ---
     @app_flask.route('/')
     def index():
         return redirect(url_for('monitoring.list_tagihan', ab='AB Sunter'))
@@ -192,15 +199,15 @@ def create_app():
         try:
             db.create_all()
             sync_database_schema(app_flask)
-        except Exception:
+        except Exception as e:
+            print(f"Schema Sync Error: {e}")
             db.session.rollback()
 
     return app_flask
 
-# =================================================================
-# KUNCI SAKTI GUNICORN: Harus ada di level global (Line 203++)
-# =================================================================
+# --- KUNCI SAKTI GUNICORN ---
 app = create_app()
 
 if __name__ == '__main__':
+    # Debug mode diaktifkan untuk development, host 0.0.0.0 agar bisa diakses dalam network Docker
     app.run(host='0.0.0.0', port=5000, debug=True)
