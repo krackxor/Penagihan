@@ -2,7 +2,8 @@ import os
 import gc
 import json
 import re
-import polars as pl
+import csv
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
@@ -11,137 +12,111 @@ from models import db
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================================
-# 1. STRATEGI ANTI-GAGAL: HELPER SAKTI
+# 1. STRATEGI ANTI-GAGAL & HEMAT RAM EKSTREM
 # ==========================================================
 
+def get_current_periode():
+    return datetime.now().strftime('%Y%m')
+
 def detect_separator(filepath, default=';'):
-    """Deteksi otomatis pemisah kolom (Otomatis prioritaskan titik koma ;)"""
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             first_line = f.readline()
-            counts = {
-                ';': first_line.count(';'),
-                '|': first_line.count('|'),
-                ',': first_line.count(',')
-            }
+            counts = { ';': first_line.count(';'), '|': first_line.count('|'), ',': first_line.count(',') }
             best_sep = max(counts, key=counts.get)
             return best_sep if counts[best_sep] > 0 else default
-    except:
-        return default
+    except: return default
 
 def get_val(row_dict, possible_keys, default=''):
-    """
-    STRATEGI MULTI-KEY & VALUE STRIPPING: 
-    Mencari nilai dari beberapa kemungkinan nama kolom dan membersihkan tanda kutip/spasi.
-    """
     for k in possible_keys:
         if k in row_dict and row_dict[k] is not None:
-            val = str(row_dict[k]).strip()
-            # Buang tanda kutip ganda yang sering ikut terbawa dari file TXT
-            val = val.replace('"', '').strip()
-            if val.lower() not in ['none', 'nan', 'null', '']:
-                return val
+            val = str(row_dict[k]).strip().replace('"', '')
+            if val.lower() not in ['none', 'nan', 'null', '']: return val
     return default
 
 def clean_nomen(val):
-    """
-    Pembersih Nomen: Buang Kutip, Huruf K, Spasi 
-    (TANPA POTONG 8 DIGIT - Mengikuti data manual Analis)
-    """
     if not val: return None
     s = str(val).replace('"', '').strip().upper().split('.')[0]
     s = s.replace('K', '')
     s = re.sub(r'[^0-9]', '', s)
-    if not s: return None
-    return s # <-- Nomen dikembalikan utuh tanpa dipotong
+    return s if s else None
 
 def standardize_cust_type(val):
-    """Pembersih Tipe Pelanggan: R / REG menjadi REGULAR"""
     s = str(val).replace('"', '').strip().upper()
-    if s == 'R' or 'REG' in s:
-        return 'REGULAR'
+    if s == 'R' or 'REG' in s: return 'REGULAR'
     return s
 
 def extract_periode(val):
-    """Pendeteksi Periode Cerdas (Menangani 1/4/26, 012026, 202601)"""
     try:
         val = str(val).replace('"', '').strip()
         if not val or val.lower() in ['none', 'nan', '']: return "000000"
-        
         if '/' in val:
-            date_part = val.split(' ')[0]
-            parts = date_part.split('/')
+            parts = val.split(' ')[0].split('/')
             if len(parts) == 3:
                 m = parts[1].zfill(2)
-                y = parts[2]
-                if len(y) == 2: y = "20" + y
+                y = parts[2] if len(parts[2]) != 2 else "20" + parts[2]
                 return f"{y}{m}"
-                
-        if len(val) == 6 and val[2:].startswith('20'):
-            return val[2:] + val[:2]
-            
+        if len(val) == 6 and val[2:].startswith('20'): return val[2:] + val[:2]
         return val[:6].replace('-', '')
     except: return "000000"
 
 def shift_period_plus_one(yyyymm):
-    """AUTO TIME-SHIFT V18 (N+1)"""
     yyyymm_str = str(yyyymm).strip()
     if not yyyymm_str or len(yyyymm_str) != 6: return yyyymm_str
     try:
         y, m = int(yyyymm_str[:4]), int(yyyymm_str[4:])
-        if m == 12: return f"{y+1}01"
-        return f"{y}{m+1:02d}"
+        return f"{y+1}01" if m == 12 else f"{y}{m+1:02d}"
     except: return yyyymm_str
 
 def parse_float(val):
-    """Pembersih Angka Uang/Desimal (Mengubah koma jadi titik)"""
     try:
         if not val: return 0.0
         v_str = str(val).replace('"', '').strip().replace('.', '').replace(',', '.')
         return float(v_str)
     except: return 0.0
 
-def process_mega_file(file, logic_func, chunk_size=20000, default_sep=';'):
-    """Mesin Polars dengan HEADER SANITIZATION Ekstrem untuk SEMUA FILE"""
+def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
+    """MESIN PURE PYTHON STREAMING: Anti-Crash untuk VPS RAM Rendah"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
     file.save(temp_path)
 
     smart_sep = detect_separator(temp_path, default=default_sep)
+    total = 0
 
     try:
-        reader = pl.read_csv_batched(
-            temp_path, separator=smart_sep, infer_schema_length=0, 
-            quote_char='"', batch_size=chunk_size, ignore_errors=True
-        )
-        total = 0
-        batches = reader.next_batches(1)
-        
-        while batches:
-            chunk = batches[0]
+        with open(temp_path, 'r', encoding='utf-8', errors='ignore') as f:
+            reader = csv.DictReader(f, delimiter=smart_sep, quotechar='"')
             
             # --- STRATEGI HEADER SANITIZATION ---
-            clean_cols = {}
-            for col in chunk.columns:
-                clean_name = str(col).replace('\ufeff', '').replace('"', '').strip().upper()
-                clean_cols[col] = clean_name
-                
-            chunk = chunk.rename(clean_cols)
-            # ------------------------------------
+            if reader.fieldnames:
+                clean_fieldnames = [str(col).replace('\ufeff', '').replace('"', '').strip().upper() for col in reader.fieldnames]
+                reader.fieldnames = clean_fieldnames
+            else:
+                return 0
+
+            chunk = []
+            for row in reader:
+                chunk.append(row)
+                if len(chunk) >= chunk_size:
+                    added_count = logic_func(chunk)
+                    if added_count: total += added_count
+                    
+                    db.session.commit()
+                    db.session.expunge_all()
+                    chunk = [] 
             
-            added_count = logic_func(chunk)
-            if added_count: total += added_count
-            
-            db.session.commit()
-            db.session.expunge_all() 
-            gc.collect() 
-            
-            batches = reader.next_batches(1)
-            
+            if chunk:
+                added_count = logic_func(chunk)
+                if added_count: total += added_count
+                db.session.commit()
+                db.session.expunge_all()
+
         return total
     finally:
         if os.path.exists(temp_path): os.remove(temp_path)
+        gc.collect()
 
 # ==========================================================
 # 2. RUTE UTAMA UPLOAD
@@ -177,9 +152,9 @@ def import_tagihan():
 # 3. LOGIKA MASTER CID
 # =========================================================================
 def handle_cid_upload(file_cid):
-    def cid_logic(df_chunk):
+    def cid_logic(data_chunk):
         cid_entries = []
-        for row in df_chunk.to_dicts():
+        for row in data_chunk:
             nomen_raw = get_val(row, ['NOMEN', 'ACCT_ID', 'ID_PELANGGAN'])
             nomen = clean_nomen(nomen_raw)
             if not nomen: continue
@@ -244,16 +219,16 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
-    total = process_mega_file(file_cid, cid_logic, chunk_size=250, default_sep=';')
+    total = process_mega_file(file_cid, cid_logic, chunk_size=250)
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 # =========================================================================
-# 4. LOGIKA MC (MASTER CETAK) -> PROTEKSI PENUH
+# 4. LOGIKA MC (MASTER CETAK)
 # =========================================================================
 def handle_mc_upload(file_mc):
-    def mc_logic(df_chunk):
+    def mc_logic(data_chunk):
         mc_entries = []
-        for row in df_chunk.to_dicts():
+        for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
             
@@ -290,19 +265,17 @@ def handle_mc_upload(file_mc):
             return len(mc_entries)
         return 0
 
-    total = process_mega_file(file_mc, mc_logic, default_sep=';')
-    return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
-
+    total = process_mega_file(file_mc, mc_logic, chunk_size=500)
+    return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data tercatat."})
 
 # =========================================================================
-# 5. LOGIKA MASTER BAYAR (MB) -> PROTEKSI PENUH
+# 5. LOGIKA MASTER BAYAR (MB)
 # =========================================================================
 def handle_mb_upload(file_mb):
-    def mb_logic(df_chunk):
+    def mb_logic(data_chunk):
         mb_entries = []
         lunas_entries = []
-        
-        for row in df_chunk.to_dicts():
+        for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'CMR_ACCOUNT']))
             if not nomen: continue
             
@@ -339,19 +312,17 @@ def handle_mb_upload(file_mb):
             return len(mb_entries)
         return 0
 
-    total_bayar = process_mega_file(file_mb, mb_logic, default_sep=';')
+    total_bayar = process_mega_file(file_mb, mb_logic, chunk_size=500)
     return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} dilunaskan."})
 
-
 # =========================================================================
-# 6. LOGIKA KOLEKSI HARIAN (DAILY DATA) -> PROTEKSI PENUH
+# 6. LOGIKA KOLEKSI HARIAN (DAILY DATA)
 # =========================================================================
 def handle_daily_upload(file_daily):
-    def daily_logic(df_chunk):
+    def daily_logic(data_chunk):
         daily_entries = []
         lunas_entries = []
-        
-        for row in df_chunk.to_dicts():
+        for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
             
@@ -407,17 +378,16 @@ def handle_daily_upload(file_daily):
             return len(daily_entries)
         return 0
 
-    total = process_mega_file(file_daily, daily_logic, default_sep=';')
-    return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi disinkronkan ke DB."})
-
+    total = process_mega_file(file_daily, daily_logic, chunk_size=500)
+    return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi disinkronkan."})
 
 # =========================================================================
-# 7. LOGIKA MAINBILL -> PROTEKSI PENUH
+# 7. LOGIKA MAINBILL
 # =========================================================================
 def handle_mainbill_upload(file_mainbill):
-    def mainbill_logic(df_chunk):
+    def mainbill_logic(data_chunk):
         mb_entries = []
-        for row in df_chunk.to_dicts():
+        for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
             
@@ -467,5 +437,146 @@ def handle_mainbill_upload(file_mainbill):
             return len(mb_entries)
         return 0
 
-    total = process_mega_file(file_mainbill, mainbill_logic, default_sep=';')
-    return jsonify({"status": "success", "message": f"MainBill Sukses! {total} rincian meter lapangan disimpan."})
+    total = process_mega_file(file_mainbill, mainbill_logic, chunk_size=500)
+    return jsonify({"status": "success", "message": f"MainBill Sukses! {total} rincian meter disimpan."})
+
+# =========================================================================
+# 8. LOGIKA SBRS (ANOMALI)
+# =========================================================================
+def handle_sbrs_upload(file_cust, file_spot):
+    cust_filename = secure_filename(file_cust.filename)
+    cust_temp_path = os.path.join('instance', cust_filename)
+    file_cust.save(cust_temp_path)
+    
+    smart_sep_cust = detect_separator(cust_temp_path, default=';')
+    lookup_cust = {}
+
+    with open(cust_temp_path, 'r', encoding='utf-8', errors='ignore') as f:
+        reader = csv.DictReader(f, delimiter=smart_sep_cust, quotechar='"')
+        if reader.fieldnames:
+            reader.fieldnames = [str(col).replace('\ufeff', '').replace('"', '').strip().upper() for col in reader.fieldnames]
+        for row in reader:
+            nk = clean_nomen(get_val(row, ['CMR_ACCOUNT', 'NOMEN']))
+            if nk: lookup_cust[nk] = row
+
+    if os.path.exists(cust_temp_path): os.remove(cust_temp_path)
+
+    def sbrs_logic(data_chunk):
+        master_provision = [] 
+        sbrs_entries = []
+
+        for spot_row in data_chunk:
+            nomen = clean_nomen(get_val(spot_row, ['NOMEN', 'CMR_ACCOUNT']))
+            if not nomen: continue
+            
+            cust_data = lookup_cust.get(nomen, {})
+            merged_row = spot_row.copy()
+            merged_row.update(cust_data)
+            
+            nama_pel = get_val(merged_row, ['CMR_NAME', 'NAMA'], 'Pelanggan Baru')
+            ab_pel = get_val(merged_row, ['AB', 'CC', 'WILAYAH'], 'AB Sunter')
+            pc_ez = get_val(merged_row, ['PCEZBK', 'PCEZ'])
+            if not pc_ez:
+                pc = get_val(merged_row, ['PC'])
+                ez = get_val(merged_row, ['EZ'])
+                pc_ez = f"{pc}{ez}"
+            
+            master_provision.append({"nomen": nomen, "nama": nama_pel, "ab": ab_pel, "pcez": pc_ez})
+
+            def gv(keys): return get_val(merged_row, keys)
+
+            curr = parse_float(gv(['CURR_READ_1', 'END_READ_STAN']))
+            prev = parse_float(gv(['PREV_READ_1', 'CMR_PREV_READ']))
+            rata_raw = gv(['Estimation_Value', 'AVG_CONSUMPTION'])
+            rata = float(rata_raw) if rata_raw else 15.0
+
+            m3 = curr - prev
+            skip_code = gv(['cmr_skip_code']).upper()
+            trbl_code = gv(['cmr_trbl1_code']).upper()
+            metode = gv(['Read_Method', 'cmr_read_code']).upper()
+
+            kat = "NORMAL"
+            if m3 < 0: kat = "MINUS"
+            elif m3 == 0: kat = "ZERO"
+            elif m3 > (rata * 2): kat = "EKSTREM"
+            elif m3 < (rata * 0.5): kat = "TURUN"
+
+            indikasi = "Aman"
+            if trbl_code in ['2D', '2E', '2F', '4E']: indikasi = "FRAUD"
+            elif metode in ['30/PE', '40/PE', '35/PS']: indikasi = "WARNING"
+            elif skip_code in ['5G']: indikasi = "TOLAK BACA"
+
+            merged_row['INDIKASI_SINERGI'] = indikasi
+            periode_sbrs = extract_periode(gv(['BILL_PERIOD']))
+            if not periode_sbrs or periode_sbrs == '000000': periode_sbrs = get_current_periode()
+            
+            sbrs_entries.append({
+                "nomen": nomen, "periode": periode_sbrs,
+                "nama": nama_pel, "ab": ab_pel, "kelurahan": gv(['KEL', 'KELURAHAN']),
+                "pcez": pc_ez, "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
+                "kategori_anomali": kat, "raw_data": json.dumps(merged_row), "status_audit": 0
+            })
+
+        if master_provision:
+            unique_master = {m['nomen']: m for m in master_provision}.values()
+            sql_master = text("""
+                INSERT INTO master_pelanggan (nomen, nama, ab, pcez) 
+                VALUES (:nomen, :nama, :ab, :pcez) ON CONFLICT DO NOTHING
+            """)
+            db.session.execute(sql_master, list(unique_master))
+
+        if sbrs_entries:
+            sql_sbrs = text("""
+                INSERT INTO data_sbrs (nomen, periode, nama, ab, kelurahan, pcez, bulan_ini, rata_rata, stand_meter, kategori_anomali, raw_data, status_audit)
+                VALUES (:nomen, :periode, :nama, :ab, :kelurahan, :pcez, :bulan_ini, :rata_rata, :stand_meter, :kategori_anomali, CAST(:raw_data AS JSONB), :status_audit)
+                ON CONFLICT (nomen, periode) DO UPDATE SET 
+                    kategori_anomali = EXCLUDED.kategori_anomali, bulan_ini = EXCLUDED.bulan_ini, 
+                    stand_meter = EXCLUDED.stand_meter, raw_data = EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_sbrs, sbrs_entries)
+            return len(sbrs_entries)
+        return 0
+
+    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=500)
+    lookup_cust.clear()
+    gc.collect()
+    return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
+
+# =========================================================================
+# 9. LOGIKA ARRDEBT
+# =========================================================================
+def handle_arrdebt_upload(file_arrdebt):
+    def arrdebt_logic(data_chunk):
+        arr_entries = []
+        tagihan_entries = []
+        
+        for row in data_chunk:
+            nomen = clean_nomen(get_val(row, ['NOMEN']))
+            if not nomen: continue
+            
+            periode = get_val(row, ['BILL_PERIODE'])
+            if not periode: periode = "000000"
+            nominal = parse_float(get_val(row, ['BILL_AMT', 'WATER']))
+            
+            arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": json.dumps(row)})
+            tagihan_entries.append({"nomen": nomen, "periode": periode, "total_tagihan": nominal, "status_lunas": 0})
+
+        if arr_entries:
+            sql_arr = text("""
+                INSERT INTO data_arrdebt (nomen, periode, nominal, raw_data)
+                VALUES (:nomen, :periode, :nominal, CAST(:raw_data AS JSONB))
+                ON CONFLICT (nomen, periode) DO UPDATE SET nominal = EXCLUDED.nominal, raw_data = EXCLUDED.raw_data
+            """)
+            db.session.execute(sql_arr, arr_entries)
+            
+            sql_tagihan = text("""
+                INSERT INTO transaksi_tagihan (nomen, periode, total_tagihan, status_lunas)
+                VALUES (:nomen, :periode, :total_tagihan, 0)
+                ON CONFLICT (nomen, periode) DO UPDATE SET total_tagihan = EXCLUDED.total_tagihan, status_lunas = 0
+            """)
+            db.session.execute(sql_tagihan, tagihan_entries)
+            return len(arr_entries)
+        return 0
+
+    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, chunk_size=500)
+    return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan."})
