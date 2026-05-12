@@ -26,7 +26,6 @@ def index():
     periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
     # 3. Query Data dengan Trik Explicit JOIN (Standar PostgreSQL)
-    # PERBAIKAN V18: Menggunakan kolom `total_tagihan` bukan `nominal`
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -73,7 +72,6 @@ def api_stats():
     periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
     # Query untuk Total Nominal Uang Tunggakan
-    # PERBAIKAN V18: Menggunakan kolom `total_tagihan`
     total_uang_query = db.session.query(func.sum(TransaksiTagihan.total_tagihan))\
                          .select_from(TransaksiTagihan)\
                          .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
@@ -104,13 +102,13 @@ def api_stats():
 @top_500_bp.route('/export')
 def export_top500():
     """
-    [FITUR BARU] Export Data Top 500 ke Excel menggunakan Polars Engine!
+    Export Data Top 500 ke Excel menggunakan Polars Engine!
+    (Terlindungi dari jebakan list kosong)
     """
     ab_filter = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode') 
     periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # PERBAIKAN V18: Menggunakan kolom `total_tagihan`
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -145,6 +143,10 @@ def export_top500():
             "Total Tunggakan (Rp)": float(r.total_nominal or 0),
             "Periode": r.periode
         })
+
+    # PROTEKSI V18: Cegah Polars Crash jika data kosong (Tidak ada tunggakan)
+    if not data_list:
+        data_list = [{"Info": "Tidak ada data tunggakan untuk filter wilayah/periode ini"}]
 
     # Konversi ke Excel menggunakan mesin Polars
     df = pl.DataFrame(data_list)
