@@ -71,17 +71,17 @@ def list_tagihan():
 
 @monitoring_bp.route('/summary')
 def summary_stats():
-    """API Summary untuk Widget Dashboard."""
+    """API Summary untuk Widget Dashboard dengan Explicit JOIN."""
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    # Hitung Nominal & Lembar
+    # Hitung Nominal & Lembar (Ditambah Explicit JOIN agar SQLAlchemy tidak bingung)
     stats = db.session.query(
         func.sum(TransaksiTagihan.total_tagihan), 
         func.count(TransaksiTagihan.id)
     ).select_from(TransaksiTagihan)\
-     .join(MasterPelanggan)\
+     .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .filter(MasterPelanggan.ab == ab if ab != 'all' else True, 
              TransaksiTagihan.periode == periode_filter, 
              TransaksiTagihan.status_lunas == 0).first()
@@ -89,7 +89,7 @@ def summary_stats():
     # Hitung Pelanggan Unik (Nomen)
     total_plg = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
                   .select_from(TransaksiTagihan)\
-                  .join(MasterPelanggan)\
+                  .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
                   .filter(MasterPelanggan.ab == ab if ab != 'all' else True, 
                           TransaksiTagihan.periode == periode_filter, 
                           TransaksiTagihan.status_lunas == 0).scalar() or 0
@@ -115,7 +115,7 @@ def get_filters():
 
 @monitoring_bp.route('/export')
 def export_monitoring():
-    """Fitur Export Menggunakan POLARS untuk kecepatan maksimal"""
+    """Fitur Export Menggunakan POLARS (Dilengkapi Proteksi Data Kosong)"""
     ab_filter = request.args.get('ab', 'AB Sunter')
     rayon_filter = request.args.get('rayon')
     kel_filter = request.args.get('kelurahan')
@@ -165,6 +165,10 @@ def export_monitoring():
             "Total Tagihan (Rp)": r.total_nominal,
             "Jumlah Lembar": r.jumlah_lembar
         })
+
+    # PROTEKSI V18: Cegah Polars Crash jika data kosong
+    if not data_list:
+        data_list = [{"Info": "Tidak ada data tagihan untuk filter wilayah/periode ini"}]
 
     # Konversi ke Excel menggunakan Polars (Turbo Speed)
     df = pl.DataFrame(data_list)
