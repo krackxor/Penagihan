@@ -371,7 +371,7 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
-    total = process_mega_file(file_cid, cid_logic, chunk_size=5000, default_sep='|')
+    total = process_mega_file(file_cid, cid_logic, chunk_size=10000, default_sep='|')
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 
