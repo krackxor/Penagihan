@@ -18,14 +18,17 @@ def index():
     Rute Utama Top 500 Tunggakan (Terintegrasi dengan Sinergi V18).
     Menggunakan Explicit Join murni, tanpa menarik raw_data (JSONB) agar loading super cepat.
     """
-    # 1. Ambil Parameter Filter dari URL
-    ab_filter = request.args.get('ab', 'AB Sunter')
+    # 1. Ambil Parameter Filter dari URL (Default: 'all')
+    ab_filter = request.args.get('ab', 'all')
     periode_raw = request.args.get('periode') 
     
-    # 2. Pembersihan Format Periode (Ubah 2026-03 menjadi 202603)
-    periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+    # 2. Pembersihan Format Periode Dinamis
+    if not periode_raw or periode_raw.lower() == 'all':
+        periode_bersih = 'all'
+    else:
+        periode_bersih = periode_raw.replace('-', '')
 
-    # 3. Query Data dengan Trik Explicit JOIN (Standar PostgreSQL)
+    # 3. Query Data dengan Trik Explicit JOIN & Filter Petugas TAGIHAN
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -37,13 +40,16 @@ def index():
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
-     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_bersih)
+     .filter(TransaksiTagihan.status_lunas == 0)
     
-    # 4. Filter 'ab' diarahkan ke MasterPelanggan (Tempat aslinya)
+    # 4. Terapkan Filter Dinamis
+    if periode_bersih != 'all':
+        query = query.filter(TransaksiTagihan.periode == periode_bersih)
+        
     if ab_filter != 'all':
         query = query.filter(MasterPelanggan.ab == ab_filter)
 
-    # 5. Group By & Order By (Wajib di PostgreSQL untuk fungsi agregat SUM)
+    # 5. Group By & Order By
     results = query.group_by(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -67,23 +73,30 @@ def api_stats():
     Rute tambahan (API JSON) untuk widget summary Top 500.
     Menghitung total uang tunggakan dan jumlah pelanggan yang belum lunas.
     """
-    ab_filter = request.args.get('ab', 'AB Sunter')
+    ab_filter = request.args.get('ab', 'all')
     periode_raw = request.args.get('periode')
-    periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+    
+    if not periode_raw or periode_raw.lower() == 'all':
+        periode_bersih = 'all'
+    else:
+        periode_bersih = periode_raw.replace('-', '')
 
-    # Query untuk Total Nominal Uang Tunggakan
+    # Query Base
     total_uang_query = db.session.query(func.sum(TransaksiTagihan.total_tagihan))\
                          .select_from(TransaksiTagihan)\
                          .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
-                         .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_bersih)
+                         .filter(TransaksiTagihan.status_lunas == 0)
 
-    # Query untuk Total Pelanggan Unik yang Menunggak
     total_pelanggan_query = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
                               .select_from(TransaksiTagihan)\
                               .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
-                              .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_bersih)
+                              .filter(TransaksiTagihan.status_lunas == 0)
 
-    # Terapkan filter wilayah
+    # Terapkan filter dinamis
+    if periode_bersih != 'all':
+        total_uang_query = total_uang_query.filter(TransaksiTagihan.periode == periode_bersih)
+        total_pelanggan_query = total_pelanggan_query.filter(TransaksiTagihan.periode == periode_bersih)
+
     if ab_filter != 'all':
         total_uang_query = total_uang_query.filter(MasterPelanggan.ab == ab_filter)
         total_pelanggan_query = total_pelanggan_query.filter(MasterPelanggan.ab == ab_filter)
@@ -105,9 +118,13 @@ def export_top500():
     Export Data Top 500 ke Excel menggunakan Polars Engine!
     (Terlindungi dari jebakan list kosong)
     """
-    ab_filter = request.args.get('ab', 'AB Sunter')
+    ab_filter = request.args.get('ab', 'all')
     periode_raw = request.args.get('periode') 
-    periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+    
+    if not periode_raw or periode_raw.lower() == 'all':
+        periode_bersih = 'all'
+    else:
+        periode_bersih = periode_raw.replace('-', '')
 
     query = db.session.query(
         TransaksiTagihan.nomen,
@@ -120,8 +137,11 @@ def export_top500():
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
-     .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_bersih)
+     .filter(TransaksiTagihan.status_lunas == 0)
     
+    if periode_bersih != 'all':
+        query = query.filter(TransaksiTagihan.periode == periode_bersih)
+
     if ab_filter != 'all':
         query = query.filter(MasterPelanggan.ab == ab_filter)
 
