@@ -17,7 +17,7 @@ csv.field_size_limit(sys.maxsize)
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================================
-# 1. STRATEGI ANTI-GAGAL, PENJINAK BOM, & AUTO-TRIM EKSTREM
+# 1. STRATEGI ANTI-GAGAL, SMART NUMBER PARSER, & AUTO-TRIM
 # ==========================================================
 
 def get_current_periode():
@@ -33,6 +33,7 @@ def detect_separator(filepath, default=';'):
     except: return default
 
 def get_val(row_dict, possible_keys, default=''):
+    """Mencari data dari berbagai kemungkinan nama kolom"""
     for k in possible_keys:
         if k in row_dict and row_dict[k] is not None:
             val = str(row_dict[k]).strip().replace('"', '')
@@ -40,7 +41,7 @@ def get_val(row_dict, possible_keys, default=''):
     return default
 
 def trim(val, length):
-    """Fungsi krusial untuk mencegah error StringDataRightTruncation"""
+    """Mencegah error kepanjangan string di Postgres"""
     if not val: return ""
     return str(val)[:length]
 
@@ -79,14 +80,37 @@ def shift_period_plus_one(yyyymm):
     except: return yyyymm_str
 
 def parse_float(val):
+    """SMART NUMBER PARSER: Pendeteksi otomatis Nominal Uang Anti-Gagal"""
     try:
         if not val: return 0.0
-        v_str = str(val).replace('"', '').strip().replace('.', '').replace(',', '.')
+        v_str = str(val).replace('"', '').strip()
+        
+        # 1. Hapus semua huruf 'Rp', spasi, dan karakter aneh (Sisakan angka, koma, titik, minus)
+        v_str = re.sub(r'[^\d,\.-]', '', v_str)
+        if not v_str: return 0.0
+        
+        # 2. Logika Pemecah Format Uang Indo vs US
+        if ',' in v_str and '.' in v_str:
+            if v_str.rfind(',') > v_str.rfind('.'):
+                # Format Indo (Misal: 101.934,00)
+                v_str = v_str.replace('.', '').replace(',', '.')
+            else:
+                # Format US (Misal: 101,934.00)
+                v_str = v_str.replace(',', '')
+        elif ',' in v_str:
+            # Format koma tunggal (Misal: 101934,00) -> Asumsi desimal Indo
+            v_str = v_str.replace(',', '.')
+        elif '.' in v_str:
+            # Format titik tunggal. Cek jika 2 angka di belakang, itu desimal (101934.00). Jika tidak, itu ribuan (1.000).
+            if len(v_str) - v_str.rfind('.') - 1 != 2:
+                v_str = v_str.replace('.', '')
+                
         return float(v_str)
-    except: return 0.0
+    except:
+        return 0.0
 
 def get_safe_json(row_dict):
-    """Mengembalikan Dictionary yang aman untuk masuk ke JSONB SQLAlchemy"""
+    """Mencegah Postgres mati karena JSON raksasa."""
     try:
         if len(json.dumps(row_dict)) > 15000: 
             return {"info": "Data terpotong otomatis karena format file cacat dari pusat."}
@@ -95,12 +119,12 @@ def get_safe_json(row_dict):
         return {}
 
 def clean_file_stream(f):
-    """Menjinakkan Karakter Null Byte yang sering bikin Postgres Crash"""
+    """Membuang Karakter Null Byte yang mematikan Postgres"""
     for line in f:
         yield line.replace('\x00', '').replace('\0', '')
 
 def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING (Sangat aman untuk Server)"""
+    """MESIN PURE PYTHON STREAMING"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -215,7 +239,7 @@ def handle_cid_upload(file_cid):
                 "fax": trim(get_val(row, ['FAX']), 50),
                 "latitude": trim(get_val(row, ['LATITUDE', 'LAT']), 50),
                 "longitude": trim(get_val(row, ['LONGITUDE', 'LONG']), 50),
-                "raw_data": get_safe_json(row)
+                "raw_data": get_safe_json(row) 
             })
             
         if cid_entries:
@@ -253,7 +277,7 @@ def handle_mc_upload(file_mc):
                 "alm1_pel": get_val(row, ['ALM1_PEL', 'ALAMAT']),
                 "zona_novak": trim(get_val(row, ['ZONA_NOVAK', 'ZONA']), 50),
                 "notagihan": trim(get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN']), 50),
-                "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN'])),
+                "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN', 'TAGIHAN'])),
                 "status_lunas": 0,
                 "raw_data": get_safe_json(row)
             })
@@ -298,8 +322,9 @@ def handle_mb_upload(file_mb):
                 "periode": trim(periode_target, 10),
                 "bulan_rek": trim(bulan_rek_raw, 20),
                 "tgl_bayar": trim(get_val(row, ['TGL_BAYAR', 'PAY_DT']), 50),
-                "nominal": parse_float(get_val(row, ['NOMINAL', 'RPBAYAR'])),
-                "denda": parse_float(get_val(row, ['DENDA'])),
+                # PASTIKAN NOMINAL DITARIK DARI SEGALA KEMUNGKINAN NAMA KOLOM
+                "nominal": parse_float(get_val(row, ['NOMINAL', 'RPBAYAR', 'PAY_AMT', 'TOTAL_BAYAR'])),
+                "denda": parse_float(get_val(row, ['DENDA', 'PENALTY'])),
                 "lks_bayar": trim(get_val(row, ['LKS_BAYAR', 'PAY_LOC']), 100),
                 "notagihan": trim(get_val(row, ['NOTAGIHAN', 'BILL_ID']), 50),
                 "raw_data": get_safe_json(row)
@@ -354,7 +379,7 @@ def handle_daily_upload(file_daily):
                 "periode": trim(periode_target, 10),
                 "pay_dt": trim(get_val(row, ['PAY_DT', 'TGL_BAYAR']), 50),
                 "bill_period": trim(bill_period_raw, 50),
-                "pay_amt": parse_float(get_val(row, ['PAY_AMT', 'NOMINAL'])),
+                "pay_amt": parse_float(get_val(row, ['PAY_AMT', 'NOMINAL', 'TOTAL_BAYAR'])),
                 "pay_status_flg": trim(get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG']), 20),
                 "bill_type": trim(get_val(row, ['BILL_TYPE', 'JENIS']), 50),
                 "typecust1": trim(tipe_bersih, 50),
