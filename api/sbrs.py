@@ -15,50 +15,45 @@ BULAN_ID = {
 }
 
 def get_current_periode():
-    """Mendapatkan periode berjalan dalam format YYYYMM."""
     return datetime.now().strftime('%Y%m')
 
 def get_prev_month(yyyymm, step=1):
-    """Mundur X bulan dari periode saat ini untuk tren data historis."""
+    """Mundur X bulan dari periode saat ini dengan aman."""
     if not yyyymm or len(yyyymm) != 6: return get_current_periode()
-    y, m = int(yyyymm[:4]), int(yyyymm[4:])
-    for _ in range(step):
-        m -= 1
-        if m == 0:
-            m = 12
-            y -= 1
-    return f"{y}{m:02d}"
+    try:
+        y, m = int(yyyymm[:4]), int(yyyymm[4:])
+        for _ in range(step):
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
+        return f"{y}{m:02d}"
+    except:
+        return get_current_periode()
 
 def format_periode(yyyymm):
-    """Menerjemahkan 202604 menjadi 'Apr 2026'."""
     if not yyyymm or len(yyyymm) != 6: return yyyymm
     return f"{BULAN_ID.get(yyyymm[4:], yyyymm[4:])} {yyyymm[:4]}"
 
 def parse_date(date_str):
-    """Membaca berbagai format tanggal (Tanpa Pandas). Mengembalikan datetime object."""
     if not date_str or str(date_str).strip() in ['None', '', 'NaN', 'null']: return None
     date_str = str(date_str).strip()
     
-    # Format '17042026'
     if len(date_str) == 8 and date_str.isdigit():
         try: return datetime.strptime(date_str, '%d%m%Y')
         except: pass
         
-    # Format Umum '17/04/2026' atau '17-04-2026'
     formats = ['%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y/%m/%d', '%Y-%m-%d %H:%M:%S']
     for fmt in formats:
         try: return datetime.strptime(date_str, fmt)
         except: continue
-        
     return None
 
 def safe_f(val):
-    """Mencegah error saat kalkulasi volume."""
     try: return float(str(val).replace(',', '.'))
     except: return 0.0
 
 def get_case_insensitive(data_dict, key):
-    """Fungsi kebal huruf besar/kecil untuk membaca data TXT/JSONB."""
     if not data_dict: return None
     key_lower = key.lower()
     for k, v in data_dict.items():
@@ -67,14 +62,12 @@ def get_case_insensitive(data_dict, key):
     return None
 
 def get_valid_str(val, fallback='-'):
-    """Pembersih string untuk data wilayah."""
     s = str(val).strip() if val is not None else ''
     if s.lower() in ['none', '', '-', 'nan', 'null']:
         return fallback
     return s
 
 def get_raw_val(raw_data, keys_to_try):
-    """Mencari nilai dari daftar kunci yang mungkin (Pelacak Multi-Header)."""
     if not raw_data: return "-"
     for k in keys_to_try:
         for actual_key in [k, k.upper(), k.lower(), k.capitalize()]:
@@ -82,7 +75,6 @@ def get_raw_val(raw_data, keys_to_try):
                 return str(raw_data[actual_key]).strip()
     return "-"
 
-# --- KAMUS DATA SBRS ---
 SKIP_LABELS = {
     '1A': 'Meter Buram', '1B': 'Meter Berembun', '1C': 'Meter Rusak',
     '2A': 'Meter Tidak Ada (Air Tidak Dipakai)', '2B': 'Meter Tidak Ada (Air Dipakai)',
@@ -108,7 +100,6 @@ READ_LABELS = {
 
 @sbrs_bp.route('/save-catatan', methods=['POST'])
 def save_catatan():
-    """Menyimpan Catatan Analisa Desktop langsung ke dalam JSON raw_data."""
     try:
         data = request.json
         nomen = data.get('nomen')
@@ -130,16 +121,13 @@ def save_catatan():
 
 @sbrs_bp.route('/summary')
 def sbrs_summary():
-    """Dashboard Eksekutif SBRS: Menampilkan Angka Kunci & Tab Wilayah."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
     
-    try:
-        dt = datetime.strptime(periode_filter, '%Y%m')
-        prev_periode = (dt - timedelta(days=28)).strftime('%Y%m')
-    except: prev_periode = periode_filter
+    # PERBAIKAN: Gunakan Helper Function agar penanggalan akurat (100% aman)
+    prev_periode = get_prev_month(periode_filter, 1)
 
     base_q = DataSBRS.query.filter(DataSBRS.periode == periode_filter)
     if ab != 'all': base_q = base_q.filter(DataSBRS.ab == ab)
@@ -252,7 +240,6 @@ def sbrs_summary():
 
 @sbrs_bp.route('/analisa')
 def sbrs_analisa():
-    """Detail Verifikasi: Menggabungkan Data 3 Bulan Berturut-turut dengan ANTI-KOSONG (Format Fix)."""
     ab = request.args.get('ab', 'AB Sunter')
     cycle = request.args.get('cycle', 'all')
     kat = request.args.get('kategori', 'all')
@@ -261,7 +248,6 @@ def sbrs_analisa():
     trbl_code = request.args.get('trbl_code')
     read_method = request.args.get('read_method')
     
-    # 6 Parameter Filter Wilayah Murni
     cc_filter = request.args.get('cc')
     pc_filter = request.args.get('pc')
     pcez_filter = request.args.get('pcez')
@@ -272,7 +258,6 @@ def sbrs_analisa():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    # Eksekusi Mundur 2 Bulan untuk Tren dan Format Bulan
     prev_periode_1 = get_prev_month(periode_filter, 1)
     prev_periode_2 = get_prev_month(periode_filter, 2)
     
@@ -298,7 +283,6 @@ def sbrs_analisa():
         if trbl_code and str(get_case_insensitive(raw, 'cmr_trbl1_code')) != trbl_code: continue
         if read_method and str(get_case_insensitive(raw, 'Read_Method') or get_case_insensitive(raw, 'cmr_read_code')) != read_method: continue
         
-        # Eksekusi Filter 6 Tab Wilayah
         if cc_filter and get_valid_str(get_case_insensitive(raw, 'CC')).lower() != cc_filter.lower(): continue
         if pc_filter and get_valid_str(get_case_insensitive(raw, 'KODE PA/PC') or get_case_insensitive(raw, 'PC')).lower() != pc_filter.lower(): continue
         if pcez_filter and get_valid_str(get_case_insensitive(raw, 'PCEZ') or get_case_insensitive(raw, 'PCEZBK') or d.pcez).lower() != pcez_filter.lower(): continue
@@ -335,7 +319,6 @@ def sbrs_analisa():
     ).all()
     hist_2 = {str(r.nomen).strip(): r for r in hist_2_records}
 
-    # Fungsi Ekstraksi 20 Field Sekaligus (Anti-Kosong)
     def extract_all_fields(raw_dict):
         if not raw_dict:
             return {
@@ -456,7 +439,6 @@ def sbrs_analisa():
 
 @sbrs_bp.route('/api-stats')
 def get_sbrs_api_stats():
-    """API untuk pembaruan widget angka secara real-time di frontend."""
     ab = request.args.get('ab', 'AB Sunter')
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
@@ -479,8 +461,29 @@ def get_sbrs_api_stats():
 
 @sbrs_bp.route('/export/summary')
 def export_summary():
-    """Mengunduh Dashboard Ringkasan ke format Excel."""
-    return send_file(io.BytesIO(b"Data Export Sedang Disinkronisasi"), download_name="SBRS_Summary.xlsx", as_attachment=True) 
+    """Mengunduh Dashboard Ringkasan ke format Excel (PERBAIKAN V18)."""
+    ab = request.args.get('ab', 'AB Sunter')
+    periode_raw = request.args.get('periode')
+    periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
+    
+    query = db.session.query(DataSBRS.kategori_anomali, func.count(DataSBRS.id).label('jumlah'))\
+              .filter(DataSBRS.periode == periode_filter)
+    if ab != 'all': query = query.filter(DataSBRS.ab == ab)
+    
+    results = query.group_by(DataSBRS.kategori_anomali).all()
+    
+    data_list = [{"Kategori Anomali": r.kategori_anomali, "Total Pelanggan": r.jumlah} for r in results]
+    
+    if not data_list:
+        data_list = [{"Kategori Anomali": "Tidak Ada Data", "Total Pelanggan": 0}]
+        
+    df = pl.DataFrame(data_list)
+    output = io.BytesIO()
+    df.write_excel(output, worksheet="Summary_SBRS")
+    output.seek(0)
+    
+    nama_file = f"Summary_SBRS_{ab}_{periode_filter}.xlsx"
+    return send_file(output, download_name=nama_file, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @sbrs_bp.route('/export/analisa')
 def export_analisa():
@@ -492,10 +495,8 @@ def export_analisa():
     periode_raw = request.args.get('periode')
     periode_filter = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
-    try:
-        dt = datetime.strptime(periode_filter, '%Y%m')
-        prev_periode = (dt - timedelta(days=28)).strftime('%Y%m')
-    except: prev_periode = periode_filter
+    # PERBAIKAN V18: Kalkulasi N-1 yang 100% akurat
+    prev_periode = get_prev_month(periode_filter, 1)
 
     query = db.session.query(DataSBRS.nomen, DataSBRS.nama, DataSBRS.kelurahan, DataSBRS.pcez, DataSBRS.kategori_anomali, DataSBRS.raw_data).filter(DataSBRS.periode == periode_filter)
     if ab != 'all': query = query.filter(DataSBRS.ab == ab)
@@ -543,18 +544,21 @@ def export_analisa():
             "Hari Baca (HB)": hb
         }
         
-        # Merge sisa raw_data
+        # Merge sisa raw_data dan cegah Polars error (ubah list/dict jadi string)
         for key, value in raw.items():
             if key not in row_data:
-                row_data[key] = value
+                # PERBAIKAN V18: Type-safe dictionary agar Polars tidak crash
+                if isinstance(value, (dict, list)):
+                    row_data[key] = str(value)
+                else:
+                    row_data[key] = value
         
         data_list.append(row_data)
 
-    # Membangun Data menggunakan Polars! 
-    # Jauh lebih cepat dari pd.DataFrame() dan tidak rakus RAM
+    if not data_list:
+        data_list = [{"Info": "Tidak ada data untuk filter yang dipilih"}]
+
     df = pl.DataFrame(data_list)
-    
-    # Menulis File Excel Langsung Menggunakan XlsxWriter (Didukung oleh Polars)
     output = io.BytesIO()
     df.write_excel(output, worksheet="Data_Analisa_Lengkap")
     output.seek(0)
