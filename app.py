@@ -1,174 +1,20 @@
 import os
 from flask import Flask, render_template, redirect, url_for
 from models import db
-from sqlalchemy import inspect, text # Jantung Audit & Sinkronisasi Database
+from sqlalchemy import text 
 
 # --- 1. IMPORT BLUEPRINTS ---
 from api.monitoring import monitoring_bp
-from api.daily import daily_bp  # Import Blueprint Daily Collection
+from api.daily import daily_bp  
 from api.importer import importer_bp
 from api.kunjungan import kunjungan_bp
 from api.sbrs import sbrs_bp 
-from api.top_500 import top_500_bp # Blueprint Top 500
-from api.admin import admin_bp # Blueprint Admin Control (V18)
-from api.ocr import ocr_bp # Blueprint Tools OCR
-from api.converter import converter_bp # Blueprint Konversi Dokumen
-from api.optimizer import optimizer_bp # Blueprint Kompresi Gambar
-from api.search import search_bp # Blueprint Global Search
-
-def sync_database_schema(app):
-    """
-    Fungsi Sinergi Self-Healing V5.18: Sinkronisasi Multi-Tabel Ekstrem.
-    Memastikan struktur tabel sinkron 100% dengan mesin Importer Polars.
-    """
-    with app.app_context():
-        inspector = inspect(db.engine)
-        tables = inspector.get_table_names()
-        
-        with db.engine.connect() as conn:
-            # --- 1. HEALING: master_pelanggan ---
-            if 'master_pelanggan' in tables:
-                mp_cols = [c['name'] for c in inspector.get_columns('master_pelanggan')]
-                if 'raw_data' not in mp_cols:
-                    try: 
-                        conn.execute(text("ALTER TABLE master_pelanggan ADD COLUMN raw_data JSONB"))
-                        conn.commit()
-                    except Exception: pass
-
-                mp_required = [
-                    ('rayon', 'VARCHAR(50)'), ('kelurahan', 'VARCHAR(100)'),
-                    ('pcez', 'VARCHAR(20)'), ('alamat', 'TEXT'),
-                    ('tarif', 'VARCHAR(20)'), ('ab', 'VARCHAR(50)'),
-                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-                ]
-                for col, dtype in mp_required:
-                    if col not in mp_cols:
-                        try:
-                            conn.execute(text(f"ALTER TABLE master_pelanggan ADD COLUMN {col} {dtype}"))
-                            conn.commit()
-                        except Exception: pass
-                
-                # --- OPTIMASI SEARCH V18: Tambahkan Index agar Pencarian Global < 100ms ---
-                try:
-                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_nomen ON master_pelanggan (nomen);"))
-                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_nama ON master_pelanggan (nama);"))
-                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_serial ON master_pelanggan (serial);"))
-                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_wa ON master_pelanggan (wa);"))
-                    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_hp ON master_pelanggan (hp);"))
-                    conn.commit()
-                except Exception: pass
-
-            # --- 2. HEALING: data_sbrs ---
-            if 'data_sbrs' in tables:
-                sbrs_cols = [c['name'] for c in inspector.get_columns('data_sbrs')]
-                sbrs_constraints = [c['name'] for c in inspector.get_unique_constraints('data_sbrs')]
-                
-                sbrs_required = [
-                    ('periode', 'VARCHAR(10)'), ('ab', "VARCHAR(50) DEFAULT 'AB Sunter'"),
-                    ('kelurahan', 'VARCHAR(100)'), ('pcez', 'VARCHAR(20)'),
-                    ('nama', 'VARCHAR(150)'), ('alamat', 'TEXT'),
-                    ('rayon', 'VARCHAR(20)'), ('tarif', 'VARCHAR(20)'),
-                    ('stand_meter', 'FLOAT DEFAULT 0'), ('bulan_ini', 'FLOAT DEFAULT 0'),
-                    ('rata_rata', 'FLOAT DEFAULT 15'), ('kategori_anomali', 'VARCHAR(50)'),
-                    ('status_audit', 'INTEGER DEFAULT 0'), ('raw_data', 'JSONB'),
-                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'), ('tgl_audit', 'TIMESTAMP'),
-                    ('catatan_lapangan', 'TEXT'), ('foto_meter_path', 'VARCHAR(255)'),
-                    ('latitude', 'VARCHAR(50)'), ('longitude', 'VARCHAR(50)')
-                ]
-                for col, dtype in sbrs_required:
-                    if col not in sbrs_cols:
-                        try:
-                            conn.execute(text(f"ALTER TABLE data_sbrs ADD COLUMN {col} {dtype}"))
-                            conn.commit()
-                        except Exception: pass
-                
-                if 'uix_sbrs_nomen_periode' not in sbrs_constraints:
-                    try: 
-                        conn.execute(text("ALTER TABLE data_sbrs ADD CONSTRAINT uix_sbrs_nomen_periode UNIQUE (nomen, periode)"))
-                        conn.commit()
-                    except Exception: pass
-
-            # --- 3. HEALING: transaksi_tagihan ---
-            if 'transaksi_tagihan' in tables:
-                tagihan_cols = [c['name'] for c in inspector.get_columns('transaksi_tagihan')]
-                tagihan_constraints = [c['name'] for c in inspector.get_unique_constraints('transaksi_tagihan')]
-                
-                # --- OBAT ANTI-ERROR V18 (BAGIAN INI YANG HILANG SEBELUMNYA) ---
-                # Otomatis me-rename kolom 'nominal' menjadi 'total_tagihan' di PostgreSQL
-                if 'nominal' in tagihan_cols and 'total_tagihan' not in tagihan_cols:
-                    try:
-                        conn.execute(text("ALTER TABLE transaksi_tagihan RENAME COLUMN nominal TO total_tagihan;"))
-                        conn.commit()
-                    except Exception as e: 
-                        print(f"Gagal rename kolom nominal: {e}")
-                elif 'total_tagihan' not in tagihan_cols:
-                    try:
-                        conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN total_tagihan FLOAT;"))
-                        conn.commit()
-                    except Exception: pass
-
-                if 'raw_data' not in tagihan_cols:
-                    try:
-                        conn.execute(text("ALTER TABLE transaksi_tagihan ADD COLUMN raw_data JSONB"))
-                        conn.commit()
-                    except Exception: pass
-                
-                if 'uix_tagihan_nomen_periode' not in tagihan_constraints:
-                    try:
-                        conn.execute(text("""
-                            DELETE FROM transaksi_tagihan a USING transaksi_tagihan b 
-                            WHERE a.id < b.id AND a.nomen = b.nomen AND a.periode = b.periode;
-                        """))
-                        conn.execute(text("ALTER TABLE transaksi_tagihan ADD CONSTRAINT uix_tagihan_nomen_periode UNIQUE (nomen, periode)"))
-                        conn.commit()
-                    except Exception: pass
-
-            # --- 4. CREATE: data_mb ---
-            if 'data_mb' not in tables:
-                try:
-                    conn.execute(text("""
-                        CREATE TABLE data_mb (
-                            id SERIAL PRIMARY KEY, nomen VARCHAR(50), periode VARCHAR(10),
-                            bulan_rek VARCHAR(20), tgl_bayar VARCHAR(50), nominal FLOAT, 
-                            denda FLOAT, lks_bayar VARCHAR(100), notagihan VARCHAR(100),
-                            raw_data JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            CONSTRAINT uix_mb_nomen_periode UNIQUE (nomen, periode)
-                        )
-                    """))
-                    conn.commit()
-                except Exception: pass
-
-            # --- 5. CREATE: data_arrdebt ---
-            if 'data_arrdebt' not in tables:
-                try:
-                    conn.execute(text("""
-                        CREATE TABLE data_arrdebt (
-                            id SERIAL PRIMARY KEY, nomen VARCHAR(50), periode VARCHAR(10),
-                            nominal FLOAT, raw_data JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            CONSTRAINT uix_arrdebt_nomen_periode UNIQUE (nomen, periode)
-                        )
-                    """))
-                    conn.commit()
-                except Exception: pass
-
-            # --- 6. CREATE: data_mainbill (14 Kolom Jalur Cepat) ---
-            if 'data_mainbill' not in tables:
-                try:
-                    conn.execute(text("""
-                        CREATE TABLE data_mainbill (
-                            id SERIAL PRIMARY KEY, nomen VARCHAR(50), periode VARCHAR(10),
-                            jenis_pelanggan VARCHAR(50), cc VARCHAR(50), pcezbk VARCHAR(50), 
-                            tarif VARCHAR(50), bill_cycle VARCHAR(50), read_method VARCHAR(50), 
-                            konsumsi FLOAT, tagihan_air FLOAT, start_read VARCHAR(50), 
-                            start_read_stan VARCHAR(50), end_read VARCHAR(50), hari_baca VARCHAR(50), 
-                            raw_data JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            CONSTRAINT uix_mainbill_nomen_periode UNIQUE (nomen, periode)
-                        )
-                    """))
-                    conn.commit()
-                except Exception: pass
-            
-            conn.commit()
+from api.top_500 import top_500_bp 
+from api.admin import admin_bp 
+from api.ocr import ocr_bp 
+from api.converter import converter_bp 
+from api.optimizer import optimizer_bp 
+from api.search import search_bp 
 
 def create_app():
     app_flask = Flask(__name__)
@@ -214,13 +60,23 @@ def create_app():
     def lapor_page():
         return render_template('lapor.html')
 
-    # --- 6. STARTUP PROTOCOL ---
+    # --- 6. STARTUP PROTOCOL (V18 CLEAN ARCHITECTURE) ---
     with app_flask.app_context():
         try:
+            # Biarkan SQLAlchemy yang membangun SEMUA tabel murni dari models.py
             db.create_all()
-            sync_database_schema(app_flask)
+            
+            # Tambahkan Index Khusus untuk mempercepat Global Search
+            with db.engine.connect() as conn:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_nama ON master_pelanggan (nama);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_serial ON master_pelanggan (serial);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_wa ON master_pelanggan (wa);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_search_hp ON master_pelanggan (hp);"))
+                conn.commit()
+                
+            print("Database V18 Siap dan Tersinkronisasi dengan models.py!")
         except Exception as e:
-            print(f"Schema Sync Error: {e}")
+            print(f"Startup Database Error: {e}")
             db.session.rollback()
 
     return app_flask
@@ -229,5 +85,4 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    # Debug mode diaktifkan untuk development, host 0.0.0.0 agar bisa diakses dalam network Docker
     app.run(host='0.0.0.0', port=5000, debug=True)
