@@ -11,24 +11,24 @@ from models import db, DataSBRS
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================
-# FUNGSI HELPER UMUM (SANGAT KRUSIAL)
+# FUNGSI HELPER UMUM
 # ==========================================
 def clean_nomen(val):
-    """Pembersih Nomen Sakti: Buang huruf 'K', buang spasi, ambil tepat 8 digit angka"""
+    """Membersihkan Nomen: Ambil 8 digit angka terakhir, bebas huruf/spasi"""
     if not val or val is None: return None
     s = str(val).strip().upper().split('.')[0]
     s = s.replace('K', '')
-    s = re.sub(r'[^0-9]', '', s) # Bersihkan karakter aneh
+    s = re.sub(r'[^0-9]', '', s)
     if not s: return None
     return s[-8:].zfill(8)
 
 def extract_periode(val):
-    """Pintar membaca format MMYYYY (012026) atau Format Daily (1/4/26 0:00:00) -> 202601"""
+    """Membaca periode asli dari berbagai sumber text (Output standar YYYYMM)"""
     try:
         val = str(val).strip()
         if not val or val == 'None' or val == 'nan': return "000000"
         
-        # Tangkap format Daily Collection: "1/4/26 0:00:00"
+        # Format Daily Collection: "1/4/26 0:00:00" atau "01/04/2026"
         if '/' in val:
             date_part = val.split(' ')[0]
             parts = date_part.split('/')
@@ -38,7 +38,7 @@ def extract_periode(val):
                 if len(y) == 2: y = "20" + y
                 return f"{y}{m}"
                 
-        # Tangkap format Master Bayar lama: "012026"
+        # Format MB lama: "012026" -> Jadi "202601"
         if len(val) == 6 and val[2:].startswith('20'):
             return val[2:] + val[:2]
             
@@ -46,7 +46,11 @@ def extract_periode(val):
     except: return "000000"
 
 def shift_period_plus_one(yyyymm):
-    """Auto Time-Shift Engine: Menggeser YYYYMM ke bulan depannya (+1 Bulan)"""
+    """
+    AUTO TIME-SHIFT V18.
+    Tagihan Maret (202603) selalu dibayar/ditagih pada April (202604).
+    Ini menggeser bulan +1 untuk sinkronisasi target vs realisasi.
+    """
     yyyymm_str = str(yyyymm).strip()
     if not yyyymm_str or len(yyyymm_str) != 6: return yyyymm_str
     try:
@@ -56,7 +60,6 @@ def shift_period_plus_one(yyyymm):
     except: return yyyymm_str
 
 def parse_float(val):
-    """Pintar mengubah 1.660,00 (Koma Indonesia) menjadi 1660.00 (Standar Database)"""
     try:
         if val is None or str(val).strip() == '': return 0.0
         v_str = str(val).strip().replace('.', '').replace(',', '.')
@@ -64,7 +67,7 @@ def parse_float(val):
     except: return 0.0
 
 def process_mega_file(file, logic_func, chunk_size=20000, sep='|'):
-    """Mesin Turbo Polars dengan parameter pemisah dinamis (sep)"""
+    """Mesin Polars Batched Reader untuk Hemat RAM (V18 Standard)"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -80,6 +83,7 @@ def process_mega_file(file, logic_func, chunk_size=20000, sep='|'):
         
         while batches:
             chunk = batches[0]
+            # Standarisasi header huruf besar tanpa spasi depan/belakang
             chunk = chunk.rename({col: col.strip().upper() for col in chunk.columns})
             
             added_count = logic_func(chunk)
@@ -96,35 +100,37 @@ def process_mega_file(file, logic_func, chunk_size=20000, sep='|'):
         if os.path.exists(temp_path): os.remove(temp_path)
 
 # ==========================================
-# RUTE UTAMA (RADAR DETEKSI 7 JENIS FILE)
+# RUTE UTAMA UPLOAD SAKTI V18
 # ==========================================
 @importer_bp.route('/tagihan', methods=['POST'])
 def import_tagihan():
     file_cust = request.files.get('file_customer')
     file_spot = request.files.get('file_spotbill')
     file_mc = request.files.get('file_mc')
-    file_mb = request.files.get('file_mb')             # Baru (Master Bayar)
-    file_daily = request.files.get('file_daily')       # Baru (Koleksi Harian)
+    file_mb = request.files.get('file_mb')             
+    file_daily = request.files.get('file_daily')       
     file_cid = request.files.get('file_cid')
     file_arrdebt = request.files.get('file_arrdebt')
     file_mainbill = request.files.get('file_mainbill') or request.files.get('file')
 
     try:
-        if file_cust and file_spot: return handle_sbrs_upload(file_cust, file_spot) # 1. SBRS (Lama)
-        elif file_mc: return handle_mc_upload(file_mc)                              # 2. Master Cetak (Baru)
-        elif file_mb: return handle_mb_upload(file_mb)                              # 3. Master Bayar (Baru)
-        elif file_daily: return handle_daily_upload(file_daily)                     # 4. Koleksi Harian (Baru)
-        elif file_cid: return handle_cid_upload(file_cid)                           # 5. Master CID (Baru)
-        elif file_arrdebt: return handle_arrdebt_upload(file_arrdebt)               # 6. Tunggakan (Lama)
-        elif file_mainbill: return handle_mainbill_upload(file_mainbill)            # 7. MainBill (Baru)
-        else: return jsonify({"status": "error", "message": "Format file tidak dikenali!"}), 400
+        if file_cust and file_spot: return handle_sbrs_upload(file_cust, file_spot)
+        elif file_mc: return handle_mc_upload(file_mc)                              
+        elif file_mb: return handle_mb_upload(file_mb)                              
+        elif file_daily: return handle_daily_upload(file_daily)                     
+        elif file_cid: return handle_cid_upload(file_cid)                           
+        elif file_arrdebt: return handle_arrdebt_upload(file_arrdebt)               
+        elif file_mainbill: return handle_mainbill_upload(file_mainbill)            
+        else: return jsonify({"status": "error", "message": "Format file tidak dikenali atau kosong!"}), 400
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        import traceback
+        print(traceback.format_exc()) # Log ke Docker jika error
+        return jsonify({"status": "error", "message": f"Fatal System Error: {str(e)}"}), 500
 
 
 # =========================================================================
-# 1. LOGIKA SBRS (DIPERTAHANKAN 100% SESUAI PERMINTAAN)
+# 1. LOGIKA SBRS
 # =========================================================================
 def handle_sbrs_upload(file_cust, file_spot):
     cust_filename = secure_filename(file_cust.filename)
@@ -132,8 +138,6 @@ def handle_sbrs_upload(file_cust, file_spot):
     file_cust.save(cust_temp_path)
     
     lookup_cust = {}
-    
-    # Baca file customer dengan Polars (Menggunakan ; untuk SBRS lama)
     cust_reader = pl.read_csv_batched(cust_temp_path, separator=';', infer_schema_length=0, quote_char='"', batch_size=50000)
     c_batches = cust_reader.next_batches(1)
     
@@ -146,7 +150,6 @@ def handle_sbrs_upload(file_cust, file_spot):
             for row in c_chunk.to_dicts():
                 nk = clean_nomen(row.get(col_key_c))
                 if nk: lookup_cust[nk] = row
-        
         c_batches = cust_reader.next_batches(1)
     
     if os.path.exists(cust_temp_path): os.remove(cust_temp_path)
@@ -236,7 +239,7 @@ def handle_sbrs_upload(file_cust, file_spot):
     return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
 
 # =========================================================================
-# 2. LOGIKA ARRDEBT (DIPERTAHANKAN SESUAI PERMINTAAN - FIX NAMA KOLOM)
+# 2. LOGIKA ARRDEBT
 # =========================================================================
 def handle_arrdebt_upload(file_arrdebt):
     def arrdebt_logic(df_chunk):
@@ -252,7 +255,6 @@ def handle_arrdebt_upload(file_arrdebt):
             nominal = parse_float(row.get('BILL_AMT') or row.get('WATER'))
             
             arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": json.dumps(row)})
-            # Note: Kita gunakan total_tagihan sesuai models.py V18
             tagihan_entries.append({"nomen": nomen, "periode": periode, "total_tagihan": nominal, "status_lunas": 0})
 
         if arr_entries:
@@ -273,11 +275,11 @@ def handle_arrdebt_upload(file_arrdebt):
         return len(arr_entries)
 
     total_arr = process_mega_file(file_arrdebt, arrdebt_logic, sep=';')
-    return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan ke Top 500."})
+    return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan."})
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID -> BUKU INDUK PELANGGAN (28 KOLOM CEPAT + JSONB)
+# 3. LOGIKA MASTER CID 
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(df_chunk):
@@ -342,9 +344,10 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
+    # Bersihkan Data Lama sebelum insert (Karakteristik Master Data)
     db.session.execute(text("TRUNCATE TABLE master_pelanggan CASCADE"))
     total = process_mega_file(file_cid, cid_logic, sep='|')
-    return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui (Full 28 Kolom Jalur Cepat)."})
+    return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui (Full 28 Kolom)."})
 
 
 # =========================================================================
@@ -357,7 +360,7 @@ def handle_mc_upload(file_mc):
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
-            # Deteksi Akurat Periode dari TAHUN2 dan NAMA_BLN2
+            # Deteksi Akurat Periode
             if 'TAHUN2' in row and 'NAMA_BLN2' in row and str(row['TAHUN2']).strip():
                 tahun = str(row['TAHUN2']).strip()
                 bulan = str(row['NAMA_BLN2']).strip().zfill(2)
@@ -389,11 +392,11 @@ def handle_mc_upload(file_mc):
         return 0
 
     total = process_mega_file(file_mc, mc_logic, sep='|')
-    return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan masuk Top 500 (Auto Time-Shift)."})
+    return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 
 # =========================================================================
-# 5. LOGIKA MASTER BAYAR (MB) -> PENYAPU BERSIH TOP 500 (AUTO TIME-SHIFT)
+# 5. LOGIKA MASTER BAYAR (MB)
 # =========================================================================
 def handle_mb_upload(file_mb):
     def mb_logic(df_chunk):
@@ -437,55 +440,74 @@ def handle_mb_upload(file_mb):
         return 0
 
     total_bayar = process_mega_file(file_mb, mb_logic, sep='|')
-    return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} data dilunaskan dari Top 500."})
+    return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} dilunaskan."})
 
 
 # =========================================================================
-# 6. LOGIKA KOLEKSI HARIAN (DAILY DATA)
+# 6. LOGIKA KOLEKSI HARIAN (DAILY DATA) -> DIGABUNG KE TABEL DATA_MB
 # =========================================================================
 def handle_daily_upload(file_daily):
     def daily_logic(df_chunk):
-        daily_entries = []
+        mb_entries = []
+        lunas_entries = []
+        
         for row in df_chunk.to_dicts():
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
-            daily_entries.append({
+            # Dari file Daily, BILL_PERIOD berformat: '01/03/2026'
+            # Kita ekstrak jadi format standar (202603) lalu di-shift (+1 Bulan) -> 202604
+            bill_period_raw = str(row.get('BILL_PERIOD', '')).strip()
+            periode_asli = extract_periode(bill_period_raw)
+            periode_target = shift_period_plus_one(periode_asli)
+            
+            # Format bulan rek (MMYYYY) untuk kolom bulan_rek di data_mb
+            bulan_rek_val = ""
+            if bill_period_raw and '/' in bill_period_raw:
+                parts = bill_period_raw.split('/')
+                if len(parts) == 3:
+                    y = parts[2]
+                    if len(y) == 2: y = "20" + y
+                    bulan_rek_val = f"{parts[1].zfill(2)}{y}"
+
+            mb_entries.append({
                 "nomen": nomen,
-                "pay_dt": str(row.get('PAY_DT', '')).strip(),
-                "bill_period": str(row.get('BILL_PERIOD', '')).strip(),
-                "pay_amt": parse_float(row.get('PAY_AMT')),
-                "pay_status_flg": str(row.get('PAY_STATUS_FLG', '')).strip(),
-                "bill_type": str(row.get('BILL_TYPE', '')).strip(),
-                "typecust1": str(row.get('TYPECUST1', '')).strip(),
-                "pay_loc": str(row.get('PAY_LOC', '')).strip(),
-                "bill_id": str(row.get('BILL_ID', '')).strip(),
-                "ab": str(row.get('AB', '')).strip(),
-                "status": str(row.get('STATUS', '')).strip(),
+                "periode": periode_target,
+                "bulan_rek": bulan_rek_val,
+                "tgl_bayar": str(row.get('PAY_DT', '')).strip(),
+                "nominal": parse_float(row.get('PAY_AMT')),
+                "denda": 0, # Daily biasanya tidak ada denda terpisah, atau gabung di raw
+                "lks_bayar": str(row.get('PAY_LOC', '')).strip(),
+                "notagihan": str(row.get('BILL_ID', '')).strip(),
                 "raw_data": json.dumps(row)
             })
             
-        if daily_entries:
-            sql = text("""
-                INSERT INTO data_daily (
-                    nomen, pay_dt, bill_period, pay_amt, pay_status_flg, bill_type, typecust1, pay_loc, bill_id, ab, status, raw_data
-                ) VALUES (
-                    :nomen, :pay_dt, :bill_period, :pay_amt, :pay_status_flg, :bill_type, :typecust1, :pay_loc, :bill_id, :ab, :status, CAST(:raw_data AS JSONB)
-                ) ON CONFLICT (nomen, bill_id) DO UPDATE SET 
-                    pay_dt=EXCLUDED.pay_dt, bill_period=EXCLUDED.bill_period, pay_amt=EXCLUDED.pay_amt,
-                    pay_status_flg=EXCLUDED.pay_status_flg, bill_type=EXCLUDED.bill_type, typecust1=EXCLUDED.typecust1,
-                    pay_loc=EXCLUDED.pay_loc, ab=EXCLUDED.ab, status=EXCLUDED.status, raw_data=EXCLUDED.raw_data
+            if str(row.get('PAY_STATUS_FLG', '')).strip() == '1':
+                lunas_entries.append({"n": nomen, "p": periode_target})
+            
+        if mb_entries:
+            # Kita simpan data Harian ke dalam data_mb agar fungsi Daily engine Anda terbaca sempurna
+            sql_mb = text("""
+                INSERT INTO data_mb (nomen, periode, bulan_rek, tgl_bayar, nominal, denda, lks_bayar, notagihan, raw_data)
+                VALUES (:nomen, :periode, :bulan_rek, :tgl_bayar, :nominal, :denda, :lks_bayar, :notagihan, CAST(:raw_data AS JSONB))
+                ON CONFLICT (nomen, periode) DO UPDATE SET 
+                    bulan_rek=EXCLUDED.bulan_rek, tgl_bayar=EXCLUDED.tgl_bayar, nominal=EXCLUDED.nominal,
+                    denda=EXCLUDED.denda, lks_bayar=EXCLUDED.lks_bayar, notagihan=EXCLUDED.notagihan, raw_data=EXCLUDED.raw_data
             """)
-            db.session.execute(sql, daily_entries)
-            return len(daily_entries)
+            db.session.execute(sql_mb, mb_entries)
+            
+            if lunas_entries:
+                sql_lunas = text("UPDATE transaksi_tagihan SET status_lunas = 1 WHERE nomen = :n AND periode = :p")
+                db.session.execute(sql_lunas, lunas_entries)
+            return len(mb_entries)
         return 0
 
     total = process_mega_file(file_daily, daily_logic, sep='|')
-    return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi Daily direkam."})
+    return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} pembayaran disinkronkan ke DB."})
 
 
 # =========================================================================
-# 7. LOGIKA MAINBILL (14 KOLOM JALUR CEPAT)
+# 7. LOGIKA MAINBILL
 # =========================================================================
 def handle_mainbill_upload(file_mainbill):
     def mainbill_logic(df_chunk):
@@ -499,7 +521,10 @@ def handle_mainbill_upload(file_mainbill):
             periode_target = "999999"
             if len(end_read_raw) >= 10:
                 parts = end_read_raw[:10].split('/')
-                if len(parts) == 3: periode_target = f"{parts[2]}{parts[1]}"
+                if len(parts) == 3: 
+                    y = parts[2]
+                    if len(y) == 2: y = "20" + y
+                    periode_target = f"{y}{parts[1].zfill(2)}"
 
             mb_entries.append({
                 "nomen": nomen,
