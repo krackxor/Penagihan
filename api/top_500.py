@@ -87,17 +87,28 @@ def api_stats():
                          .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
                          .filter(TransaksiTagihan.status_lunas == 0)
 
+    # Menghitung total pelanggan unik
+    total_pelanggan_query = db.session.query(func.count(func.distinct(TransaksiTagihan.nomen)))\
+                              .select_from(TransaksiTagihan)\
+                              .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
+                              .filter(TransaksiTagihan.status_lunas == 0)
+
     if periode_bersih != 'all':
         total_uang_query = total_uang_query.filter(TransaksiTagihan.periode == periode_bersih)
+        total_pelanggan_query = total_pelanggan_query.filter(TransaksiTagihan.periode == periode_bersih)
 
     if ab_filter != 'all':
         total_uang_query = total_uang_query.filter(MasterPelanggan.ab == ab_filter)
+        total_pelanggan_query = total_pelanggan_query.filter(MasterPelanggan.ab == ab_filter)
 
     total_uang = total_uang_query.scalar() or 0
+    total_pelanggan = total_pelanggan_query.scalar() or 0
 
     return jsonify({
         "status": "success",
         "periode": periode_bersih,
+        "wilayah": ab_filter,
+        "total_tunggakan_tercatat": int(total_pelanggan),
         "total_nominal_rp": float(total_uang),
         "data_exists": True if total_uang > 0 else False
     })
