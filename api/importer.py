@@ -17,7 +17,7 @@ csv.field_size_limit(sys.maxsize)
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================================
-# 1. STRATEGI ANTI-GAGAL, SMART NUMBER PARSER, & AUTO-TRIM
+# 1. STRATEGI ANTI-GAGAL & DETEKSI PERIODE DARI TANGGAL
 # ==========================================================
 
 def get_current_periode():
@@ -58,20 +58,32 @@ def standardize_cust_type(val):
     return s
 
 def extract_periode(val):
+    """
+    LOGIKA UTAMA: Mendeteksi YYYYMM dari format tanggal DD/MM/YYYY atau MMYYYY.
+    Contoh: 04/03/2026 -> 202603
+    """
     try:
         val = str(val).replace('"', '').strip()
         if not val or val.lower() in ['none', 'nan', '']: return "000000"
-        if '/' in val:
-            parts = val.split(' ')[0].split('/')
-            if len(parts) == 3:
-                m = parts[1].zfill(2)
-                y = parts[2] if len(parts[2]) != 2 else "20" + parts[2]
-                return f"{y}{m}"
-        if len(val) == 6 and val[2:].startswith('20'): return val[2:] + val[:2]
+        
+        # 1. Cek format DD/MM/YYYY atau DD-MM-YYYY (misal 04/03/2026 atau 04-03-2026)
+        match = re.search(r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})', val)
+        if match:
+            d, m, y = match.groups()
+            m = m.zfill(2)
+            if len(y) == 2: y = "20" + y
+            return f"{y}{m}"
+            
+        # 2. Cek format MMYYYY (misal 032026)
+        if len(val) == 6 and val[:2].isdigit() and val[2:].isdigit():
+            if 1 <= int(val[:2]) <= 12 and val[2:].startswith('20'):
+                return val[2:] + val[:2]
+        
         return val[:6].replace('-', '')
     except: return "000000"
 
 def shift_period_plus_one(yyyymm):
+    """N+1 Logic: Menggeser Maret (202603) menjadi April (202604) untuk periode laporan"""
     yyyymm_str = str(yyyymm).strip()
     if not yyyymm_str or len(yyyymm_str) != 6: return yyyymm_str
     try:
@@ -85,23 +97,19 @@ def parse_float(val):
         if not val: return 0.0
         v_str = str(val).replace('"', '').strip()
         
-        # 1. Hapus semua huruf 'Rp', spasi, dan karakter aneh (Sisakan angka, koma, titik, minus)
+        # Hapus semua huruf 'Rp', spasi, dan karakter aneh (Sisakan angka, koma, titik, minus)
         v_str = re.sub(r'[^\d,\.-]', '', v_str)
         if not v_str: return 0.0
         
-        # 2. Logika Pemecah Format Uang Indo vs US
+        # Logika Pemecah Format Uang Indo vs US
         if ',' in v_str and '.' in v_str:
             if v_str.rfind(',') > v_str.rfind('.'):
-                # Format Indo (Misal: 101.934,00)
                 v_str = v_str.replace('.', '').replace(',', '.')
             else:
-                # Format US (Misal: 101,934.00)
                 v_str = v_str.replace(',', '')
         elif ',' in v_str:
-            # Format koma tunggal (Misal: 101934,00) -> Asumsi desimal Indo
             v_str = v_str.replace(',', '.')
         elif '.' in v_str:
-            # Format titik tunggal. Cek jika 2 angka di belakang, itu desimal (101934.00). Jika tidak, itu ribuan (1.000).
             if len(v_str) - v_str.rfind('.') - 1 != 2:
                 v_str = v_str.replace('.', '')
                 
@@ -196,7 +204,7 @@ def import_tagihan():
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID (SQLAlchemy Core + Auto Trim)
+# 3. LOGIKA MASTER CID
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(data_chunk):
@@ -254,7 +262,7 @@ def handle_cid_upload(file_cid):
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 # =========================================================================
-# 4. LOGIKA MC (MASTER CETAK)
+# 4. LOGIKA MC (MASTER CETAK) - TGL_CATAT DETECTOR
 # =========================================================================
 def handle_mc_upload(file_mc):
     def mc_logic(data_chunk):
@@ -263,13 +271,12 @@ def handle_mc_upload(file_mc):
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
             
-            tahun2 = get_val(row, ['TAHUN2'])
-            bulan2 = get_val(row, ['NAMA_BLN2'])
-            if tahun2 and bulan2:
-                periode_target = f"{tahun2}{bulan2.zfill(2)}"
-            else:
-                periode_asli = extract_periode(get_val(row, ['PERIODE', 'BLNTAG']))
-                periode_target = shift_period_plus_one(periode_asli)
+            # Mendeteksi dari TGL_CATAT untuk memastikan presisi bulan (Misal: 04/03/2026 -> 202603)
+            tgl_catat = get_val(row, ['TGL_CATAT', 'TANGGAL_BACA', 'PERIODE', 'BLNTAG'])
+            periode_asli = extract_periode(tgl_catat)
+            
+            # Gunakan N+1: Data Maret (202603) disimpan sebagai periode 202604
+            periode_target = shift_period_plus_one(periode_asli)
 
             mc_entries.append({
                 "nomen": trim(nomen, 50),
@@ -303,7 +310,7 @@ def handle_mc_upload(file_mc):
     return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 # =========================================================================
-# 5. LOGIKA MASTER BAYAR (MB)
+# 5. LOGIKA MASTER BAYAR (MB) - TGL_BAYAR DETECTOR
 # =========================================================================
 def handle_mb_upload(file_mb):
     def mb_logic(data_chunk):
@@ -313,16 +320,18 @@ def handle_mb_upload(file_mb):
             nomen = clean_nomen(get_val(row, ['NOMEN', 'CMR_ACCOUNT']))
             if not nomen: continue
             
-            bulan_rek_raw = get_val(row, ['BULAN_REK'])
-            periode_asli = extract_periode(bulan_rek_raw if bulan_rek_raw else get_val(row, ['PERIODE']))
+            # Mendeteksi dari TGL_BAYAR (Contoh: 31/03/2026 -> 202603)
+            tgl_bayar_raw = get_val(row, ['TGL_BAYAR', 'PAY_DT'])
+            periode_asli = extract_periode(tgl_bayar_raw)
+            
+            # Geser N+1 agar sesuai dengan periode tagihan MC di DB
             periode_target = shift_period_plus_one(periode_asli)
             
             mb_entries.append({
                 "nomen": trim(nomen, 50),
                 "periode": trim(periode_target, 10),
-                "bulan_rek": trim(bulan_rek_raw, 20),
-                "tgl_bayar": trim(get_val(row, ['TGL_BAYAR', 'PAY_DT']), 50),
-                # PASTIKAN NOMINAL DITARIK DARI SEGALA KEMUNGKINAN NAMA KOLOM
+                "bulan_rek": trim(get_val(row, ['BULAN_REK', 'BulanRek']), 20),
+                "tgl_bayar": trim(tgl_bayar_raw, 50),
                 "nominal": parse_float(get_val(row, ['NOMINAL', 'RPBAYAR', 'PAY_AMT', 'TOTAL_BAYAR'])),
                 "denda": parse_float(get_val(row, ['DENDA', 'PENALTY'])),
                 "lks_bayar": trim(get_val(row, ['LKS_BAYAR', 'PAY_LOC']), 100),
