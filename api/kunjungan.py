@@ -5,13 +5,13 @@ from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from models import db, MasterPelanggan, MasterPetugas, AnalisaAuditor
 from sqlalchemy import and_
-from PIL import Image, ImageOps # Tambahan untuk Optimasi Foto Lapangan
+from PIL import Image, ImageOps 
 
 # Inisialisasi Blueprint
 kunjungan_bp = Blueprint('kunjungan', __name__)
 
 # ==========================================
-# MESIN PEMBERSIH NOMEN V18 (WAJIB ADA)
+# MESIN PEMBERSIH NOMEN V18
 # ==========================================
 def clean_nomen(val):
     """Pembersih Nomen Sakti: Memastikan Nomen Lapangan sinkron dengan CID/MC/MB."""
@@ -27,6 +27,10 @@ def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+# ==========================================
+# API 1: CEK PCEZ & PETUGAS (REAL-TIME)
+# ==========================================
 @kunjungan_bp.route('/cek-pcez/<nomen_raw>', methods=['GET'])
 def cek_pcez_petugas(nomen_raw):
     """
@@ -62,6 +66,10 @@ def cek_pcez_petugas(nomen_raw):
         "petugas": nama_petugas
     })
 
+
+# ==========================================
+# API 2: SUBMIT LAPORAN (SMART COMPRESSION)
+# ==========================================
 @kunjungan_bp.route('/submit', methods=['POST'])
 def submit_laporan():
     """
@@ -94,23 +102,28 @@ def submit_laporan():
         if 'foto' in request.files:
             file = request.files['foto']
             if file and allowed_file(file.filename):
+                
+                # PROTEKSI V18: Pastikan folder upload eksis
+                upload_dir = current_app.config.get('UPLOAD_FOLDER', 'static/uploads/kunjungan')
+                os.makedirs(upload_dir, exist_ok=True)
+
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 # Paksa ekstensi menjadi jpg untuk standardisasi
                 filename = secure_filename(f"{nomen}_{timestamp}.jpg")
-                save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                save_path = os.path.join(upload_dir, filename)
                 
                 try:
                     # Buka gambar di memori
                     img = Image.open(file.stream)
                     
-                    # Cegah foto lapangan miring/terbalik
+                    # Cegah foto lapangan miring/terbalik (Membaca EXIF Data dari HP)
                     img = ImageOps.exif_transpose(img)
                     
-                    # Pastikan format kompatibel untuk JPEG
+                    # Pastikan format kompatibel untuk JPEG (Buang Alpha Channel/Transparansi)
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
                         
-                    # SMART COMPRESSION: Batasi resolusi maksimal (misal 1280px)
+                    # SMART COMPRESSION: Batasi resolusi maksimal 1280px
                     # File 5MB akan turun drastis menjadi < 200KB tanpa buram
                     img.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
                     
@@ -119,7 +132,7 @@ def submit_laporan():
                     foto_filename = filename
                     
                 except Exception as e:
-                    # Fallback Darurat jika proses Pillow gagal, simpan file mentah
+                    # Fallback Darurat: Jika Pillow gagal, simpan file mentah aslinya
                     file.seek(0)
                     file.save(save_path)
                     foto_filename = secure_filename(file.filename)
@@ -132,7 +145,7 @@ def submit_laporan():
             except ValueError:
                 pass 
 
-        # Simpan Laporan ke PostgreSQL (Atomik)
+        # Simpan Laporan ke PostgreSQL
         laporan = AnalisaAuditor(
             nomen=nomen,
             hasil_kunjungan=hasil,
@@ -155,6 +168,10 @@ def submit_laporan():
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Kesalahan Sistem: {str(e)}"}), 500
 
+
+# ==========================================
+# API 3: TARIK RIWAYAT PELANGGAN
+# ==========================================
 @kunjungan_bp.route('/riwayat/<nomen_raw>', methods=['GET'])
 def riwayat_kunjungan(nomen_raw):
     """Menarik sejarah kunjungan pelanggan dengan Nomen yang sudah dibersihkan."""
