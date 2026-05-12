@@ -32,14 +32,25 @@ def database_page():
 def reset_database():
     """
     Mesin Eksekusi Reset Data Sinergi V18.
-    Mendukung dua mode: 'transaksi' (Operasional) dan 'total' (Pabrik).
-    Kini otomatis membersihkan storage dari file foto sampah.
+    Dilengkapi Protokol Kill-Connections untuk mencegah error 'Database in use'.
     """
-    mode = request.json.get('mode')
+    # Gunakan request.form jika data dikirim dari htmx (default) atau request.json
+    data = request.get_json() if request.is_json else request.form
+    mode = data.get('mode')
     
     try:
+        # --- LANGKAH 1: PROTOKOL PUTUS KONEKSI PAKSA ---
+        # Ini akan menendang semua user/koneksi lain agar DB tidak terkunci (Lock)
+        db.session.execute(text("""
+            SELECT pg_terminate_backend(pg_stat_activity.pid)
+            FROM pg_stat_activity
+            WHERE pg_stat_activity.datname = current_database()
+              AND pid <> pg_backend_pid();
+        """))
+        db.session.commit()
+
         if mode == 'transaksi':
-            # 1. Mode Pembersihan Berkala (Master CID & Petugas tetap Aman)
+            # --- 2. MODE PEMBERSIHAN BERKALA ---
             tabel_operasional = [
                 'transaksi_tagihan', 
                 'data_sbrs', 
@@ -49,25 +60,23 @@ def reset_database():
                 'analisa_auditor'
             ]
             
-            # Eksekusi Truncate dengan CASCADE agar relasi FK ikut bersih
+            # Eksekusi Truncate per tabel (Hanya tabel operasional)
             for tabel in tabel_operasional:
-                # RESTART IDENTITY mengembalikan ID (Auto Increment) ke angka 1
-                db.session.execute(text(f"TRUNCATE {tabel} RESTART IDENTITY CASCADE"))
+                try:
+                    db.session.execute(text(f"TRUNCATE {tabel} RESTART IDENTITY CASCADE"))
+                except Exception:
+                    continue # Lewati jika tabel belum ada/dibuat
             
-            # Bersihkan foto bukti dari server
             clear_upload_folder()
-            
             msg = "Data Transaksi & Foto Laporan berhasil dikosongkan! (CID & Petugas AMAN)"
             
         elif mode == 'total':
-            # 2. Mode Reset Total (Setelan Pabrik)
-            # Menghapus seluruh skema dan menciptakan ulang tabel kosong
+            # --- 3. MODE RESET TOTAL (SETELAN PABRIK) ---
+            # Drop dan Create All adalah cara tercepat membersihkan schema
             db.drop_all()
             db.create_all()
             
-            # Bersihkan foto bukti dari server
             clear_upload_folder()
-            
             msg = "Database & Storage Sinergi V18 telah direset total ke kondisi awal!"
             
         else:
@@ -78,4 +87,5 @@ def reset_database():
 
     except Exception as e:
         db.session.rollback()
+        # Jika error karena tabel tidak ditemukan saat truncate, kirim pesan ramah
         return jsonify({"status": "error", "message": f"Kegagalan Sistem: {str(e)}"}), 500
