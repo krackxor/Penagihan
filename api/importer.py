@@ -12,7 +12,7 @@ from models import db
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================================
-# 1. STRATEGI ANTI-GAGAL & HEMAT RAM EKSTREM
+# 1. STRATEGI ANTI-GAGAL & HEMAT RAM EKSTREM (CSV STREAMING)
 # ==========================================================
 
 def get_current_periode():
@@ -35,6 +35,7 @@ def get_val(row_dict, possible_keys, default=''):
     return default
 
 def clean_nomen(val):
+    """Nomen dibersihkan dari kutip dan spasi, tapi TIDAK dipotong 8 digit"""
     if not val: return None
     s = str(val).replace('"', '').strip().upper().split('.')[0]
     s = s.replace('K', '')
@@ -75,8 +76,8 @@ def parse_float(val):
         return float(v_str)
     except: return 0.0
 
-def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING: Anti-Crash untuk VPS RAM Rendah"""
+def process_mega_file(file, logic_func, chunk_size=500, default_sep=';'):
+    """MESIN PURE PYTHON STREAMING: Anti-Crash untuk Membaca File Raksasa"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -219,7 +220,7 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
-    total = process_mega_file(file_cid, cid_logic, chunk_size=250)
+    total = process_mega_file(file_cid, cid_logic, chunk_size=500)
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 # =========================================================================
@@ -266,7 +267,7 @@ def handle_mc_upload(file_mc):
         return 0
 
     total = process_mega_file(file_mc, mc_logic, chunk_size=500)
-    return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data tercatat."})
+    return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 # =========================================================================
 # 5. LOGIKA MASTER BAYAR (MB)
