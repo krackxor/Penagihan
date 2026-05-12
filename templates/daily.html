@@ -122,7 +122,22 @@
     </div>
 
     <div class="row g-3 mb-4 no-print">
-        {% for label, unit in [('UNIT 34', '34'), ('UNIT 35', '35'), ('AB SUNTER', 'total')] %}
+        {% for label, unit in [('UNIT 34', '34'), ('UNIT 35', '35'), ('AB SUNTER', 'ab_sunter')] %}
+        
+        {% set t_rp = targets[unit]['rp'] %}
+        {% set u_rp = undue[unit]['rp'] %}
+        
+        {% set c_rp = 0 %}
+        {% if data and data|length > 0 %}
+            {% if unit == '34' %}
+                {% set c_rp = data[-1]['u34_kum'] %}
+            {% elif unit == '35' %}
+                {% set c_rp = data[-1]['u35_kum'] %}
+            {% else %}
+                {% set c_rp = data[-1]['u34_kum'] + data[-1]['u35_kum'] %}
+            {% endif %}
+        {% endif %}
+
         <div class="col-md-4">
             <div class="stats-card-modern 
                 {% if unit=='34' %}card-accent-primary
@@ -139,21 +154,18 @@
                 <div class="row g-3">
                     <div class="col-6">
                         <div class="stat-label">Target MC</div>
-                        <div class="stat-value text-dark">{{ "{:,.0f}".format(targets[unit]['rp']) if targets[unit] is mapping else "{:,.0f}".format(targets[unit]) }}</div>
+                        <div class="stat-value text-dark">{{ "{:,.0f}".format(t_rp) }}</div>
                     </div>
                     <div class="col-6">
                         <div class="stat-label">Realisasi Undue</div>
-                        <div class="stat-value text-dark">{{ "{:,.0f}".format(undue[unit]['rp']) if undue[unit] is mapping else "{:,.0f}".format(undue[unit]) }}</div>
+                        <div class="stat-value text-dark">{{ "{:,.0f}".format(u_rp) }}</div>
                     </div>
                     <div class="col-6">
                         <div class="stat-label">Realisasi Current</div>
-                        <div class="stat-value text-dark">{{ "{:,.0f}".format(current[unit]) }}</div>
+                        <div class="stat-value text-dark">{{ "{:,.0f}".format(c_rp) }}</div>
                     </div>
                     <div class="col-6">
                         <div class="stat-label">Total Collection</div>
-                        {% set t_rp = targets[unit]['rp'] if targets[unit] is mapping else targets[unit] %}
-                        {% set u_rp = undue[unit]['rp'] if undue[unit] is mapping else undue[unit] %}
-                        {% set c_rp = current[unit] %}
                         <div class="stat-value text-success-modern">
                             {{ "%.2f"|format(((c_rp + u_rp) / t_rp * 100) if t_rp > 0 else 0) }}%
                         </div>
@@ -207,24 +219,22 @@
                         <td class="text-end text-muted">{{ "{:,.0f}".format(row.u34_rp) }}</td> 
                         <td class="text-end text-primary-modern">{{ "{:,.0f}".format(row.u34_kum) }}</td>
                         <td class="text-center fw-bold text-primary-modern bg-light">{{ "%.4f"|format(row.u34_coll) }}</td>
-                        <td class="text-center text-muted">{{ "%.4f"|format(row.u34_coll_mar) }}</td>
+                        <td class="text-center text-muted">0.0000</td>
                         
                         <td class="text-center text-muted">{{ "{:,.0f}".format(row.u35_cust) }}</td>
                         <td class="text-end text-muted">{{ "{:,.0f}".format(row.u35_rp) }}</td>
                         <td class="text-end text-muted">{{ "{:,.0f}".format(row.u35_rp) }}</td>
                         <td class="text-end text-warning-modern">{{ "{:,.0f}".format(row.u35_kum) }}</td>
                         <td class="text-center fw-bold text-warning-modern bg-light">{{ "%.4f"|format(row.u35_coll) }}</td>
-                        <td class="text-center text-muted">{{ "%.4f"|format(row.u35_coll_mar) }}</td>
+                        <td class="text-center text-muted">0.0000</td>
 
                         <td class="text-center text-muted fw-semibold">{{ "{:,.0f}".format(row.tot_cust) }}</td>
                         <td class="text-end text-dark fw-semibold">{{ "{:,.0f}".format(row.tot_rp) }}</td>
                         <td class="text-end text-dark fw-semibold">{{ "{:,.0f}".format(row.tot_rp) }}</td>
                         <td class="text-center text-success-modern bg-light">{{ "%.4f"|format(row.tot_coll) }}</td>
-                        <td class="text-center text-muted">{{ "%.4f"|format(row.tot_coll_mar) }}</td>
+                        <td class="text-center text-muted">0.0000</td>
                         
-                        <td class="text-center bg-light {% if row.var_tot < 0 %}text-danger-modern{% else %}text-success-modern{% endif %}">
-                            {{ "%.4f"|format(row.var_tot) }}
-                        </td>
+                        <td class="text-center bg-light text-success-modern">0.0000</td>
                     </tr>
                     {% endfor %}
                 </tbody>
