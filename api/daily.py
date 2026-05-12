@@ -21,14 +21,12 @@ def safe_month_math(date_obj, minus_months):
     """Logika mundur bulan untuk menentukan target (N-1)"""
     first_of_current = date_obj.replace(day=1)
     target_date = first_of_current - timedelta(days=1)
-    # Jika butuh mundur lebih dari 1 bulan, bisa di-loop, tapi di sini cukup 1
     return target_date
 
 def parse_db_date(date_str):
     """Parsing tanggal bayar secara cerdas dari berbagai format database"""
     if not date_str: return None
     s = str(date_str).strip()
-    # Prioritas format: ISO, Indo, atau Compact
     for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y%m%d', '%d-%m-%Y'):
         try: return datetime.strptime(s[:10], fmt)
         except: continue
@@ -37,21 +35,22 @@ def parse_db_date(date_str):
 @daily_bp.route('/')
 def index():
     try:
-        # 1. PARAMETER PERIODE
+        # 1. PARAMETER PERIODE (Bulan Pemantauan Daily, misal: April 2026)
         periode_input = request.args.get('periode') 
         curr_mon_date = datetime.strptime(periode_input, '%Y-%m') if periode_input else datetime.now()
 
-        # Logika Target Periode (N-1)
+        # Logika Target Periode (N-1, misal: Maret 2026)
         target_date = safe_month_math(curr_mon_date, 1)
         t_month, t_year = target_date.month, target_date.year
         
         # Format Filter Database
-        p_mc = target_date.strftime('%Y%m')                  # e.g. 202604
-        p_mb_rek = f"{t_month:02d}{t_year}"                  # e.g. 042026
-        p_bill_period = f"01/{t_month:02d}/{t_year}"          # e.g. 01/04/2026
+        p_mc = target_date.strftime('%Y%m')                  # e.g. 202603
+        p_mb_rek = f"{t_month:02d}{t_year}"                  # e.g. 032026
+        p_bill_period = f"01/{t_month:02d}/{t_year}"         # e.g. 01/03/2026
 
         # ==========================================
         # 2. PROSES TARGET (MC - MASTER CETAK)
+        # Filter: CUST_TYPE = 'R', Kategori: 34 & 35
         # ==========================================
         mc_query = db.session.query(
             TransaksiTagihan.nomen,
@@ -61,7 +60,7 @@ def index():
          .filter(TransaksiTagihan.periode == p_mc).all()
 
         targets = {'34': {'rp': 0, 'count': 0}, '35': {'rp': 0, 'count': 0}, 'total': {'rp': 0, 'count': 0}}
-        mc_nominal_map = {} # Kunci performa: Map Nomen -> Nominal
+        mc_nominal_map = {} # Kunci performa: Map Nomen -> Nominal MC
 
         for nomen, nom, raw_cid in mc_query:
             # Filter hanya tipe Regular (R)
@@ -75,13 +74,12 @@ def index():
                 targets['total']['rp'] += val
                 targets['total']['count'] += 1
                 
-                # Simpan di map untuk lookup MB nanti
+                # Simpan di map untuk memastikan Daily MB menarik nominal MC
                 mc_nominal_map[str(nomen).strip()] = val
 
         # ==========================================
         # 3. PROSES REALISASI (MB - MASTER BAYAR)
         # ==========================================
-        # Ambil data MB yang relevan dengan periode target
         mb_query = db.session.query(
             DataMB.nomen,
             DataMB.nominal,
@@ -101,33 +99,35 @@ def index():
             dt_bayar = parse_db_date(tgl)
             if not dt_bayar: continue
 
-            # A. LOGIKA UNDUE (Bayar di bulan N-1 atau sebelumnya untuk periode ini)
+            # A. LOGIKA UNDUE
+            # Bayar di bulan yang sama dengan bulan rekening (Misal: Rek 032026, bayar di bulan 03)
             b_rek = get_val(raw_mb, ['BULAN_REK', 'BulanRek'])
-            if b_rek == p_mb_rek and dt_bayar < curr_mon_date.replace(day=1):
+            if b_rek == p_mb_rek and dt_bayar.month == t_month and dt_bayar.year == t_year:
                 val = float(nom_mb or 0)
                 undue[unit]['rp'] += val
                 undue[unit]['count'] += 1
                 undue['total']['rp'] += val
                 undue['total']['count'] += 1
 
-            # B. LOGIKA DAILY COLLECTION (Bayar di bulan berjalan (N) untuk periode N-1)
+            # B. LOGIKA DAILY COLLECTION
+            # Parameter: BILL_PERIOD (01/03/2026), WATER, REGULAR, bayar di bulan berjalan (April)
             b_period = get_val(raw_mb, ['BILL_PERIOD', 'BillPeriod'])
             b_type = get_val(raw_mb, ['BILL_TYPE', 'BillType'])
             t_cust = get_val(raw_mb, ['TypeCust1', 'TYPE_CUST_1'])
 
-            # Filter Standar: Water & Regular
-            if b_period == p_bill_period and (not b_type or 'WATER' in b_type.upper()) and (not t_cust or 'REGULAR' in t_cust.upper()):
+            if b_period == p_bill_period and 'WATER' in b_type.upper() and 'REGULAR' in t_cust.upper():
                 if dt_bayar.month == curr_mon_date.month and dt_bayar.year == curr_mon_date.year:
-                    # Ambil nominal ASLI dari MC (untuk akurasi % Collection)
-                    val_mc = mc_nominal_map.get(nomen_key, float(nom_mb or 0))
+                    # KUNCI AKURASI: Ambil nominal ASLI dari MC, BUKAN dari MB
+                    val_mc = mc_nominal_map.get(nomen_key, 0)
                     
-                    current_total[unit] += val_mc
-                    current_total['total'] += val_mc
-                    
-                    d = dt_bayar.day
-                    if d in daily_map:
-                        daily_map[d][unit]['cust'] += 1
-                        daily_map[d][unit]['rp'] += val_mc
+                    if val_mc > 0:
+                        current_total[unit] += val_mc
+                        current_total['total'] += val_mc
+                        
+                        d = dt_bayar.day
+                        if d in daily_map:
+                            daily_map[d][unit]['cust'] += 1
+                            daily_map[d][unit]['rp'] += val_mc
 
         # ==========================================
         # 4. FINALISASI DATA TABEL (KUMULATIF)
@@ -149,7 +149,7 @@ def index():
                 'tgl': f"{d:02d}",
                 'u34_cust': d34['cust'], 'u34_rp': d34['rp'], 'u34_kum': kum['34'], 
                 'u34_coll': get_coll(kum['34'], undue['34']['rp'], targets['34']['rp']),
-                'u34_coll_mar': 0, # Diisi jika ada data pembanding tahun lalu
+                'u34_coll_mar': 0, # Area untuk Coll Bulan Lalu jika ada
                 
                 'u35_cust': d35['cust'], 'u35_rp': d35['rp'], 'u35_kum': kum['35'], 
                 'u35_coll': get_coll(kum['35'], undue['35']['rp'], targets['35']['rp']),
