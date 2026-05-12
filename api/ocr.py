@@ -2,13 +2,13 @@ import io
 import os
 from flask import Blueprint, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageOps # Tambahkan ImageOps untuk meluruskan rotasi gambar
+from PIL import Image, ImageOps, ImageEnhance # Ditambah ImageEnhance untuk ketajaman teks
 import pytesseract
 
 # Inisialisasi Blueprint untuk modul BAAE Intelligence OCR
 ocr_bp = Blueprint('ocr', __name__)
 
-# Ekstensi file gambar yang diizinkan oleh sistem BAAE (Ditambah WebP)
+# Ekstensi file gambar yang diizinkan oleh sistem BAAE
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 
 def allowed_file(filename):
@@ -23,8 +23,8 @@ def ocr_page():
 @ocr_bp.route('/extract', methods=['POST'])
 def extract_text():
     """
-    BAAE Neural Extraction Engine:
-    Memproses gambar dengan Tesseract OCR dengan optimasi pra-pemrosesan.
+    BAAE Neural Extraction Engine V18:
+    Memproses gambar dengan Tesseract OCR dilengkapi Filter Kontras Tingkat Tinggi.
     """
     try:
         # 1. Validasi keberadaan file
@@ -45,15 +45,24 @@ def extract_text():
         # [OPTIMASI 1] Luruskan Orientasi Gambar (Mencegah teks miring/terbalik dari kamera HP)
         img = ImageOps.exif_transpose(img)
         
-        # [OPTIMASI 2] Ubah gambar menjadi Grayscale (Hitam-Putih) agar akurasi OCR meningkat tajam
+        # [OPTIMASI 2] Ubah gambar menjadi Grayscale (Hitam-Putih)
         if img.mode != 'L':
             img = img.convert('L')
+            
+        # [OPTIMASI 3] Tingkatkan Kontras 2x Lipat (Sangat ampuh untuk foto buram/struk pudar)
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(2.0)
         
         # 3. Eksekusi Mesin Tesseract
-        # [OPTIMASI 3] Dikerucutkan ke Bahasa Indonesia & Inggris agar server tidak Timeout/Crash.
+        # Menggunakan bahasa Indonesia & Inggris. 
+        # config '--psm 6' mengasumsikan teks adalah satu blok seragam, mencegah teks berantakan.
         language_pack = 'ind+eng'
+        custom_config = r'--oem 3 --psm 6'
         
-        text_result = pytesseract.image_to_string(img, lang=language_pack)
+        text_result = pytesseract.image_to_string(img, lang=language_pack, config=custom_config)
+
+        # Bebaskan memori gambar setelah selesai dibaca
+        img.close()
 
         # 4. Validasi hasil ekstraksi
         if not text_result.strip():
@@ -80,7 +89,9 @@ def extract_text():
 
     except Exception as e:
         # Menangkap kegagalan inisialisasi model bahasa atau error sistem lainnya
+        import traceback
+        print(traceback.format_exc()) # Tulis ke log Docker untuk debugging
         return jsonify({
             "status": "error", 
-            "message": f"Fatal System Crash (OCR Engine): Pastikan tesseract-ocr dan tesseract-ocr-ind sudah terinstall di Docker Anda. Detail: {str(e)}"
+            "message": f"Fatal System Crash (OCR Engine): Pastikan tesseract-ocr dan tesseract-ocr-ind sudah terinstall di server. Detail: {str(e)}"
         }), 500
