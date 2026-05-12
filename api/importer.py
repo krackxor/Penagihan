@@ -16,7 +16,7 @@ csv.field_size_limit(sys.maxsize)
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================================
-# 1. STRATEGI ANTI-GAGAL, PENJINAK BOM, & AUTO-TRIM
+# 1. STRATEGI ANTI-GAGAL, PENJINAK BOM, & AUTO-TRIM EKSTREM
 # ==========================================================
 
 def get_current_periode():
@@ -37,6 +37,11 @@ def get_val(row_dict, possible_keys, default=''):
             val = str(row_dict[k]).strip().replace('"', '')
             if val.lower() not in ['none', 'nan', 'null', '']: return val
     return default
+
+def trim(val, length):
+    """Mencegah error 'value too long' dengan memotong teks sesuai batas tabel DB"""
+    if not val: return ""
+    return str(val)[:length]
 
 def clean_nomen(val):
     if not val: return None
@@ -80,10 +85,10 @@ def parse_float(val):
     except: return 0.0
 
 def get_safe_json(row_dict):
-    """Mencegah Postgres meledak karena Unclosed Quotes di TXT."""
+    """Mencegah Postgres mati karena JSON terlalu raksasa."""
     try:
         s = json.dumps(row_dict)
-        if len(s) > 50000: 
+        if len(s) > 15000: # Batas maksimal 15KB per pelanggan
             return '{"info": "Data terpotong otomatis karena format file cacat dari pusat."}'
         return s
     except:
@@ -94,8 +99,8 @@ def clean_file_stream(f):
     for line in f:
         yield line.replace('\x00', '').replace('\0', '')
 
-def process_mega_file(file, logic_func, chunk_size=500, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING"""
+def process_mega_file(file, logic_func, chunk_size=50, default_sep=';'):
+    """MESIN PURE PYTHON STREAMING DENGAN CHUNK KECIL (50 BARIS)"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -167,7 +172,7 @@ def import_tagihan():
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID (DENGAN AUTO-TRIM)
+# 3. LOGIKA MASTER CID (DENGAN AUTO-TRIM AKTIF DI SETIAP KOLOM)
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(data_chunk):
@@ -180,37 +185,36 @@ def handle_cid_upload(file_cid):
             tipe_raw = get_val(row, ['TIPEPLGGN', 'TYPECUST1', 'CUST_TYPE'])
             tipe_bersih = standardize_cust_type(tipe_raw)
             
-            # PROTEKSI AUTO-TRIM DITERAPKAN DI SINI
             cid_entries.append({
-                "nomen": nomen[:50],
-                "norek": get_val(row, ['NOREK', 'NO_REK'])[:50],
-                "nama": get_val(row, ['NAMA', 'NAMA_PEL', 'NAMA_PELANGGAN'], 'Pelanggan Baru')[:150],
-                "status": get_val(row, ['STATUS'])[:50],
-                "tipeplggn": tipe_bersih[:50],
-                "custclass": get_val(row, ['CUSTCLASS', 'CUST_CLASS'])[:100],
-                "tarif": get_val(row, ['TARIFF', 'TARIF', 'GOL_TARIF'])[:20],
-                "alamat": get_val(row, ['ALAMAT', 'ALM1_PEL']),
-                "kodepos": get_val(row, ['KODEPOS', 'KODE_POS'])[:10],
-                "kelurahan": get_val(row, ['KELURAHAN', 'KEL'])[:100],
-                "kecamatan": get_val(row, ['KECAMATAN', 'KEC'])[:100],
-                "kota": get_val(row, ['KOTA / KABUPATEN', 'KOTA', 'KABUPATEN'])[:100],
-                "ab": get_val(row, ['AB', 'WILAYAH'], 'AB Sunter')[:50],
-                "regional": get_val(row, ['REGIONAL', 'REGION'])[:50],
-                "cc": get_val(row, ['CC'])[:20],
-                "kode_pa_pc": get_val(row, ['KODE PA/PC', 'KODE_PA_PC', 'PC'])[:20],
-                "zona_novak": get_val(row, ['ZONA_NOVAK', 'ZONA'])[:50],
-                "pcez": get_val(row, ['PCEZ', 'PCEZBK'])[:20],
-                "rayon": get_val(row, ['RAYON', 'KODE PA/PC', 'PCEZ'])[:50],
-                "cycle": get_val(row, ['CYCLE', 'BILL_CYCLE'])[:20],
-                "merk": get_val(row, ['MERK', 'MERK_METER'])[:50],
-                "serial": get_val(row, ['SERIAL', 'NO_METER', 'NOMET'])[:100],
-                "hp": get_val(row, ['HP', 'NO_HP'])[:50],
-                "tlp": get_val(row, ['TLP', 'TELEPON'])[:50],
-                "wa": get_val(row, ['WA', 'WHATSAPP'])[:50],
-                "email": get_val(row, ['EMAIL'])[:100],
-                "fax": get_val(row, ['FAX'])[:50],
-                "latitude": get_val(row, ['LATITUDE', 'LAT'])[:50],
-                "longitude": get_val(row, ['LONGITUDE', 'LONG'])[:50],
+                "nomen": trim(nomen, 50),
+                "norek": trim(get_val(row, ['NOREK', 'NO_REK']), 50),
+                "nama": trim(get_val(row, ['NAMA', 'NAMA_PEL', 'NAMA_PELANGGAN'], 'Pelanggan Baru'), 150),
+                "status": trim(get_val(row, ['STATUS']), 50),
+                "tipeplggn": trim(tipe_bersih, 50),
+                "custclass": trim(get_val(row, ['CUSTCLASS', 'CUST_CLASS']), 100),
+                "tarif": trim(get_val(row, ['TARIFF', 'TARIF', 'GOL_TARIF']), 20),
+                "alamat": get_val(row, ['ALAMAT', 'ALM1_PEL']), # Alamat bebas
+                "kodepos": trim(get_val(row, ['KODEPOS', 'KODE_POS']), 10),
+                "kelurahan": trim(get_val(row, ['KELURAHAN', 'KEL']), 100),
+                "kecamatan": trim(get_val(row, ['KECAMATAN', 'KEC']), 100),
+                "kota": trim(get_val(row, ['KOTA / KABUPATEN', 'KOTA', 'KABUPATEN']), 100),
+                "ab": trim(get_val(row, ['AB', 'WILAYAH'], 'AB Sunter'), 50),
+                "regional": trim(get_val(row, ['REGIONAL', 'REGION']), 50),
+                "cc": trim(get_val(row, ['CC']), 20),
+                "kode_pa_pc": trim(get_val(row, ['KODE PA/PC', 'KODE_PA_PC', 'PC']), 20),
+                "zona_novak": trim(get_val(row, ['ZONA_NOVAK', 'ZONA']), 50),
+                "pcez": trim(get_val(row, ['PCEZ', 'PCEZBK']), 20),
+                "rayon": trim(get_val(row, ['RAYON', 'KODE PA/PC', 'PCEZ']), 50),
+                "cycle": trim(get_val(row, ['CYCLE', 'BILL_CYCLE']), 20),
+                "merk": trim(get_val(row, ['MERK', 'MERK_METER']), 50),
+                "serial": trim(get_val(row, ['SERIAL', 'NO_METER', 'NOMET']), 100),
+                "hp": trim(get_val(row, ['HP', 'NO_HP']), 50),
+                "tlp": trim(get_val(row, ['TLP', 'TELEPON']), 50),
+                "wa": trim(get_val(row, ['WA', 'WHATSAPP']), 50),
+                "email": trim(get_val(row, ['EMAIL']), 100),
+                "fax": trim(get_val(row, ['FAX']), 50),
+                "latitude": trim(get_val(row, ['LATITUDE', 'LAT']), 50),
+                "longitude": trim(get_val(row, ['LONGITUDE', 'LONG']), 50),
                 "raw_data": get_safe_json(row)
             })
             
@@ -237,7 +241,7 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
-    total = process_mega_file(file_cid, cid_logic, chunk_size=500)
+    total = process_mega_file(file_cid, cid_logic, chunk_size=50) # DIKUNCI DI 50
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 # =========================================================================
@@ -259,11 +263,11 @@ def handle_mc_upload(file_mc):
                 periode_target = shift_period_plus_one(periode_asli)
 
             mc_entries.append({
-                "nomen": nomen[:50],
-                "periode": periode_target[:10],
+                "nomen": trim(nomen, 50),
+                "periode": trim(periode_target, 10),
                 "alm1_pel": get_val(row, ['ALM1_PEL', 'ALAMAT']),
-                "zona_novak": get_val(row, ['ZONA_NOVAK', 'ZONA'])[:50],
-                "notagihan": get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN'])[:50],
+                "zona_novak": trim(get_val(row, ['ZONA_NOVAK', 'ZONA']), 50),
+                "notagihan": trim(get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN']), 50),
                 "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN'])),
                 "raw_data": get_safe_json(row)
             })
@@ -280,7 +284,7 @@ def handle_mc_upload(file_mc):
             return len(mc_entries)
         return 0
 
-    total = process_mega_file(file_mc, mc_logic, chunk_size=500)
+    total = process_mega_file(file_mc, mc_logic, chunk_size=50) # DIKUNCI DI 50
     return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 # =========================================================================
@@ -299,17 +303,17 @@ def handle_mb_upload(file_mb):
             periode_target = shift_period_plus_one(periode_asli)
             
             mb_entries.append({
-                "nomen": nomen[:50],
-                "periode": periode_target[:10],
-                "bulan_rek": bulan_rek_raw[:20],
-                "tgl_bayar": get_val(row, ['TGL_BAYAR', 'PAY_DT'])[:50],
+                "nomen": trim(nomen, 50),
+                "periode": trim(periode_target, 10),
+                "bulan_rek": trim(bulan_rek_raw, 20),
+                "tgl_bayar": trim(get_val(row, ['TGL_BAYAR', 'PAY_DT']), 50),
                 "nominal": parse_float(get_val(row, ['NOMINAL', 'RPBAYAR'])),
                 "denda": parse_float(get_val(row, ['DENDA'])),
-                "lks_bayar": get_val(row, ['LKS_BAYAR', 'PAY_LOC'])[:100],
-                "notagihan": get_val(row, ['NOTAGIHAN', 'BILL_ID'])[:50],
+                "lks_bayar": trim(get_val(row, ['LKS_BAYAR', 'PAY_LOC']), 100),
+                "notagihan": trim(get_val(row, ['NOTAGIHAN', 'BILL_ID']), 50),
                 "raw_data": get_safe_json(row)
             })
-            lunas_entries.append({"n": nomen[:50], "p": periode_target[:10]})
+            lunas_entries.append({"n": trim(nomen, 50), "p": trim(periode_target, 10)})
             
         if mb_entries:
             sql_mb = text("""
@@ -327,7 +331,7 @@ def handle_mb_upload(file_mb):
             return len(mb_entries)
         return 0
 
-    total_bayar = process_mega_file(file_mb, mb_logic, chunk_size=500)
+    total_bayar = process_mega_file(file_mb, mb_logic, chunk_size=50) # DIKUNCI DI 50
     return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} dilunaskan."})
 
 # =========================================================================
@@ -349,24 +353,24 @@ def handle_daily_upload(file_daily):
             periode_target = shift_period_plus_one(periode_asli)
 
             daily_entries.append({
-                "nomen": nomen[:50],
-                "periode": periode_target[:10],
-                "pay_dt": get_val(row, ['PAY_DT', 'TGL_BAYAR'])[:50],
-                "bill_period": bill_period_raw[:50],
+                "nomen": trim(nomen, 50),
+                "periode": trim(periode_target, 10),
+                "pay_dt": trim(get_val(row, ['PAY_DT', 'TGL_BAYAR']), 50),
+                "bill_period": trim(bill_period_raw, 50),
                 "pay_amt": parse_float(get_val(row, ['PAY_AMT', 'NOMINAL'])),
-                "pay_status_flg": get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG'])[:20],
-                "bill_type": get_val(row, ['BILL_TYPE', 'JENIS'])[:50],
-                "typecust1": tipe_bersih[:50],
-                "pay_loc": get_val(row, ['PAY_LOC', 'LKS_BAYAR'])[:100],
-                "bill_id": get_val(row, ['BILL_ID', 'NOTAGIHAN'])[:50],
-                "ab": get_val(row, ['AB', 'WILAYAH'])[:50],
-                "status": get_val(row, ['STATUS'])[:50],
+                "pay_status_flg": trim(get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG']), 20),
+                "bill_type": trim(get_val(row, ['BILL_TYPE', 'JENIS']), 50),
+                "typecust1": trim(tipe_bersih, 50),
+                "pay_loc": trim(get_val(row, ['PAY_LOC', 'LKS_BAYAR']), 100),
+                "bill_id": trim(get_val(row, ['BILL_ID', 'NOTAGIHAN']), 50),
+                "ab": trim(get_val(row, ['AB', 'WILAYAH']), 50),
+                "status": trim(get_val(row, ['STATUS']), 50),
                 "raw_data": get_safe_json(row)
             })
             
             status_flag = get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG'])
             if status_flag in ['1', '50', 'LUNAS']:
-                lunas_entries.append({"n": nomen[:50], "p": periode_target[:10]})
+                lunas_entries.append({"n": trim(nomen, 50), "p": trim(periode_target, 10)})
             
         if daily_entries:
             sql_daily = text("""
@@ -392,7 +396,7 @@ def handle_daily_upload(file_daily):
             return len(daily_entries)
         return 0
 
-    total = process_mega_file(file_daily, daily_logic, chunk_size=500)
+    total = process_mega_file(file_daily, daily_logic, chunk_size=50) # DIKUNCI DI 50
     return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi disinkronkan."})
 
 # =========================================================================
@@ -415,20 +419,20 @@ def handle_mainbill_upload(file_mainbill):
                     periode_target = f"{y}{parts[1].zfill(2)}"
 
             mb_entries.append({
-                "nomen": nomen[:50],
-                "periode": periode_target[:10],
-                "jenis_pelanggan": get_val(row, ['JENIS_PELANGGAN', 'TYPECUST1'])[:100],
-                "cc": get_val(row, ['CC'])[:20],
-                "pcezbk": get_val(row, ['PCEZBK', 'PCEZ'])[:20],
-                "tarif": get_val(row, ['TARIF', 'TARIFF'])[:20],
-                "bill_cycle": get_val(row, ['BILL_CYCLE', 'CYCLE'])[:20],
-                "read_method": get_val(row, ['READ_METHOD'])[:50],
+                "nomen": trim(nomen, 50),
+                "periode": trim(periode_target, 10),
+                "jenis_pelanggan": trim(get_val(row, ['JENIS_PELANGGAN', 'TYPECUST1']), 100),
+                "cc": trim(get_val(row, ['CC']), 20),
+                "pcezbk": trim(get_val(row, ['PCEZBK', 'PCEZ']), 20),
+                "tarif": trim(get_val(row, ['TARIF', 'TARIFF']), 20),
+                "bill_cycle": trim(get_val(row, ['BILL_CYCLE', 'CYCLE']), 20),
+                "read_method": trim(get_val(row, ['READ_METHOD']), 50),
                 "konsumsi": parse_float(get_val(row, ['KONSUMSI', 'VOL'])),
                 "tagihan_air": parse_float(get_val(row, ['TAGIHAN_AIR', 'REK_AIR'])),
-                "start_read": get_val(row, ['START_READ'])[:50],
-                "start_read_stan": get_val(row, ['START_READ_STAN', 'STAN_AWAL'])[:50],
-                "end_read": end_read_raw[:50],
-                "hari_baca": get_val(row, ['HARI_BACA', 'HB'])[:20],
+                "start_read": trim(get_val(row, ['START_READ']), 50),
+                "start_read_stan": trim(get_val(row, ['START_READ_STAN', 'STAN_AWAL']), 50),
+                "end_read": trim(end_read_raw, 50),
+                "hari_baca": trim(get_val(row, ['HARI_BACA', 'HB']), 20),
                 "raw_data": get_safe_json(row)
             })
             
@@ -451,7 +455,7 @@ def handle_mainbill_upload(file_mainbill):
             return len(mb_entries)
         return 0
 
-    total = process_mega_file(file_mainbill, mainbill_logic, chunk_size=500)
+    total = process_mega_file(file_mainbill, mainbill_logic, chunk_size=50) # DIKUNCI DI 50
     return jsonify({"status": "success", "message": f"MainBill Sukses! {total} rincian meter disimpan."})
 
 # =========================================================================
@@ -495,7 +499,7 @@ def handle_sbrs_upload(file_cust, file_spot):
                 ez = get_val(merged_row, ['EZ'])
                 pc_ez = f"{pc}{ez}"
             
-            master_provision.append({"nomen": nomen[:50], "nama": nama_pel[:150], "ab": ab_pel[:50], "pcez": pc_ez[:20]})
+            master_provision.append({"nomen": trim(nomen, 50), "nama": trim(nama_pel, 150), "ab": trim(ab_pel, 50), "pcez": trim(pc_ez, 20)})
 
             def gv(keys): return get_val(merged_row, keys)
 
@@ -525,10 +529,10 @@ def handle_sbrs_upload(file_cust, file_spot):
             if not periode_sbrs or periode_sbrs == '000000': periode_sbrs = get_current_periode()
             
             sbrs_entries.append({
-                "nomen": nomen[:50], "periode": periode_sbrs[:10],
-                "nama": nama_pel[:150], "ab": ab_pel[:50], "kelurahan": gv(['KEL', 'KELURAHAN'])[:100],
-                "pcez": pc_ez[:20], "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
-                "kategori_anomali": kat[:50], "raw_data": get_safe_json(merged_row), "status_audit": 0
+                "nomen": trim(nomen, 50), "periode": trim(periode_sbrs, 10),
+                "nama": trim(nama_pel, 150), "ab": trim(ab_pel, 50), "kelurahan": trim(gv(['KEL', 'KELURAHAN']), 100),
+                "pcez": trim(pc_ez, 20), "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
+                "kategori_anomali": trim(kat, 50), "raw_data": get_safe_json(merged_row), "status_audit": 0
             })
 
         if master_provision:
@@ -551,7 +555,7 @@ def handle_sbrs_upload(file_cust, file_spot):
             return len(sbrs_entries)
         return 0
 
-    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=500)
+    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=50) # DIKUNCI DI 50
     lookup_cust.clear()
     gc.collect()
     return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
@@ -572,8 +576,8 @@ def handle_arrdebt_upload(file_arrdebt):
             if not periode: periode = "000000"
             nominal = parse_float(get_val(row, ['BILL_AMT', 'WATER']))
             
-            arr_entries.append({"nomen": nomen[:50], "periode": periode[:10], "nominal": nominal, "raw_data": get_safe_json(row)})
-            tagihan_entries.append({"nomen": nomen[:50], "periode": periode[:10], "total_tagihan": nominal, "status_lunas": 0})
+            arr_entries.append({"nomen": trim(nomen, 50), "periode": trim(periode, 10), "nominal": nominal, "raw_data": get_safe_json(row)})
+            tagihan_entries.append({"nomen": trim(nomen, 50), "periode": trim(periode, 10), "total_tagihan": nominal, "status_lunas": 0})
 
         if arr_entries:
             sql_arr = text("""
@@ -592,5 +596,5 @@ def handle_arrdebt_upload(file_arrdebt):
             return len(arr_entries)
         return 0
 
-    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, chunk_size=500)
+    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, chunk_size=50) # DIKUNCI DI 50
     return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan."})
