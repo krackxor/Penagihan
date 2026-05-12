@@ -43,16 +43,18 @@ def index():
         target_date = safe_month_math(curr_mon_date, 1)
         t_month, t_year = target_date.month, target_date.year
         
-        # Format Filter Database
-        p_mc = target_date.strftime('%Y%m')                  # e.g. 202603
-        p_mb_rek = f"{t_month:02d}{t_year}"                  # e.g. 032026
-        p_bill_period = f"01/{t_month:02d}/{t_year}"         # e.g. 01/03/2026
+        # ==========================================
+        # PERBAIKAN V18 (AUTO TIME-SHIFT MATCHING)
+        # ==========================================
+        # p_mc diarahkan ke bulan berjalan (curr_mon_date) karena data dari importer sudah digeser +1 bulan
+        p_mc = curr_mon_date.strftime('%Y%m')                # e.g. 202604
+        p_mb_rek = f"{t_month:02d}{t_year}"                  # e.g. 032026 (Bulan Rekening Asli)
+        p_bill_period = f"01/{t_month:02d}/{t_year}"         # e.g. 01/03/2026 (Periode Tagihan Asli)
 
         # ==========================================
         # 2. PROSES TARGET (MC - MASTER CETAK)
         # Filter: CUST_TYPE = 'R', Kategori: 34 & 35
         # ==========================================
-        # PERBAIKAN V18: Menggunakan 'total_tagihan' (Baris ini yang membuat sistem crash sebelumnya)
         mc_query = db.session.query(
             TransaksiTagihan.nomen,
             TransaksiTagihan.total_tagihan,
@@ -81,14 +83,15 @@ def index():
         # ==========================================
         # 3. PROSES REALISASI (MB - MASTER BAYAR)
         # ==========================================
-        # Note: Tabel DataMB memang memiliki kolom bernama 'nominal' di app.py, jadi ini aman.
+        # PERBAIKAN: Menambahkan filter DataMB.periode == p_mc agar server tidak RAM Leak (OOM)
         mb_query = db.session.query(
             DataMB.nomen,
             DataMB.nominal,
             DataMB.tgl_bayar,
             DataMB.raw_data,
             MasterPelanggan.raw_data.label('cid_raw')
-        ).join(MasterPelanggan, DataMB.nomen == MasterPelanggan.nomen).all()
+        ).join(MasterPelanggan, DataMB.nomen == MasterPelanggan.nomen)\
+         .filter(DataMB.periode == p_mc).all()
 
         undue = {'34': {'rp': 0, 'count': 0}, '35': {'rp': 0, 'count': 0}, 'total': {'rp': 0, 'count': 0}}
         daily_map = {i: {'34': {'cust': 0, 'rp': 0}, '35': {'cust': 0, 'rp': 0}} for i in range(1, 32)}
