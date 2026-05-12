@@ -16,7 +16,7 @@ csv.field_size_limit(sys.maxsize)
 importer_bp = Blueprint('importer', __name__)
 
 # ==========================================================
-# 1. STRATEGI ANTI-GAGAL & PENJINAK BOM (BOMB DEFUSER)
+# 1. STRATEGI ANTI-GAGAL, PENJINAK BOM, & AUTO-TRIM
 # ==========================================================
 
 def get_current_periode():
@@ -80,25 +80,22 @@ def parse_float(val):
     except: return 0.0
 
 def get_safe_json(row_dict):
-    """
-    PENJINAK BOM: Mencegah Postgres meledak karena Unclosed Quotes di TXT.
-    Jika satu baris melampaui 50KB (sangat tidak wajar), berarti file rusak di baris itu.
-    """
+    """Mencegah Postgres meledak karena Unclosed Quotes di TXT."""
     try:
         s = json.dumps(row_dict)
         if len(s) > 50000: 
-            return '{"info": "Data terpotong otomatis karena format kutip ganda (quotes) rusak dari pusat."}'
+            return '{"info": "Data terpotong otomatis karena format file cacat dari pusat."}'
         return s
     except:
         return '{}'
 
 def clean_file_stream(f):
-    """PENJINAK BOM 2: Membuang Karakter Null Byte yang mematikan Postgres"""
+    """Membuang Karakter Null Byte yang mematikan Postgres"""
     for line in f:
         yield line.replace('\x00', '').replace('\0', '')
 
 def process_mega_file(file, logic_func, chunk_size=500, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING: Anti-Crash untuk VPS RAM Rendah"""
+    """MESIN PURE PYTHON STREAMING"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -109,10 +106,8 @@ def process_mega_file(file, logic_func, chunk_size=500, default_sep=';'):
 
     try:
         with open(temp_path, 'r', encoding='utf-8', errors='ignore') as f:
-            # Gunakan clean_file_stream untuk membuang null bytes \x00
             reader = csv.DictReader(clean_file_stream(f), delimiter=smart_sep, quotechar='"')
             
-            # --- STRATEGI HEADER SANITIZATION ---
             if reader.fieldnames:
                 clean_fieldnames = [str(col).replace('\ufeff', '').replace('"', '').strip().upper() for col in reader.fieldnames]
                 reader.fieldnames = clean_fieldnames
@@ -172,7 +167,7 @@ def import_tagihan():
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID
+# 3. LOGIKA MASTER CID (DENGAN AUTO-TRIM)
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(data_chunk):
@@ -184,38 +179,38 @@ def handle_cid_upload(file_cid):
             
             tipe_raw = get_val(row, ['TIPEPLGGN', 'TYPECUST1', 'CUST_TYPE'])
             tipe_bersih = standardize_cust_type(tipe_raw)
-            row['TIPEPLGGN'] = tipe_bersih 
             
+            # PROTEKSI AUTO-TRIM DITERAPKAN DI SINI
             cid_entries.append({
-                "nomen": nomen,
-                "norek": get_val(row, ['NOREK', 'NO_REK']),
-                "nama": get_val(row, ['NAMA', 'NAMA_PEL', 'NAMA_PELANGGAN'], 'Pelanggan Baru'),
-                "status": get_val(row, ['STATUS']),
-                "tipeplggn": tipe_bersih,
-                "custclass": get_val(row, ['CUSTCLASS', 'CUST_CLASS']),
-                "tarif": get_val(row, ['TARIFF', 'TARIF', 'GOL_TARIF']),
+                "nomen": nomen[:50],
+                "norek": get_val(row, ['NOREK', 'NO_REK'])[:50],
+                "nama": get_val(row, ['NAMA', 'NAMA_PEL', 'NAMA_PELANGGAN'], 'Pelanggan Baru')[:150],
+                "status": get_val(row, ['STATUS'])[:50],
+                "tipeplggn": tipe_bersih[:50],
+                "custclass": get_val(row, ['CUSTCLASS', 'CUST_CLASS'])[:100],
+                "tarif": get_val(row, ['TARIFF', 'TARIF', 'GOL_TARIF'])[:20],
                 "alamat": get_val(row, ['ALAMAT', 'ALM1_PEL']),
-                "kodepos": get_val(row, ['KODEPOS', 'KODE_POS']),
-                "kelurahan": get_val(row, ['KELURAHAN', 'KEL']),
-                "kecamatan": get_val(row, ['KECAMATAN', 'KEC']),
-                "kota": get_val(row, ['KOTA / KABUPATEN', 'KOTA', 'KABUPATEN']),
-                "ab": get_val(row, ['AB', 'WILAYAH'], 'AB Sunter'),
-                "regional": get_val(row, ['REGIONAL', 'REGION']),
-                "cc": get_val(row, ['CC']),
-                "kode_pa_pc": get_val(row, ['KODE PA/PC', 'KODE_PA_PC', 'PC']),
-                "zona_novak": get_val(row, ['ZONA_NOVAK', 'ZONA']),
-                "pcez": get_val(row, ['PCEZ', 'PCEZBK']),
-                "rayon": get_val(row, ['RAYON', 'KODE PA/PC', 'PCEZ'])[:10] if get_val(row, ['RAYON', 'KODE PA/PC', 'PCEZ']) else '',
-                "cycle": get_val(row, ['CYCLE', 'BILL_CYCLE']),
-                "merk": get_val(row, ['MERK', 'MERK_METER']),
-                "serial": get_val(row, ['SERIAL', 'NO_METER', 'NOMET']),
-                "hp": get_val(row, ['HP', 'NO_HP']),
-                "tlp": get_val(row, ['TLP', 'TELEPON']),
-                "wa": get_val(row, ['WA', 'WHATSAPP']),
-                "email": get_val(row, ['EMAIL']),
-                "fax": get_val(row, ['FAX']),
-                "latitude": get_val(row, ['LATITUDE', 'LAT']),
-                "longitude": get_val(row, ['LONGITUDE', 'LONG']),
+                "kodepos": get_val(row, ['KODEPOS', 'KODE_POS'])[:10],
+                "kelurahan": get_val(row, ['KELURAHAN', 'KEL'])[:100],
+                "kecamatan": get_val(row, ['KECAMATAN', 'KEC'])[:100],
+                "kota": get_val(row, ['KOTA / KABUPATEN', 'KOTA', 'KABUPATEN'])[:100],
+                "ab": get_val(row, ['AB', 'WILAYAH'], 'AB Sunter')[:50],
+                "regional": get_val(row, ['REGIONAL', 'REGION'])[:50],
+                "cc": get_val(row, ['CC'])[:20],
+                "kode_pa_pc": get_val(row, ['KODE PA/PC', 'KODE_PA_PC', 'PC'])[:20],
+                "zona_novak": get_val(row, ['ZONA_NOVAK', 'ZONA'])[:50],
+                "pcez": get_val(row, ['PCEZ', 'PCEZBK'])[:20],
+                "rayon": get_val(row, ['RAYON', 'KODE PA/PC', 'PCEZ'])[:50],
+                "cycle": get_val(row, ['CYCLE', 'BILL_CYCLE'])[:20],
+                "merk": get_val(row, ['MERK', 'MERK_METER'])[:50],
+                "serial": get_val(row, ['SERIAL', 'NO_METER', 'NOMET'])[:100],
+                "hp": get_val(row, ['HP', 'NO_HP'])[:50],
+                "tlp": get_val(row, ['TLP', 'TELEPON'])[:50],
+                "wa": get_val(row, ['WA', 'WHATSAPP'])[:50],
+                "email": get_val(row, ['EMAIL'])[:100],
+                "fax": get_val(row, ['FAX'])[:50],
+                "latitude": get_val(row, ['LATITUDE', 'LAT'])[:50],
+                "longitude": get_val(row, ['LONGITUDE', 'LONG'])[:50],
                 "raw_data": get_safe_json(row)
             })
             
@@ -255,9 +250,6 @@ def handle_mc_upload(file_mc):
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
             
-            tipe_raw = get_val(row, ['CUST_TYPE', 'TYPECUST1', 'TIPEPLGGN'])
-            if tipe_raw: row['CUST_TYPE'] = standardize_cust_type(tipe_raw)
-            
             tahun2 = get_val(row, ['TAHUN2'])
             bulan2 = get_val(row, ['NAMA_BLN2'])
             if tahun2 and bulan2:
@@ -267,11 +259,11 @@ def handle_mc_upload(file_mc):
                 periode_target = shift_period_plus_one(periode_asli)
 
             mc_entries.append({
-                "nomen": nomen,
-                "periode": periode_target,
+                "nomen": nomen[:50],
+                "periode": periode_target[:10],
                 "alm1_pel": get_val(row, ['ALM1_PEL', 'ALAMAT']),
-                "zona_novak": get_val(row, ['ZONA_NOVAK', 'ZONA']),
-                "notagihan": get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN']),
+                "zona_novak": get_val(row, ['ZONA_NOVAK', 'ZONA'])[:50],
+                "notagihan": get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN'])[:50],
                 "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN'])),
                 "raw_data": get_safe_json(row)
             })
@@ -307,17 +299,17 @@ def handle_mb_upload(file_mb):
             periode_target = shift_period_plus_one(periode_asli)
             
             mb_entries.append({
-                "nomen": nomen,
-                "periode": periode_target,
-                "bulan_rek": bulan_rek_raw,
-                "tgl_bayar": get_val(row, ['TGL_BAYAR', 'PAY_DT']),
+                "nomen": nomen[:50],
+                "periode": periode_target[:10],
+                "bulan_rek": bulan_rek_raw[:20],
+                "tgl_bayar": get_val(row, ['TGL_BAYAR', 'PAY_DT'])[:50],
                 "nominal": parse_float(get_val(row, ['NOMINAL', 'RPBAYAR'])),
                 "denda": parse_float(get_val(row, ['DENDA'])),
-                "lks_bayar": get_val(row, ['LKS_BAYAR', 'PAY_LOC']),
-                "notagihan": get_val(row, ['NOTAGIHAN', 'BILL_ID']),
+                "lks_bayar": get_val(row, ['LKS_BAYAR', 'PAY_LOC'])[:100],
+                "notagihan": get_val(row, ['NOTAGIHAN', 'BILL_ID'])[:50],
                 "raw_data": get_safe_json(row)
             })
-            lunas_entries.append({"n": nomen, "p": periode_target})
+            lunas_entries.append({"n": nomen[:50], "p": periode_target[:10]})
             
         if mb_entries:
             sql_mb = text("""
@@ -351,31 +343,30 @@ def handle_daily_upload(file_daily):
             
             tipe_raw = get_val(row, ['TYPECUST1', 'CUST_TYPE'])
             tipe_bersih = standardize_cust_type(tipe_raw)
-            row['TYPECUST1'] = tipe_bersih
             
             bill_period_raw = get_val(row, ['BILL_PERIOD', 'PERIODE_DTTM'])
             periode_asli = extract_periode(bill_period_raw)
             periode_target = shift_period_plus_one(periode_asli)
 
             daily_entries.append({
-                "nomen": nomen,
-                "periode": periode_target,
-                "pay_dt": get_val(row, ['PAY_DT', 'TGL_BAYAR']),
-                "bill_period": bill_period_raw,
+                "nomen": nomen[:50],
+                "periode": periode_target[:10],
+                "pay_dt": get_val(row, ['PAY_DT', 'TGL_BAYAR'])[:50],
+                "bill_period": bill_period_raw[:50],
                 "pay_amt": parse_float(get_val(row, ['PAY_AMT', 'NOMINAL'])),
-                "pay_status_flg": get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG']),
-                "bill_type": get_val(row, ['BILL_TYPE', 'JENIS']),
-                "typecust1": tipe_bersih,
-                "pay_loc": get_val(row, ['PAY_LOC', 'LKS_BAYAR']),
-                "bill_id": get_val(row, ['BILL_ID', 'NOTAGIHAN']),
-                "ab": get_val(row, ['AB', 'WILAYAH']),
-                "status": get_val(row, ['STATUS']),
+                "pay_status_flg": get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG'])[:20],
+                "bill_type": get_val(row, ['BILL_TYPE', 'JENIS'])[:50],
+                "typecust1": tipe_bersih[:50],
+                "pay_loc": get_val(row, ['PAY_LOC', 'LKS_BAYAR'])[:100],
+                "bill_id": get_val(row, ['BILL_ID', 'NOTAGIHAN'])[:50],
+                "ab": get_val(row, ['AB', 'WILAYAH'])[:50],
+                "status": get_val(row, ['STATUS'])[:50],
                 "raw_data": get_safe_json(row)
             })
             
             status_flag = get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG'])
             if status_flag in ['1', '50', 'LUNAS']:
-                lunas_entries.append({"n": nomen, "p": periode_target})
+                lunas_entries.append({"n": nomen[:50], "p": periode_target[:10]})
             
         if daily_entries:
             sql_daily = text("""
@@ -424,20 +415,20 @@ def handle_mainbill_upload(file_mainbill):
                     periode_target = f"{y}{parts[1].zfill(2)}"
 
             mb_entries.append({
-                "nomen": nomen,
-                "periode": periode_target,
-                "jenis_pelanggan": get_val(row, ['JENIS_PELANGGAN', 'TYPECUST1']),
-                "cc": get_val(row, ['CC']),
-                "pcezbk": get_val(row, ['PCEZBK', 'PCEZ']),
-                "tarif": get_val(row, ['TARIF', 'TARIFF']),
-                "bill_cycle": get_val(row, ['BILL_CYCLE', 'CYCLE']),
-                "read_method": get_val(row, ['READ_METHOD']),
+                "nomen": nomen[:50],
+                "periode": periode_target[:10],
+                "jenis_pelanggan": get_val(row, ['JENIS_PELANGGAN', 'TYPECUST1'])[:100],
+                "cc": get_val(row, ['CC'])[:20],
+                "pcezbk": get_val(row, ['PCEZBK', 'PCEZ'])[:20],
+                "tarif": get_val(row, ['TARIF', 'TARIFF'])[:20],
+                "bill_cycle": get_val(row, ['BILL_CYCLE', 'CYCLE'])[:20],
+                "read_method": get_val(row, ['READ_METHOD'])[:50],
                 "konsumsi": parse_float(get_val(row, ['KONSUMSI', 'VOL'])),
                 "tagihan_air": parse_float(get_val(row, ['TAGIHAN_AIR', 'REK_AIR'])),
-                "start_read": get_val(row, ['START_READ']),
-                "start_read_stan": get_val(row, ['START_READ_STAN', 'STAN_AWAL']),
-                "end_read": end_read_raw,
-                "hari_baca": get_val(row, ['HARI_BACA', 'HB']),
+                "start_read": get_val(row, ['START_READ'])[:50],
+                "start_read_stan": get_val(row, ['START_READ_STAN', 'STAN_AWAL'])[:50],
+                "end_read": end_read_raw[:50],
+                "hari_baca": get_val(row, ['HARI_BACA', 'HB'])[:20],
                 "raw_data": get_safe_json(row)
             })
             
@@ -504,7 +495,7 @@ def handle_sbrs_upload(file_cust, file_spot):
                 ez = get_val(merged_row, ['EZ'])
                 pc_ez = f"{pc}{ez}"
             
-            master_provision.append({"nomen": nomen, "nama": nama_pel, "ab": ab_pel, "pcez": pc_ez})
+            master_provision.append({"nomen": nomen[:50], "nama": nama_pel[:150], "ab": ab_pel[:50], "pcez": pc_ez[:20]})
 
             def gv(keys): return get_val(merged_row, keys)
 
@@ -534,10 +525,10 @@ def handle_sbrs_upload(file_cust, file_spot):
             if not periode_sbrs or periode_sbrs == '000000': periode_sbrs = get_current_periode()
             
             sbrs_entries.append({
-                "nomen": nomen, "periode": periode_sbrs,
-                "nama": nama_pel, "ab": ab_pel, "kelurahan": gv(['KEL', 'KELURAHAN']),
-                "pcez": pc_ez, "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
-                "kategori_anomali": kat, "raw_data": get_safe_json(merged_row), "status_audit": 0
+                "nomen": nomen[:50], "periode": periode_sbrs[:10],
+                "nama": nama_pel[:150], "ab": ab_pel[:50], "kelurahan": gv(['KEL', 'KELURAHAN'])[:100],
+                "pcez": pc_ez[:20], "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
+                "kategori_anomali": kat[:50], "raw_data": get_safe_json(merged_row), "status_audit": 0
             })
 
         if master_provision:
@@ -581,8 +572,8 @@ def handle_arrdebt_upload(file_arrdebt):
             if not periode: periode = "000000"
             nominal = parse_float(get_val(row, ['BILL_AMT', 'WATER']))
             
-            arr_entries.append({"nomen": nomen, "periode": periode, "nominal": nominal, "raw_data": get_safe_json(row)})
-            tagihan_entries.append({"nomen": nomen, "periode": periode, "total_tagihan": nominal, "status_lunas": 0})
+            arr_entries.append({"nomen": nomen[:50], "periode": periode[:10], "nominal": nominal, "raw_data": get_safe_json(row)})
+            tagihan_entries.append({"nomen": nomen[:50], "periode": periode[:10], "total_tagihan": nominal, "status_lunas": 0})
 
         if arr_entries:
             sql_arr = text("""
