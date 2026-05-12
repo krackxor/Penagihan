@@ -6,7 +6,7 @@ import polars as pl
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
-from models import db, DataSBRS
+from models import db
 
 importer_bp = Blueprint('importer', __name__)
 
@@ -39,6 +39,13 @@ def clean_nomen(val):
     s = re.sub(r'[^0-9]', '', s)
     if not s: return None
     return s[-8:].zfill(8)
+
+def standardize_cust_type(val):
+    """STANDARISASI SAKTI: Mengubah 'R' atau 'REG' menjadi 'REGULAR' sejak upload"""
+    s = str(val).strip().upper()
+    if s == 'R' or 'REG' in s:
+        return 'REGULAR'
+    return s
 
 def extract_periode(val):
     """Membaca periode asli dari berbagai sumber text (Output standar YYYYMM)"""
@@ -79,13 +86,12 @@ def parse_float(val):
     except: return 0.0
 
 def process_mega_file(file, logic_func, chunk_size=20000, default_sep='|'):
-    """Mesin Polars Batched Reader untuk Hemat RAM (V18 Standard) dilengkapi Sniffer"""
+    """Mesin Polars Batched Reader untuk Hemat RAM (V18 Standard)"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
     file.save(temp_path)
 
-    # Deteksi pemisah (separator) cerdas secara otomatis
     smart_sep = detect_separator(temp_path, default=default_sep)
 
     try:
@@ -295,7 +301,7 @@ def handle_arrdebt_upload(file_arrdebt):
 
 
 # =========================================================================
-# 5. LOGIKA MASTER CID 
+# 5. LOGIKA MASTER CID (DIPERKUAT DENGAN STANDARISASI REGULAR)
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(df_chunk):
@@ -304,12 +310,17 @@ def handle_cid_upload(file_cid):
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
+            # STANDARISASI SAKTI: 'R' menjadi 'REGULAR'
+            tipe_raw = str(row.get('TIPEPLGGN') or row.get('TYPECUST1') or '').strip()
+            tipe_bersih = standardize_cust_type(tipe_raw)
+            row['TIPEPLGGN'] = tipe_bersih 
+            
             cid_entries.append({
                 "nomen": nomen,
                 "norek": str(row.get('NOREK', '')).strip(),
                 "nama": str(row.get('NAMA', 'Pelanggan')).strip(),
                 "status": str(row.get('STATUS', '')).strip(),
-                "tipeplggn": str(row.get('TIPEPLGGN', '')).strip(),
+                "tipeplggn": tipe_bersih,
                 "custclass": str(row.get('CUSTCLASS', '')).strip(),
                 "tarif": str(row.get('TARIFF') or row.get('TARIF', '')).strip(),
                 "alamat": str(row.get('ALAMAT', '')).strip(),
@@ -360,9 +371,8 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
-    # CHUNK_SIZE DIKECILKAN MENJADI 5000 UNTUK MENGHEMAT RAM POSTGRES
     total = process_mega_file(file_cid, cid_logic, chunk_size=5000, default_sep='|')
-    return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui (Full 28 Kolom)."})
+    return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 
 # =========================================================================
@@ -374,6 +384,11 @@ def handle_mc_upload(file_mc):
         for row in df_chunk.to_dicts():
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
+            
+            # STANDARISASI SAKTI: 'R' menjadi 'REGULAR' dalam raw_data
+            tipe_raw = row.get('CUST_TYPE') or row.get('TYPECUST1') or ''
+            if tipe_raw:
+                row['CUST_TYPE'] = standardize_cust_type(tipe_raw)
             
             if 'TAHUN2' in row and 'NAMA_BLN2' in row and str(row['TAHUN2']).strip():
                 tahun = str(row['TAHUN2']).strip()
@@ -458,62 +473,74 @@ def handle_mb_upload(file_mb):
 
 
 # =========================================================================
-# 8. LOGIKA KOLEKSI HARIAN (DAILY DATA)
+# 8. LOGIKA KOLEKSI HARIAN (DAILY DATA) -> DIPERBAIKI MENGARAH KE DATA_DAILY
 # =========================================================================
 def handle_daily_upload(file_daily):
     def daily_logic(df_chunk):
-        mb_entries = []
+        daily_entries = []
         lunas_entries = []
         
         for row in df_chunk.to_dicts():
             nomen = clean_nomen(row.get('NOMEN'))
             if not nomen: continue
             
+            # STANDARISASI SAKTI: 'R' menjadi 'REGULAR'
+            tipe_raw = row.get('TYPECUST1') or row.get('CUST_TYPE') or ''
+            tipe_bersih = standardize_cust_type(tipe_raw)
+            row['TYPECUST1'] = tipe_bersih
+            
             bill_period_raw = str(row.get('BILL_PERIOD', '')).strip()
             periode_asli = extract_periode(bill_period_raw)
             periode_target = shift_period_plus_one(periode_asli)
-            
-            bulan_rek_val = ""
-            if bill_period_raw and '/' in bill_period_raw:
-                parts = bill_period_raw.split('/')
-                if len(parts) == 3:
-                    y = parts[2]
-                    if len(y) == 2: y = "20" + y
-                    bulan_rek_val = f"{parts[1].zfill(2)}{y}"
 
-            mb_entries.append({
+            daily_entries.append({
                 "nomen": nomen,
                 "periode": periode_target,
-                "bulan_rek": bulan_rek_val,
-                "tgl_bayar": str(row.get('PAY_DT', '')).strip(),
-                "nominal": parse_float(row.get('PAY_AMT')),
-                "denda": 0,
-                "lks_bayar": str(row.get('PAY_LOC', '')).strip(),
-                "notagihan": str(row.get('BILL_ID', '')).strip(),
+                "pay_dt": str(row.get('PAY_DT', '')).strip(),
+                "bill_period": bill_period_raw,
+                "pay_amt": parse_float(row.get('PAY_AMT')),
+                "pay_status_flg": str(row.get('PAY_STATUS_FLG', '')).strip(),
+                "bill_type": str(row.get('BILL_TYPE', '')).strip(),
+                "typecust1": tipe_bersih,
+                "pay_loc": str(row.get('PAY_LOC', '')).strip(),
+                "bill_id": str(row.get('BILL_ID', '')).strip(),
+                "ab": str(row.get('AB', '')).strip(),
+                "status": str(row.get('STATUS', '')).strip(),
                 "raw_data": json.dumps(row)
             })
             
-            if str(row.get('PAY_STATUS_FLG', '')).strip() == '1':
+            # Jika status flag lunas (misal 50 atau 1)
+            status_flag = str(row.get('PAY_STATUS_FLG', '')).strip()
+            if status_flag == '1' or status_flag == '50':
                 lunas_entries.append({"n": nomen, "p": periode_target})
             
-        if mb_entries:
-            sql_mb = text("""
-                INSERT INTO data_mb (nomen, periode, bulan_rek, tgl_bayar, nominal, denda, lks_bayar, notagihan, raw_data)
-                VALUES (:nomen, :periode, :bulan_rek, :tgl_bayar, :nominal, :denda, :lks_bayar, :notagihan, CAST(:raw_data AS JSONB))
-                ON CONFLICT (nomen, periode) DO UPDATE SET 
-                    bulan_rek=EXCLUDED.bulan_rek, tgl_bayar=EXCLUDED.tgl_bayar, nominal=EXCLUDED.nominal,
-                    denda=EXCLUDED.denda, lks_bayar=EXCLUDED.lks_bayar, notagihan=EXCLUDED.notagihan, raw_data=EXCLUDED.raw_data
+        if daily_entries:
+            # FIX: Arahkan ke tabel DATA_DAILY sesuai dengan models.py
+            sql_daily = text("""
+                INSERT INTO data_daily (
+                    nomen, periode, pay_dt, bill_period, pay_amt, pay_status_flg, 
+                    bill_type, typecust1, pay_loc, bill_id, ab, status, raw_data
+                )
+                VALUES (
+                    :nomen, :periode, :pay_dt, :bill_period, :pay_amt, :pay_status_flg, 
+                    :bill_type, :typecust1, :pay_loc, :bill_id, :ab, :status, CAST(:raw_data AS JSONB)
+                )
+                ON CONFLICT (nomen, bill_id) DO UPDATE SET 
+                    periode=EXCLUDED.periode, pay_dt=EXCLUDED.pay_dt, bill_period=EXCLUDED.bill_period, 
+                    pay_amt=EXCLUDED.pay_amt, pay_status_flg=EXCLUDED.pay_status_flg, bill_type=EXCLUDED.bill_type, 
+                    typecust1=EXCLUDED.typecust1, pay_loc=EXCLUDED.pay_loc, ab=EXCLUDED.ab, 
+                    status=EXCLUDED.status, raw_data=EXCLUDED.raw_data
             """)
-            db.session.execute(sql_mb, mb_entries)
+            db.session.execute(sql_daily, daily_entries)
             
             if lunas_entries:
                 sql_lunas = text("UPDATE transaksi_tagihan SET status_lunas = 1 WHERE nomen = :n AND periode = :p")
                 db.session.execute(sql_lunas, lunas_entries)
-            return len(mb_entries)
+            return len(daily_entries)
         return 0
 
     total = process_mega_file(file_daily, daily_logic, default_sep='|')
-    return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} pembayaran disinkronkan ke DB."})
+    return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi disinkronkan ke DB."})
 
 
 # =========================================================================
