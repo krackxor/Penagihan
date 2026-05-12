@@ -19,9 +19,10 @@ services:
     build: .
     container_name: sinergi_v18_app
     # =================================================================
-    # PROTOKOL ANTI 502: Timeout 30 menit untuk Vacuuming JSONB 6 File
+    # PROTOKOL ANTI COLD START & 502: Tambahkan --preload
+    # Memaksa server memuat memori & database sebelum siap menerima file
     # =================================================================
-    command: gunicorn --bind 0.0.0.0:5000 app:app --timeout 1800 --workers 3
+    command: gunicorn --bind 0.0.0.0:5000 app:app --timeout 1800 --workers 3 --preload
     expose:
       - "5000"
     volumes:
