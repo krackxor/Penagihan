@@ -40,6 +40,7 @@ def get_val(row_dict, possible_keys, default=''):
     return default
 
 def trim(val, length):
+    """Fungsi krusial untuk mencegah error StringDataRightTruncation"""
     if not val: return ""
     return str(val)[:length]
 
@@ -85,7 +86,7 @@ def parse_float(val):
     except: return 0.0
 
 def get_safe_json(row_dict):
-    """Mencegah Postgres mati karena JSON raksasa. KEMBALIKAN DICTIONARY, bukan String!"""
+    """Mengembalikan Dictionary yang aman untuk masuk ke JSONB SQLAlchemy"""
     try:
         if len(json.dumps(row_dict)) > 15000: 
             return {"info": "Data terpotong otomatis karena format file cacat dari pusat."}
@@ -94,12 +95,12 @@ def get_safe_json(row_dict):
         return {}
 
 def clean_file_stream(f):
-    """Membuang Karakter Null Byte yang mematikan Postgres"""
+    """Menjinakkan Karakter Null Byte yang sering bikin Postgres Crash"""
     for line in f:
         yield line.replace('\x00', '').replace('\0', '')
 
 def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING"""
+    """MESIN PURE PYTHON STREAMING (Sangat aman untuk Server)"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -171,7 +172,7 @@ def import_tagihan():
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID (SQLAlchemy Core - No Raw SQL)
+# 3. LOGIKA MASTER CID (SQLAlchemy Core + Auto Trim)
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(data_chunk):
@@ -214,7 +215,7 @@ def handle_cid_upload(file_cid):
                 "fax": trim(get_val(row, ['FAX']), 50),
                 "latitude": trim(get_val(row, ['LATITUDE', 'LAT']), 50),
                 "longitude": trim(get_val(row, ['LONGITUDE', 'LONG']), 50),
-                "raw_data": get_safe_json(row) # Mengembalikan Dict, bukan Text!
+                "raw_data": get_safe_json(row)
             })
             
         if cid_entries:
@@ -539,12 +540,9 @@ def handle_sbrs_upload(file_cust, file_spot):
             })
 
         if master_provision:
-            unique_master = {m['nomen']: m for m in master_provision}.values()
-            sql_master = text("""
-                INSERT INTO master_pelanggan (nomen, nama, ab, pcez) 
-                VALUES (:nomen, :nama, :ab, :pcez) ON CONFLICT DO NOTHING
-            """)
-            db.session.execute(sql_master, list(unique_master))
+            stmt_master = insert(MasterPelanggan).values(master_provision)
+            stmt_master = stmt_master.on_conflict_do_nothing()
+            db.session.execute(stmt_master)
 
         if sbrs_entries:
             stmt = insert(DataSBRS).values(sbrs_entries)
