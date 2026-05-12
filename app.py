@@ -13,7 +13,8 @@ from api.top_500 import top_500_bp # Blueprint Top 500
 from api.admin import admin_bp # Blueprint Admin Control (V18)
 from api.ocr import ocr_bp # Blueprint Tools OCR
 from api.converter import converter_bp # Blueprint Konversi Dokumen
-from api.optimizer import optimizer_bp # <--- [BARU] Blueprint Kompresi Gambar
+from api.optimizer import optimizer_bp # Blueprint Kompresi Gambar
+from api.search import search_bp # <--- [BARU] Blueprint Global Search
 
 def sync_database_schema(app):
     """
@@ -170,7 +171,8 @@ def create_app():
     app_flask.register_blueprint(admin_bp, url_prefix='/admin')
     app_flask.register_blueprint(ocr_bp, url_prefix='/tools/ocr')
     app_flask.register_blueprint(converter_bp, url_prefix='/tools/converter')
-    app_flask.register_blueprint(optimizer_bp, url_prefix='/tools/optimizer') # <--- [BARU] Registrasi URL Optimizer
+    app_flask.register_blueprint(optimizer_bp, url_prefix='/tools/optimizer')
+    app_flask.register_blueprint(search_bp, url_prefix='/search') # <--- [BARU] Registrasi URL Global Search
 
     # --- 5. NAVIGASI UTAMA (FIX 404 NOT FOUND) ---
     @app_flask.route('/')
