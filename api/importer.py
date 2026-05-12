@@ -8,7 +8,8 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
-from models import db
+from sqlalchemy.dialects.postgresql import insert
+from models import db, MasterPelanggan, TransaksiTagihan, DataMB, DataDaily, DataMainbill, DataSBRS, DataArrdebt
 
 # Naikkan batas memori baca CSV untuk menghindari error pembacaan
 csv.field_size_limit(sys.maxsize)
@@ -31,14 +32,12 @@ def detect_separator(filepath, default=';'):
             return best_sep if counts[best_sep] > 0 else default
     except: return default
 
-def get_val(row_dict, possible_keys, default='', max_len=1500):
-    """GLOBAL SHIELD: Memastikan tidak ada data yang melebihi 1500 karakter akibat kutip bocor"""
+def get_val(row_dict, possible_keys, default=''):
     for k in possible_keys:
         if k in row_dict and row_dict[k] is not None:
             val = str(row_dict[k]).strip().replace('"', '')
-            if val.lower() not in ['none', 'nan', 'null', '']: 
-                return val[:max_len]
-    return default[:max_len]
+            if val.lower() not in ['none', 'nan', 'null', '']: return val
+    return default
 
 def trim(val, length):
     if not val: return ""
@@ -86,21 +85,21 @@ def parse_float(val):
     except: return 0.0
 
 def get_safe_json(row_dict):
-    """Mencegah Postgres mati karena JSON terlalu raksasa."""
+    """Mencegah Postgres mati karena JSON raksasa. KEMBALIKAN DICTIONARY, bukan String!"""
     try:
-        s = json.dumps(row_dict)
-        if len(s) > 15000: 
-            return '{"info": "Data terpotong otomatis karena format file cacat dari pusat."}'
-        return s
+        if len(json.dumps(row_dict)) > 15000: 
+            return {"info": "Data terpotong otomatis karena format file cacat dari pusat."}
+        return row_dict
     except:
-        return '{}'
+        return {}
 
 def clean_file_stream(f):
     """Membuang Karakter Null Byte yang mematikan Postgres"""
     for line in f:
         yield line.replace('\x00', '').replace('\0', '')
 
-def process_mega_file(file, logic_func, chunk_size=100, default_sep=';'):
+def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
+    """MESIN PURE PYTHON STREAMING"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -172,7 +171,7 @@ def import_tagihan():
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID
+# 3. LOGIKA MASTER CID (SQLAlchemy Core - No Raw SQL)
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(data_chunk):
@@ -193,7 +192,7 @@ def handle_cid_upload(file_cid):
                 "tipeplggn": trim(tipe_bersih, 50),
                 "custclass": trim(get_val(row, ['CUSTCLASS', 'CUST_CLASS']), 100),
                 "tarif": trim(get_val(row, ['TARIFF', 'TARIF', 'GOL_TARIF']), 20),
-                "alamat": trim(get_val(row, ['ALAMAT', 'ALM1_PEL']), 1000), # DIBATASI 1000 KARAKTER!
+                "alamat": get_val(row, ['ALAMAT', 'ALM1_PEL']),
                 "kodepos": trim(get_val(row, ['KODEPOS', 'KODE_POS']), 10),
                 "kelurahan": trim(get_val(row, ['KELURAHAN', 'KEL']), 100),
                 "kecamatan": trim(get_val(row, ['KECAMATAN', 'KEC']), 100),
@@ -215,33 +214,18 @@ def handle_cid_upload(file_cid):
                 "fax": trim(get_val(row, ['FAX']), 50),
                 "latitude": trim(get_val(row, ['LATITUDE', 'LAT']), 50),
                 "longitude": trim(get_val(row, ['LONGITUDE', 'LONG']), 50),
-                "raw_data": get_safe_json(row)
+                "raw_data": get_safe_json(row) # Mengembalikan Dict, bukan Text!
             })
             
         if cid_entries:
-            sql_cid = text("""
-                INSERT INTO master_pelanggan (
-                    nomen, norek, nama, status, tipeplggn, custclass, tarif, alamat, kodepos, 
-                    kelurahan, kecamatan, kota, ab, regional, cc, kode_pa_pc, zona_novak, 
-                    pcez, rayon, cycle, merk, serial, hp, tlp, wa, email, fax, latitude, longitude, raw_data
-                ) VALUES (
-                    :nomen, :norek, :nama, :status, :tipeplggn, :custclass, :tarif, :alamat, :kodepos, 
-                    :kelurahan, :kecamatan, :kota, :ab, :regional, :cc, :kode_pa_pc, :zona_novak, 
-                    :pcez, :rayon, :cycle, :merk, :serial, :hp, :tlp, :wa, :email, :fax, :latitude, :longitude, CAST(:raw_data AS JSONB)
-                ) ON CONFLICT (nomen) DO UPDATE SET 
-                    norek=EXCLUDED.norek, nama=EXCLUDED.nama, status=EXCLUDED.status, tipeplggn=EXCLUDED.tipeplggn, 
-                    custclass=EXCLUDED.custclass, tarif=EXCLUDED.tarif, alamat=EXCLUDED.alamat, kodepos=EXCLUDED.kodepos, 
-                    kelurahan=EXCLUDED.kelurahan, kecamatan=EXCLUDED.kecamatan, kota=EXCLUDED.kota, ab=EXCLUDED.ab, 
-                    regional=EXCLUDED.regional, cc=EXCLUDED.cc, kode_pa_pc=EXCLUDED.kode_pa_pc, zona_novak=EXCLUDED.zona_novak, 
-                    pcez=EXCLUDED.pcez, rayon=EXCLUDED.rayon, cycle=EXCLUDED.cycle, merk=EXCLUDED.merk, serial=EXCLUDED.serial, 
-                    hp=EXCLUDED.hp, tlp=EXCLUDED.tlp, wa=EXCLUDED.wa, email=EXCLUDED.email, fax=EXCLUDED.fax, 
-                    latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, raw_data=EXCLUDED.raw_data
-            """)
-            db.session.execute(sql_cid, cid_entries)
+            stmt = insert(MasterPelanggan).values(cid_entries)
+            update_dict = {c.name: getattr(stmt.excluded, c.name) for c in MasterPelanggan.__table__.columns if c.name != 'nomen'}
+            stmt = stmt.on_conflict_do_update(index_elements=['nomen'], set_=update_dict)
+            db.session.execute(stmt)
             return len(cid_entries)
         return 0
 
-    total = process_mega_file(file_cid, cid_logic, chunk_size=100)
+    total = process_mega_file(file_cid, cid_logic, chunk_size=250)
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 # =========================================================================
@@ -265,26 +249,32 @@ def handle_mc_upload(file_mc):
             mc_entries.append({
                 "nomen": trim(nomen, 50),
                 "periode": trim(periode_target, 10),
-                "alm1_pel": trim(get_val(row, ['ALM1_PEL', 'ALAMAT']), 1000),
+                "alm1_pel": get_val(row, ['ALM1_PEL', 'ALAMAT']),
                 "zona_novak": trim(get_val(row, ['ZONA_NOVAK', 'ZONA']), 50),
                 "notagihan": trim(get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN']), 50),
                 "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN'])),
+                "status_lunas": 0,
                 "raw_data": get_safe_json(row)
             })
             
         if mc_entries:
-            sql_mc = text("""
-                INSERT INTO transaksi_tagihan (nomen, periode, alm1_pel, zona_novak, notagihan, total_tagihan, status_lunas, raw_data)
-                VALUES (:nomen, :periode, :alm1_pel, :zona_novak, :notagihan, :total_tagihan, 0, CAST(:raw_data AS JSONB))
-                ON CONFLICT (nomen, periode) DO UPDATE SET 
-                    alm1_pel=EXCLUDED.alm1_pel, zona_novak=EXCLUDED.zona_novak, notagihan=EXCLUDED.notagihan,
-                    total_tagihan=EXCLUDED.total_tagihan, status_lunas=0, raw_data=EXCLUDED.raw_data
-            """)
-            db.session.execute(sql_mc, mc_entries)
+            stmt = insert(TransaksiTagihan).values(mc_entries)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['nomen', 'periode'],
+                set_={
+                    'alm1_pel': stmt.excluded.alm1_pel,
+                    'zona_novak': stmt.excluded.zona_novak,
+                    'notagihan': stmt.excluded.notagihan,
+                    'total_tagihan': stmt.excluded.total_tagihan,
+                    'status_lunas': 0,
+                    'raw_data': stmt.excluded.raw_data
+                }
+            )
+            db.session.execute(stmt)
             return len(mc_entries)
         return 0
 
-    total = process_mega_file(file_mc, mc_logic, chunk_size=100)
+    total = process_mega_file(file_mc, mc_logic, chunk_size=250)
     return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 # =========================================================================
@@ -316,14 +306,20 @@ def handle_mb_upload(file_mb):
             lunas_entries.append({"n": trim(nomen, 50), "p": trim(periode_target, 10)})
             
         if mb_entries:
-            sql_mb = text("""
-                INSERT INTO data_mb (nomen, periode, bulan_rek, tgl_bayar, nominal, denda, lks_bayar, notagihan, raw_data)
-                VALUES (:nomen, :periode, :bulan_rek, :tgl_bayar, :nominal, :denda, :lks_bayar, :notagihan, CAST(:raw_data AS JSONB))
-                ON CONFLICT (nomen, periode) DO UPDATE SET 
-                    bulan_rek=EXCLUDED.bulan_rek, tgl_bayar=EXCLUDED.tgl_bayar, nominal=EXCLUDED.nominal,
-                    denda=EXCLUDED.denda, lks_bayar=EXCLUDED.lks_bayar, notagihan=EXCLUDED.notagihan, raw_data=EXCLUDED.raw_data
-            """)
-            db.session.execute(sql_mb, mb_entries)
+            stmt = insert(DataMB).values(mb_entries)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['nomen', 'periode'],
+                set_={
+                    'bulan_rek': stmt.excluded.bulan_rek,
+                    'tgl_bayar': stmt.excluded.tgl_bayar,
+                    'nominal': stmt.excluded.nominal,
+                    'denda': stmt.excluded.denda,
+                    'lks_bayar': stmt.excluded.lks_bayar,
+                    'notagihan': stmt.excluded.notagihan,
+                    'raw_data': stmt.excluded.raw_data
+                }
+            )
+            db.session.execute(stmt)
             
             if lunas_entries:
                 sql_lunas = text("UPDATE transaksi_tagihan SET status_lunas = 1 WHERE nomen = :n AND periode = :p")
@@ -331,7 +327,7 @@ def handle_mb_upload(file_mb):
             return len(mb_entries)
         return 0
 
-    total_bayar = process_mega_file(file_mb, mb_logic, chunk_size=100)
+    total_bayar = process_mega_file(file_mb, mb_logic, chunk_size=250)
     return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} dilunaskan."})
 
 # =========================================================================
@@ -373,22 +369,24 @@ def handle_daily_upload(file_daily):
                 lunas_entries.append({"n": trim(nomen, 50), "p": trim(periode_target, 10)})
             
         if daily_entries:
-            sql_daily = text("""
-                INSERT INTO data_daily (
-                    nomen, periode, pay_dt, bill_period, pay_amt, pay_status_flg, 
-                    bill_type, typecust1, pay_loc, bill_id, ab, status, raw_data
-                )
-                VALUES (
-                    :nomen, :periode, :pay_dt, :bill_period, :pay_amt, :pay_status_flg, 
-                    :bill_type, :typecust1, :pay_loc, :bill_id, :ab, :status, CAST(:raw_data AS JSONB)
-                )
-                ON CONFLICT (nomen, bill_id) DO UPDATE SET 
-                    periode=EXCLUDED.periode, pay_dt=EXCLUDED.pay_dt, bill_period=EXCLUDED.bill_period, 
-                    pay_amt=EXCLUDED.pay_amt, pay_status_flg=EXCLUDED.pay_status_flg, bill_type=EXCLUDED.bill_type, 
-                    typecust1=EXCLUDED.typecust1, pay_loc=EXCLUDED.pay_loc, ab=EXCLUDED.ab, 
-                    status=EXCLUDED.status, raw_data=EXCLUDED.raw_data
-            """)
-            db.session.execute(sql_daily, daily_entries)
+            stmt = insert(DataDaily).values(daily_entries)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['nomen', 'bill_id'],
+                set_={
+                    'periode': stmt.excluded.periode,
+                    'pay_dt': stmt.excluded.pay_dt,
+                    'bill_period': stmt.excluded.bill_period,
+                    'pay_amt': stmt.excluded.pay_amt,
+                    'pay_status_flg': stmt.excluded.pay_status_flg,
+                    'bill_type': stmt.excluded.bill_type,
+                    'typecust1': stmt.excluded.typecust1,
+                    'pay_loc': stmt.excluded.pay_loc,
+                    'ab': stmt.excluded.ab,
+                    'status': stmt.excluded.status,
+                    'raw_data': stmt.excluded.raw_data
+                }
+            )
+            db.session.execute(stmt)
             
             if lunas_entries:
                 sql_lunas = text("UPDATE transaksi_tagihan SET status_lunas = 1 WHERE nomen = :n AND periode = :p")
@@ -396,7 +394,7 @@ def handle_daily_upload(file_daily):
             return len(daily_entries)
         return 0
 
-    total = process_mega_file(file_daily, daily_logic, chunk_size=100)
+    total = process_mega_file(file_daily, daily_logic, chunk_size=250)
     return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi disinkronkan."})
 
 # =========================================================================
@@ -437,25 +435,30 @@ def handle_mainbill_upload(file_mainbill):
             })
             
         if mb_entries:
-            sql = text("""
-                INSERT INTO data_mainbill (
-                    nomen, periode, jenis_pelanggan, cc, pcezbk, tarif, bill_cycle, 
-                    read_method, konsumsi, tagihan_air, start_read, start_read_stan, end_read, hari_baca, raw_data
-                ) VALUES (
-                    :nomen, :periode, :jenis_pelanggan, :cc, :pcezbk, :tarif, :bill_cycle, 
-                    :read_method, :konsumsi, :tagihan_air, :start_read, :start_read_stan, :end_read, :hari_baca, CAST(:raw_data AS JSONB)
-                ) ON CONFLICT (nomen, periode) DO UPDATE SET 
-                    jenis_pelanggan=EXCLUDED.jenis_pelanggan, cc=EXCLUDED.cc, pcezbk=EXCLUDED.pcezbk,
-                    tarif=EXCLUDED.tarif, bill_cycle=EXCLUDED.bill_cycle, read_method=EXCLUDED.read_method,
-                    konsumsi=EXCLUDED.konsumsi, tagihan_air=EXCLUDED.tagihan_air, start_read=EXCLUDED.start_read,
-                    start_read_stan=EXCLUDED.start_read_stan, end_read=EXCLUDED.end_read,
-                    hari_baca=EXCLUDED.hari_baca, raw_data=EXCLUDED.raw_data
-            """)
-            db.session.execute(sql, mb_entries)
+            stmt = insert(DataMainbill).values(mb_entries)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['nomen', 'periode'],
+                set_={
+                    'jenis_pelanggan': stmt.excluded.jenis_pelanggan,
+                    'cc': stmt.excluded.cc,
+                    'pcezbk': stmt.excluded.pcezbk,
+                    'tarif': stmt.excluded.tarif,
+                    'bill_cycle': stmt.excluded.bill_cycle,
+                    'read_method': stmt.excluded.read_method,
+                    'konsumsi': stmt.excluded.konsumsi,
+                    'tagihan_air': stmt.excluded.tagihan_air,
+                    'start_read': stmt.excluded.start_read,
+                    'start_read_stan': stmt.excluded.start_read_stan,
+                    'end_read': stmt.excluded.end_read,
+                    'hari_baca': stmt.excluded.hari_baca,
+                    'raw_data': stmt.excluded.raw_data
+                }
+            )
+            db.session.execute(stmt)
             return len(mb_entries)
         return 0
 
-    total = process_mega_file(file_mainbill, mainbill_logic, chunk_size=100)
+    total = process_mega_file(file_mainbill, mainbill_logic, chunk_size=250)
     return jsonify({"status": "success", "message": f"MainBill Sukses! {total} rincian meter disimpan."})
 
 # =========================================================================
@@ -544,18 +547,21 @@ def handle_sbrs_upload(file_cust, file_spot):
             db.session.execute(sql_master, list(unique_master))
 
         if sbrs_entries:
-            sql_sbrs = text("""
-                INSERT INTO data_sbrs (nomen, periode, nama, ab, kelurahan, pcez, bulan_ini, rata_rata, stand_meter, kategori_anomali, raw_data, status_audit)
-                VALUES (:nomen, :periode, :nama, :ab, :kelurahan, :pcez, :bulan_ini, :rata_rata, :stand_meter, :kategori_anomali, CAST(:raw_data AS JSONB), :status_audit)
-                ON CONFLICT (nomen, periode) DO UPDATE SET 
-                    kategori_anomali = EXCLUDED.kategori_anomali, bulan_ini = EXCLUDED.bulan_ini, 
-                    stand_meter = EXCLUDED.stand_meter, raw_data = EXCLUDED.raw_data
-            """)
-            db.session.execute(sql_sbrs, sbrs_entries)
+            stmt = insert(DataSBRS).values(sbrs_entries)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['nomen', 'periode'],
+                set_={
+                    'kategori_anomali': stmt.excluded.kategori_anomali,
+                    'bulan_ini': stmt.excluded.bulan_ini,
+                    'stand_meter': stmt.excluded.stand_meter,
+                    'raw_data': stmt.excluded.raw_data
+                }
+            )
+            db.session.execute(stmt)
             return len(sbrs_entries)
         return 0
 
-    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=100)
+    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=250)
     lookup_cust.clear()
     gc.collect()
     return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
@@ -580,21 +586,27 @@ def handle_arrdebt_upload(file_arrdebt):
             tagihan_entries.append({"nomen": trim(nomen, 50), "periode": trim(periode, 10), "total_tagihan": nominal, "status_lunas": 0})
 
         if arr_entries:
-            sql_arr = text("""
-                INSERT INTO data_arrdebt (nomen, periode, nominal, raw_data)
-                VALUES (:nomen, :periode, :nominal, CAST(:raw_data AS JSONB))
-                ON CONFLICT (nomen, periode) DO UPDATE SET nominal = EXCLUDED.nominal, raw_data = EXCLUDED.raw_data
-            """)
-            db.session.execute(sql_arr, arr_entries)
+            stmt = insert(DataArrdebt).values(arr_entries)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['nomen', 'periode'],
+                set_={
+                    'nominal': stmt.excluded.nominal,
+                    'raw_data': stmt.excluded.raw_data
+                }
+            )
+            db.session.execute(stmt)
             
-            sql_tagihan = text("""
-                INSERT INTO transaksi_tagihan (nomen, periode, total_tagihan, status_lunas)
-                VALUES (:nomen, :periode, :total_tagihan, 0)
-                ON CONFLICT (nomen, periode) DO UPDATE SET total_tagihan = EXCLUDED.total_tagihan, status_lunas = 0
-            """)
-            db.session.execute(sql_tagihan, tagihan_entries)
+            stmt_tagihan = insert(TransaksiTagihan).values(tagihan_entries)
+            stmt_tagihan = stmt_tagihan.on_conflict_do_update(
+                index_elements=['nomen', 'periode'],
+                set_={
+                    'total_tagihan': stmt_tagihan.excluded.total_tagihan,
+                    'status_lunas': 0
+                }
+            )
+            db.session.execute(stmt_tagihan)
             return len(arr_entries)
         return 0
 
-    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, chunk_size=100)
+    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, chunk_size=250)
     return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan."})
