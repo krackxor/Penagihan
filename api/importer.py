@@ -31,15 +31,16 @@ def detect_separator(filepath, default=';'):
             return best_sep if counts[best_sep] > 0 else default
     except: return default
 
-def get_val(row_dict, possible_keys, default=''):
+def get_val(row_dict, possible_keys, default='', max_len=1500):
+    """GLOBAL SHIELD: Memastikan tidak ada data yang melebihi 1500 karakter akibat kutip bocor"""
     for k in possible_keys:
         if k in row_dict and row_dict[k] is not None:
             val = str(row_dict[k]).strip().replace('"', '')
-            if val.lower() not in ['none', 'nan', 'null', '']: return val
-    return default
+            if val.lower() not in ['none', 'nan', 'null', '']: 
+                return val[:max_len]
+    return default[:max_len]
 
 def trim(val, length):
-    """Mencegah error 'value too long' dengan memotong teks sesuai batas tabel DB"""
     if not val: return ""
     return str(val)[:length]
 
@@ -88,7 +89,7 @@ def get_safe_json(row_dict):
     """Mencegah Postgres mati karena JSON terlalu raksasa."""
     try:
         s = json.dumps(row_dict)
-        if len(s) > 15000: # Batas maksimal 15KB per pelanggan
+        if len(s) > 15000: 
             return '{"info": "Data terpotong otomatis karena format file cacat dari pusat."}'
         return s
     except:
@@ -99,8 +100,7 @@ def clean_file_stream(f):
     for line in f:
         yield line.replace('\x00', '').replace('\0', '')
 
-def process_mega_file(file, logic_func, chunk_size=50, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING DENGAN CHUNK KECIL (50 BARIS)"""
+def process_mega_file(file, logic_func, chunk_size=100, default_sep=';'):
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -172,7 +172,7 @@ def import_tagihan():
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID (DENGAN AUTO-TRIM AKTIF DI SETIAP KOLOM)
+# 3. LOGIKA MASTER CID
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(data_chunk):
@@ -193,7 +193,7 @@ def handle_cid_upload(file_cid):
                 "tipeplggn": trim(tipe_bersih, 50),
                 "custclass": trim(get_val(row, ['CUSTCLASS', 'CUST_CLASS']), 100),
                 "tarif": trim(get_val(row, ['TARIFF', 'TARIF', 'GOL_TARIF']), 20),
-                "alamat": get_val(row, ['ALAMAT', 'ALM1_PEL']), # Alamat bebas
+                "alamat": trim(get_val(row, ['ALAMAT', 'ALM1_PEL']), 1000), # DIBATASI 1000 KARAKTER!
                 "kodepos": trim(get_val(row, ['KODEPOS', 'KODE_POS']), 10),
                 "kelurahan": trim(get_val(row, ['KELURAHAN', 'KEL']), 100),
                 "kecamatan": trim(get_val(row, ['KECAMATAN', 'KEC']), 100),
@@ -241,7 +241,7 @@ def handle_cid_upload(file_cid):
             return len(cid_entries)
         return 0
 
-    total = process_mega_file(file_cid, cid_logic, chunk_size=50) # DIKUNCI DI 50
+    total = process_mega_file(file_cid, cid_logic, chunk_size=100)
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 # =========================================================================
@@ -265,7 +265,7 @@ def handle_mc_upload(file_mc):
             mc_entries.append({
                 "nomen": trim(nomen, 50),
                 "periode": trim(periode_target, 10),
-                "alm1_pel": get_val(row, ['ALM1_PEL', 'ALAMAT']),
+                "alm1_pel": trim(get_val(row, ['ALM1_PEL', 'ALAMAT']), 1000),
                 "zona_novak": trim(get_val(row, ['ZONA_NOVAK', 'ZONA']), 50),
                 "notagihan": trim(get_val(row, ['NOTAGIHAN', 'NO_TAGIHAN']), 50),
                 "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN'])),
@@ -284,7 +284,7 @@ def handle_mc_upload(file_mc):
             return len(mc_entries)
         return 0
 
-    total = process_mega_file(file_mc, mc_logic, chunk_size=50) # DIKUNCI DI 50
+    total = process_mega_file(file_mc, mc_logic, chunk_size=100)
     return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 # =========================================================================
@@ -331,7 +331,7 @@ def handle_mb_upload(file_mb):
             return len(mb_entries)
         return 0
 
-    total_bayar = process_mega_file(file_mb, mb_logic, chunk_size=50) # DIKUNCI DI 50
+    total_bayar = process_mega_file(file_mb, mb_logic, chunk_size=100)
     return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} dilunaskan."})
 
 # =========================================================================
@@ -396,7 +396,7 @@ def handle_daily_upload(file_daily):
             return len(daily_entries)
         return 0
 
-    total = process_mega_file(file_daily, daily_logic, chunk_size=50) # DIKUNCI DI 50
+    total = process_mega_file(file_daily, daily_logic, chunk_size=100)
     return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi disinkronkan."})
 
 # =========================================================================
@@ -455,7 +455,7 @@ def handle_mainbill_upload(file_mainbill):
             return len(mb_entries)
         return 0
 
-    total = process_mega_file(file_mainbill, mainbill_logic, chunk_size=50) # DIKUNCI DI 50
+    total = process_mega_file(file_mainbill, mainbill_logic, chunk_size=100)
     return jsonify({"status": "success", "message": f"MainBill Sukses! {total} rincian meter disimpan."})
 
 # =========================================================================
@@ -555,7 +555,7 @@ def handle_sbrs_upload(file_cust, file_spot):
             return len(sbrs_entries)
         return 0
 
-    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=50) # DIKUNCI DI 50
+    total_anomali = process_mega_file(file_spot, sbrs_logic, chunk_size=100)
     lookup_cust.clear()
     gc.collect()
     return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
@@ -596,5 +596,5 @@ def handle_arrdebt_upload(file_arrdebt):
             return len(arr_entries)
         return 0
 
-    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, chunk_size=50) # DIKUNCI DI 50
+    total_arr = process_mega_file(file_arrdebt, arrdebt_logic, chunk_size=100)
     return jsonify({"status": "success", "message": f"Data ARRDEBT Sukses! {total_arr} tunggakan historis disuntikkan."})
