@@ -26,6 +26,7 @@ def index():
     periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
     # 3. Query Data dengan Trik Explicit JOIN (Standar PostgreSQL)
+    # PERBAIKAN V18: Menggunakan kolom `total_tagihan` bukan `nominal`
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -33,7 +34,7 @@ def index():
         MasterPelanggan.pcez,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode,
-        func.sum(TransaksiTagihan.nominal).label('total_nominal')
+        func.sum(TransaksiTagihan.total_tagihan).label('total_nominal')
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
@@ -72,7 +73,8 @@ def api_stats():
     periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
     # Query untuk Total Nominal Uang Tunggakan
-    total_uang_query = db.session.query(func.sum(TransaksiTagihan.nominal))\
+    # PERBAIKAN V18: Menggunakan kolom `total_tagihan`
+    total_uang_query = db.session.query(func.sum(TransaksiTagihan.total_tagihan))\
                          .select_from(TransaksiTagihan)\
                          .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
                          .filter(TransaksiTagihan.status_lunas == 0, TransaksiTagihan.periode == periode_bersih)
@@ -108,6 +110,7 @@ def export_top500():
     periode_raw = request.args.get('periode') 
     periode_bersih = periode_raw.replace('-', '') if periode_raw else get_current_periode()
 
+    # PERBAIKAN V18: Menggunakan kolom `total_tagihan`
     query = db.session.query(
         TransaksiTagihan.nomen,
         MasterPelanggan.nama,
@@ -115,7 +118,7 @@ def export_top500():
         MasterPelanggan.pcez,
         MasterPetugas.nama_petugas,
         TransaksiTagihan.periode,
-        func.sum(TransaksiTagihan.nominal).label('total_nominal')
+        func.sum(TransaksiTagihan.total_tagihan).label('total_nominal')
     ).select_from(TransaksiTagihan)\
      .join(MasterPelanggan, TransaksiTagihan.nomen == MasterPelanggan.nomen)\
      .outerjoin(MasterPetugas, (MasterPelanggan.pcez == MasterPetugas.pcez) & (MasterPetugas.peran == 'TAGIHAN'))\
