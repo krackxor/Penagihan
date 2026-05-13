@@ -10,18 +10,20 @@ services:
       - POSTGRES_PASSWORD=pamjaya2026
       - POSTGRES_DB=sinergi_db
     volumes:
-      # Data tetap aman di folder lokal meskipun docker di-reset
       - ./postgres_data:/var/lib/postgresql/data
     restart: always
 
-  # 2. KONTAYNER APLIKASI (Flask Engine V18)
+  # 2. REDIS (Broker untuk Background Task)
+  # Berfungsi sebagai perantara pesan antara Flask dan Celery Worker 
+  redis:
+    image: redis:alpine
+    container_name: sinergi_v18_redis
+    restart: always
+
+  # 3. KONTAYNER APLIKASI UTAMA (Flask Engine V18)
   sinergi-app:
     build: .
     container_name: sinergi_v18_app
-    # =================================================================
-    # PROTOKOL ANTI COLD START & 502: Tambahkan --preload
-    # Memaksa server memuat memori & database sebelum siap menerima file
-    # =================================================================
     command: gunicorn --bind 0.0.0.0:5000 app:app --timeout 1800 --workers 3 --preload
     expose:
       - "5000"
@@ -32,13 +34,36 @@ services:
     environment:
       - FLASK_ENV=development 
       - PYTHONUNBUFFERED=1
-      # Koneksi internal antar kontainer (menggunakan nama service 'db')
       - DATABASE_URL=postgresql://admin_sinergi:pamjaya2026@db:5432/sinergi_db
+      # Konfigurasi Celery untuk terhubung ke Redis [cite: 191, 192]
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - db
+      - redis
     restart: always
 
-  # 3. NGINX (Gerbang Utama Sinergi)
+  # 4. CELERY WORKER (Mesin Pemroses Data Latar Belakang)
+  # Bertugas memproses file besar menggunakan Polars & protokol COPY secara asinkron [cite: 179, 180]
+  worker:
+    build: .
+    container_name: sinergi_v18_worker
+    # Perintah untuk menjalankan worker Celery 
+    command: celery -A app.celery worker --loglevel=info
+    volumes:
+      - .:/app
+      - ./instance:/app/instance
+      - ./static/uploads:/app/static/uploads
+    environment:
+      - DATABASE_URL=postgresql://admin_sinergi:pamjaya2026@db:5432/sinergi_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+  # 5. NGINX (Gerbang Utama Sinergi)
   nginx-proxy:
     image: nginx:alpine
     container_name: sinergi_v18_nginx
@@ -51,7 +76,7 @@ services:
       - sinergi-app
     restart: always
 
-  # 4. ADMINER (Visual Database Manager) - AKSES VIA PORT 8080
+  # 6. ADMINER (Visual Database Manager)
   adminer:
     image: adminer
     container_name: sinergi_v18_adminer
@@ -59,7 +84,6 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Menghubungkan Adminer langsung ke kontainer 'db' secara default
       - ADMINER_DEFAULT_SERVER=db
     depends_on:
       - db
