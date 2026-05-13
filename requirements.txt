@@ -19,3 +19,8 @@ pytesseract==0.3.10
 
 # --- Fitur Tambahan (Konversi Dokumen) ---
 pdf2docx==0.5.6
+
+# --- Tambahan Untuk Background Task (PENTING) ---
+# Diperlukan untuk memproses upload data besar di latar belakang
+celery==5.3.1
+redis==5.0.0
