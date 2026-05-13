@@ -97,12 +97,12 @@
                 <span class="htmx-indicator spinner-border text-primary spinner-border-sm ms-2" role="status"></span>
             </h3>
             <p class="mb-0 text-muted" style="font-size: 0.9rem;">
-                Periode Target: <strong>{{ prev_mon_name|upper }}</strong>
+                Periode Target Tagihan: <strong>{{ prev_mon_name|upper }}</strong>
             </p>
         </div>
         
         <div class="col-md-5 d-flex justify-content-md-end mt-3 mt-md-0">
-            <form hx-get="/daily/" 
+            <form hx-get="/monitoring/daily/" 
                   hx-target="#daily-content" 
                   hx-select="#daily-content" 
                   hx-trigger="change" 
@@ -122,7 +122,7 @@
     </div>
 
     <div class="row g-3 mb-4 no-print">
-        {% for label, unit in [('UNIT 34', '34'), ('UNIT 35', '35'), ('AB SUNTER', 'ab_sunter')] %}
+        {% for label, unit in [('UNIT 34', '34'), ('UNIT 35', '35'), ('AB SUNTER (TOTAL)', 'ab_sunter')] %}
         
         {% set t_rp = targets[unit]['rp'] %}
         {% set u_rp = undue[unit]['rp'] %}
@@ -153,19 +153,19 @@
                 
                 <div class="row g-3">
                     <div class="col-6">
-                        <div class="stat-label">Target MC</div>
+                        <div class="stat-label">Target MC (Rp)</div>
                         <div class="stat-value text-dark">{{ "{:,.0f}".format(t_rp) }}</div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-label">Realisasi Undue</div>
+                        <div class="stat-label">Realisasi Undue (MB)</div>
                         <div class="stat-value text-dark">{{ "{:,.0f}".format(u_rp) }}</div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-label">Realisasi Current</div>
+                        <div class="stat-label">Realisasi Current (Daily)</div>
                         <div class="stat-value text-dark">{{ "{:,.0f}".format(c_rp) }}</div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-label">Total Collection</div>
+                        <div class="stat-label">Total Collection Ratio</div>
                         <div class="stat-value text-success-modern">
                             {{ "%.2f"|format(((c_rp + u_rp) / t_rp * 100) if t_rp > 0 else 0) }}%
                         </div>
@@ -184,27 +184,27 @@
                         <th rowspan="2" class="text-center align-middle" style="background: #f8fafc; width: 60px;">Tgl</th>
                         <th colspan="6" class="text-center th-group-primary border-bottom-0">UNIT 34</th>
                         <th colspan="6" class="text-center th-group-warning border-bottom-0">UNIT 35</th>
-                        <th colspan="6" class="text-center th-group-success border-bottom-0">AB SUNTER</th>
+                        <th colspan="6" class="text-center th-group-success border-bottom-0">AB SUNTER (TOTAL)</th>
                     </tr>
                     <tr class="th-sub-group">
                         <th class="text-center">Cust</th>
-                        <th class="text-end">Rp</th>
+                        <th class="text-end">Nominal (Rp)</th>
                         <th class="text-end">Harian</th>
-                        <th class="text-end">Komulatif</th>
-                        <th class="text-center">Coll {{ mon_name[:3] }}</th>
+                        <th class="text-end">Kumulatif</th>
+                        <th class="text-center">Coll {{ mon_name[:3] }} (%)</th>
                         <th class="text-center">Coll Lalu</th>
                         
                         <th class="text-center">Cust</th>
-                        <th class="text-end">Rp</th>
+                        <th class="text-end">Nominal (Rp)</th>
                         <th class="text-end">Harian</th>
-                        <th class="text-end">Komulatif</th>
-                        <th class="text-center">Coll {{ mon_name[:3] }}</th>
+                        <th class="text-end">Kumulatif</th>
+                        <th class="text-center">Coll {{ mon_name[:3] }} (%)</th>
                         <th class="text-center">Coll Lalu</th>
                         
                         <th class="text-center">Total Transaksi</th>
-                        <th class="text-end">Rp</th>
-                        <th class="text-end">Rp Total</th>
-                        <th class="text-center">Coll {{ mon_name[:3] }}</th>
+                        <th class="text-end">Nominal (Rp)</th>
+                        <th class="text-end">Total Kumulatif</th>
+                        <th class="text-center">Coll {{ mon_name[:3] }} (%)</th>
                         <th class="text-center">Coll Lalu</th>
                         <th class="text-center">Variance</th>
                     </tr>
@@ -230,11 +230,10 @@
 
                         <td class="text-center text-muted fw-semibold">{{ "{:,.0f}".format(row.tot_cust) }}</td>
                         <td class="text-end text-dark fw-semibold">{{ "{:,.0f}".format(row.tot_rp) }}</td>
-                        <td class="text-end text-dark fw-semibold">{{ "{:,.0f}".format(row.tot_rp) }}</td>
+                        <td class="text-end text-dark fw-semibold">{{ "{:,.0f}".format(row.u34_kum + row.u35_kum) }}</td>
                         <td class="text-center text-success-modern bg-light">{{ "%.4f"|format(row.tot_coll) }}</td>
                         <td class="text-center text-muted">0.0000</td>
-                        
-                        <td class="text-center bg-light text-success-modern">0.0000</td>
+                        <td class="text-center bg-light text-success-modern">0.00</td>
                     </tr>
                     {% endfor %}
                 </tbody>
