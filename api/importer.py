@@ -41,7 +41,6 @@ def get_val(row_dict, possible_keys, default=''):
     return default
 
 def trim(val, length):
-    """Mencegah error kepanjangan string di Postgres"""
     if not val: return ""
     return str(val)[:length]
 
@@ -58,15 +57,10 @@ def standardize_cust_type(val):
     return s
 
 def extract_periode(val):
-    """
-    LOGIKA UTAMA: Mendeteksi YYYYMM dari format tanggal DD/MM/YYYY atau MMYYYY.
-    Contoh: 04/03/2026 -> 202603
-    """
     try:
         val = str(val).replace('"', '').strip()
         if not val or val.lower() in ['none', 'nan', '']: return "000000"
         
-        # 1. Cek format DD/MM/YYYY atau DD-MM-YYYY (misal 04/03/2026 atau 04-03-2026)
         match = re.search(r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})', val)
         if match:
             d, m, y = match.groups()
@@ -74,7 +68,6 @@ def extract_periode(val):
             if len(y) == 2: y = "20" + y
             return f"{y}{m}"
             
-        # 2. Cek format MMYYYY (misal 032026)
         if len(val) == 6 and val[:2].isdigit() and val[2:].isdigit():
             if 1 <= int(val[:2]) <= 12 and val[2:].startswith('20'):
                 return val[2:] + val[:2]
@@ -83,7 +76,6 @@ def extract_periode(val):
     except: return "000000"
 
 def shift_period_plus_one(yyyymm):
-    """N+1 Logic: Menggeser Maret (202603) menjadi April (202604) untuk periode laporan"""
     yyyymm_str = str(yyyymm).strip()
     if not yyyymm_str or len(yyyymm_str) != 6: return yyyymm_str
     try:
@@ -92,16 +84,12 @@ def shift_period_plus_one(yyyymm):
     except: return yyyymm_str
 
 def parse_float(val):
-    """SMART NUMBER PARSER: Pendeteksi otomatis Nominal Uang Anti-Gagal"""
     try:
         if not val: return 0.0
         v_str = str(val).replace('"', '').strip()
-        
-        # Hapus semua huruf 'Rp', spasi, dan karakter aneh (Sisakan angka, koma, titik, minus)
         v_str = re.sub(r'[^\d,\.-]', '', v_str)
         if not v_str: return 0.0
         
-        # Logika Pemecah Format Uang Indo vs US
         if ',' in v_str and '.' in v_str:
             if v_str.rfind(',') > v_str.rfind('.'):
                 v_str = v_str.replace('.', '').replace(',', '.')
@@ -118,21 +106,18 @@ def parse_float(val):
         return 0.0
 
 def get_safe_json(row_dict):
-    """Mencegah Postgres mati karena JSON raksasa."""
     try:
         if len(json.dumps(row_dict)) > 15000: 
-            return {"info": "Data terpotong otomatis karena format file cacat dari pusat."}
+            return {"info": "Data terpotong otomatis."}
         return row_dict
     except:
         return {}
 
 def clean_file_stream(f):
-    """Membuang Karakter Null Byte yang mematikan Postgres"""
     for line in f:
         yield line.replace('\x00', '').replace('\0', '')
 
 def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
-    """MESIN PURE PYTHON STREAMING"""
     filename = secure_filename(file.filename)
     temp_path = os.path.join('instance', filename)
     if not os.path.exists('instance'): os.makedirs('instance')
@@ -144,7 +129,6 @@ def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
     try:
         with open(temp_path, 'r', encoding='utf-8', errors='ignore') as f:
             reader = csv.DictReader(clean_file_stream(f), delimiter=smart_sep, quotechar='"')
-            
             if reader.fieldnames:
                 clean_fieldnames = [str(col).replace('\ufeff', '').replace('"', '').strip().upper() for col in reader.fieldnames]
                 reader.fieldnames = clean_fieldnames
@@ -157,7 +141,6 @@ def process_mega_file(file, logic_func, chunk_size=250, default_sep=';'):
                 if len(chunk) >= chunk_size:
                     added_count = logic_func(chunk)
                     if added_count: total += added_count
-                    
                     db.session.commit()
                     db.session.expunge_all()
                     chunk = [] 
@@ -195,7 +178,7 @@ def import_tagihan():
         elif file_cid: return handle_cid_upload(file_cid)                           
         elif file_arrdebt: return handle_arrdebt_upload(file_arrdebt)               
         elif file_mainbill: return handle_mainbill_upload(file_mainbill)            
-        else: return jsonify({"status": "error", "message": "Format file tidak dikenali atau kosong!"}), 400
+        else: return jsonify({"status": "error", "message": "Format file tidak dikenali!"}), 400
     except Exception as e:
         db.session.rollback()
         import traceback
@@ -204,20 +187,20 @@ def import_tagihan():
 
 
 # =========================================================================
-# 3. LOGIKA MASTER CID
+# 3. LOGIKA MASTER CID (SUDAH DEDUPLIKASI)
 # =========================================================================
 def handle_cid_upload(file_cid):
     def cid_logic(data_chunk):
-        cid_entries = []
+        cid_dict = {}
         for row in data_chunk:
             nomen_raw = get_val(row, ['NOMEN', 'ACCT_ID', 'ID_PELANGGAN'])
             nomen = clean_nomen(nomen_raw)
             if not nomen: continue
             
-            tipe_raw = get_val(row, ['TIPEPLGGN', 'TYPECUST1', 'CUST_TYPE'])
-            tipe_bersih = standardize_cust_type(tipe_raw)
+            tipe_bersih = standardize_cust_type(get_val(row, ['TIPEPLGGN', 'TYPECUST1', 'CUST_TYPE']))
             
-            cid_entries.append({
+            # Menggunakan Dictionary untuk mencegah Duplikat Nomen dalam 1 Tarikan
+            cid_dict[nomen] = {
                 "nomen": trim(nomen, 50),
                 "norek": trim(get_val(row, ['NOREK', 'NO_REK']), 50),
                 "nama": trim(get_val(row, ['NAMA', 'NAMA_PEL', 'NAMA_PELANGGAN'], 'Pelanggan Baru'), 150),
@@ -248,8 +231,9 @@ def handle_cid_upload(file_cid):
                 "latitude": trim(get_val(row, ['LATITUDE', 'LAT']), 50),
                 "longitude": trim(get_val(row, ['LONGITUDE', 'LONG']), 50),
                 "raw_data": get_safe_json(row) 
-            })
+            }
             
+        cid_entries = list(cid_dict.values())
         if cid_entries:
             stmt = insert(MasterPelanggan).values(cid_entries)
             update_dict = {c.name: getattr(stmt.excluded, c.name) for c in MasterPelanggan.__table__.columns if c.name != 'nomen'}
@@ -262,23 +246,22 @@ def handle_cid_upload(file_cid):
     return jsonify({"status": "success", "message": f"Master CID Sukses! {total} pelanggan diperbarui."})
 
 # =========================================================================
-# 4. LOGIKA MC (MASTER CETAK) - TGL_CATAT DETECTOR
+# 4. LOGIKA MC (SUDAH DEDUPLIKASI)
 # =========================================================================
 def handle_mc_upload(file_mc):
     def mc_logic(data_chunk):
-        mc_entries = []
+        mc_dict = {}
         for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
             
-            # Mendeteksi dari TGL_CATAT untuk memastikan presisi bulan (Misal: 04/03/2026 -> 202603)
             tgl_catat = get_val(row, ['TGL_CATAT', 'TANGGAL_BACA', 'PERIODE', 'BLNTAG'])
             periode_asli = extract_periode(tgl_catat)
-            
-            # Gunakan N+1: Data Maret (202603) disimpan sebagai periode 202604
             periode_target = shift_period_plus_one(periode_asli)
 
-            mc_entries.append({
+            # Menyaring Duplikat berdasar Nomen + Periode
+            key = f"{nomen}_{periode_target}"
+            mc_dict[key] = {
                 "nomen": trim(nomen, 50),
                 "periode": trim(periode_target, 10),
                 "alm1_pel": get_val(row, ['ALM1_PEL', 'ALAMAT']),
@@ -287,8 +270,9 @@ def handle_mc_upload(file_mc):
                 "total_tagihan": parse_float(get_val(row, ['NOMINAL', 'REK_AIR', 'TOTAL_TAGIHAN', 'TAGIHAN'])),
                 "status_lunas": 0,
                 "raw_data": get_safe_json(row)
-            })
+            }
             
+        mc_entries = list(mc_dict.values())
         if mc_entries:
             stmt = insert(TransaksiTagihan).values(mc_entries)
             stmt = stmt.on_conflict_do_update(
@@ -310,24 +294,24 @@ def handle_mc_upload(file_mc):
     return jsonify({"status": "success", "message": f"MC Tagihan Sukses! {total} data Tagihan tercatat."})
 
 # =========================================================================
-# 5. LOGIKA MASTER BAYAR (MB) - TGL_BAYAR DETECTOR
+# 5. LOGIKA MASTER BAYAR MB (SUDAH DEDUPLIKASI) -> PENYEBAB ERROR KEMARIN
 # =========================================================================
 def handle_mb_upload(file_mb):
     def mb_logic(data_chunk):
-        mb_entries = []
-        lunas_entries = []
+        mb_dict = {}
+        lunas_dict = {}
         for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'CMR_ACCOUNT']))
             if not nomen: continue
             
-            # Mendeteksi dari TGL_BAYAR (Contoh: 31/03/2026 -> 202603)
             tgl_bayar_raw = get_val(row, ['TGL_BAYAR', 'PAY_DT'])
             periode_asli = extract_periode(tgl_bayar_raw)
-            
-            # Geser N+1 agar sesuai dengan periode tagihan MC di DB
             periode_target = shift_period_plus_one(periode_asli)
             
-            mb_entries.append({
+            # MEMBUAT KUNCI ANTI GANDA: Nomen + Periode
+            key = f"{nomen}_{periode_target}"
+            
+            mb_dict[key] = {
                 "nomen": trim(nomen, 50),
                 "periode": trim(periode_target, 10),
                 "bulan_rek": trim(get_val(row, ['BULAN_REK', 'BulanRek']), 20),
@@ -337,9 +321,12 @@ def handle_mb_upload(file_mb):
                 "lks_bayar": trim(get_val(row, ['LKS_BAYAR', 'PAY_LOC']), 100),
                 "notagihan": trim(get_val(row, ['NOTAGIHAN', 'BILL_ID']), 50),
                 "raw_data": get_safe_json(row)
-            })
-            lunas_entries.append({"n": trim(nomen, 50), "p": trim(periode_target, 10)})
+            }
+            lunas_dict[key] = {"n": trim(nomen, 50), "p": trim(periode_target, 10)}
             
+        mb_entries = list(mb_dict.values())
+        lunas_entries = list(lunas_dict.values())
+        
         if mb_entries:
             stmt = insert(DataMB).values(mb_entries)
             stmt = stmt.on_conflict_do_update(
@@ -366,24 +353,25 @@ def handle_mb_upload(file_mb):
     return jsonify({"status": "success", "message": f"Master Bayar (MB) Sukses! {total_bayar} dilunaskan."})
 
 # =========================================================================
-# 6. LOGIKA KOLEKSI HARIAN (DAILY DATA)
+# 6. LOGIKA KOLEKSI HARIAN DAILY (SUDAH DEDUPLIKASI)
 # =========================================================================
 def handle_daily_upload(file_daily):
     def daily_logic(data_chunk):
-        daily_entries = []
-        lunas_entries = []
+        daily_dict = {}
+        lunas_dict = {}
         for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
             
-            tipe_raw = get_val(row, ['TYPECUST1', 'CUST_TYPE'])
-            tipe_bersih = standardize_cust_type(tipe_raw)
-            
+            tipe_bersih = standardize_cust_type(get_val(row, ['TYPECUST1', 'CUST_TYPE']))
             bill_period_raw = get_val(row, ['BILL_PERIOD', 'PERIODE_DTTM'])
             periode_asli = extract_periode(bill_period_raw)
             periode_target = shift_period_plus_one(periode_asli)
+            bill_id = trim(get_val(row, ['BILL_ID', 'NOTAGIHAN']), 50)
 
-            daily_entries.append({
+            key = f"{nomen}_{bill_id}"
+
+            daily_dict[key] = {
                 "nomen": trim(nomen, 50),
                 "periode": trim(periode_target, 10),
                 "pay_dt": trim(get_val(row, ['PAY_DT', 'TGL_BAYAR']), 50),
@@ -393,16 +381,19 @@ def handle_daily_upload(file_daily):
                 "bill_type": trim(get_val(row, ['BILL_TYPE', 'JENIS']), 50),
                 "typecust1": trim(tipe_bersih, 50),
                 "pay_loc": trim(get_val(row, ['PAY_LOC', 'LKS_BAYAR']), 100),
-                "bill_id": trim(get_val(row, ['BILL_ID', 'NOTAGIHAN']), 50),
+                "bill_id": bill_id,
                 "ab": trim(get_val(row, ['AB', 'WILAYAH']), 50),
                 "status": trim(get_val(row, ['STATUS']), 50),
                 "raw_data": get_safe_json(row)
-            })
+            }
             
             status_flag = get_val(row, ['PAY_STATUS_FLG', 'STATUS_FLG'])
             if status_flag in ['1', '50', 'LUNAS']:
-                lunas_entries.append({"n": trim(nomen, 50), "p": trim(periode_target, 10)})
+                lunas_dict[key] = {"n": trim(nomen, 50), "p": trim(periode_target, 10)}
             
+        daily_entries = list(daily_dict.values())
+        lunas_entries = list(lunas_dict.values())
+
         if daily_entries:
             stmt = insert(DataDaily).values(daily_entries)
             stmt = stmt.on_conflict_do_update(
@@ -433,11 +424,11 @@ def handle_daily_upload(file_daily):
     return jsonify({"status": "success", "message": f"Koleksi Harian Sukses! {total} transaksi disinkronkan."})
 
 # =========================================================================
-# 7. LOGIKA MAINBILL
+# 7. LOGIKA MAINBILL (SUDAH DEDUPLIKASI)
 # =========================================================================
 def handle_mainbill_upload(file_mainbill):
     def mainbill_logic(data_chunk):
-        mb_entries = []
+        mb_dict = {}
         for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN', 'ACCT_ID']))
             if not nomen: continue
@@ -451,7 +442,8 @@ def handle_mainbill_upload(file_mainbill):
                     if len(y) == 2: y = "20" + y
                     periode_target = f"{y}{parts[1].zfill(2)}"
 
-            mb_entries.append({
+            key = f"{nomen}_{periode_target}"
+            mb_dict[key] = {
                 "nomen": trim(nomen, 50),
                 "periode": trim(periode_target, 10),
                 "jenis_pelanggan": trim(get_val(row, ['JENIS_PELANGGAN', 'TYPECUST1']), 100),
@@ -467,8 +459,9 @@ def handle_mainbill_upload(file_mainbill):
                 "end_read": trim(end_read_raw, 50),
                 "hari_baca": trim(get_val(row, ['HARI_BACA', 'HB']), 20),
                 "raw_data": get_safe_json(row)
-            })
+            }
             
+        mb_entries = list(mb_dict.values())
         if mb_entries:
             stmt = insert(DataMainbill).values(mb_entries)
             stmt = stmt.on_conflict_do_update(
@@ -497,7 +490,7 @@ def handle_mainbill_upload(file_mainbill):
     return jsonify({"status": "success", "message": f"MainBill Sukses! {total} rincian meter disimpan."})
 
 # =========================================================================
-# 8. LOGIKA SBRS (ANOMALI)
+# 8. LOGIKA SBRS (SUDAH DEDUPLIKASI)
 # =========================================================================
 def handle_sbrs_upload(file_cust, file_spot):
     cust_filename = secure_filename(file_cust.filename)
@@ -518,8 +511,8 @@ def handle_sbrs_upload(file_cust, file_spot):
     if os.path.exists(cust_temp_path): os.remove(cust_temp_path)
 
     def sbrs_logic(data_chunk):
-        master_provision = [] 
-        sbrs_entries = []
+        master_provision_dict = {}
+        sbrs_dict = {}
 
         for spot_row in data_chunk:
             nomen = clean_nomen(get_val(spot_row, ['NOMEN', 'CMR_ACCOUNT']))
@@ -537,7 +530,7 @@ def handle_sbrs_upload(file_cust, file_spot):
                 ez = get_val(merged_row, ['EZ'])
                 pc_ez = f"{pc}{ez}"
             
-            master_provision.append({"nomen": trim(nomen, 50), "nama": trim(nama_pel, 150), "ab": trim(ab_pel, 50), "pcez": trim(pc_ez, 20)})
+            master_provision_dict[nomen] = {"nomen": trim(nomen, 50), "nama": trim(nama_pel, 150), "ab": trim(ab_pel, 50), "pcez": trim(pc_ez, 20)}
 
             def gv(keys): return get_val(merged_row, keys)
 
@@ -566,12 +559,16 @@ def handle_sbrs_upload(file_cust, file_spot):
             periode_sbrs = extract_periode(gv(['BILL_PERIOD']))
             if not periode_sbrs or periode_sbrs == '000000': periode_sbrs = get_current_periode()
             
-            sbrs_entries.append({
+            key = f"{nomen}_{periode_sbrs}"
+            sbrs_dict[key] = {
                 "nomen": trim(nomen, 50), "periode": trim(periode_sbrs, 10),
                 "nama": trim(nama_pel, 150), "ab": trim(ab_pel, 50), "kelurahan": trim(gv(['KEL', 'KELURAHAN']), 100),
                 "pcez": trim(pc_ez, 20), "bulan_ini": m3, "rata_rata": rata, "stand_meter": curr,
                 "kategori_anomali": trim(kat, 50), "raw_data": get_safe_json(merged_row), "status_audit": 0
-            })
+            }
+
+        master_provision = list(master_provision_dict.values())
+        sbrs_entries = list(sbrs_dict.values())
 
         if master_provision:
             stmt_master = insert(MasterPelanggan).values(master_provision)
@@ -599,12 +596,12 @@ def handle_sbrs_upload(file_cust, file_spot):
     return jsonify({"status": "success", "message": f"Sinergi (SBRS) Sukses! {total_anomali} anomali lapangan dianalisa."})
 
 # =========================================================================
-# 9. LOGIKA ARRDEBT
+# 9. LOGIKA ARRDEBT (SUDAH DEDUPLIKASI)
 # =========================================================================
 def handle_arrdebt_upload(file_arrdebt):
     def arrdebt_logic(data_chunk):
-        arr_entries = []
-        tagihan_entries = []
+        arr_dict = {}
+        tagihan_dict = {}
         
         for row in data_chunk:
             nomen = clean_nomen(get_val(row, ['NOMEN']))
@@ -614,8 +611,12 @@ def handle_arrdebt_upload(file_arrdebt):
             if not periode: periode = "000000"
             nominal = parse_float(get_val(row, ['BILL_AMT', 'WATER']))
             
-            arr_entries.append({"nomen": trim(nomen, 50), "periode": trim(periode, 10), "nominal": nominal, "raw_data": get_safe_json(row)})
-            tagihan_entries.append({"nomen": trim(nomen, 50), "periode": trim(periode, 10), "total_tagihan": nominal, "status_lunas": 0})
+            key = f"{nomen}_{periode}"
+            arr_dict[key] = {"nomen": trim(nomen, 50), "periode": trim(periode, 10), "nominal": nominal, "raw_data": get_safe_json(row)}
+            tagihan_dict[key] = {"nomen": trim(nomen, 50), "periode": trim(periode, 10), "total_tagihan": nominal, "status_lunas": 0}
+
+        arr_entries = list(arr_dict.values())
+        tagihan_entries = list(tagihan_dict.values())
 
         if arr_entries:
             stmt = insert(DataArrdebt).values(arr_entries)
