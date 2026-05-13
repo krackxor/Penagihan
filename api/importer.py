@@ -11,6 +11,7 @@ import polars as pl
 import psycopg2
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
+from werkzeug.utils import secure_filename # <--- BARIS INI YANG MEMPERBAIKI ERROR
 
 # --- Impor Task Celery (Anggap app.celery.task ada atau gunakan shared_task) ---
 from celery import shared_task 
