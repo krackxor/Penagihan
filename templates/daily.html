@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row align-items-center mb-4">
+    <div class="col-md-6">
+        <h3 class="fw-bold mb-0">Dashboard Koleksi Harian</h3>
+        <p class="text-muted">Periode Laporan: <span class="badge bg-primary">{{ mon_name }}</span></p>
+    </div>
+    <div class="col-md-6 text-md-end">
+        <form hx-get="/monitoring/daily/" hx-target="#daily-table" class="d-inline-flex gap-2">
+            <input type="month" name="periode" class="form-control form-control-sm" value="{{ periode }}">
+            <button class="btn btn-outline-dark btn-sm"><i class="fas fa-filter"></i> Filter</button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    {% for unit in ['34', '35', 'AB SUNTER'] %}
+    <div class="col-md-4">
+        <div class="card p-3 border-start border-4 border-primary">
+            <small class="text-muted fw-bold text-uppercase">Total {{ unit }}</small>
+            <h4 class="fw-bold mb-0 mt-1">Rp 0</h4>
+            <div class="progress mt-2" style="height: 6px;">
+                <div class="progress-bar" style="width: 0%"></div>
+            </div>
+            <small class="text-success mt-2 small"><i class="fas fa-caret-up"></i> 0% Pencapaian</small>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="daily-table" class="card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+            <thead class="table-dark">
+                <tr>
+                    <th rowspan="2" class="text-center border-end">TGL</th>
+                    <th colspan="3" class="text-center bg-primary">UNIT 34</th>
+                    <th colspan="3" class="text-center bg-warning text-dark">UNIT 35</th>
+                    <th colspan="2" class="text-center bg-success">TOTAL</th>
+                </tr>
+                <tr class="small text-uppercase">
+                    <th class="text-end">Realisasi (Rp)</th>
+                    <th class="text-end">Kumulatif</th>
+                    <th class="text-center">Coll (%)</th>
+                    <th class="text-end">Realisasi (Rp)</th>
+                    <th class="text-end">Kumulatif</th>
+                    <th class="text-center">Coll (%)</th>
+                    <th class="text-end">Total Harian</th>
+                    <th class="text-center">Coll (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                <tr>
+                    <td class="text-center fw-bold border-end">{{ row.tgl }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(row.u34_rp) }}</td>
+                    <td class="text-end fw-semibold text-primary">{{ "{:,.0f}".format(row.u34_kum) }}</td>
+                    <td class="text-center bg-light fw-bold">{{ "%.2f"|format(row.u34_coll) }}%</td>
+                    <td class="text-end">{{ "{:,.0f}".format(row.u35_rp) }}</td>
+                    <td class="text-end fw-semibold text-warning">{{ "{:,.0f}".format(row.u35_kum) }}</td>
+                    <td class="text-center bg-light fw-bold">{{ "%.2f"|format(row.u35_coll) }}%</td>
+                    <td class="text-end fw-bold">{{ "{:,.0f}".format(row.tot_rp) }}</td>
+                    <td class="text-center bg-success bg-opacity-10 fw-bold">{{ "%.2f"|format(row.tot_coll) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
