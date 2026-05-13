@@ -1,13 +1,12 @@
-lFlask==2.3.3
+Flask==2.3.3
 Werkzeug==2.3.7
 gunicorn==21.2.0
 Flask-SQLAlchemy==3.0.5
 psycopg2-binary==2.9.9
 celery==5.3.1
 redis==4.6.0
-# Update bagian ini untuk stabilitas versi 2026
-polars>=1.0.0
-numpy>=1.26.0
+polars==1.6.0
+numpy<2.0.0
 pandas>=2.2.0
 Flask-Caching==2.0.2
 python-dotenv==1.0.0
