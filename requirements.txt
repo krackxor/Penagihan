@@ -1,26 +1,11 @@
-# --- Framework & Server (WAJIB UNTUK DOCKER) ---
 Flask==2.3.3
 Werkzeug==2.3.7
 gunicorn==21.2.0
-
-# --- Database & Driver (Koneksi PostgreSQL) ---
-SQLAlchemy==2.0.19
 Flask-SQLAlchemy==3.0.5
 psycopg2-binary==2.9.9
-
-# --- Pengolahan Data (POLARS ENGINE - SUPER CEPAT) ---
-polars==1.6.0
-openpyxl==3.1.2
-xlsxwriter==3.1.2
-
-# --- Pengolahan Gambar & OCR (Analisa Foto Meter) ---
-Pillow==10.0.0
-pytesseract==0.3.10
-
-# --- Fitur Tambahan (Konversi Dokumen) ---
-pdf2docx==0.5.6
-
-# --- Tambahan Untuk Background Task (PENTING) ---
-# Diperlukan untuk memproses upload data besar di latar belakang
 celery==5.3.1
-redis==5.0.0
+redis==4.6.0
+polars==1.6.0
+pandas==2.0.3
+Flask-Caching==2.0.2
+python-dotenv==1.0.0
