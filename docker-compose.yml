@@ -1,38 +1,71 @@
 version: '3.8'
+
 services:
+  # 1. DATABASE: PostgreSQL 15 (Optimasi Data Besar)
   db:
     image: postgres:15-alpine
+    container_name: penagihan_db
     environment:
       - POSTGRES_PASSWORD=pamjaya2026
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
+  # 2. BROKER: Redis (Antrean Task Asinkron)
   redis:
     image: redis:alpine
+    container_name: penagihan_redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
+  # 3. APP: Flask Engine (Dukungan Live Update & Shared Storage)
   sinergi-app:
     build: .
+    container_name: penagihan_app
+    volumes:
+      - .:/app                  # Mapping folder untuk Live Update kode
+      - ./storage:/app/storage  # Folder bersama agar file terbaca oleh Worker
+    # Flag --reload untuk refresh otomatis saat git pull
+    command: gunicorn --bind 0.0.0.0:5000 app:app --timeout 1800 --workers 3 --reload --preload
     environment:
       - DATABASE_URL=postgresql://postgres:pamjaya2026@db:5432/postgres
       - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
+  # 4. WORKER: Celery (Mesin Pengolah Data Latar Belakang)
   worker:
     build: .
+    container_name: penagihan_worker
+    volumes:
+      - .:/app
+      - ./storage:/app/storage  # Akses file yang sama dengan App
     command: celery -A app.celery worker --loglevel=info
     environment:
       - DATABASE_URL=postgresql://postgres:pamjaya2026@db:5432/postgres
       - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
+  # 5. GATEWAY: Nginx (Dukungan Upload 1GB & Timeout Lama)
   nginx-proxy:
     image: nginx:alpine
+    container_name: penagihan_nginx
     ports:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/app/static
     depends_on:
       - sinergi-app
