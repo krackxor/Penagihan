@@ -1,24 +1,44 @@
 from extensions import celery
 from services.importer_service import ImporterService
+import polars as pl
 import os
 
 @celery.task(bind=True)
-def process_upload_task(self, filepath, file_type):
-    """
-    Task Celery untuk memproses file di latar belakang.
-    Ini memanggil ImporterService agar logika bisnis tetap terpusat.
-    """
+def process_upload_task(self, filepath):
     try:
-        self.update_state(state='PROGRESS', meta={'status': f'Memproses {file_type}...'})
+        # 1. DETEKSI OTOMATIS TIPE FILE
+        self.update_state(state='PROGRESS', meta={'percent': 10, 'status': 'Menganalisis Kolom...'})
         
-        # Panggil Service untuk mengolah data
-        success, message = ImporterService.process_file_to_db(filepath, file_type)
+        # Baca header saja (1 baris)
+        df_header = pl.read_csv(filepath, separator=';', n_rows=1, ignore_errors=True)
+        cols = [c.upper() for c in df_header.columns]
+        
+        file_type = "UNKNOWN"
+        if "TAHUN2" in cols and "TOTAL_TAGIHAN" in cols:
+            file_type = "MC"
+        elif "PAY_DT" in cols or "BILL_ID" in cols:
+            file_type = "DAILY"
+        elif "PETUGAS_RL" in cols or "NOREK" in cols:
+            file_type = "CID"
+        elif "BULAN_REK" in cols and "NOMINAL" in cols:
+            file_type = "MB"
+
+        if file_type == "UNKNOWN":
+            raise Exception(f"Format file tidak dikenali. Kolom terdeteksi: {cols}")
+
+        # 2. PROSES BERDASARKAN TIPE
+        self.update_state(state='PROGRESS', meta={'percent': 30, 'type': file_type})
+        
+        # Panggil service yang sudah ada
+        success, result = ImporterService.process_file_to_db(filepath, file_type)
         
         if success:
-            return {'status': 'SUCCESS', 'message': message}
+            return {'status': 'SUCCESS', 'type': file_type, 'count': result}
         else:
-            raise Exception(message)
-            
+            raise Exception(result)
+
     except Exception as e:
-        self.update_state(state='FAILURE', meta={'status': str(e)})
         return {'status': 'FAILURE', 'message': str(e)}
+    finally:
+        if os.path.exists(filepath):
+            os.remove(filepath)
