@@ -3,15 +3,21 @@
 {% block content %}
 <div class="row justify-content-center mt-5">
     <div class="col-md-7">
-        <div class="card border-0 shadow-lg">
+        <div class="card border-0 shadow-lg bounce-in">
             <div class="card-body p-5 text-center">
                 <div class="mb-4 text-primary">
-                    <i class="fas fa-microchip fa-4x"></i>
+                    <i class="fas fa-microchip fa-4x mb-2"></i>
+                    <h3 class="fw-bold text-dark mt-2">Smart Sync V18</h3>
+                    <div class="badge bg-soft-primary text-primary px-3">Enterprise Engine</div>
                 </div>
-                <h3 class="fw-bold">Smart Sync V18</h3>
-                <p class="text-muted">Unggah file CID, MC, MB, atau Daily. Sistem akan mendeteksinya secara otomatis.</p>
                 
-                <hr class="my-4 op-25">
+                <p class="text-muted">
+                    Sistem akan mendeteksi isi file secara otomatis. Cukup unggah satu file 
+                    <span class="fw-bold text-dark">CID, MC, MB, atau Daily</span> 
+                    tanpa perlu memilih kategori secara manual.
+                </p>
+                
+                <hr class="my-4 opacity-25">
 
                 <form hx-post="/api/import/smart-upload" 
                       hx-encoding="multipart/form-data" 
@@ -20,31 +26,19 @@
                       class="text-start">
                     
                     <div class="mb-4">
-                        <label class="form-label fw-bold small">PILIH FILE (.TXT / .CSV)</label>
+                        <label class="form-label fw-bold small text-uppercase text-secondary">
+                            Pilih File Sumber (.txt / .csv)
+                        </label>
                         <div class="input-group">
-                            <input type="file" name="file_main" class="form-control form-control-lg" required>
-                            <button type="submit" class="btn btn-primary px-4 fw-bold">
+                            <input type="file" name="file_main" class="form-control form-control-lg border-primary-subtle" required>
+                            <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm">
                                 <i class="fas fa-bolt me-2"></i> MULAI PROSES
                             </button>
                         </div>
                     </div>
                 </form>
 
-                <div id="upload-container">
-                    <div class="text-muted small mt-2">
-                        <i class="fas fa-info-circle me-1"></i> Gunakan pemisah Titik Koma (;)
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    .bounce-in { animation: bounceIn 0.6s ease; }
-    @keyframes bounceIn {
-        0% { opacity: 0; transform: scale(0.9); }
-        100% { opacity: 1; transform: scale(1); }
-    }
-</style>
-{% endblock %}
+                <div id="upload-container" class="mt-4">
+                    <div class="p-3 bg-light rounded border border-dashed text-muted small">
+                        <i class="fas fa-info-circle me-1 text-info"></i> 
+                        Gunakan file dengan pemisah
