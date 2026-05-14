@@ -1,54 +1,50 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-10">
-        <div class="card p-4">
-            <div class="d-flex align-items-center mb-4">
-                <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
-                    <i class="fas fa-cloud-upload-alt text-primary fa-2x"></i>
+<div class="row justify-content-center mt-5">
+    <div class="col-md-7">
+        <div class="card border-0 shadow-lg">
+            <div class="card-body p-5 text-center">
+                <div class="mb-4 text-primary">
+                    <i class="fas fa-microchip fa-4x"></i>
                 </div>
-                <div>
-                    <h4 class="mb-0 fw-bold">Sinkronisasi Data Massal</h4>
-                    <p class="text-muted mb-0 small">Unggah file (.txt / .csv) untuk memperbarui sistem</p>
-                </div>
-            </div>
+                <h3 class="fw-bold">Smart Sync V18</h3>
+                <p class="text-muted">Unggah file CID, MC, MB, atau Daily. Sistem akan mendeteksinya secara otomatis.</p>
+                
+                <hr class="my-4 op-25">
 
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="border p-3 rounded bg-light">
-                        <label class="form-label fw-bold small text-uppercase">1. Master CID (Pelanggan)</label>
-                        <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-target="#status-cid">
-                            <input type="file" name="file_cid" class="form-control mb-2 form-control-sm" required>
-                            <button class="btn btn-primary btn-sm w-100 shadow-sm">Proses CID</button>
-                        </form>
-                        <div id="status-cid" class="mt-2 small"></div>
+                <form hx-post="/api/import/smart-upload" 
+                      hx-encoding="multipart/form-data" 
+                      hx-target="#upload-container" 
+                      hx-swap="innerHTML"
+                      class="text-start">
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small">PILIH FILE (.TXT / .CSV)</label>
+                        <div class="input-group">
+                            <input type="file" name="file_main" class="form-control form-control-lg" required>
+                            <button type="submit" class="btn btn-primary px-4 fw-bold">
+                                <i class="fas fa-bolt me-2"></i> MULAI PROSES
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </form>
 
-                <div class="col-md-6">
-                    <div class="border p-3 rounded bg-light">
-                        <label class="form-label fw-bold small text-uppercase">2. Master Cetak (Target MC)</label>
-                        <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-target="#status-mc">
-                            <input type="file" name="file_mc" class="form-control mb-2 form-control-sm" required>
-                            <button class="btn btn-success btn-sm w-100 shadow-sm">Proses MC</button>
-                        </form>
-                        <div id="status-mc" class="mt-2 small"></div>
-                    </div>
-                </div>
-
-                <div class="col-md-12">
-                    <div class="border p-4 rounded bg-white shadow-sm border-primary border-opacity-25">
-                        <label class="form-label fw-bold text-uppercase">3. Daily Payment (Koleksi Harian)</label>
-                        <form hx-post="/api/import/tagihan" hx-encoding="multipart/form-data" hx-target="#status-daily">
-                            <input type="file" name="file_daily" class="form-control mb-3" required>
-                            <button class="btn btn-dark w-100 py-2 fw-bold">MULAI SINKRONISASI HARIAN</button>
-                        </form>
-                        <div id="status-daily" class="mt-3 text-center"></div>
+                <div id="upload-container">
+                    <div class="text-muted small mt-2">
+                        <i class="fas fa-info-circle me-1"></i> Gunakan pemisah Titik Koma (;)
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .bounce-in { animation: bounceIn 0.6s ease; }
+    @keyframes bounceIn {
+        0% { opacity: 0; transform: scale(0.9); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+</style>
 {% endblock %}
